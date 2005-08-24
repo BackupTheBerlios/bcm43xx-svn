@@ -28,7 +28,7 @@
 #endif
 
 struct bcm430x_private {
-        void *mmio_addr;
+	void *mmio_addr;
 	struct pci_dev *pci_dev;
 	unsigned int regs_len;
 
@@ -50,7 +50,7 @@ struct bcm430x_private {
 	u32 sbimstate;
 	u32 sbtmstatelow;
 	u32 sbtmstatehigh;
-        u32 sbidhigh;
+	u32 sbidhigh;
 
 	u16 radio_manufacturer;
 	u16 radio_version;
@@ -68,10 +68,10 @@ struct bcm430x_private {
 	u32 shm_data;
 	u16 led_ctrl;
 
-        u16 r40;
-        u16 r42;
+	u16 r40;
+	u16 r42;
 	u16 r44_2;
-        u32 r44;
+	u32 r44;
 	u32 r88;
 
 	u32 m054;
