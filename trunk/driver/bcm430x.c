@@ -299,11 +299,10 @@ static int bcm430x_init_board	(struct pci_dev *pdev,
 	}
 
 	err = pci_request_regions (pdev, "bcm430x");
-	if (err) {
+	if (err)
 		printk (KERN_ERR
 			"bcm430x: could not access PCI resources (%i)\n", err);
 		goto err_out;
-	}
 
 	/* enable PCI bus-mastering */
 	pci_set_master (pdev);
@@ -339,14 +338,11 @@ static int __devinit bcm430x_init_one (struct pci_dev *pdev,
 	struct bcm430x_private *bcm;
 	int err;
 	void *ioaddr;
-	static int board_idx = -1;
 	u8 pci_rev;
 
 /*	assert (pdev != NULL);
 	assert (ent != NULL);
 */
-	board_idx++;
-
 	/* when we're built into the kernel, the driver version message
 	 * is only printed if at least one bcm430x board has been found
 	 */
