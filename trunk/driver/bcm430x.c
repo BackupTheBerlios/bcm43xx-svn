@@ -171,7 +171,7 @@ static void bcm430x_read_sprom(struct net_device *dev)
         int mac1, mac2, mac3;
         
         /* Deal with short offsets */
-        #define READ_SPROM(addr) le16_to_cpu(bcm430x_read16(bcm, 0x1000 + 2*(addr)))
+        #define READ_SPROM(addr) bcm430x_read16(bcm, 0x1000 + 2*(addr))
         
         mac1 = READ_SPROM(BCM430x_SPROM_IL0MACADDR);
         mac2 = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x01);	
