@@ -1,8 +1,10 @@
 #ifndef BCM430x_H
 #define BCM430x_H
 
-#define BCM430x_DRIVER_NAME		"bcm430x"
-#define BCM430x_DRIVER_VERSION		"0.0.1"
+#define DRV_NAME			"bcm430x"
+#define DRV_VERSION			"0.0.1"
+#define BCM430x_DRIVER_NAME		DRV_NAME " driver " DRV_VERSION
+#define PFX				DRV_NAME ": "
 
 #define BCM430x_IO_SIZE			8192
 #define BCM430x_REG_ACTIVE_CORE		0x80
@@ -12,6 +14,18 @@
 #define BCM430x_SHM_DATA		0x164
 #define BCM430x_SPROM_IL0MACADDR	0x24
 #define BCM430x_SWITCH_CORE_MAX_RETRIES	10
+
+#ifdef BCM430x_NDEBUG
+#define assert(expr) do {} while (0)
+#else
+#define assert(expr) \
+	do {								\
+		if (unlikely(!(expr))) {				\
+		printk(KERN_ERR "Assertion failed! %s,%s,%s,line=%d\n",	\
+		#expr,__FILE__,__FUNCTION__,__LINE__);			\
+		}							\
+	} while (0)
+#endif
 
 struct bcm430x_private {
         void *mmio_addr;
