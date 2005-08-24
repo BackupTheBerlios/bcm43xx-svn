@@ -84,4 +84,14 @@ struct bcm430x_private {
 	u16 m11fe;
 };
 
+/* 
+ * Wrapper for older kernels 
+ */
+
+/* pm_message_t type */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 11)
+#include <linux/pm.h>
+typedef u32 /*__bitwise*/ pm_message_t;
+#endif
+
 #endif /* BCM430x_H */

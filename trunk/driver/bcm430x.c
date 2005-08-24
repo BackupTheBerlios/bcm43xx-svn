@@ -27,6 +27,7 @@
 #include <linux/pci.h>
 #include <linux/if_arp.h>
 #include <linux/etherdevice.h>
+#include <linux/version.h>
 
 MODULE_DESCRIPTION("Broadcom BCM430x wireless driver");
 MODULE_AUTHOR("Martin Langer, Stefano Brivio");
