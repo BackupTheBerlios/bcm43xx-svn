@@ -233,8 +233,6 @@ static void __bcm430x_cleanup_dev (struct net_device *dev)
         struct bcm430x_private *bcm = netdev_priv(dev);
         struct pci_dev *pdev;
 
-/*	assert (dev != NULL);
-        assert (bcm->pci_dev != NULL); */
         pdev = bcm->pci_dev;
 
         if (bcm->mmio_addr)
@@ -256,8 +254,6 @@ static int bcm430x_init_board	(struct pci_dev *pdev,
         unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
         int err;
 
-/*	assert (pdev != NULL);
-*/
         *dev_out = NULL;
 
         /* dev and priv zeroed in alloc_etherdev */
@@ -341,9 +337,8 @@ static int __devinit bcm430x_init_one (struct pci_dev *pdev,
         void *ioaddr;
         u8 pci_rev;
 
-/*	assert (pdev != NULL);
+	assert (pdev != NULL);
         assert (ent != NULL);
-*/
 
         /* when we're built into the kernel, the driver version message
          * is only printed if at least one bcm430x board has been found
@@ -373,9 +368,6 @@ static int __devinit bcm430x_init_one (struct pci_dev *pdev,
 static void __devexit bcm430x_remove_one (struct pci_dev *pdev)
 {
         struct net_device *dev = pci_get_drvdata (pdev);
-
-/*	assert (dev != NULL);
-*/
 
         unregister_netdev (dev);
 
