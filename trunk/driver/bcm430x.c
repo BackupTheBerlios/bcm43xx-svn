@@ -70,14 +70,14 @@ static u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
         u16 val;
 
         val = ioread16(bcm->mmio_addr + offset);
-        printk(KERN_INFO "bcm430x:  read  0x%04x  0x%04x\n", offset, val);
+        printk(KERN_INFO PFX "read 16  0x%04x  0x%04x\n", offset, val);
         return val;
 }
 
 static void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
         iowrite16(val, bcm->mmio_addr + offset);
-        printk(KERN_INFO "bcm430x:  write 0x%04x  0x%04x\n", offset, val);
+        printk(KERN_INFO PFX "write 16  0x%04x  0x%04x\n", offset, val);
 }
 
 static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
@@ -85,14 +85,14 @@ static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
         u32 val;
 
         val = ioread32(bcm->mmio_addr + offset);
-        printk(KERN_INFO "bcm430x:  read  0x%04x  0x%08x\n", offset, val);
+        printk(KERN_INFO PFX "read 32  0x%04x  0x%08x\n", offset, val);
         return val;
 }
 
 static void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
         iowrite32(val, bcm->mmio_addr + offset);
-        printk(KERN_INFO "bcm430x:  write 0x%04x  0x%08x\n", offset, val);
+        printk(KERN_INFO PFX "write 32  0x%04x  0x%08x\n", offset, val);
 }
 
 static u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset)
@@ -124,7 +124,7 @@ static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 *val)
         int err;
         
         err = pci_read_config_byte(pdev, offset, val);
-        printk(KERN_INFO "bcm430x:  read 0x%04x  0x%02x\n", offset, *val);
+        printk(KERN_INFO PFX "pci read 8  0x%04x  0x%02x\n", offset, *val);
         return err;
 }
 
@@ -133,7 +133,7 @@ static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset, u16 *val
         int err;
         
         err = pci_read_config_word(pdev, offset, val);
-        printk(KERN_INFO "bcm430x:  read 0x%04x  0x%04x\n", offset, *val);
+        printk(KERN_INFO PFX "pci read 16  0x%04x  0x%04x\n", offset, *val);
         return err;
 }
 
@@ -142,25 +142,25 @@ static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset, u32 *val
         int err;
         
         err = pci_read_config_dword(pdev, offset, val);
-        printk(KERN_INFO "bcm430x:  read 0x%04x  0x%08x\n", offset, *val);
+        printk(KERN_INFO PFX "pci read 32  0x%04x  0x%08x\n", offset, *val);
         return err;
 }
 
 static int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
 {
-        printk(KERN_INFO "bcm430x:  write 0x%04x  0x%02x\n", offset, val);
+        printk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
         return pci_write_config_byte(pdev, offset, val);
 }
 
 static int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset, u16 val)
 {
-        printk(KERN_INFO "bcm430x:  write 0x%04x  0x%04x\n", offset, val);
+        printk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
         return pci_write_config_word(pdev, offset, val);
 }
 
 static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset, u32 val)
 {
-        printk(KERN_INFO "bcm430x:  write 0x%04x  0x%08x\n", offset, val);
+        printk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
         return pci_write_config_dword(pdev, offset, val);
 }
 
@@ -183,8 +183,8 @@ static void bcm430x_read_sprom(struct net_device *dev)
         memcpy (dev->dev_addr+2, &mac2, 2);
         memcpy (dev->dev_addr+4, &mac1, 2);
 
-        printk(KERN_INFO
-               "bcm430x: set MAC address %04x%04x%04x\n", mac1, mac2, mac3);
+        printk(KERN_INFO PFX
+	       "set MAC address %04x%04x%04x\n", mac1, mac2, mac3);
 
 }
 
@@ -215,7 +215,7 @@ static void bcm430x_switch_core(struct bcm430x_private *bcm, u32 core)
                 i++;
         }
 
-        if (real != wanted) printk (KERN_ERR "bcm430x: unable to switch to core %u, retried %i times", core, i);
+        if (real != wanted) printk (KERN_ERR PFX "unable to switch to core %u, retried %i times", core, i);
 
         /* Set core_vendor, core_id and core_rev according to the new selected
         core. This code is commented out because these values aren't currently
@@ -259,8 +259,8 @@ static int bcm430x_init_board	(struct pci_dev *pdev,
         /* dev and priv zeroed in alloc_etherdev */
         dev = alloc_etherdev (sizeof (*bcm));
         if (dev == NULL) {
-                printk(KERN_ERR
-                        "bcom430x: could not allocate memory for new device %s\n", pci_name(pdev));
+                printk(KERN_ERR PFX
+                       "could not allocate memory for new device %s\n", pci_name(pdev));
                 return -ENOMEM;
         }
         
@@ -272,8 +272,8 @@ static int bcm430x_init_board	(struct pci_dev *pdev,
 
         err = pci_enable_device(pdev);
         if (err) {
-                printk(KERN_ERR
-                       "bcm430x: unable to wake up pci device (%i)\n", err);
+                printk(KERN_ERR PFX
+                       "unable to wake up pci device (%i)\n", err);
                 goto err_out;
         }
 
@@ -284,20 +284,20 @@ static int bcm430x_init_board	(struct pci_dev *pdev,
 
         /* make sure PCI base addr is MMIO */
         if (!(mmio_flags & IORESOURCE_MEM)) {
-                printk (KERN_ERR "bcm430x: %s, region #0 not an MMIO resource, aborting\n", pci_name(pdev));
+                printk (KERN_ERR PFX "%s, region #0 not an MMIO resource, aborting\n", pci_name(pdev));
                 err = -ENODEV;
                 goto err_out;
         }
         if (mmio_len != BCM430x_IO_SIZE) {
-                printk (KERN_ERR "bcm430x: %s: invalid PCI mem region size(s), aborting\n", pci_name(pdev));
+                printk (KERN_ERR PFX "%s: invalid PCI mem region size(s), aborting\n", pci_name(pdev));
                 err = -ENODEV;
                 goto err_out;
         }
 
         err = pci_request_regions (pdev, "bcm430x");
         if (err) {
-                printk (KERN_ERR
-                        "bcm430x: could not access PCI resources (%i)\n", err);
+                printk (KERN_ERR PFX
+                        "could not access PCI resources (%i)\n", err);
                 goto err_out;
         }
 
@@ -307,7 +307,7 @@ static int bcm430x_init_board	(struct pci_dev *pdev,
         /* ioremap MMIO region */
         ioaddr = ioremap (mmio_start, mmio_len);
         if (ioaddr == NULL) {
-                printk (KERN_ERR "%s: cannot remap MMIO, aborting\n", pci_name(pdev));
+                printk (KERN_ERR PFX "%s: cannot remap MMIO, aborting\n", pci_name(pdev));
                 err = -EIO;
                 goto err_out;
         }
@@ -353,7 +353,7 @@ static int __devinit bcm430x_init_one (struct pci_dev *pdev,
 
         bcm430x_pci_read_config_8(pdev, PCI_REVISION_ID, &pci_rev);
 
-        err = bcm430x_init_board (pdev, &dev);
+        err = bcm430x_init_board(pdev, &dev);
         if (err < 0)
                 return err;
 
