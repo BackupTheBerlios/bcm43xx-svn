@@ -299,10 +299,11 @@ static int bcm430x_init_board	(struct pci_dev *pdev,
 	}
 
 	err = pci_request_regions (pdev, "bcm430x");
-	if (err)
+	if (err) {
 		printk (KERN_ERR
 			"bcm430x: could not access PCI resources (%i)\n", err);
 		goto err_out;
+	}
 
 	/* enable PCI bus-mastering */
 	pci_set_master (pdev);
