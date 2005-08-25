@@ -390,9 +390,10 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
 
-	unregister_netdev(dev);
-
-	__bcm430x_cleanup_dev(dev);
+	if (dev) {
+		unregister_netdev(dev);
+		__bcm430x_cleanup_dev(dev);
+	}
 	pci_disable_device(pdev);
 }
 
