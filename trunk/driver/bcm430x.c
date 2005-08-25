@@ -49,6 +49,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	 */
 
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
+	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
 	/*      ID              Name
 	 *      1028:0001               TrueMobile 1300 WLAN Mini-PCI Card
 	 *      1028:0003               Wireless 1350 WLAN Mini-PCI Card
