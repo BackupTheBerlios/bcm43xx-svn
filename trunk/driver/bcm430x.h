@@ -31,6 +31,7 @@ struct bcm430x_private {
 	void *mmio_addr;
 	struct pci_dev *pci_dev;
 	unsigned int regs_len;
+	struct net_device_stats stats;
 
 	u16 chip_id;
 	u8 chip_rev;

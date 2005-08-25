@@ -45,11 +45,10 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
 	/*      ID              Name
-	 *                              Belkin F5D7000
+	 *      1799:7000               Belkin F5D7000
 	 */
 
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
 	/*      ID              Name
 	 *      1028:0001               TrueMobile 1300 WLAN Mini-PCI Card
 	 *      1028:0003               Wireless 1350 WLAN Mini-PCI Card
@@ -176,27 +175,49 @@ static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 	return pci_write_config_dword(pdev, offset, val);
 }
 
+static int bcm430x_open(struct net_device *dev)
+{
+	return 0;
+}
+
+static int bcm430x_stop(struct net_device *dev)
+{
+	return 0;
+}
+
+static struct net_device_stats *bcm430x_get_stats(struct net_device *dev)
+{
+	struct bcm430x_private *bcm = netdev_priv(dev);
+
+	return &bcm->stats; 
+}
+
+static void bcm430x_tx_timeout(struct net_device *dev)
+{
+
+}
+
 /* Read SPROM and fill the useful values in the net_device struct */
 static void bcm430x_read_sprom(struct net_device *dev)
 {
 	struct bcm430x_private *bcm = netdev_priv(dev);
-	int mac1, mac2, mac3;
+	u16 mac[3];
 
 	/* Deal with short offsets */
 #define READ_SPROM(addr) bcm430x_read16(bcm, 0x1000 + 2*(addr))
 
-	mac1 = READ_SPROM(BCM430x_SPROM_IL0MACADDR);
-	mac2 = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x01);
-	mac3 = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x02);
+	mac[0] = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x00);
+	mac[1] = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x01);
+	mac[2] = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x02);
 
 #undef READ_SPROM
 
-	memcpy(dev->dev_addr + 0, &mac3, 2);
-	memcpy(dev->dev_addr + 2, &mac2, 2);
-	memcpy(dev->dev_addr + 4, &mac1, 2);
-
-	printk(KERN_INFO PFX
-	       "set MAC address %04x%04x%04x\n", mac1, mac2, mac3);
+	dev->dev_addr[0] = (mac[0] >> 8) & 0xFF;
+	dev->dev_addr[1] = (mac[0] >> 0) & 0xFF;
+	dev->dev_addr[2] = (mac[1] >> 8) & 0xFF;
+	dev->dev_addr[3] = (mac[1] >> 0) & 0xFF;
+	dev->dev_addr[4] = (mac[2] >> 8) & 0xFF;
+	dev->dev_addr[5] = (mac[2] >> 0) & 0xFF;
 
 }
 
@@ -286,6 +307,11 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
+	dev->open = bcm430x_open;
+	dev->stop = bcm430x_stop;
+	dev->get_stats = bcm430x_get_stats;
+	dev->tx_timeout = bcm430x_tx_timeout;
+
 	bcm = netdev_priv(dev);
 	bcm->pci_dev = pdev;
 
@@ -355,7 +381,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 {
 	struct net_device *dev = NULL;
 	struct bcm430x_private *bcm;
-	int err;
+	int err = 0;
 	void *ioaddr;
 	u8 pci_rev;
 
@@ -376,15 +402,30 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm430x_pci_read_config_8(pdev, PCI_REVISION_ID, &pci_rev);
 
 	err = bcm430x_init_board(pdev, &dev);
-	if (err < 0)
-		return err;
+	if (err) {
+		printk(KERN_ERR PFX "bcm430x_init_board failed, "
+			"aborting.\n");
+		goto err_out;
+	}
 
 	bcm = netdev_priv(dev);
 	ioaddr = bcm->mmio_addr;
 
 	bcm430x_read_sprom(dev);
+	err = register_netdev(dev);
+	if (err) {
+		printk(KERN_ERR PFX "Cannot register net device, "
+			"aborting.\n");
+		goto err_out;
+	}
+
+	pci_set_drvdata(pdev, dev);
 
 	return 0;
+
+err_out:
+	__bcm430x_cleanup_dev(dev);
+	return err;
 }
 
 static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
