@@ -37,6 +37,17 @@ MODULE_LICENSE("GPL");
 
 static struct pci_device_id bcm430x_pci_tbl[] = {
 
+	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
+	/*      ID              Name
+	 *      1028:0407               TrueMobile 1180 Onboard WLAN
+	 *      1043:0120               WL-103b Wireless LAN PC Card
+	 */
+
+	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
+	/*      ID              Name
+	 *                              Belkin F5D7000
+	 */
+
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
 	/*      ID              Name
 	 *      1028:0001               TrueMobile 1300 WLAN Mini-PCI Card
@@ -48,12 +59,6 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	 *      1737:4320               WPC54G
 	 *      1799:7001               Belkin F5D7001 High-Speed Mode Wireless G Network Card
 	 *      1799:7010               Belkin F5D7010 54g Wireless Network card
-	 */
-
-	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-	/*      ID              Name
-	 *      1028:0407               TrueMobile 1180 Onboard WLAN
-	 *      1043:0120               WL-103b Wireless LAN PC Card
 	 */
 
 	{ 0, },
