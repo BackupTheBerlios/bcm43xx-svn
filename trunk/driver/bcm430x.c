@@ -308,7 +308,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		if (pci_device == 0x4301) {
 			chip_id_16 = 0x4301;
 		} else if ((pci_device >= 0x4305) && (pci_device <= 0x4307)) {
-			chip_id_16 = 0x4301;
+			chip_id_16 = 0x4307;
 		} else if ((pci_device >= 0x4402) && (pci_device <= 0x4403)) {
 			chip_id_16 = 0x4402;
 		} else if ((pci_device >= 0x4610) && (pci_device <= 0x4615)) {
@@ -329,26 +329,26 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		core_count = (chip_id_32 & 0x0F000000) >> 24;
 	} else {
 		switch (chip_id_16) {
-			case 0x4710:
 			case 0x4610:
 			case 0x4704:
+			case 0x4710:
 				core_count = 9;
-				break;
-			case 0x4402:
-				core_count = 9;
-				break;
-			case 0x4307:
-			case 0x4301:
-				core_count = 5;
 				break;
 			case 0x4310:
 				core_count = 8;
 				break;
+			case 0x5365:
+				core_count = 7;
+				break;
 			case 0x4306:
 				core_count = 6;
 				break;
-			case 0x5365:
-				core_count = 7;
+			case 0x4301:
+			case 0x4307:
+				core_count = 5;
+				break;
+			case 0x4402:
+				core_count = 3;
 				break;
 			default:
 				/* SOL if we get here */
