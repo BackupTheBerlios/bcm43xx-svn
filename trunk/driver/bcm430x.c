@@ -35,6 +35,13 @@ MODULE_LICENSE("GPL");
 
 #include "bcm430x.h"
 
+/* change to 1 to enable more debug printouts */
+#if 0
+#define dprintk printk
+#else
+#define dprintk(x...) do{} while(0)
+#endif
+
 static struct pci_device_id bcm430x_pci_tbl[] = {
 
 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
@@ -76,14 +83,14 @@ static u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 	u16 val;
 
 	val = ioread16(bcm->mmio_addr + offset);
-	printk(KERN_INFO PFX "read 16  0x%04x  0x%04x\n", offset, val);
+	dprintk(KERN_INFO PFX "read 16  0x%04x  0x%04x\n", offset, val);
 	return val;
 }
 
 static void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
 	iowrite16(val, bcm->mmio_addr + offset);
-	printk(KERN_INFO PFX "write 16  0x%04x  0x%04x\n", offset, val);
+	dprintk(KERN_INFO PFX "write 16  0x%04x  0x%04x\n", offset, val);
 }
 
 static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
@@ -91,7 +98,7 @@ static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 	u32 val;
 
 	val = ioread32(bcm->mmio_addr + offset);
-	printk(KERN_INFO PFX "read 32  0x%04x  0x%08x\n", offset, val);
+	dprintk(KERN_INFO PFX "read 32  0x%04x  0x%08x\n", offset, val);
 	return val;
 }
 
@@ -131,7 +138,7 @@ static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 	int err;
 
 	err = pci_read_config_byte(pdev, offset, val);
-	printk(KERN_INFO PFX "pci read 8  0x%04x  0x%02x\n", offset, *val);
+	dprintk(KERN_INFO PFX "pci read 8  0x%04x  0x%02x\n", offset, *val);
 	return err;
 }
 
@@ -141,7 +148,7 @@ static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 	int err;
 
 	err = pci_read_config_word(pdev, offset, val);
-	printk(KERN_INFO PFX "pci read 16  0x%04x  0x%04x\n", offset, *val);
+	dprintk(KERN_INFO PFX "pci read 16  0x%04x  0x%04x\n", offset, *val);
 	return err;
 }
 
@@ -151,27 +158,27 @@ static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 	int err;
 
 	err = pci_read_config_dword(pdev, offset, val);
-	printk(KERN_INFO PFX "pci read 32  0x%04x  0x%08x\n", offset, *val);
+	dprintk(KERN_INFO PFX "pci read 32  0x%04x  0x%08x\n", offset, *val);
 	return err;
 }
 
 static int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
 {
-	printk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
+	dprintk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
 	return pci_write_config_byte(pdev, offset, val);
 }
 
 static int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
 				       u16 val)
 {
-	printk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
+	dprintk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
 	return pci_write_config_word(pdev, offset, val);
 }
 
 static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 				       u32 val)
 {
-	printk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
+	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
 	return pci_write_config_dword(pdev, offset, val);
 }
 
@@ -221,41 +228,35 @@ static void bcm430x_read_sprom(struct net_device *dev)
 
 }
 
-/*
- * do we need this?
- * static u32 bcm430x_read_core(struct bcm430x *bcm)
- * {
- *	u32 val;
- *	val = (bcm430x_pci_read_config_32(bcm->pci, BCM430x_REG_ACTIVE_CORE) - 0x18000000) / 0x1000;
- *	return val;
- * }
- */
-
-static void bcm430x_switch_core(struct bcm430x_private *bcm, u32 core)
+static int bcm430x_get_current_core(struct bcm430x_private *bcm, int *core)
 {
+	int err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE, core);
+	*core = (*core - 0x18000000) / 0x1000;
+	return err;
+}
 
-	int i = 0;
-	u32 real, wanted;
+static int bcm430x_switch_core(struct bcm430x_private *bcm, int core)
+{
+	int attempts = 0;
+	int current_core = -1;
 
-	wanted = 0x18000000 + core * 0x1000;
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE,
-				   &real);
+	/* refuse to use a negative core number */
+	if (core < 0) return -1;
+	
+	bcm430x_get_current_core(bcm, &current_core);
 
 	/* Write the computed value to the register. This doesn't always
 	   succeed so we retry BCM430x_SWITCH_CORE_MAX_RETRIES times */
-	while (real != wanted && i < BCM430x_SWITCH_CORE_MAX_RETRIES) {
+	while (current_core != core) {
+		if (attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES) goto err_out;
 		bcm430x_pci_write_config_32(bcm->pci_dev,
-					    BCM430x_REG_ACTIVE_CORE, wanted);
-		bcm430x_pci_read_config_32(bcm->pci_dev,
-					   BCM430x_REG_ACTIVE_CORE, &real);
-		i++;
+					    BCM430x_REG_ACTIVE_CORE,
+					    (core * 0x1000) + 0x18000000);
+		bcm430x_get_current_core(bcm, &current_core);
 	}
 
-	if (real != wanted) {
-		printk(KERN_ERR PFX
-		       "unable to switch to core %u, retried %i times",
-		       core, i);
-	}
+	/* sucess */
+	return 0;
 
 	/* Set core_vendor, core_id and core_rev according to the new selected
 	   core. This code is commented out because these values aren't currently
@@ -266,6 +267,114 @@ static void bcm430x_switch_core(struct bcm430x_private *bcm, u32 core)
 	   bcm->core_rev = reg & 0x0000000f;
 	 */
 
+err_out:
+	printk(KERN_ERR PFX
+	       "unable to switch to core %u, retried %i times",
+	       core, attempts);
+	return -1;
+
+}
+
+static int bcm430x_probe_cores(struct bcm430x_private *bcm)
+{
+	int original_core, current_core, core_count;
+	int core_vendor, core_id, core_rev;
+	u32 sb_id_hi, chip_id_32 = 0;
+	u16 pci_device, chip_id_16;
+
+	/* save current core */
+	bcm430x_get_current_core(bcm, &original_core);
+
+	/* map core 0 */
+	bcm430x_switch_core(bcm, 0);
+
+	/* fetch sb_id_hi from core information registers */
+	sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_BASE + BCM430x_CIR_SB_ID_HI);
+
+	core_id = (sb_id_hi & 0xFFF0) >> 4;
+	core_rev = (sb_id_hi & 0xF);
+	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
+
+	printk("Core 0: ID 0x%x, rev 0x%x, vendor 0x%x\n", core_id,
+			core_rev, core_vendor);
+
+	/* COREID 0x800 is a ChipCommon, if present read the chipid from it */
+	if (core_id == 0x800) {
+		chip_id_32 = bcm430x_read32(bcm, 0);
+		chip_id_16 = chip_id_32 & 0xFFFF;
+	} else {
+		/* without a chipCommon, use a hard coded table. */
+		pci_device = bcm->pci_dev->device;
+		if (pci_device == 0x4301) {
+			chip_id_16 = 0x4301;
+		} else if ((pci_device >= 0x4305) && (pci_device <= 0x4307)) {
+			chip_id_16 = 0x4301;
+		} else if ((pci_device >= 0x4402) && (pci_device <= 0x4403)) {
+			chip_id_16 = 0x4402;
+		} else if ((pci_device >= 0x4610) && (pci_device <= 0x4615)) {
+			chip_id_16 = 0x4610;
+		} else if ((pci_device >= 0x4710) && (pci_device <= 0x4715)) {
+			chip_id_16 = 0x4710;
+		} else {
+			/* Presumably devices not listed above are not
+			 * put into the pci device table for this driver,
+			 * so we should never get here */
+			chip_id_16 = 0x2BAD;
+		}
+	}
+
+	/* ChipCommon with Core Rev >=4 encodes number of cores,
+	 * otherwise consult hardcoded table */
+	if (core_id == 0x800 && core_rev >= 4) {
+		core_count = (chip_id_32 & 0x0F000000) >> 24;
+	} else {
+		switch (chip_id_16) {
+			case 0x4710:
+			case 0x4610:
+			case 0x4704:
+				core_count = 9;
+				break;
+			case 0x4402:
+				core_count = 9;
+				break;
+			case 0x4307:
+			case 0x4301:
+				core_count = 5;
+				break;
+			case 0x4310:
+				core_count = 8;
+				break;
+			case 0x4306:
+				core_count = 6;
+				break;
+			case 0x5365:
+				core_count = 7;
+				break;
+			default:
+				/* SOL if we get here */
+				core_count = 1;
+		}
+	}
+
+	for (current_core = 1; current_core < core_count; current_core++) {
+		bcm430x_switch_core(bcm, current_core);
+
+		/* fetch sb_id_hi from core information registers */
+		sb_id_hi = bcm430x_read32(bcm,
+				BCM430x_CIR_BASE + BCM430x_CIR_SB_ID_HI);
+
+		core_id = (sb_id_hi & 0xFFF0) >> 4;
+		core_rev = (sb_id_hi & 0xF);
+		core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
+
+		printk("Core %d: ID 0x%x, rev 0x%x, vendor 0x%x\n",
+				current_core, core_id, core_rev, core_vendor);
+	}
+
+	/* restore original core mapping */
+	bcm430x_switch_core(bcm, original_core);
+
+	return 0;
 }
 
 static void __bcm430x_cleanup_dev(struct net_device *dev)
@@ -364,6 +473,8 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 	dev->base_addr = (long)ioaddr;
 	bcm->mmio_addr = ioaddr;
 	bcm->regs_len = mmio_len;
+
+	bcm430x_probe_cores(bcm);
 
 //      bcm430x_chip_init (ioaddr);
 

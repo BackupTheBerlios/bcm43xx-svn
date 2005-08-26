@@ -15,6 +15,9 @@
 #define BCM430x_SPROM_IL0MACADDR	0x24
 #define BCM430x_SWITCH_CORE_MAX_RETRIES	10
 
+#define BCM430x_CIR_BASE		0xf00
+#define BCM430x_CIR_SB_ID_HI		0xfc
+
 #ifdef BCM430x_NDEBUG
 #define assert(expr) do {} while (0)
 #else
