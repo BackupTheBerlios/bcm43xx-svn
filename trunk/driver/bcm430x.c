@@ -295,21 +295,23 @@ static int bcm430x_switch_core(struct bcm430x_private *bcm, int core)
 	int current_core = -1;
 
 	/* refuse to map a negative core number */
-	if (core < 0) return -1;
+	if (core < 0)
+		return -1;
 	
 	bcm430x_get_current_core(bcm, &current_core);
 
 	/* Write the computed value to the register. This doesn't always
 	   succeed so we retry BCM430x_SWITCH_CORE_MAX_RETRIES times */
 	while (current_core != core) {
-		if (attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES) goto err_out;
+		if (attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES)
+			goto err_out;
 		bcm430x_pci_write_config_32(bcm->pci_dev,
 					    BCM430x_REG_ACTIVE_CORE,
 					    (core * 0x1000) + 0x18000000);
 		bcm430x_get_current_core(bcm, &current_core);
 	}
 
-	/* sucess */
+	/* success */
 	return 0;
 
 err_out:
@@ -317,7 +319,6 @@ err_out:
 	       "unable to switch to core %u, retried %i times",
 	       core, attempts);
 	return -1;
-
 }
 
 /* returns non-zero if the current core is enabled, zero otherwise */
@@ -401,9 +402,8 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 	udelay(1);
 
 	bcm->sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
-	if (bcm->sbtmstatehigh | BCM430x_SBTMSTATEHIGH_SERROR) {
+	if (bcm->sbtmstatehigh | BCM430x_SBTMSTATEHIGH_SERROR)
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATEHIGH, 0);
-	}
 
 	bcm->sbimstate = bcm430x_read32(bcm, BCM430x_CIR_SBIMSTATE);
 	if (bcm->sbimstate | BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT) {
@@ -456,24 +456,20 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 
 	shm_backup = bcm430x_shm_read32(bcm, 0x00010000);
 	bcm430x_shm_write32(bcm, 0x00010000, 0xAA5555AA);
-	if (bcm430x_shm_read32(bcm, 0x00010000) != 0xAA5555AA) {
+	if (bcm430x_shm_read32(bcm, 0x00010000) != 0xAA5555AA)
 		printk(KERN_ERR PFX "SHM mismatch (1) validating chip.\n");
-	}
 
 	bcm430x_shm_write32(bcm, 0x00010000, 0x55AAAA55);
-	if (bcm430x_shm_read32(bcm, 0x00010000) != 0x55AAAA55) {
+	if (bcm430x_shm_read32(bcm, 0x00010000) != 0x55AAAA55)
 		printk(KERN_ERR PFX "SHM mismatch (2) validating chip.\n");
-	}
 
 	bcm430x_shm_write32(bcm, 0x00010000, shm_backup);
 
-	if (bcm430x_read32(bcm, 0x128) != 0) {
+	if (bcm430x_read32(bcm, 0x128) != 0)
 		printk(KERN_ERR PFX "Bad interrupt reason code (?) validating chip.\n");
-	}
-	
-	if (bcm->phy_type > 2) {
+
+	if (bcm->phy_type > 2)
 		printk(KERN_ERR PFX "Unknown PHY Type: %x\n", bcm->phy_type);
-	}
 
 	return 0;
 }
@@ -499,7 +495,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
 
 	printk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x\n", core_id,
-			core_rev, core_vendor);
+	       core_rev, core_vendor);
 
 	/* if present, chipcommon is always core 0; read the chipid from it */
 	if (core_id == BCM430x_COREID_CHIPCOMMON) {
@@ -508,17 +504,17 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	} else {
 		/* without a chipCommon, use a hard coded table. */
 		pci_device = bcm->pci_dev->device;
-		if (pci_device == 0x4301) {
+		if (pci_device == 0x4301)
 			chip_id_16 = 0x4301;
-		} else if ((pci_device >= 0x4305) && (pci_device <= 0x4307)) {
+		else if ((pci_device >= 0x4305) && (pci_device <= 0x4307))
 			chip_id_16 = 0x4307;
-		} else if ((pci_device >= 0x4402) && (pci_device <= 0x4403)) {
+		else if ((pci_device >= 0x4402) && (pci_device <= 0x4403))
 			chip_id_16 = 0x4402;
-		} else if ((pci_device >= 0x4610) && (pci_device <= 0x4615)) {
+		else if ((pci_device >= 0x4610) && (pci_device <= 0x4615))
 			chip_id_16 = 0x4610;
-		} else if ((pci_device >= 0x4710) && (pci_device <= 0x4715)) {
+		else if ((pci_device >= 0x4710) && (pci_device <= 0x4715))
 			chip_id_16 = 0x4710;
-		} else {
+		else {
 			/* Presumably devices not listed above are not
 			 * put into the pci device table for this driver,
 			 * so we should never get here */
@@ -528,9 +524,9 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	/* ChipCommon with Core Rev >=4 encodes number of cores,
 	 * otherwise consult hardcoded table */
-	if (core_id == 0x800 && core_rev >= 4) {
+	if (core_id == 0x800 && core_rev >= 4)
 		core_count = (chip_id_32 & 0x0F000000) >> 24;
-	} else {
+	else {
 		switch (chip_id_16) {
 			case 0x4610:
 			case 0x4704:
@@ -581,8 +577,8 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		}
 
 		printk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
-				current_core, core_id, core_rev, core_vendor,
-				core_enabled ? "enabled" : "disabled" );
+		       current_core, core_id, core_rev, core_vendor,
+		       core_enabled ? "enabled" : "disabled" );
 	}
 
 	/* restore original core mapping */
