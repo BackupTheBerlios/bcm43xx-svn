@@ -230,9 +230,9 @@ static void bcm430x_read_sprom(struct net_device *dev)
 	struct bcm430x_private *bcm = netdev_priv(dev);
 
 	/* read MAC address into dev->dev_addr */
-	*((u16 *)dev->dev_addr + 0) = bcm430x_read16be(bcm, BCM430x_SPROM_IL0MACADDR + 0);
-	*((u16 *)dev->dev_addr + 1) = bcm430x_read16be(bcm, BCM430x_SPROM_IL0MACADDR + 2);
-	*((u16 *)dev->dev_addr + 2) = bcm430x_read16be(bcm, BCM430x_SPROM_IL0MACADDR + 4);
+	*((u16 *)dev->dev_addr + 0) = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0);
+	*((u16 *)dev->dev_addr + 1) = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2);
+	*((u16 *)dev->dev_addr + 2) = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4);
 
 }
 
