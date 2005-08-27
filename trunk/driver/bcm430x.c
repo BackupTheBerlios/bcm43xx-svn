@@ -207,21 +207,6 @@ static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 	return pci_write_config_dword(pdev, offset, val);
 }
 
-static int bcm430x_open(struct net_device *dev)
-{
-	return 0;
-}
-
-static int bcm430x_stop(struct net_device *dev)
-{
-	return 0;
-}
-
-static void bcm430x_tx_timeout(struct net_device *dev)
-{
-
-}
-
 /* Read SPROM and fill the useful values in the net_device struct */
 static void bcm430x_read_sprom(struct net_device *dev)
 {
@@ -585,9 +570,13 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	return 0;
 }
 
-static struct net_device_stats * bcm430x_get_stats(struct net_device *dev)
+static struct net_device_stats * bcm430x_net_get_stats(struct net_device *dev)
 {
 	return &(bcm430x_priv(dev)->ieee->stats);
+}
+
+static void bcm430x_net_tx_timeout(struct net_device *dev)
+{/*TODO*/
 }
 
 static int bcm430x_net_open(struct net_device *dev)
@@ -638,11 +627,6 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 	SET_MODULE_OWNER(dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
-	dev->open = bcm430x_open;
-	dev->stop = bcm430x_stop;
-	dev->get_stats = bcm430x_get_stats;
-	dev->tx_timeout = bcm430x_tx_timeout;
-
 	bcm = bcm430x_priv(dev);
 	bcm->ieee = netdev_priv(dev);
 	bcm->pci_dev = pdev;
@@ -665,6 +649,8 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 
 	dev->open = bcm430x_net_open;
 	dev->stop = bcm430x_net_stop;
+	dev->get_stats = bcm430x_net_get_stats;
+	dev->tx_timeout = bcm430x_net_tx_timeout;
 	dev->irq = pdev->irq;
 
 	err = pci_enable_device(pdev);
