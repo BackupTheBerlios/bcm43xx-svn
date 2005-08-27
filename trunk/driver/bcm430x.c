@@ -341,7 +341,8 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
 	bcm->sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
 
 	/* core is already in reset */
-	if (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_RESET) return 0;
+	if (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_RESET)
+		return 0;
 
 	if (! (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_CLOCK)) {
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
@@ -349,18 +350,22 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
 				BCM430x_SBTMSTATELOW_REJECT);
 		
 		i = 0;
-		while(1) {
+		while (1) {
 			if (bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW) | 
-				BCM430x_SBTMSTATELOW_REJECT) break;
-			if (i++ > 5000) break;
+			    BCM430x_SBTMSTATELOW_REJECT)
+				break;
+			if (i++ > 5000)
+				break;
 		}
 
 		printk (KERN_INFO PFX "Disabling core looped %d times.\n", i);
 		i = 0;
-		while(1) {
+		while (1) {
 			if (bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH) | 
-				BCM430x_SBTMSTATEHIGH_BUSY) break;
-			if (i++ > 5000) break;
+			    BCM430x_SBTMSTATEHIGH_BUSY)
+				break;
+			if (i++ > 5000)
+				break;
 		}
 		printk (KERN_INFO PFX "Disabling core looped %d times.\n", i);
 
@@ -379,6 +384,7 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
 			BCM430x_SBTMSTATELOW_RESET |
 			BCM430x_SBTMSTATELOW_REJECT |
 			core_flags);
+	return 0;
 }
 
 /* enable current core */
