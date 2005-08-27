@@ -30,7 +30,8 @@
 #include <linux/version.h>
 
 MODULE_DESCRIPTION("Broadcom BCM430x wireless driver");
-MODULE_AUTHOR("Martin Langer, Stefano Brivio");
+MODULE_AUTHOR("Martin Langer");
+MODULE_AUTHOR("Stefano Brivio");
 MODULE_LICENSE("GPL");
 
 #include "bcm430x.h"
