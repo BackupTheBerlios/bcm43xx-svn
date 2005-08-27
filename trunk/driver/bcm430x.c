@@ -105,32 +105,32 @@ static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 static void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
 	iowrite32(val, bcm->mmio_addr + offset);
-	printk(KERN_INFO PFX "write 32  0x%04x  0x%08x\n", offset, val);
+	dprintk(KERN_INFO PFX "write 32  0x%04x  0x%08x\n", offset, val);
 }
 
 static u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset)
 {
-	bcm430x_write16(bcm, offset, BCM430x_PHY_CONTROL);
+	bcm430x_write16(bcm, BCM430x_PHY_CONTROL, offset);
 	return bcm430x_read16(bcm, BCM430x_PHY_DATA);
 }
 
 static void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
 {
-	bcm430x_write16(bcm, offset, BCM430x_PHY_CONTROL);
-	bcm430x_write16(bcm, val, BCM430x_PHY_DATA);
+	bcm430x_write16(bcm, BCM430x_PHY_CONTROL, offset);
+	bcm430x_write16(bcm, BCM430x_PHY_DATA, val);
 }
 
 static u32 bcm430x_shm_read32(struct bcm430x_private *bcm, u32 control)
 {
-	bcm430x_write32(bcm, control, BCM430x_SHM_CONTROL);
+	bcm430x_write32(bcm, BCM430x_SHM_CONTROL, control);
 	return bcm430x_read32(bcm, BCM430x_SHM_DATA);
 }
 
 static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 control,
 				u32 val)
 {
-	bcm430x_write32(bcm, control, BCM430x_SHM_CONTROL);
-	bcm430x_write32(bcm, val, BCM430x_SHM_DATA);
+	bcm430x_write32(bcm, BCM430x_SHM_CONTROL, control);
+	bcm430x_write32(bcm, BCM430x_SHM_DATA, val);
 }
 
 static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
