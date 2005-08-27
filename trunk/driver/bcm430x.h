@@ -1,6 +1,7 @@
 #ifndef BCM430x_H
 #define BCM430x_H
 
+#include <linux/spinlock.h>
 #include <net/ieee80211.h>
 
 #define DRV_NAME			"bcm430x"
@@ -52,6 +53,9 @@
 #define BCM430x_SBIMSTATE_IB_ERROR		0x20000
 #define BCM430x_SBIMSTATE_TIMEOUT		0x40000
 
+#ifdef assert
+# undef assert
+#endif
 #ifdef BCM430x_NDEBUG
 #define assert(expr) do {} while (0)
 #else
@@ -63,6 +67,9 @@
 		}							\
 	} while (0)
 #endif
+
+struct net_device;
+struct pci_dev;
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
