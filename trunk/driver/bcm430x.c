@@ -50,27 +50,55 @@ static int mode = 0;
 static struct pci_device_id bcm430x_pci_tbl[] = {
 
 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-	/*      ID              Name
-	 *      1028:0407               TrueMobile 1180 Onboard WLAN
-	 *      1043:0120               WL-103b Wireless LAN PC Card
+	/* Broadcom 4303 802.11b Wireless LAN Controllers
+	 *
+	 *      ID              Name
+	 *      1028:0407               Dell TrueMobile 1180 Mini-PCI Card
+	 *      1043:0120               Asus WL-103b PC Card
 	 */
 
+	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
+	/* Broadcom 4307 802.11b Wireless LAN Controllers */
+
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-	/*      ID              Name
-	 *      1799:7000               Belkin F5D7000
+	/* Broadcom 4318 802.11b/g Wireless LAN Controllers
+	 *
+	 *      ID              Name
+	 *      1799:7000               Belkin F5D7000 PCI Card
 	 */
 
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-	/*      ID              Name
-	 *      1028:0001               TrueMobile 1300 WLAN Mini-PCI Card
-	 *      1028:0003               Wireless 1350 WLAN Mini-PCI Card
-	 *      1043:100f               WL-100G
-	 *      1057:7025               WN825G
-	 *      106b:004e               AirPort Extreme
-	 *      14e4:4320               Linksys WMP54G PCI
-	 *      1737:4320               WPC54G
-	 *      1799:7001               Belkin F5D7001 High-Speed Mode Wireless G Network Card
-	 *      1799:7010               Belkin F5D7010 54g Wireless Network card
+	/* Broadcom 4306 802.11b/g Wireless LAN Controllers
+	 *
+	 *      ID              Name
+	 *      1028:0001               Dell TrueMobile 1300 Mini-PCI Card
+	 *      1028:0003               Dell TrueMobile 1350 Mini-PCI Card
+	 *      1043:100f               Asus WL-100G PC Card
+	 *      1057:7025               Motorola WN825G PC Card
+	 *      106b:004e               Apple AirPort Extreme Card
+	 *      14e4:4320               Linksys WMP54G PCI Card
+	 *      1737:4320               Linksys WPC54G PC Card
+	 *      1799:7001               Belkin F5D7001 PCI Card
+	 *      1799:7010               Belkin F5D7010 PC Card
+	 */
+
+	{ PCI_VENDOR_ID_BROADCOM, 0x4321, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
+	/* Broadcom 4306 802.11a Wireless LAN Controllers */
+
+	{ PCI_VENDOR_ID_BROADCOM, 0x4324, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
+	/* Broadcom 4309 802.11a/b/g Wireless LAN Controllers
+	 *
+	 *      ID              Name
+	 *      1028:0001               Dell TrueMobile 1400 Mini-PCI Card
+	 *      1028:0003               Dell TrueMobile 1450 Mini-PCI Card
+	 */
+
+	{ PCI_VENDOR_ID_BROADCOM, 0x4325, PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
+	/* Broadcom 43XG 802.11b/g Wireless LAN Controllers
+	 *
+	 *      ID              Name
+	 *      1414:0003               Microsoft MN-720 PC Card
+	 *      1414:0004               Microsoft MN-730 PCI Card
 	 */
 
 	{ 0, },
