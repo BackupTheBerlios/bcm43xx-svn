@@ -78,6 +78,15 @@ static void bcm430x_write16(struct bcm430x *bcm, u16 offset, u16 val);
 static void bcm430x_write32(struct bcm430x *bcm, u16 offset, u32 val);
 */
 
+static u16 bcm430x_read16be(struct bcm430x_private *bcm, u16 offset)
+{
+	u16 val;
+
+	val = ioread16be(bcm->mmio_addr + offset);
+	dprintk(KERN_INFO PFX "read 16be  0x%04x  0x%04x\n", offset, val);
+	return val;
+}
+
 static u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 {
 	u16 val;
@@ -99,6 +108,15 @@ static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 
 	val = ioread32(bcm->mmio_addr + offset);
 	dprintk(KERN_INFO PFX "read 32  0x%04x  0x%08x\n", offset, val);
+	return val;
+}
+
+static u32 bcm430x_read32be(struct bcm430x_private *bcm, u16 offset)
+{
+	u32 val;
+
+	val = ioread32be(bcm->mmio_addr + offset);
+	dprintk(KERN_INFO PFX "read 32be  0x%04x  0x%08x\n", offset, val);
 	return val;
 }
 
@@ -208,23 +226,11 @@ static void bcm430x_tx_timeout(struct net_device *dev)
 static void bcm430x_read_sprom(struct net_device *dev)
 {
 	struct bcm430x_private *bcm = netdev_priv(dev);
-	u16 mac[3];
 
-	/* Deal with short offsets */
-#define READ_SPROM(addr) bcm430x_read16(bcm, 0x1000 + 2*(addr))
-
-	mac[0] = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x00);
-	mac[1] = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x01);
-	mac[2] = READ_SPROM(BCM430x_SPROM_IL0MACADDR + 0x02);
-
-#undef READ_SPROM
-
-	dev->dev_addr[0] = (mac[0] >> 8) & 0xFF;
-	dev->dev_addr[1] = (mac[0] >> 0) & 0xFF;
-	dev->dev_addr[2] = (mac[1] >> 8) & 0xFF;
-	dev->dev_addr[3] = (mac[1] >> 0) & 0xFF;
-	dev->dev_addr[4] = (mac[2] >> 8) & 0xFF;
-	dev->dev_addr[5] = (mac[2] >> 0) & 0xFF;
+	/* read MAC address into dev->dev_addr */
+	*((u16 *)dev->dev_addr + 0) = bcm430x_read16be(bcm, BCM430x_SPROM_IL0MACADDR + 0);
+	*((u16 *)dev->dev_addr + 1) = bcm430x_read16be(bcm, BCM430x_SPROM_IL0MACADDR + 2);
+	*((u16 *)dev->dev_addr + 2) = bcm430x_read16be(bcm, BCM430x_SPROM_IL0MACADDR + 4);
 
 }
 
