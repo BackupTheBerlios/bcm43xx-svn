@@ -142,12 +142,6 @@ struct bcm430x_private * bcm430x_priv(struct net_device *dev)
 	return ieee80211_priv(dev);
 }
 
-static inline 
-struct net_device_stats * bcm430x_get_stats(struct net_device *dev)
-{
-	return &(bcm430x_priv(dev)->ieee->stats);
-}
-
 /* 
  * Wrapper for older kernels 
  */

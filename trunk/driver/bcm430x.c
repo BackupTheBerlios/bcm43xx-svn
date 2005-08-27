@@ -585,6 +585,11 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	return 0;
 }
 
+static struct net_device_stats * bcm430x_get_stats(struct net_device *dev)
+{
+	return &(bcm430x_priv(dev)->ieee->stats);
+}
+
 static int bcm430x_net_open(struct net_device *dev)
 {/*TODO*/
 	return 0;
