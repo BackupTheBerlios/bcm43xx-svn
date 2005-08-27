@@ -234,6 +234,52 @@ static void bcm430x_read_sprom(struct net_device *dev)
 
 }
 
+static int bcm430x_clr_target_abort(struct bcm430x_private *bcm)
+{
+	u16 pci_status;
+
+	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
+
+	pci_status &= ~ PCI_STATUS_SIG_TARGET_ABORT;
+
+	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status);
+
+	return 0;
+}
+
+static int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
+{
+	u32 in, out, outenable;
+
+	/* All the code in this function is derived from
+	 * http://bcm-specs.sipsolutions.net/PowerControl */
+
+	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &in);
+	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
+	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &outenable);
+
+	outenable |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
+
+	if (on) {
+		out |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
+
+		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
+		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, outenable);
+		udelay(1000);
+
+		out &= ~BCM430x_PCTL_PLL_POWERDOWN;
+		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
+
+		udelay(5000);
+	} else {
+		out &= ~BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN;
+		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
+	}
+
+	return 0;
+}
+
+/* Puts the index of the current core into user supplied core variable */
 static int bcm430x_get_current_core(struct bcm430x_private *bcm, int *core)
 {
 	int err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE, core);
@@ -246,7 +292,7 @@ static int bcm430x_switch_core(struct bcm430x_private *bcm, int core)
 	int attempts = 0;
 	int current_core = -1;
 
-	/* refuse to use a negative core number */
+	/* refuse to map a negative core number */
 	if (core < 0) return -1;
 	
 	bcm430x_get_current_core(bcm, &current_core);
@@ -264,15 +310,6 @@ static int bcm430x_switch_core(struct bcm430x_private *bcm, int core)
 	/* sucess */
 	return 0;
 
-	/* Set core_vendor, core_id and core_rev according to the new selected
-	   core. This code is commented out because these values aren't currently
-	   needed.
-	   reg = bcm430x_readw(bcm->virt_mem + BCM430x_SB_ID_HI);
-	   bcm->core_vendor = (reg & 0xffff0000) >> 16;
-	   bcm->core_id = (reg & 0x0000fff0) >> 4;
-	   bcm->core_rev = reg & 0x0000000f;
-	 */
-
 err_out:
 	printk(KERN_ERR PFX
 	       "unable to switch to core %u, retried %i times",
@@ -281,10 +318,162 @@ err_out:
 
 }
 
+/* returns non-zero if the current core is enabled, zero otherwise */
+static int bcm430x_core_enabled(struct bcm430x_private *bcm)
+{
+	/* fetch sbtmstatelow from core information registers */
+	bcm->sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+
+	bcm->sbtmstatelow = bcm->sbtmstatelow & (BCM430x_SBTMSTATELOW_CLOCK |
+			BCM430x_SBTMSTATELOW_RESET | BCM430x_SBTMSTATELOW_REJECT);
+
+	return ~ (bcm->sbtmstatelow ^ BCM430x_SBTMSTATELOW_CLOCK);
+}
+
+/* disable current core */
+static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
+{
+	int i;
+
+	/* fetch sbtmstatelow from core information registers */
+	bcm->sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+
+	/* core is already in reset */
+	if (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_RESET) return 0;
+
+	if (! (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_CLOCK)) {
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
+				BCM430x_SBTMSTATELOW_CLOCK |
+				BCM430x_SBTMSTATELOW_REJECT);
+		
+		i = 0;
+		while(1) {
+			if (bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW) | 
+				BCM430x_SBTMSTATELOW_REJECT) break;
+			if (i++ > 5000) break;
+		}
+
+		printk (KERN_INFO PFX "Disabling core looped %d times.\n", i);
+		i = 0;
+		while(1) {
+			if (bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH) | 
+				BCM430x_SBTMSTATEHIGH_BUSY) break;
+			if (i++ > 5000) break;
+		}
+		printk (KERN_INFO PFX "Disabling core looped %d times.\n", i);
+
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
+			BCM430x_SBTMSTATELOW_RESET |
+			BCM430x_SBTMSTATELOW_REJECT |
+			BCM430x_SBTMSTATELOW_CLOCK |
+			BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+			core_flags);
+
+		udelay(10);
+
+	}
+
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
+			BCM430x_SBTMSTATELOW_RESET |
+			BCM430x_SBTMSTATELOW_REJECT |
+			core_flags);
+}
+
+/* enable current core */
+static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
+{
+	bcm430x_core_disable(bcm, core_flags);
+
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
+			BCM430x_SBTMSTATELOW_CLOCK |
+			BCM430x_SBTMSTATELOW_RESET |
+			BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+			core_flags);
+
+	udelay(1);
+
+	bcm->sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
+	if (bcm->sbtmstatehigh | BCM430x_SBTMSTATEHIGH_SERROR) {
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATEHIGH, 0);
+	}
+
+	bcm->sbimstate = bcm430x_read32(bcm, BCM430x_CIR_SBIMSTATE);
+	if (bcm->sbimstate | BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT) {
+		bcm->sbimstate &= ~(BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT);
+		bcm430x_write32(bcm, BCM430x_CIR_SBIMSTATE, bcm->sbimstate);
+	}
+
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
+			BCM430x_SBTMSTATELOW_CLOCK |
+			BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+			core_flags);
+
+	udelay(1);
+
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
+			BCM430x_SBTMSTATELOW_CLOCK |
+			core_flags);
+
+	return 0;
+}
+
+/* Validate chip access
+ * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
+static int bcm430x_validate_chip(struct bcm430x_private *bcm)
+{
+	u32 status;
+	u32 shm_backup;
+	u16 phy_version;
+
+	/* some magic from http://bcm-specs.sipsolutions.net/DeviceInitialization */
+
+	/* select and enable 80211 core */
+	bcm430x_switch_core(bcm, bcm->core_index);
+	bcm430x_core_enable(bcm, 0x20040000);
+
+	/* set bit in status register */
+	status = bcm430x_read32(bcm, 0x120);
+	status |= 0x400;
+	bcm430x_write32(bcm, 0x120, status);
+
+	/* get phy version */
+	phy_version = bcm430x_read16(bcm, 0x3E0);
+
+	bcm->phy_version = (phy_version & 0xF000) >> 12;
+	bcm->phy_type = (phy_version & 0x0F00) >> 8;
+	bcm->phy_rev = (phy_version & 0xF);
+
+	printk(KERN_INFO PFX "phy UnkVer: %x, Type %x, Revision %x\n",
+			bcm->phy_version, bcm->phy_type, bcm->phy_rev);
+
+	shm_backup = bcm430x_shm_read32(bcm, 0x00010000);
+	bcm430x_shm_write32(bcm, 0x00010000, 0xAA5555AA);
+	if (bcm430x_shm_read32(bcm, 0x00010000) != 0xAA5555AA) {
+		printk(KERN_ERR PFX "SHM mismatch (1) validating chip.\n");
+	}
+
+	bcm430x_shm_write32(bcm, 0x00010000, 0x55AAAA55);
+	if (bcm430x_shm_read32(bcm, 0x00010000) != 0x55AAAA55) {
+		printk(KERN_ERR PFX "SHM mismatch (2) validating chip.\n");
+	}
+
+	bcm430x_shm_write32(bcm, 0x00010000, shm_backup);
+
+	if (bcm430x_read32(bcm, 0x128) != 0) {
+		printk(KERN_ERR PFX "Bad interrupt reason code (?) validating chip.\n");
+	}
+	
+	if (bcm->phy_type > 2) {
+		printk(KERN_ERR PFX "Unknown PHY Type: %x\n", bcm->phy_type);
+	}
+
+	return 0;
+}
+
 static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 {
 	int original_core, current_core, core_count;
-	int core_vendor, core_id, core_rev;
+	int core_vendor, core_id, core_rev, core_enabled;
 	u32 sb_id_hi, chip_id_32 = 0;
 	u16 pci_device, chip_id_16;
 
@@ -295,17 +484,17 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	bcm430x_switch_core(bcm, 0);
 
 	/* fetch sb_id_hi from core information registers */
-	sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_BASE + BCM430x_CIR_SB_ID_HI);
+	sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_SB_ID_HI);
 
 	core_id = (sb_id_hi & 0xFFF0) >> 4;
 	core_rev = (sb_id_hi & 0xF);
 	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
 
-	printk("Core 0: ID 0x%x, rev 0x%x, vendor 0x%x\n", core_id,
+	printk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x\n", core_id,
 			core_rev, core_vendor);
 
-	/* COREID 0x800 is a ChipCommon, if present read the chipid from it */
-	if (core_id == 0x800) {
+	/* if present, chipcommon is always core 0; read the chipid from it */
+	if (core_id == BCM430x_COREID_CHIPCOMMON) {
 		chip_id_32 = bcm430x_read32(bcm, 0);
 		chip_id_16 = chip_id_32 & 0xFFFF;
 	} else {
@@ -366,15 +555,26 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		bcm430x_switch_core(bcm, current_core);
 
 		/* fetch sb_id_hi from core information registers */
-		sb_id_hi = bcm430x_read32(bcm,
-				BCM430x_CIR_BASE + BCM430x_CIR_SB_ID_HI);
+		sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_SB_ID_HI);
 
+		/* extract core_id, core_rev, core_vendor */
 		core_id = (sb_id_hi & 0xFFF0) >> 4;
 		core_rev = (sb_id_hi & 0xF);
 		core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
+		
+		core_enabled = bcm430x_core_enabled(bcm);
 
-		printk("Core %d: ID 0x%x, rev 0x%x, vendor 0x%x\n",
-				current_core, core_id, core_rev, core_vendor);
+		/* if we find an 802.11 core, reset/enable it
+		 * and store its info in the device struct */
+		if (core_id == BCM430x_COREID_80211) {
+			bcm->core_id = core_id;
+			bcm->core_index = current_core;
+			bcm->core_rev = core_rev;
+		}
+
+		printk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
+				current_core, core_id, core_rev, core_vendor,
+				core_enabled ? "enabled" : "disabled" );
 	}
 
 	/* restore original core mapping */
@@ -481,6 +681,9 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 	bcm->regs_len = mmio_len;
 
 	bcm430x_probe_cores(bcm);
+	bcm430x_pctl_set_crystal(bcm, 1);
+	bcm430x_clr_target_abort(bcm);
+	bcm430x_validate_chip(bcm);
 
 //      bcm430x_chip_init (ioaddr);
 
@@ -548,9 +751,11 @@ err_out:
 static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
+	struct bcm430x_private *bcm = netdev_priv(dev);
 
 	if (dev) {
 		unregister_netdev(dev);
+		bcm430x_pctl_set_crystal(bcm, 0);
 		__bcm430x_cleanup_dev(dev);
 	}
 	pci_disable_device(pdev);

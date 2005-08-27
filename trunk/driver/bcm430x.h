@@ -12,11 +12,43 @@
 #define BCM430x_PHY_DATA		0x3FE
 #define BCM430x_SHM_CONTROL		0x160
 #define BCM430x_SHM_DATA		0x164
-#define BCM430x_SPROM_IL0MACADDR	0x24
+#define BCM430x_SPROM_BASE		0x1000
+#define BCM430x_SPROM_IL0MACADDR	BCM430x_SPROM_BASE + (2 * 0x24)
 #define BCM430x_SWITCH_CORE_MAX_RETRIES	10
 
+/* PowerControl */
+#define BCM430x_PCTL_IN			0xB0
+#define BCM430x_PCTL_OUT		0xB4
+#define BCM430x_PCTL_OUTENABLE		0xB8
+#define BCM430x_PCTL_XTAL_POWERUP	0x40
+#define BCM430x_PCTL_PLL_POWERDOWN	0x80
+
+/* COREIDs */
+#define BCM430x_COREID_CHIPCOMMON	0x800
+#define BCM430x_COREID_80211		0x812
+#define BCM430x_COREID_PCI		0x804
+#define BCM430x_COREID_PCMCIA		0x80d
+
+/* Core Information Registers */
 #define BCM430x_CIR_BASE		0xf00
-#define BCM430x_CIR_SB_ID_HI		0xfc
+#define BCM430x_CIR_SBIMSTATE		(BCM430x_CIR_BASE + 0x90)
+#define BCM430x_CIR_SBTMSTATELOW	(BCM430x_CIR_BASE + 0x98)
+#define BCM430x_CIR_SBTMSTATEHIGH	(BCM430x_CIR_BASE + 0x9c)
+#define BCM430x_CIR_SB_ID_HI		(BCM430x_CIR_BASE + 0xfc)
+
+/* sbtmstatelow state flags */
+#define BCM430x_SBTMSTATELOW_RESET		0x01
+#define BCM430x_SBTMSTATELOW_REJECT		0x02
+#define BCM430x_SBTMSTATELOW_CLOCK		0x10000
+#define BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK	0x20000
+
+/* sbtmstatelow state flags */
+#define BCM430x_SBTMSTATEHIGH_SERROR		0x1
+#define BCM430x_SBTMSTATEHIGH_BUSY		0x4
+
+/* sbimstate flags */
+#define BCM430x_SBIMSTATE_IB_ERROR		0x20000
+#define BCM430x_SBIMSTATE_TIMEOUT		0x40000
 
 #ifdef BCM430x_NDEBUG
 #define assert(expr) do {} while (0)
@@ -41,6 +73,7 @@ struct bcm430x_private {
 
 	u16 core_id;
 	u8 core_rev;
+	u8 core_index;
 
 	u32 capabilities;
 	u32 corecontrol;
