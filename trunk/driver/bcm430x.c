@@ -29,11 +29,6 @@
 #include <linux/etherdevice.h>
 #include <linux/version.h>
 
-MODULE_DESCRIPTION("Broadcom BCM430x wireless driver");
-MODULE_AUTHOR("Martin Langer");
-MODULE_AUTHOR("Stefano Brivio");
-MODULE_LICENSE("GPL");
-
 #include "bcm430x.h"
 
 /* change to 1 to enable more debug printouts */
@@ -42,6 +37,15 @@ MODULE_LICENSE("GPL");
 #else
 #define dprintk(x...) do{} while(0)
 #endif
+
+MODULE_DESCRIPTION("Broadcom BCM430x wireless driver");
+MODULE_AUTHOR("Martin Langer");
+MODULE_AUTHOR("Stefano Brivio");
+MODULE_LICENSE("GPL");
+
+/* module parameters */
+static int mode = 0;
+
 
 static struct pci_device_id bcm430x_pci_tbl[] = {
 
@@ -213,13 +217,6 @@ static int bcm430x_stop(struct net_device *dev)
 	return 0;
 }
 
-static struct net_device_stats *bcm430x_get_stats(struct net_device *dev)
-{
-	struct bcm430x_private *bcm = netdev_priv(dev);
-
-	return &bcm->stats; 
-}
-
 static void bcm430x_tx_timeout(struct net_device *dev)
 {
 
@@ -228,7 +225,7 @@ static void bcm430x_tx_timeout(struct net_device *dev)
 /* Read SPROM and fill the useful values in the net_device struct */
 static void bcm430x_read_sprom(struct net_device *dev)
 {
-	struct bcm430x_private *bcm = netdev_priv(dev);
+	struct bcm430x_private *bcm = bcm430x_priv(dev);
 
 	/* read MAC address into dev->dev_addr */
 	*((u16 *)dev->dev_addr + 0) = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0);
@@ -588,9 +585,19 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	return 0;
 }
 
+static int bcm430x_net_open(struct net_device *dev)
+{/*TODO*/
+	return 0;
+}
+
+static int bcm430x_net_stop(struct net_device *dev)
+{/*TODO*/
+	return 0;
+}
+
 static void __bcm430x_cleanup_dev(struct net_device *dev)
 {
-	struct bcm430x_private *bcm = netdev_priv(dev);
+	struct bcm430x_private *bcm = bcm430x_priv(dev);
 	struct pci_dev *pdev;
 
 	pdev = bcm->pci_dev;
@@ -615,11 +622,10 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 
 	*dev_out = NULL;
 
-	/* dev and priv zeroed in alloc_etherdev */
-	dev = alloc_etherdev(sizeof(*bcm));
+	dev = alloc_ieee80211(sizeof(*bcm));
 	if (dev == NULL) {
 		printk(KERN_ERR PFX
-		       "could not allocate memory for new device %s\n",
+		       "could not allocate ieee80211 device %s\n",
 		       pci_name(pdev));
 		return -ENOMEM;
 	}
@@ -632,8 +638,29 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 	dev->get_stats = bcm430x_get_stats;
 	dev->tx_timeout = bcm430x_tx_timeout;
 
-	bcm = netdev_priv(dev);
+	bcm = bcm430x_priv(dev);
+	bcm->ieee = netdev_priv(dev);
 	bcm->pci_dev = pdev;
+	bcm->net_dev = dev;
+
+	spin_lock_init(&bcm->lock);
+
+	switch (mode) {
+	case 1:
+		bcm->ieee->iw_mode = IW_MODE_ADHOC;
+		break;
+	case 2:
+		bcm->ieee->iw_mode = IW_MODE_MONITOR;
+		break;
+	default:
+	case 0:
+		bcm->ieee->iw_mode = IW_MODE_INFRA;
+		break;
+	}
+
+	dev->open = bcm430x_net_open;
+	dev->stop = bcm430x_net_stop;
+	dev->irq = pdev->irq;
 
 	err = pci_enable_device(pdev);
 	if (err) {
@@ -733,7 +760,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		goto err_out;
 	}
 
-	bcm = netdev_priv(dev);
+	bcm = bcm430x_priv(dev);
 	ioaddr = bcm->mmio_addr;
 
 	bcm430x_read_sprom(dev);
@@ -756,7 +783,7 @@ err_out:
 static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
-	struct bcm430x_private *bcm = netdev_priv(dev);
+	struct bcm430x_private *bcm = bcm430x_priv(dev);
 
 	if (dev) {
 		unregister_netdev(dev);
@@ -804,6 +831,9 @@ static void __exit bcm430x_exit(void)
 {
 	pci_unregister_driver(&bcm430x_pci_driver);
 }
+
+module_param(mode, int, 0444);
+MODULE_PARM_DESC(mode, "network mode (0=BSS,1=IBSS,2=Monitor)");
 
 module_init(bcm430x_init)
 module_exit(bcm430x_exit)

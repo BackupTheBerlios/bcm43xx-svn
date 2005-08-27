@@ -1,6 +1,8 @@
 #ifndef BCM430x_H
 #define BCM430x_H
 
+#include <net/ieee80211.h>
+
 #define DRV_NAME			"bcm430x"
 #define DRV_VERSION			"0.0.1"
 #define BCM430x_DRIVER_NAME		DRV_NAME " driver " DRV_VERSION
@@ -63,10 +65,16 @@
 #endif
 
 struct bcm430x_private {
-	void *mmio_addr;
+	struct ieee80211_device *ieee;
+	struct ieee80211_security sec;
+
+	struct net_device *net_dev;
 	struct pci_dev *pci_dev;
+
+	void *mmio_addr;
 	unsigned int regs_len;
-	struct net_device_stats stats;
+
+	spinlock_t lock;
 
 	u16 chip_id;
 	u8 chip_rev;
@@ -120,6 +128,18 @@ struct bcm430x_private {
 	u16 m49e;
 	u16 m11fe;
 };
+
+static inline
+struct bcm430x_private * bcm430x_priv(struct net_device *dev)
+{
+	return ieee80211_priv(dev);
+}
+
+static inline 
+struct net_device_stats * bcm430x_get_stats(struct net_device *dev)
+{
+	return &(bcm430x_priv(dev)->ieee->stats);
+}
 
 /* 
  * Wrapper for older kernels 
