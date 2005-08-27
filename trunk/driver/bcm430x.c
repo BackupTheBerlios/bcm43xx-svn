@@ -71,18 +71,16 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	{ 0, },
 };
 
-/*
-static u16 bcm430x_read16(struct bcm430x *bcm, u16 offset);
-static u32 bcm430x_read32(struct bcm430x *bcm, u16 offset);
-static void bcm430x_write16(struct bcm430x *bcm, u16 offset, u16 val);
-static void bcm430x_write32(struct bcm430x *bcm, u16 offset, u32 val);
-*/
 
 static u16 bcm430x_read16be(struct bcm430x_private *bcm, u16 offset)
 {
 	u16 val;
 
+#ifdef CONFIG_PPC
+	val = in_be16(bcm->mmio_addr + offset);
+#else
 	val = ioread16be(bcm->mmio_addr + offset);
+#endif
 	dprintk(KERN_INFO PFX "read 16be  0x%04x  0x%04x\n", offset, val);
 	return val;
 }
@@ -115,7 +113,11 @@ static u32 bcm430x_read32be(struct bcm430x_private *bcm, u16 offset)
 {
 	u32 val;
 
+#ifdef CONFIG_PPC
+	val = in_be32(bcm->mmio_addr + offset);
+#else
 	val = ioread32be(bcm->mmio_addr + offset);
+#endif
 	dprintk(KERN_INFO PFX "read 32be  0x%04x  0x%08x\n", offset, val);
 	return val;
 }
