@@ -112,19 +112,6 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 };
 
 
-static u16 bcm430x_read16be(struct bcm430x_private *bcm, u16 offset)
-{
-	u16 val;
-
-#ifdef CONFIG_PPC
-	val = in_be16(bcm->mmio_addr + offset);
-#else
-	val = ioread16be(bcm->mmio_addr + offset);
-#endif
-//	dprintk(KERN_INFO PFX "read 16be  0x%04x  0x%04x\n", offset, val);
-	return val;
-}
-
 static u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 {
 	u16 val;
@@ -146,19 +133,6 @@ static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 
 	val = ioread32(bcm->mmio_addr + offset);
 //	dprintk(KERN_INFO PFX "read 32  0x%04x  0x%08x\n", offset, val);
-	return val;
-}
-
-static u32 bcm430x_read32be(struct bcm430x_private *bcm, u16 offset)
-{
-	u32 val;
-
-#ifdef CONFIG_PPC
-	val = in_be32(bcm->mmio_addr + offset);
-#else
-	val = ioread32be(bcm->mmio_addr + offset);
-#endif
-//	dprintk(KERN_INFO PFX "read 32be  0x%04x  0x%08x\n", offset, val);
 	return val;
 }
 
@@ -250,9 +224,9 @@ static void bcm430x_read_sprom(struct net_device *dev)
 	struct bcm430x_private *bcm = bcm430x_priv(dev);
 
 	/* read MAC address into dev->dev_addr */
-	*((u16 *)dev->dev_addr + 0) = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0);
-	*((u16 *)dev->dev_addr + 1) = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2);
-	*((u16 *)dev->dev_addr + 2) = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4);
+	*((u16 *)dev->dev_addr + 0) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0));
+	*((u16 *)dev->dev_addr + 1) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2));
+	*((u16 *)dev->dev_addr + 2) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4));
 
 }
 
