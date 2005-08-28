@@ -19,6 +19,14 @@
 #define BCM430x_SPROM_IL0MACADDR	BCM430x_SPROM_BASE + (2 * 0x24)
 #define BCM430x_SWITCH_CORE_MAX_RETRIES	10
 
+/* SHM Routing */
+#define BCM430x_SHM_SHARED		0x00010000
+/* #define BCM430x_SHM_????		0x00020000*/
+#define BCM430x_SHM_PCM			0x00030000
+#define BCM430x_SHM_HWMAC		0x00040000
+#define BCM430x_SHM_UCODE		0x03000000
+/* #define BCM_430x_SHM_????		0x03010000*/
+
 /* PowerControl */
 #define BCM430x_PCTL_IN			0xB0
 #define BCM430x_PCTL_OUT		0xB4

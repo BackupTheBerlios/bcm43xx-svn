@@ -30,6 +30,7 @@
 #include <linux/version.h>
 
 #include "bcm430x.h"
+#include "bcm430x_ucode.h"
 
 /* change to 1 to enable more debug printouts */
 #if 0
@@ -173,16 +174,18 @@ static void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
 	bcm430x_write16(bcm, BCM430x_PHY_DATA, val);
 }
 
-static u32 bcm430x_shm_read32(struct bcm430x_private *bcm, u32 control)
+static void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
 {
 	bcm430x_write32(bcm, BCM430x_SHM_CONTROL, control);
+}
+
+static u32 bcm430x_shm_read32(struct bcm430x_private *bcm)
+{
 	return bcm430x_read32(bcm, BCM430x_SHM_DATA);
 }
 
-static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 control,
-				u32 val)
+static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
 {
-	bcm430x_write32(bcm, BCM430x_SHM_CONTROL, control);
 	bcm430x_write32(bcm, BCM430x_SHM_DATA, val);
 }
 
@@ -436,6 +439,46 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 	return 0;
 }
 
+static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
+{
+	/* FIXME: Need different ucode for different cores?
+	 *        I tested this on the Airport Extreme
+	 */
+
+	int i;
+
+printk(KERN_INFO PFX "writing microcode...\n");
+
+	bcm430x_shm_control(bcm, BCM430x_SHM_UCODE + 0x0000);
+	for (i = 0; i < ARRAY_SIZE(bcm430x_ucode_data); i++) {
+		bcm430x_shm_write32(bcm, bcm430x_ucode_data[i]);
+		udelay(10);
+	}
+
+printk(KERN_INFO PFX "writing PCM data...\n");
+
+	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01ea);
+	bcm430x_shm_write32(bcm, 0x00004000);
+	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01eb);
+	for (i = 0; i < ARRAY_SIZE(bcm430x_pcm_data); i++) {
+		bcm430x_shm_write32(bcm, bcm430x_pcm_data[i]);
+		udelay(10);
+	}
+
+printk(KERN_INFO PFX "upload done.\n");
+}
+
+/* Initialize the chip
+ * http://bcm-specs.sipsolutions.net/ChipInit
+ */
+static int bcm430x_chip_init(struct bcm430x_private *bcm)
+{/*TODO*/
+	bcm430x_write32(bcm, 0x120, 0x404);
+	bcm430x_upload_microcode(bcm);
+printk("Chip initialized\n");
+	return 0;
+}
+
 /* Validate chip access
  * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
 static int bcm430x_validate_chip(struct bcm430x_private *bcm)
@@ -465,16 +508,22 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	printk(KERN_INFO PFX "phy UnkVer: %x, Type %x, Revision %x\n",
 			bcm->phy_version, bcm->phy_type, bcm->phy_rev);
 
-	shm_backup = bcm430x_shm_read32(bcm, 0x00010000);
-	bcm430x_shm_write32(bcm, 0x00010000, 0xAA5555AA);
-	if (bcm430x_shm_read32(bcm, 0x00010000) != 0xAA5555AA)
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
+	shm_backup = bcm430x_shm_read32(bcm);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
+	bcm430x_shm_write32(bcm, 0xAA5555AA);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
+	if (bcm430x_shm_read32(bcm) != 0xAA5555AA)
 		printk(KERN_ERR PFX "SHM mismatch (1) validating chip.\n");
 
-	bcm430x_shm_write32(bcm, 0x00010000, 0x55AAAA55);
-	if (bcm430x_shm_read32(bcm, 0x00010000) != 0x55AAAA55)
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
+	bcm430x_shm_write32(bcm, 0x55AAAA55);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
+	if (bcm430x_shm_read32(bcm) != 0x55AAAA55)
 		printk(KERN_ERR PFX "SHM mismatch (2) validating chip.\n");
 
-	bcm430x_shm_write32(bcm, 0x00010000, shm_backup);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
+	bcm430x_shm_write32(bcm, shm_backup);
 
 	if (bcm430x_read32(bcm, 0x128) != 0)
 		printk(KERN_ERR PFX "Bad interrupt reason code (?) validating chip.\n");
@@ -736,7 +785,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 	bcm430x_clr_target_abort(bcm);
 	bcm430x_validate_chip(bcm);
 
-//      bcm430x_chip_init (ioaddr);
+	bcm430x_chip_init(bcm);
 
 	*dev_out = dev;
 	return 0;
