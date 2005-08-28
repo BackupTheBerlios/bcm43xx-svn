@@ -81,7 +81,6 @@ struct pci_dev;
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
-	struct ieee80211_security sec;
 
 	struct net_device *net_dev;
 	struct pci_dev *pci_dev;
