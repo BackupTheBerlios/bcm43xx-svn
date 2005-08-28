@@ -77,8 +77,8 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	 *      1043:100f               Asus WL-100G PC Card
 	 *      1057:7025               Motorola WN825G PC Card
 	 *      106b:004e               Apple AirPort Extreme Card
-	 *      14e4:4320               Linksys WMP54G PCI Card
-	 *      1737:4320               Linksys WPC54G PC Card
+	 *      1737:0013               Linksys WMP54G PCI Card
+	 *      1737:0015               Linksys WMP54GS PCI Card
 	 *      1799:7001               Belkin F5D7001 PCI Card
 	 *      1799:7010               Belkin F5D7010 PC Card
 	 */
