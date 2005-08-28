@@ -846,6 +846,8 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	pci_set_drvdata(pdev, dev);
 
+	bcm430x_debugfs_add_device(bcm);
+
 	return 0;
 
 err_out:
@@ -857,6 +859,8 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
 	struct bcm430x_private *bcm = bcm430x_priv(dev);
+
+	bcm430x_debugfs_remove_device(bcm);
 
 	if (dev) {
 		unregister_netdev(dev);

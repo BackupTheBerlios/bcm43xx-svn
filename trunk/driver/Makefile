@@ -3,8 +3,10 @@ DEBUG = y
 
 
 ifeq ($(DEBUG),y)
+DEBUGFS_OBJ = bcm430x_debugfs.o
 CFLAGS += -O2 -g -DBCM430x_DEBUG
 else
+DEBUGFS_OBJ =
 CFLAGS += -O2 -DBCM430x_NDEBUG
 endif
 
@@ -12,7 +14,7 @@ ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
 obj-m := bcm430x.o
-bcm430x-objs := bcm430x_main.o bcm430x_debugfs.o
+bcm430x-objs := bcm430x_main.o $(DEBUGFS_OBJ)
 
 else
 
