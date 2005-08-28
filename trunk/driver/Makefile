@@ -1,13 +1,38 @@
+# Comment/uncomment to enable/disable debugging
+DEBUG = y
+
+
+ifeq ($(DEBUG),y)
+CFLAGS += -O2 -g -DBCM430x_DEBUG
+else
+CFLAGS += -O2 -DBCM430x_NDEBUG
+endif
+
+ifneq ($(KERNELRELEASE),)
+# call from kernel build system
 
 obj-m := bcm430x.o
+bcm430x-objs := bcm430x_main.o bcm430x_debugfs.o
 
-KDIR	:= /lib/modules/$(shell uname -r)/build
+else
+
+KDIR	?= /lib/modules/$(shell uname -r)/build
 PWD	:= $(shell pwd)
 
-default:
-	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
+default: modules
+
+modules:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+endif
 
 clean:
-	find . \( -name '*.ko' -o -name '*.o' -o -name '*~' -o -name '.*.cmd' -o -name '*.mod.c' \) \
-		-type f -print | xargs rm -f
+	find . \( -name '*.ko' -o -name '*.o' -o -name '.tmp_versions' -o -name '*~' -o -name '.*.cmd' -o -name '*.mod.c' \)\
+		-print | xargs rm -Rf
 
+depend .depend dep:
+	$(CC) $(CFLAGS) -M *.c > .depend
+
+ifeq (.depend,$(wildcard .depend))
+include .depend
+endif

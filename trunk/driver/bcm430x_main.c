@@ -4,6 +4,7 @@
 
   Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
                      Stefano Brivio <st3@riseup.net>
+                     Michael Buesch <mbuesch@freenet.de>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -29,19 +30,23 @@
 #include <linux/etherdevice.h>
 #include <linux/version.h>
 
-#include "bcm430x.h"
+#include "bcm430x_main.h"
 #include "bcm430x_ucode.h"
+#include "bcm430x_debugfs.h"
 
-/* change to 1 to enable more debug printouts */
-#if 0
-#define dprintk printk
+#ifdef dprintk
+# undef dprintk
+#endif
+#ifdef BCM430x_DEBUG
+# define dprintk printk
 #else
-#define dprintk(x...) do{} while(0)
+# define dprintk(x...) do {} while (0)
 #endif
 
 MODULE_DESCRIPTION("Broadcom BCM430x wireless driver");
 MODULE_AUTHOR("Martin Langer");
 MODULE_AUTHOR("Stefano Brivio");
+MODULE_AUTHOR("Michael Buesch");
 MODULE_LICENSE("GPL");
 
 /* module parameters */
@@ -77,8 +82,8 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	 *      1043:100f               Asus WL-100G PC Card
 	 *      1057:7025               Motorola WN825G PC Card
 	 *      106b:004e               Apple AirPort Extreme Card
-	 *      1737:0013               Linksys WMP54G PCI Card
-	 *      1737:0015               Linksys WMP54GS PCI Card
+	 *      14e4:0013               Linksys WMP54G PCI Card
+	 *      1737:0015               Linksys WMP54GS PC Card
 	 *      1799:7001               Belkin F5D7001 PCI Card
 	 *      1799:7010               Belkin F5D7010 PC Card
 	 */
@@ -115,7 +120,7 @@ static u16 bcm430x_read16be(struct bcm430x_private *bcm, u16 offset)
 #else
 	val = ioread16be(bcm->mmio_addr + offset);
 #endif
-	dprintk(KERN_INFO PFX "read 16be  0x%04x  0x%04x\n", offset, val);
+//	dprintk(KERN_INFO PFX "read 16be  0x%04x  0x%04x\n", offset, val);
 	return val;
 }
 
@@ -124,14 +129,14 @@ static u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 	u16 val;
 
 	val = ioread16(bcm->mmio_addr + offset);
-	dprintk(KERN_INFO PFX "read 16  0x%04x  0x%04x\n", offset, val);
+//	dprintk(KERN_INFO PFX "read 16  0x%04x  0x%04x\n", offset, val);
 	return val;
 }
 
 static void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
 	iowrite16(val, bcm->mmio_addr + offset);
-	dprintk(KERN_INFO PFX "write 16  0x%04x  0x%04x\n", offset, val);
+//	dprintk(KERN_INFO PFX "write 16  0x%04x  0x%04x\n", offset, val);
 }
 
 static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
@@ -139,7 +144,7 @@ static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 	u32 val;
 
 	val = ioread32(bcm->mmio_addr + offset);
-	dprintk(KERN_INFO PFX "read 32  0x%04x  0x%08x\n", offset, val);
+//	dprintk(KERN_INFO PFX "read 32  0x%04x  0x%08x\n", offset, val);
 	return val;
 }
 
@@ -152,14 +157,14 @@ static u32 bcm430x_read32be(struct bcm430x_private *bcm, u16 offset)
 #else
 	val = ioread32be(bcm->mmio_addr + offset);
 #endif
-	dprintk(KERN_INFO PFX "read 32be  0x%04x  0x%08x\n", offset, val);
+//	dprintk(KERN_INFO PFX "read 32be  0x%04x  0x%08x\n", offset, val);
 	return val;
 }
 
 static void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
 	iowrite32(val, bcm->mmio_addr + offset);
-	dprintk(KERN_INFO PFX "write 32  0x%04x  0x%08x\n", offset, val);
+//	dprintk(KERN_INFO PFX "write 32  0x%04x  0x%08x\n", offset, val);
 }
 
 static u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset)
@@ -194,7 +199,7 @@ static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 	int err;
 
 	err = pci_read_config_byte(pdev, offset, val);
-	dprintk(KERN_INFO PFX "pci read 8  0x%04x  0x%02x\n", offset, *val);
+//	dprintk(KERN_INFO PFX "pci read 8  0x%04x  0x%02x\n", offset, *val);
 	return err;
 }
 
@@ -204,7 +209,7 @@ static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 	int err;
 
 	err = pci_read_config_word(pdev, offset, val);
-	dprintk(KERN_INFO PFX "pci read 16  0x%04x  0x%04x\n", offset, *val);
+//	dprintk(KERN_INFO PFX "pci read 16  0x%04x  0x%04x\n", offset, *val);
 	return err;
 }
 
@@ -214,27 +219,27 @@ static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 	int err;
 
 	err = pci_read_config_dword(pdev, offset, val);
-	dprintk(KERN_INFO PFX "pci read 32  0x%04x  0x%08x\n", offset, *val);
+//	dprintk(KERN_INFO PFX "pci read 32  0x%04x  0x%08x\n", offset, *val);
 	return err;
 }
 
 static int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
 {
-	dprintk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
+//	dprintk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
 	return pci_write_config_byte(pdev, offset, val);
 }
 
 static int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
 				       u16 val)
 {
-	dprintk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
+//	dprintk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
 	return pci_write_config_word(pdev, offset, val);
 }
 
 static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 				       u32 val)
 {
-	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
+//	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
 	return pci_write_config_dword(pdev, offset, val);
 }
 
@@ -475,7 +480,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 {/*TODO*/
 	bcm430x_write32(bcm, 0x120, 0x404);
 	bcm430x_upload_microcode(bcm);
-printk("Chip initialized\n");
+printk(KERN_INFO PFX "Chip initialized\n");
 	return 0;
 }
 
@@ -891,6 +896,7 @@ static int __init bcm430x_init(void)
 #ifdef MODULE
 	printk(KERN_INFO BCM430x_DRIVER_NAME "\n");
 #endif
+	bcm430x_debugfs_init();
 
 	return pci_module_init(&bcm430x_pci_driver);
 }
@@ -898,6 +904,7 @@ static int __init bcm430x_init(void)
 static void __exit bcm430x_exit(void)
 {
 	pci_unregister_driver(&bcm430x_pci_driver);
+	bcm430x_debugfs_exit();
 }
 
 module_param(mode, int, 0444);
