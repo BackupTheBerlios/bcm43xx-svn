@@ -53,6 +53,19 @@ static int open_file_generic(struct inode *inode, struct file *file)
 }
 
 #define fappend(fmt, x...)	pos += snprintf(buf + pos, len - pos, fmt , ##x)
+#define fappend_ioblock32(length, mmio_offset) \
+	do {									\
+		u32 __d;							\
+		unsigned int __i;						\
+		for (__i = 0; __i < (length); __i++) {				\
+			__d = ioread32(bcm->mmio_addr + (mmio_offset));		\
+			if (__i % 6 == 0)					\
+				fappend("\n0x%04x:  0x%08x, ", __i, __d);	\
+			else							\
+				fappend("0x%08x, ", __d);			\
+		}								\
+	} while (0)
+
 
 static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
@@ -132,27 +145,29 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 	const unsigned int microcode_len = 4046;
+	const unsigned int pcm_len = 266;
 
 	struct bcm430x_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
-	unsigned int i;
-	u32 data32;
 	ssize_t res;
 
 	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "shm_dump" file */
-	/*TODO*/
+	/*TODO: dump shared_memory, hw_mac, init_ucode, 0x0002 and maybe others */
+	fappend("PCM data (length %u bytes):", pcm_len * sizeof(u32));
+	fappend("\nFIXME: This is all 0x00000000 on my machine. Maybe we cannot read "
+		"PCM data back... (Michael)");
+	iowrite32(BCM430x_SHM_PCM + 0x01eb, bcm->mmio_addr + BCM430x_SHM_CONTROL);
+	fappend_ioblock32(pcm_len, BCM430x_SHM_DATA);
+	fappend("\nPCM data end\n\n");
+
 	fappend("Microcode (length %u bytes):", microcode_len * sizeof(u32));
+	fappend("\nFIXME: This is slightly different from what is uploaded on "
+		"my machine. But maybe that's correct behaviour... (Michael)");
 	iowrite32(BCM430x_SHM_UCODE + 0x0000, bcm->mmio_addr + BCM430x_SHM_CONTROL);
-	for (i = 0; i < microcode_len; i++) {
-		data32 = ioread32(bcm->mmio_addr + BCM430x_SHM_DATA);
-		if (i % 6 == 0)
-			fappend("\n0x%04x:  0x%08x, ", i, data32);
-		else
-			fappend("0x%08x, ", data32);
-	}
+	fappend_ioblock32(microcode_len, BCM430x_SHM_DATA);
 	fappend("\nMicrocode end\n\n");
 
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
@@ -161,6 +176,7 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 }
 
 #undef fappend
+#undef fappend_ioblock32
 
 
 static struct file_operations devinfo_fops = {
