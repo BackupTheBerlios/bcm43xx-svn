@@ -759,9 +759,9 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 	bcm->mmio_addr = ioaddr;
 	bcm->regs_len = mmio_len;
 
-	bcm430x_probe_cores(bcm);
 	bcm430x_pctl_set_crystal(bcm, 1);
 	bcm430x_clr_target_abort(bcm);
+	bcm430x_probe_cores(bcm);
 	bcm430x_validate_chip(bcm);
 
 	bcm430x_chip_init(bcm);
