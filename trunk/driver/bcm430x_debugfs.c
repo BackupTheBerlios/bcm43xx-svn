@@ -219,7 +219,7 @@ static struct bcm430x_dfsentry * find_dfsentry(struct bcm430x_private *bcm)
 void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 {
 	struct bcm430x_dfsentry *e;
-	char buf[10];
+	char devdir[10];
 
 	if (!bcm)
 		return;
@@ -234,14 +234,20 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 	e->bcm = bcm;
 
 	down(&fs.sem);
-	snprintf(buf, ARRAY_SIZE(buf), "dev%d", fs.nr_entries);
-	e->subdir = debugfs_create_dir(buf, fs.root);
+	snprintf(devdir, ARRAY_SIZE(devdir), "dev%d", fs.nr_entries);
+	e->subdir = debugfs_create_dir(devdir, fs.root);
 	e->dentry_devinfo = debugfs_create_file("devinfo", 0444, e->subdir,
 						bcm, &devinfo_fops);
+	if (!e->dentry_devinfo)
+		printk(KERN_ERR PFX "debugfs: creating \"devinfo\" for \"%s\" failed!\n", devdir);
 	e->dentry_spromdump = debugfs_create_file("sprom_dump", 0444, e->subdir,
 						  bcm, &spromdump_fops);
+	if (!e->dentry_spromdump)
+		printk(KERN_ERR PFX "debugfs: creating \"sprom_dump\" for \"%s\" failed!\n", devdir);
 	e->dentry_shmdump = debugfs_create_file("shm_dump", 0444, e->subdir,
 						bcm, &shmdump_fops);
+	if (!e->dentry_shmdump)
+		printk(KERN_ERR PFX "debugfs: creating \"shm_dump\" for \"%s\" failed!\n", devdir);
 	/* Add new files, here. */
 	list_add(&e->list, &fs.entries);
 	fs.nr_entries++;
@@ -280,7 +286,11 @@ void bcm430x_debugfs_init(void)
 	INIT_LIST_HEAD(&fs.entries);
 	fs.nr_entries = 0;
 	fs.root = debugfs_create_dir(DRV_NAME, 0);
+	if (!fs.root)
+		printk(KERN_ERR PFX "debugfs: creating \"" DRV_NAME "\" subdir failed!\n");
 	fs.dentry_driverinfo = debugfs_create_file("driver", 0444, fs.root, 0, &drvinfo_fops);
+	if (!fs.dentry_driverinfo)
+		printk(KERN_ERR PFX "debugfs: creating \"" DRV_NAME "/driver\" failed!\n");
 }
 
 void bcm430x_debugfs_exit(void)
