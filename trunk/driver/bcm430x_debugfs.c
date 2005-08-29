@@ -31,13 +31,17 @@
 #include <linux/slab.h>
 #include <linux/netdevice.h>
 #include <linux/pci.h>
+#include <linux/delay.h>
 
+#define REALLY_BIG_BUFFER_SIZE	(1024*256)
 
 static struct bcm430x_debugfs fs;
+static char really_big_buffer[REALLY_BIG_BUFFER_SIZE];
+static DECLARE_MUTEX(big_buffer_sem);
 
 
 static ssize_t write_file_dummy(struct file *file, const char __user *buf,
-			       size_t count, loff_t *ppos)
+				size_t count, loff_t *ppos)
 {
 	return count;
 }
@@ -48,38 +52,22 @@ static int open_file_generic(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static void * alloc_buf(size_t size)
-{
-	void *buf;
-
-	buf = kmalloc(size, GFP_KERNEL);
-	if (!buf) {
-		printk(KERN_ERR PFX "out of memory\n");
-		return 0;
-	}
-	memset(buf, 0, size);
-
-	return buf;
-}
-
 #define fappend(fmt, x...)	pos += snprintf(buf + pos, len - pos, fmt , ##x)
 
 static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
 {
-	const size_t len = 1024;
+	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
 	struct bcm430x_private *bcm = file->private_data;
-	char *buf;
+	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
 
 	struct net_device *net_dev = bcm->net_dev;
 	struct pci_dev *pci_dev = bcm->pci_dev;
 
-	buf = alloc_buf(len);
-	if (!buf)
-		return 0;
+	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "devinfo" file */
 	fappend("*** %s devinfo ***\n", net_dev->name);
@@ -93,76 +81,82 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("core_id: 0x%04x   core_rev: 0x%02x   core_index: 0x%02x\n",
 		bcm->core_id, bcm->core_rev, bcm->core_index);
 
-	res = simple_read_from_buffer(userbuf, count, ppos, buf, strlen(buf));
-	kfree(buf);
+	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+	up(&big_buffer_sem);
 	return res;
 }
 
 static ssize_t drvinfo_read_file(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
 {
-	const size_t len = 256;
+	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	char *buf;
+	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
 
-	buf = alloc_buf(len);
-	if (!buf)
-		return 0;
+	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "driver" file */
 	fappend(BCM430x_DRIVER_NAME "\n");
 	fappend("Compiled at: %s %s\n", __DATE__, __TIME__);
 
-	res = simple_read_from_buffer(userbuf, count, ppos, buf, strlen(buf));
-	kfree(buf);
+	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+	up(&big_buffer_sem);
 	return res;
 }
 
 static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
 {
-	const size_t len = 1024;
+	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
 	struct bcm430x_private *bcm = file->private_data;
-	char *buf;
+	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
 
-	buf = alloc_buf(len);
-	if (!buf)
-		return 0;
+	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "sprom_dump" file */
 	fappend("IMPLEMENT ME\n");
 	/*TODO*/
 
-	res = simple_read_from_buffer(userbuf, count, ppos, buf, strlen(buf));
-	kfree(buf);
+	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+	up(&big_buffer_sem);
 	return res;
 }
 
 static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
 {
-	const size_t len = 5120;
+	const size_t len = REALLY_BIG_BUFFER_SIZE;
+	const unsigned int microcode_len = 4046;
 
 	struct bcm430x_private *bcm = file->private_data;
-	char *buf;
+	char *buf = really_big_buffer;
 	size_t pos = 0;
+	unsigned int i;
+	u32 data32;
 	ssize_t res;
 
-	buf = alloc_buf(len);
-	if (!buf)
-		return 0;
+	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "shm_dump" file */
-	fappend("IMPLEMENT ME\n");
 	/*TODO*/
+	fappend("Microcode (length %u bytes):", microcode_len * sizeof(u32));
+	iowrite32(BCM430x_SHM_UCODE + 0x0000, bcm->mmio_addr + BCM430x_SHM_CONTROL);
+	for (i = 0; i < microcode_len; i++) {
+		data32 = ioread32(bcm->mmio_addr + BCM430x_SHM_DATA);
+		if (i % 6 == 0)
+			fappend("\n0x%04x:  0x%08x, ", i, data32);
+		else
+			fappend("0x%08x, ", data32);
+	}
+	fappend("\nMicrocode end\n\n");
 
-	res = simple_read_from_buffer(userbuf, count, ppos, buf, strlen(buf));
-	kfree(buf);
+	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+	up(&big_buffer_sem);
 	return res;
 }
 

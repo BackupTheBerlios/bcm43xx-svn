@@ -427,15 +427,14 @@ static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
 
 	int i;
 
-printk(KERN_INFO PFX "writing microcode...\n");
+printk(KERN_INFO PFX "writing microcode %d...\n", ARRAY_SIZE(bcm430x_ucode_data));
 
 	bcm430x_shm_control(bcm, BCM430x_SHM_UCODE + 0x0000);
 	for (i = 0; i < ARRAY_SIZE(bcm430x_ucode_data); i++) {
 		bcm430x_shm_write32(bcm, bcm430x_ucode_data[i]);
 		udelay(10);
 	}
-
-printk(KERN_INFO PFX "writing PCM data...\n");
+printk(KERN_INFO PFX "writing PCM data %d...\n", ARRAY_SIZE(bcm430x_pcm_data));
 
 	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01ea);
 	bcm430x_shm_write32(bcm, 0x00004000);
