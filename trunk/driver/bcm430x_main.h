@@ -1,6 +1,8 @@
 #ifndef BCM430x_H
 #define BCM430x_H
 
+#include <linux/version.h>
+#include <linux/kernel.h>
 #include <linux/spinlock.h>
 #include <net/ieee80211.h>
 
