@@ -31,7 +31,7 @@
 #include <linux/slab.h>
 #include <linux/netdevice.h>
 #include <linux/pci.h>
-#include <linux/delay.h>
+#include <asm/io.h>
 
 #define REALLY_BIG_BUFFER_SIZE	(1024*256)
 
