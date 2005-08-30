@@ -2570,8 +2570,8 @@ const u32 bcm430x_pcm5_data[] = {
 /* @0x00000a20 */  0x00000000, 0x00000100, 0x00000000, 0x00000000, 
 };
 
-const unsigned int bcm430x_ucode2_size = sizeof(bcm430x_ucode2_data);
-const unsigned int bcm430x_ucode4_size = sizeof(bcm430x_ucode4_data);
-const unsigned int bcm430x_ucode5_size = sizeof(bcm430x_ucode5_data);
-const unsigned int bcm430x_pcm4_size = sizeof(bcm430x_pcm4_data);
-const unsigned int bcm430x_pcm5_size = sizeof(bcm430x_pcm5_data);
+const unsigned int bcm430x_ucode2_size = sizeof(bcm430x_ucode2_data) / sizeof(bcm430x_ucode2_data[0]);
+const unsigned int bcm430x_ucode4_size = sizeof(bcm430x_ucode4_data) / sizeof(bcm430x_ucode4_data[0]);
+const unsigned int bcm430x_ucode5_size = sizeof(bcm430x_ucode5_data) / sizeof(bcm430x_ucode5_data[0]);
+const unsigned int bcm430x_pcm4_size = sizeof(bcm430x_pcm4_data) / sizeof(bcm430x_pcm4_data[0]);
+const unsigned int bcm430x_pcm5_size = sizeof(bcm430x_pcm5_data) / sizeof(bcm430x_pcm5_data[0]);
