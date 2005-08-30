@@ -100,50 +100,13 @@ struct bcm430x_private {
 	u8 core_rev;
 	u8 core_index;
 
-	u32 capabilities;
-	u32 corecontrol;
-	u32 irq_status;
-	u32 irq_mask;
-	u32 irq_control;
-	u32 pll_on_delay;
-	u32 fref_sel_delay;
-	u32 slow_clk_delay;
-
 	u32 sbimstate;
 	u32 sbtmstatelow;
 	u32 sbtmstatehigh;
-	u32 sbidhigh;
 
-	u16 radio_manufacturer;
-	u16 radio_version;
-	u8 radio_rev;
-	u16 radio_ctrl;
-	u16 radio_hi;
-	u16 radio_lo;
 	u8 phy_version;
 	u8 phy_type;
 	u8 phy_rev;
-	u16 phy_ctrl;
-	u16 phy_data;
-	u32 status;
-	u32 shm_ctrl;
-	u32 shm_data;
-	u16 led_ctrl;
-
-	u16 r40;
-	u16 r42;
-	u16 r44_2;
-	u32 r44;
-	u32 r88;
-
-	u32 m054;
-	u32 m06c;
-	u32 m128;
-	u16 m3e2;
-	u16 m3e4;
-	u16 m3e6;
-	u16 m49e;
-	u16 m11fe;
 };
 
 static inline
