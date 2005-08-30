@@ -408,6 +408,7 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 
 static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
 {
+#if 0
 	/* FIXME: Need different ucode for different cores?
 	 *        I tested this on the Airport Extreme
 	 */
@@ -432,6 +433,7 @@ printk(KERN_INFO PFX "writing PCM data %d...\n", ARRAY_SIZE(bcm430x_pcm_data));
 	}
 
 printk(KERN_INFO PFX "upload done.\n");
+#endif
 }
 
 /* Initialize the chip

@@ -14,7 +14,7 @@ ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
 obj-m := bcm430x.o
-bcm430x-objs := bcm430x_main.o $(DEBUGFS_OBJ)
+bcm430x-objs := bcm430x_main.o $(DEBUGFS_OBJ) bcm430x_ucode.o
 
 else
 
