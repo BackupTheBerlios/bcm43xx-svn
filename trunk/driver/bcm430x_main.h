@@ -38,9 +38,10 @@
 
 /* COREIDs */
 #define BCM430x_COREID_CHIPCOMMON	0x800
-#define BCM430x_COREID_80211		0x812
 #define BCM430x_COREID_PCI		0x804
+#define BCM430x_COREID_V90		0x807
 #define BCM430x_COREID_PCMCIA		0x80d
+#define BCM430x_COREID_80211		0x812
 
 /* Core Information Registers */
 #define BCM430x_CIR_BASE		0xf00

@@ -569,7 +569,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	/* ChipCommon with Core Rev >=4 encodes number of cores,
 	 * otherwise consult hardcoded table */
-	if (core_id == 0x800 && core_rev >= 4)
+	if (core_id == BCM430x_COREID_CHIPCOMMON && core_rev >= 4)
 		core_count = (chip_id_32 & 0x0F000000) >> 24;
 	else {
 		switch (chip_id_16) {
