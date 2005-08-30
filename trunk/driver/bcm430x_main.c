@@ -53,6 +53,12 @@ MODULE_LICENSE("GPL");
 /* module parameters */
 static int mode = 0;
 
+/* If you want to debug with just a single device, enable this,
+ * where the string is the pci device ID (as given by the kernel's
+ * pci_name function) of the device to be used.
+ */
+//#define DEBUG_SINGLE_DEVICE_ONLY	"0001:11:00.0"
+
 
 static struct pci_device_id bcm430x_pci_tbl[] = {
 
@@ -786,6 +792,11 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	assert(pdev != NULL);
 	assert(ent != NULL);
+	
+#ifdef DEBUG_SINGLE_DEVICE_ONLY
+	if (strcmp(pci_name(pdev), DEBUG_SINGLE_DEVICE_ONLY))
+		return -ENODEV;
+#endif
 
 	/* when we're built into the kernel, the driver version message
 	 * is only printed if at least one bcm430x board has been found
