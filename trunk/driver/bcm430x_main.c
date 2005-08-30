@@ -406,6 +406,23 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 	return 0;
 }
 
+static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
+{/*TODO*/
+	struct bcm430x_private *bcm = dev_id;
+
+	assert(bcm);
+
+	{
+		static int cnt = 0;
+		if (cnt < 10) {
+			printk(KERN_INFO PFX "We got an interrupt!\n");
+			cnt++;
+		}
+	}
+	return IRQ_NONE;
+	//return IRQ_HANDLED;
+}
+
 static void bcm430x_write_microcode(struct bcm430x_private *bcm,
 				    const u32 *data, const unsigned int len)
 {
@@ -457,15 +474,52 @@ static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	}
 }
 
+static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
+{
+	int res;
+	unsigned int i;
+	u32 data;
+
+	res = request_irq(bcm->pci_dev->irq, bcm430x_interrupt_handler,
+			  SA_SHIRQ, DRV_NAME, bcm);
+	if (res) {
+		printk(KERN_ERR PFX "Cannot register IRQ%d\n", bcm->pci_dev->irq);
+		return -EFAULT;
+	}
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, 0xffffffff);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00020402);
+	i = 0;
+	do {
+		data = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+		udelay(10);
+		i++;
+		if (i > BCM430x_IRQWAIT_MAX_RETRIES) {
+			printk(KERN_ERR PFX "Card IRQ register not responding. "
+					    "Giving up.\n");
+			free_irq(bcm->pci_dev->irq, bcm);
+			return -ENODEV;
+		}
+	} while (data != 0x00000001);
+	/* TODO? */
+	return 0;
+}
+
 /* Initialize the chip
  * http://bcm-specs.sipsolutions.net/ChipInit
  */
 static int bcm430x_chip_init(struct bcm430x_private *bcm)
 {/*TODO*/
-	bcm430x_write32(bcm, 0x120, 0x404);
+	int ret;
+
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000404);
 	bcm430x_upload_microcode(bcm);
+	ret = bcm430x_initialize_irq(bcm);
+	if (ret)
+		goto out;
+	/*TODO*/
 printk(KERN_INFO PFX "Chip initialized\n");
-	return 0;
+out:
+	return ret;
 }
 
 /* Validate chip access
@@ -670,6 +724,7 @@ static void __bcm430x_cleanup_dev(struct net_device *dev)
 
 	free_netdev(dev);
 	pci_set_drvdata(pdev, NULL);
+	free_irq(pdev->irq, bcm);
 }
 
 static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
