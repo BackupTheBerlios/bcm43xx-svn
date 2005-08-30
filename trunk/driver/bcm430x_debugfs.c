@@ -173,13 +173,13 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	fappend("PCM data (length %u bytes):", pcm_len * sizeof(u32));
 	fappend("\nFIXME: This is all 0x00000000 on my machine. Maybe we cannot read "
 		"PCM data back... (Michael)");
-	iowrite32(BCM430x_SHM_PCM + 0x01eb, bcm->mmio_addr + BCM430x_SHM_CONTROL);
-	fappend_ioblock32(pcm_len, BCM430x_SHM_DATA);
+	iowrite32(BCM430x_SHM_PCM + 0x01eb, bcm->mmio_addr + BCM430x_MMIO_SHM_CONTROL);
+	fappend_ioblock32(pcm_len, BCM430x_MMIO_SHM_DATA);
 	fappend("\nPCM data end\n\n");
 
 	fappend("Microcode (length %u bytes):", microcode_len * sizeof(u32));
-	iowrite32(BCM430x_SHM_UCODE + 0x0000, bcm->mmio_addr + BCM430x_SHM_CONTROL);
-	fappend_ioblock32(microcode_len, BCM430x_SHM_DATA);
+	iowrite32(BCM430x_SHM_UCODE + 0x0000, bcm->mmio_addr + BCM430x_MMIO_SHM_CONTROL);
+	fappend_ioblock32(microcode_len, BCM430x_MMIO_SHM_DATA);
 	fappend("\nMicrocode end\n\n");
 
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);

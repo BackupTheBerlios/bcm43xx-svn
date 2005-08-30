@@ -131,29 +131,29 @@ static void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
 
 static u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset)
 {
-	bcm430x_write16(bcm, BCM430x_PHY_CONTROL, offset);
-	return bcm430x_read16(bcm, BCM430x_PHY_DATA);
+	bcm430x_write16(bcm, BCM430x_MMIO_PHY_CONTROL, offset);
+	return bcm430x_read16(bcm, BCM430x_MMIO_PHY_DATA);
 }
 
 static void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
 {
-	bcm430x_write16(bcm, BCM430x_PHY_CONTROL, offset);
-	bcm430x_write16(bcm, BCM430x_PHY_DATA, val);
+	bcm430x_write16(bcm, BCM430x_MMIO_PHY_CONTROL, offset);
+	bcm430x_write16(bcm, BCM430x_MMIO_PHY_DATA, val);
 }
 
 static void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
 {
-	bcm430x_write32(bcm, BCM430x_SHM_CONTROL, control);
+	bcm430x_write32(bcm, BCM430x_MMIO_SHM_CONTROL, control);
 }
 
 static u32 bcm430x_shm_read32(struct bcm430x_private *bcm)
 {
-	return bcm430x_read32(bcm, BCM430x_SHM_DATA);
+	return bcm430x_read32(bcm, BCM430x_MMIO_SHM_DATA);
 }
 
 static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
 {
-	bcm430x_write32(bcm, BCM430x_SHM_DATA, val);
+	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, val);
 }
 
 static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
