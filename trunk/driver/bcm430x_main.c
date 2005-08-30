@@ -406,34 +406,55 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 	return 0;
 }
 
-static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
+static void bcm430x_write_microcode(struct bcm430x_private *bcm,
+				    const u32 *data, const unsigned int len)
 {
-#if 0
-	/* FIXME: Need different ucode for different cores?
-	 *        I tested this on the Airport Extreme
-	 */
+	unsigned int i;
 
-	int i;
-
-printk(KERN_INFO PFX "writing microcode %d...\n", ARRAY_SIZE(bcm430x_ucode_data));
-
+printk("writing microcode...\n");
 	bcm430x_shm_control(bcm, BCM430x_SHM_UCODE + 0x0000);
-	for (i = 0; i < ARRAY_SIZE(bcm430x_ucode_data); i++) {
-		bcm430x_shm_write32(bcm, bcm430x_ucode_data[i]);
+	for (i = 0; i < len; i++) {
+		bcm430x_shm_write32(bcm, data[i]);
 		udelay(10);
 	}
-printk(KERN_INFO PFX "writing PCM data %d...\n", ARRAY_SIZE(bcm430x_pcm_data));
+}
 
+static void bcm430x_write_pcm(struct bcm430x_private *bcm,
+			      const u32 *data, const unsigned int len)
+{
+	unsigned int i;
+
+printk("writing PCM...\n");
 	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01ea);
 	bcm430x_shm_write32(bcm, 0x00004000);
 	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01eb);
-	for (i = 0; i < ARRAY_SIZE(bcm430x_pcm_data); i++) {
-		bcm430x_shm_write32(bcm, bcm430x_pcm_data[i]);
+	for (i = 0; i < len; i++) {
+		bcm430x_shm_write32(bcm, data[i]);
 		udelay(10);
 	}
+}
 
-printk(KERN_INFO PFX "upload done.\n");
-#endif
+static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
+{
+	if (bcm->core_rev == 2) {
+		bcm430x_write_microcode(bcm, bcm430x_ucode2_data,
+					bcm430x_ucode2_size);
+	} else if (bcm->core_rev == 4) {
+		bcm430x_write_microcode(bcm, bcm430x_ucode4_data,
+					bcm430x_ucode4_size);
+	} else if (bcm->core_rev >= 5) {
+		bcm430x_write_microcode(bcm, bcm430x_ucode5_data,
+					bcm430x_ucode5_size);
+	} else
+		printk(KERN_ERR PFX "Error: No microcode available.\n");
+
+	if (bcm->core_rev < 5) {
+		bcm430x_write_pcm(bcm, bcm430x_pcm4_data,
+				  bcm430x_pcm4_size);
+	} else {
+		bcm430x_write_pcm(bcm, bcm430x_pcm5_data,
+				  bcm430x_pcm5_size);
+	}
 }
 
 /* Initialize the chip

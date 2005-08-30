@@ -25,6 +25,7 @@
 
 #include "bcm430x_debugfs.h"
 #include "bcm430x_main.h"
+#include "bcm430x_ucode.h"
 
 #include <linux/debugfs.h>
 #include <linux/fs.h>
@@ -144,13 +145,26 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
-	const unsigned int microcode_len = 4046;
-	const unsigned int pcm_len = 266;
 
+	unsigned int microcode_len;
+	unsigned int pcm_len;
 	struct bcm430x_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
+
+	if (bcm->core_rev == 2)
+		microcode_len = bcm430x_ucode2_size;
+	else if (bcm->core_rev == 4)
+		microcode_len = bcm430x_ucode4_size;
+	else if (bcm->core_rev >= 5)
+		microcode_len = bcm430x_ucode5_size;
+	else
+		microcode_len = 0;
+	if (bcm->core_rev < 5)
+		pcm_len = bcm430x_pcm4_size;
+	else
+		pcm_len = bcm430x_pcm5_size;
 
 	down(&big_buffer_sem);
 
@@ -164,8 +178,6 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	fappend("\nPCM data end\n\n");
 
 	fappend("Microcode (length %u bytes):", microcode_len * sizeof(u32));
-	fappend("\nFIXME: This is slightly different from what is uploaded on "
-		"my machine. But maybe that's correct behaviour... (Michael)");
 	iowrite32(BCM430x_SHM_UCODE + 0x0000, bcm->mmio_addr + BCM430x_SHM_CONTROL);
 	fappend_ioblock32(microcode_len, BCM430x_SHM_DATA);
 	fappend("\nMicrocode end\n\n");
