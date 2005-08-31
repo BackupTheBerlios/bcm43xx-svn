@@ -34,7 +34,8 @@ modules:
 endif
 
 clean:
-	find . \( -name '*.ko' -o -name '*.o' -o -name '.tmp_versions' -o -name '*~' -o -name '.*.cmd' -o -name '*.mod.c' \)\
+	find . \( -name '*.ko' -o -name '*.o' -o -name '.tmp_versions' -o -name '*~' -o -name '.*.cmd' \
+		-o -name '*.mod.c' -o -name '*.tar.bz2' \)\
 		-print | xargs rm -Rf
 
 depend .depend dep:
