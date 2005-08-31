@@ -1,3 +1,8 @@
+# Makefile for bcm430x driver
+
+VERSION		:= 0.0.1
+RELEASE_NAME	:= bcm430x-$(VERSION)
+
 # Comment/uncomment to enable/disable debugging
 DEBUG = y
 
@@ -38,3 +43,20 @@ depend .depend dep:
 ifeq (.depend,$(wildcard .depend))
 include .depend
 endif
+
+DISTFILES =  $(shell find . \( -not -name '.' \) -print | grep -v "\.tar\.bz2" | grep -v "\/\." )
+DISTDIR = $(RELEASE_NAME)
+
+release: clean
+	@rm -rf $(DISTDIR)
+	@mkdir $(DISTDIR)
+	@chmod 777 $(DISTDIR)
+	@for file in $(DISTFILES); do                   \
+                if test -d $$file; then                 \
+                        mkdir $(DISTDIR)/$$file;        \
+                else                                    \
+                        cp -p $$file $(DISTDIR)/$$file; \
+                fi;                                     \
+        done
+	@tar -c $(DISTDIR) | bzip2 -9 > $(RELEASE_NAME).tar.bz2
+	@rm -rf $(DISTDIR)
