@@ -138,7 +138,7 @@ struct bcm430x_private {
 	struct pci_dev *pci_dev;
 
 	void *mmio_addr;
-	unsigned int regs_len;
+	unsigned int mmio_len;
 
 	spinlock_t lock;
 

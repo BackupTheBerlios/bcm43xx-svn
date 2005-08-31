@@ -206,31 +206,27 @@ static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 }
 
 /* Read SPROM and fill the useful values in the net_device struct */
-static void bcm430x_read_sprom(struct net_device *dev)
+static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 {
-	struct bcm430x_private *bcm = bcm430x_priv(dev);
+	struct net_device *net_dev = bcm->net_dev;
 
 	/* read MAC address into dev->dev_addr */
-	*((u16 *)dev->dev_addr + 0) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0));
-	*((u16 *)dev->dev_addr + 1) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2));
-	*((u16 *)dev->dev_addr + 2) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4));
+	*((u16 *)net_dev->dev_addr + 0) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0));
+	*((u16 *)net_dev->dev_addr + 1) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2));
+	*((u16 *)net_dev->dev_addr + 2) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4));
 
 }
 
-static int bcm430x_clr_target_abort(struct bcm430x_private *bcm)
+static void bcm430x_clr_target_abort(struct bcm430x_private *bcm)
 {
 	u16 pci_status;
 
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
-
 	pci_status &= ~ PCI_STATUS_SIG_TARGET_ABORT;
-
 	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status);
-
-	return 0;
 }
 
-static int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
+static void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 {
 	u32 in, out, outenable;
 
@@ -258,8 +254,6 @@ static int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 		out &= ~BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN;
 		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
 	}
-
-	return 0;
 }
 
 /* Puts the index of the current core into user supplied core variable */
@@ -272,34 +266,37 @@ static int bcm430x_get_current_core(struct bcm430x_private *bcm, int *core)
 
 static int bcm430x_switch_core(struct bcm430x_private *bcm, int core)
 {
+	int err;
 	int attempts = 0;
 	int current_core = -1;
 
 	/* refuse to map a negative core number */
 	if (core < 0)
-		return -1;
+		return -EINVAL;
 	
-	bcm430x_get_current_core(bcm, &current_core);
+	err = bcm430x_get_current_core(bcm, &current_core);
+	if (err)
+		goto out;
 
 	/* Write the computed value to the register. This doesn't always
 	   succeed so we retry BCM430x_SWITCH_CORE_MAX_RETRIES times */
 	while (current_core != core) {
-		if (attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES)
-			goto err_out;
+		if (attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES) {
+			err = -ENODEV;
+			printk(KERN_ERR PFX
+			       "unable to switch to core %u, retried %i times",
+			       core, attempts);
+			goto out;
+		}
 		bcm430x_pci_write_config_32(bcm->pci_dev,
 					    BCM430x_REG_ACTIVE_CORE,
 					    (core * 0x1000) + 0x18000000);
 		bcm430x_get_current_core(bcm, &current_core);
 	}
 
-	/* success */
-	return 0;
-
-err_out:
-	printk(KERN_ERR PFX
-	       "unable to switch to core %u, retried %i times",
-	       core, attempts);
-	return -1;
+	assert(err == 0);
+out:
+	return err;
 }
 
 /* returns non-zero if the current core is enabled, zero otherwise */
@@ -372,7 +369,11 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
 /* enable current core */
 static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 {
-	bcm430x_core_disable(bcm, core_flags);
+	int err;
+
+	err = bcm430x_core_disable(bcm, core_flags);
+	if (err)
+		goto out;
 
 	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
 			BCM430x_SBTMSTATELOW_CLOCK |
@@ -403,7 +404,9 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 			BCM430x_SBTMSTATELOW_CLOCK |
 			core_flags);
 
-	return 0;
+	assert(err == 0);
+out:
+	return err;
 }
 
 static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
@@ -428,7 +431,6 @@ static void bcm430x_write_microcode(struct bcm430x_private *bcm,
 {
 	unsigned int i;
 
-printk("writing microcode...\n");
 	bcm430x_shm_control(bcm, BCM430x_SHM_UCODE + 0x0000);
 	for (i = 0; i < len; i++) {
 		bcm430x_shm_write32(bcm, data[i]);
@@ -441,7 +443,6 @@ static void bcm430x_write_pcm(struct bcm430x_private *bcm,
 {
 	unsigned int i;
 
-printk("writing PCM...\n");
 	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01ea);
 	bcm430x_shm_write32(bcm, 0x00004000);
 	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01eb);
@@ -451,7 +452,7 @@ printk("writing PCM...\n");
 	}
 }
 
-static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
+static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 {
 	if (bcm->core_rev == 2) {
 		bcm430x_write_microcode(bcm, bcm430x_ucode2_data,
@@ -462,8 +463,10 @@ static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	} else if (bcm->core_rev >= 5) {
 		bcm430x_write_microcode(bcm, bcm430x_ucode5_data,
 					bcm430x_ucode5_size);
-	} else
+	} else {
 		printk(KERN_ERR PFX "Error: No microcode available.\n");
+		return -ENODEV;
+	}
 
 	if (bcm->core_rev < 5) {
 		bcm430x_write_pcm(bcm, bcm430x_pcm4_data,
@@ -472,6 +475,8 @@ static void bcm430x_upload_microcode(struct bcm430x_private *bcm)
 		bcm430x_write_pcm(bcm, bcm430x_pcm5_data,
 				  bcm430x_pcm5_size);
 	}
+
+	return 0;
 }
 
 static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
@@ -510,24 +515,29 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
  * http://bcm-specs.sipsolutions.net/ChipInit
  */
 static int bcm430x_chip_init(struct bcm430x_private *bcm)
-{/*TODO*/
-	int ret;
+{
+	int err;
 
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000404);
-	bcm430x_upload_microcode(bcm);
-	ret = bcm430x_initialize_irq(bcm);
-	if (ret)
+	err = bcm430x_upload_microcode(bcm);
+	if (err)
+		goto out;
+	err = bcm430x_initialize_irq(bcm);
+	if (err)
 		goto out;
 	/*TODO*/
+
+	assert(err == 0);
 printk(KERN_INFO PFX "Chip initialized\n");
 out:
-	return ret;
+	return err;
 }
 
 /* Validate chip access
  * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
 static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 {
+	int err;
 	u32 status;
 	u32 shm_backup;
 	u16 phy_version;
@@ -535,8 +545,12 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	/* some magic from http://bcm-specs.sipsolutions.net/DeviceInitialization */
 
 	/* select and enable 80211 core */
-	bcm430x_switch_core(bcm, bcm->core_index);
-	bcm430x_core_enable(bcm, 0x20040000);
+	err = bcm430x_switch_core(bcm, bcm->core_index);
+	if (err)
+		goto out;
+	err = bcm430x_core_enable(bcm, 0x20040000);
+	if (err)
+		goto out;
 
 	/* set bit in status register */
 	status = bcm430x_read32(bcm, 0x120);
@@ -558,14 +572,20 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
 	bcm430x_shm_write32(bcm, 0xAA5555AA);
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	if (bcm430x_shm_read32(bcm) != 0xAA5555AA)
+	if (bcm430x_shm_read32(bcm) != 0xAA5555AA) {
+		err = -ENODEV;
 		printk(KERN_ERR PFX "SHM mismatch (1) validating chip.\n");
+		goto out;
+	}
 
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
 	bcm430x_shm_write32(bcm, 0x55AAAA55);
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	if (bcm430x_shm_read32(bcm) != 0x55AAAA55)
+	if (bcm430x_shm_read32(bcm) != 0x55AAAA55) {
+		err = -ENODEV;
 		printk(KERN_ERR PFX "SHM mismatch (2) validating chip.\n");
+		goto out;
+	}
 
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
 	bcm430x_shm_write32(bcm, shm_backup);
@@ -576,21 +596,28 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	if (bcm->phy_type > 2)
 		printk(KERN_ERR PFX "Unknown PHY Type: %x\n", bcm->phy_type);
 
-	return 0;
+	assert(err == 0);
+out:
+	return err;
 }
 
 static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 {
+	int err;
 	int original_core, current_core, core_count;
 	int core_vendor, core_id, core_rev, core_enabled;
 	u32 sb_id_hi, chip_id_32 = 0;
 	u16 pci_device, chip_id_16;
 
 	/* save current core */
-	bcm430x_get_current_core(bcm, &original_core);
+	err = bcm430x_get_current_core(bcm, &original_core);
+	if (err)
+		goto out;
 
 	/* map core 0 */
-	bcm430x_switch_core(bcm, 0);
+	err = bcm430x_switch_core(bcm, 0);
+	if (err)
+		goto out;
 
 	/* fetch sb_id_hi from core information registers */
 	sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_SB_ID_HI);
@@ -661,7 +688,9 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	}
 
 	for (current_core = 1; current_core < core_count; current_core++) {
-		bcm430x_switch_core(bcm, current_core);
+		err = bcm430x_switch_core(bcm, current_core);
+		if (err)
+			goto out;
 
 		/* fetch sb_id_hi from core information registers */
 		sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_SB_ID_HI);
@@ -687,9 +716,13 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	}
 
 	/* restore original core mapping */
-	bcm430x_switch_core(bcm, original_core);
+	err = bcm430x_switch_core(bcm, original_core);
+	if (err)
+		goto out;
 
-	return 0;
+	assert(err == 0);
+out:
+	return err;
 }
 
 static struct net_device_stats * bcm430x_net_get_stats(struct net_device *dev)
@@ -711,50 +744,37 @@ static int bcm430x_net_stop(struct net_device *dev)
 	return 0;
 }
 
-static void __bcm430x_cleanup_dev(struct net_device *dev)
-{
-	struct bcm430x_private *bcm = bcm430x_priv(dev);
-	struct pci_dev *pdev;
-
-	pdev = bcm->pci_dev;
-
-	if (bcm->mmio_addr)
-		iounmap(bcm->mmio_addr);
-
-	/* it's ok to call this even if we have no regions to free */
-	pci_release_regions(pdev);
-
-	free_netdev(dev);
-	pci_set_drvdata(pdev, NULL);
-	free_irq(pdev->irq, bcm);
-}
-
-static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
+static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm_out)
 {
 	void *ioaddr;
-	struct net_device *dev;
+	struct net_device *net_dev;
 	struct bcm430x_private *bcm;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
 	int err;
 
-	*dev_out = NULL;
-
-	dev = alloc_ieee80211(sizeof(*bcm));
-	if (dev == NULL) {
+	net_dev = alloc_ieee80211(sizeof(*bcm));
+	if (!net_dev) {
 		printk(KERN_ERR PFX
 		       "could not allocate ieee80211 device %s\n",
 		       pci_name(pdev));
-		return -ENOMEM;
+		err = -ENOMEM;
+		goto out;
 	}
+	/* initialize the net_device struct */
+	SET_MODULE_OWNER(net_dev);
+	SET_NETDEV_DEV(net_dev, &pdev->dev);
 
-	SET_MODULE_OWNER(dev);
-	SET_NETDEV_DEV(dev, &pdev->dev);
+	net_dev->open = bcm430x_net_open;
+	net_dev->stop = bcm430x_net_stop;
+	net_dev->get_stats = bcm430x_net_get_stats;
+	net_dev->tx_timeout = bcm430x_net_tx_timeout;
+	net_dev->irq = pdev->irq;
 
-	bcm = bcm430x_priv(dev);
-	bcm->ieee = netdev_priv(dev);
+	/* initialize the bcm430x_private struct */
+	bcm = bcm430x_priv(net_dev);
+	bcm->ieee = netdev_priv(net_dev);
 	bcm->pci_dev = pdev;
-	bcm->net_dev = dev;
-
+	bcm->net_dev = net_dev;
 	spin_lock_init(&bcm->lock);
 
 	switch (mode) {
@@ -770,16 +790,10 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 		break;
 	}
 
-	dev->open = bcm430x_net_open;
-	dev->stop = bcm430x_net_stop;
-	dev->get_stats = bcm430x_net_get_stats;
-	dev->tx_timeout = bcm430x_net_tx_timeout;
-	dev->irq = pdev->irq;
-
 	err = pci_enable_device(pdev);
 	if (err) {
 		printk(KERN_ERR PFX "unable to wake up pci device (%i)\n", err);
-		goto err_out;
+		goto err_free_ieee;
 	}
 
 	mmio_start = pci_resource_start(pdev, 0);
@@ -793,21 +807,21 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 		       "%s, region #0 not an MMIO resource, aborting\n",
 		       pci_name(pdev));
 		err = -ENODEV;
-		goto err_out;
+		goto err_free_ieee;
 	}
 	if (mmio_len != BCM430x_IO_SIZE) {
 		printk(KERN_ERR PFX
 		       "%s: invalid PCI mem region size(s), aborting\n",
 		       pci_name(pdev));
 		err = -ENODEV;
-		goto err_out;
+		goto err_free_ieee;
 	}
 
-	err = pci_request_regions(pdev, "bcm430x");
+	err = pci_request_regions(pdev, DRV_NAME);
 	if (err) {
 		printk(KERN_ERR PFX
 		       "could not access PCI resources (%i)\n", err);
-		goto err_out;
+		goto err_free_ieee;
 	}
 
 	/* enable PCI bus-mastering */
@@ -815,116 +829,117 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct net_device **dev_out)
 
 	/* ioremap MMIO region */
 	ioaddr = ioremap(mmio_start, mmio_len);
-	if (ioaddr == NULL) {
+	if (!ioaddr) {
 		printk(KERN_ERR PFX "%s: cannot remap MMIO, aborting\n",
 		       pci_name(pdev));
 		err = -EIO;
-		goto err_out;
+		goto err_pci_release;
 	}
 
-	dev->base_addr = (long)ioaddr;
+	net_dev->base_addr = (long)ioaddr;
 	bcm->mmio_addr = ioaddr;
-	bcm->regs_len = mmio_len;
+	bcm->mmio_len = mmio_len;
 
 	bcm430x_pctl_set_crystal(bcm, 1);
 	bcm430x_clr_target_abort(bcm);
-	bcm430x_probe_cores(bcm);
-	bcm430x_validate_chip(bcm);
+	err = bcm430x_probe_cores(bcm);
+	if (err)
+		goto err_pci_release;
+	err = bcm430x_validate_chip(bcm);
+	if (err)
+		goto err_pci_release;
+	err = bcm430x_chip_init(bcm);
+	if (err)
+		goto err_pci_release;
 
-	bcm430x_chip_init(bcm);
-
-	*dev_out = dev;
-	return 0;
-
-err_out:
-	__bcm430x_cleanup_dev(dev);
-	pci_disable_device(pdev);
+	*bcm_out = bcm;
+	assert(err == 0);
+out:
 	return err;
+
+err_pci_release:
+	pci_release_regions(pdev);
+err_free_ieee:
+	free_netdev(net_dev);
+	goto out;
+}
+
+/* This is the opposite of bcm430x_init_board() */
+static void bcm430x_free_board(struct bcm430x_private *bcm)
+{
+	struct pci_dev *pci_dev = bcm->pci_dev;
+
+	bcm430x_pctl_set_crystal(bcm, 0);
+	iounmap(bcm->mmio_addr);
+	pci_release_regions(pci_dev);
+	free_irq(pci_dev->irq, bcm);
 }
 
 static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 				      const struct pci_device_id *ent)
 {
-	struct net_device *dev = NULL;
+	struct net_device *net_dev = NULL;
 	struct bcm430x_private *bcm;
-	int err = 0;
-	void *ioaddr;
+	int err;
 	u8 pci_rev;
 
-	assert(pdev != NULL);
-	assert(ent != NULL);
-	
 #ifdef DEBUG_SINGLE_DEVICE_ONLY
 	if (strcmp(pci_name(pdev), DEBUG_SINGLE_DEVICE_ONLY))
 		return -ENODEV;
 #endif
 
-	/* when we're built into the kernel, the driver version message
-	 * is only printed if at least one bcm430x board has been found
-	 */
-#ifndef MODULE
-	{
-		static int printed_version;
-		if (!printed_version++)
-			printk(KERN_INFO BCM430x_DRIVER_NAME "\n");
-	}
-#endif
-
 	bcm430x_pci_read_config_8(pdev, PCI_REVISION_ID, &pci_rev);
 
-	err = bcm430x_init_board(pdev, &dev);
-	if (err) {
-		printk(KERN_ERR PFX "bcm430x_init_board failed, "
-			"aborting.\n");
-		goto err_out;
-	}
-
-	bcm = bcm430x_priv(dev);
-	ioaddr = bcm->mmio_addr;
-
-	bcm430x_read_sprom(dev);
-	err = register_netdev(dev);
+	err = bcm430x_init_board(pdev, &bcm);
+	if (err)
+		goto out;
+	net_dev = bcm->net_dev;
+	err = register_netdev(net_dev);
 	if (err) {
 		printk(KERN_ERR PFX "Cannot register net device, "
-			"aborting.\n");
-		goto err_out;
+		       "aborting.\n");
+		goto err_freeboard;
 	}
 
-	pci_set_drvdata(pdev, dev);
+	bcm430x_read_sprom(bcm);
+	pci_set_drvdata(pdev, net_dev);
 
 	bcm430x_debugfs_add_device(bcm);
 
-	return 0;
-
-err_out:
-	__bcm430x_cleanup_dev(dev);
+	assert(err == 0);
+out:
 	return err;
+
+err_freeboard:
+	bcm430x_free_board(bcm);
+	goto out;
 }
 
 static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 {
-	struct net_device *dev = pci_get_drvdata(pdev);
-	struct bcm430x_private *bcm = bcm430x_priv(dev);
+	struct net_device *net_dev = pci_get_drvdata(pdev);
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
 	bcm430x_debugfs_remove_device(bcm);
 
-	if (dev) {
-		unregister_netdev(dev);
-		bcm430x_pctl_set_crystal(bcm, 0);
-		__bcm430x_cleanup_dev(dev);
+	bcm430x_free_board(bcm);
+	if (net_dev) {
+		unregister_netdev(net_dev);
+		free_netdev(net_dev);
 	}
+	pci_set_drvdata(pdev, NULL);
 	pci_disable_device(pdev);
 }
 
 #ifdef CONFIG_PM
 
 static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
-{
+{/*TODO*/
 	return 0;
 }
 
 static int bcm430x_resume(struct pci_dev *pdev)
-{
+{/*TODO*/
 	return 0;
 }
 
@@ -943,11 +958,8 @@ static struct pci_driver bcm430x_pci_driver = {
 
 static int __init bcm430x_init(void)
 {
-#ifdef MODULE
 	printk(KERN_INFO BCM430x_DRIVER_NAME "\n");
-#endif
 	bcm430x_debugfs_init();
-
 	return pci_module_init(&bcm430x_pci_driver);
 }
 
