@@ -489,17 +489,19 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, 0xffffffff);
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00020402);
 	i = 0;
-	do {
+	while (1) {
 		data = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
-		udelay(10);
+		if (data == 0x00000001)
+			break;
 		i++;
-		if (i > BCM430x_IRQWAIT_MAX_RETRIES) {
+		if (i >= BCM430x_IRQWAIT_MAX_RETRIES) {
 			printk(KERN_ERR PFX "Card IRQ register not responding. "
 					    "Giving up.\n");
 			free_irq(bcm->pci_dev->irq, bcm);
 			return -ENODEV;
 		}
-	} while (data != 0x00000001);
+		udelay(10);
+	}
 	/* TODO? */
 	return 0;
 }
