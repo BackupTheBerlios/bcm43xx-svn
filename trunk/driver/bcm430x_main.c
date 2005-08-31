@@ -412,18 +412,16 @@ out:
 static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
 {/*TODO*/
 	struct bcm430x_private *bcm = dev_id;
+	u32 reason;
 
 	assert(bcm);
+	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+	if (reason == 0xffffffff)
+		return IRQ_NONE; // irq not for us (shared irq)
 
-	{
-		static int cnt = 0;
-		if (cnt < 10) {
-			printk(KERN_INFO PFX "We got an interrupt!\n");
-			cnt++;
-		}
-	}
-	return IRQ_NONE;
-	//return IRQ_HANDLED;
+printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
+
+	return IRQ_HANDLED;
 }
 
 static void bcm430x_write_microcode(struct bcm430x_private *bcm,
