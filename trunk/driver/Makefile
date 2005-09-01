@@ -9,7 +9,7 @@ DEBUG = y
 
 ifeq ($(DEBUG),y)
 DEBUGFS_OBJ = bcm430x_debugfs.o
-CFLAGS += -O2 -g -DBCM430x_DEBUG
+CFLAGS += -O2 -DBCM430x_DEBUG
 else
 DEBUGFS_OBJ =
 CFLAGS += -O2 -DBCM430x_NDEBUG
