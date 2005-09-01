@@ -113,6 +113,11 @@
 #define BCM430x_SBIMSTATE_IB_ERROR		0x20000
 #define BCM430x_SBIMSTATE_TIMEOUT		0x40000
 
+/* PHYVersioning */
+#define BCM430x_PHYTYPE_A		0x00
+#define BCM430x_PHYTYPE_B		0x01
+#define BCM430x_PHYTYPE_G		0x02
+
 #ifdef assert
 # undef assert
 #endif

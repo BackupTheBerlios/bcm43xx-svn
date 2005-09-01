@@ -543,12 +543,71 @@ out:
 	return err;
 }
 
+static void write_initvals_array(struct bcm430x_private *bcm,
+				 const struct bcm430x_initval *data)
+{
+	unsigned int i = 0;
+
+	while (data[i].size != 0) {
+		if (data[i].size == 4) {
+			bcm430x_write32(bcm, data[i].offset, data[i].value);
+		} else {
+			assert(data[i].size == 2);
+			bcm430x_write16(bcm, data[i].offset, (u16)(data[i].value));
+		}
+		i++;
+	}
+}
+
 /* Write the initial values
  * http://bcm-specs.sipsolutions.net/InitialValues
  */
 static int bcm430x_write_initvals(struct bcm430x_private *bcm)
-{/*TODO*/
+{
+	if (bcm->core_rev == 2 || bcm->core_rev == 4) {
+		switch (bcm->phy_type) {
+		case BCM430x_PHYTYPE_A:
+			write_initvals_array(bcm, bcm430x_initvals_core24_aphy);
+			break;
+		case BCM430x_PHYTYPE_B:
+		case BCM430x_PHYTYPE_G:
+			write_initvals_array(bcm, bcm430x_initvals_core24_bgphy);
+			break;
+		default:
+			goto out_noinitval;
+		}
+	} else if (bcm->core_rev >= 5) {
+		switch (bcm->phy_type) {
+		case BCM430x_PHYTYPE_A:
+			write_initvals_array(bcm, bcm430x_initvals_core5_aphy);
+			/* FIXME: The expression in the following if statement is pseudo code,
+			 *        as I don't know what SB_CoreFlagsHI is.
+			 *        See http://bcm-specs.sipsolutions.net/APHYBSInitVal5
+			 */
+#if 0
+			if ( SB_CoreFlagsHI & 0x10000 )
+				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_1);
+			else
+				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_2);
+#endif
+			break;
+		case BCM430x_PHYTYPE_B:
+		case BCM430x_PHYTYPE_G:
+			write_initvals_array(bcm, bcm430x_initvals_core5_bgphy);
+			write_initvals_array(bcm, bcm430x_bsinitvals_core5_bgphy);
+			break;
+		default:
+			goto out_noinitval;
+		}
+	} else
+		goto out_noinitval;
+
+printk(KERN_INFO PFX "InitVals written\n");
 	return 0;
+
+out_noinitval:
+	printk(KERN_ERR PFX "Error: No InitVals available!\n");
+	return -ENODEV;
 }
 
 /* Validate chip access
