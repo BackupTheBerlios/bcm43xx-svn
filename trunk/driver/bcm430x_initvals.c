@@ -1622,6 +1622,7 @@ const struct bcm430x_initval bcm430x_bsinitvals_core5_bgphy[] = {
 { .offset = 0x164, .size = 2, .value = 0x0028, }, /* Write to SHM */
 { .offset = 0x160, .size = 4, .value = 0x000100C1, }, /* Set SHM control word to 0x0001 and address to 0x00C1 */
 { .offset = 0x166, .size = 2, .value = 0x0028, }, /* Write to SHM */
+{ .offset = 0x0000, .size = 0x00, .value = 0x00000000, }, /* EOL */
 };
 
 /* vim: set ts=8 sw=8 sts=8: */
