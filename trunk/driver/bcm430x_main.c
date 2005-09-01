@@ -33,6 +33,7 @@
 
 #include "bcm430x_main.h"
 #include "bcm430x_ucode.h"
+#include "bcm430x_initvals.h"
 #include "bcm430x_debugfs.h"
 
 #ifdef dprintk
@@ -509,6 +510,14 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 	return 0;
 }
 
+/* Initialize the GPIOs
+ * http://bcm-specs.sipsolutions.net/GPIO
+ */
+static int bcm430x_gpio_init(struct bcm430x_private *bcm)
+{/*TODO*/
+	return 0;
+}
+
 /* Initialize the chip
  * http://bcm-specs.sipsolutions.net/ChipInit
  */
@@ -524,11 +533,22 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto out;
 	/*TODO*/
-
+	err = bcm430x_gpio_init(bcm);
+	if (err)
+		goto out;
+	/*TODO*/
 	assert(err == 0);
 printk(KERN_INFO PFX "Chip initialized\n");
 out:
 	return err;
+}
+
+/* Write the initial values
+ * http://bcm-specs.sipsolutions.net/InitialValues
+ */
+static int bcm430x_write_initvals(struct bcm430x_private *bcm)
+{/*TODO*/
+	return 0;
 }
 
 /* Validate chip access
@@ -849,6 +869,9 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	err = bcm430x_chip_init(bcm);
 	if (err)
 		goto err_pci_release;
+	err = bcm430x_write_initvals(bcm);
+	if (err)
+		goto err_pci_release; /* FIXME: Maybe we need to de-init the chip? Also in rmmod code... */
 
 	*bcm_out = bcm;
 	assert(err == 0);
