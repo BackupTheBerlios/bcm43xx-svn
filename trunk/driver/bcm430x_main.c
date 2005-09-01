@@ -586,9 +586,9 @@ static int bcm430x_write_initvals(struct bcm430x_private *bcm)
 			 */
 #if 0
 			if ( SB_CoreFlagsHI & 0x10000 )
-				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_1);
-			else
 				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_2);
+			else
+				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_1);
 #endif
 			break;
 		case BCM430x_PHYTYPE_B:
