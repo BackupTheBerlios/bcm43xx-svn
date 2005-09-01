@@ -90,10 +90,14 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("subsystem_vendor: 0x%04x   subsystem_device: 0x%04x\n",
 		pci_dev->subsystem_vendor, pci_dev->subsystem_device);
 	fappend("IRQ: %d\n", pci_dev->irq);
-	fappend("mmio_addr: 0x%p\n", bcm->mmio_addr);
+	fappend("mmio_addr: 0x%p   mmio_len: %u\n", bcm->mmio_addr, bcm->mmio_len);
 	fappend("chip_id: 0x%04x   chip_rev: 0x%02x\n", bcm->chip_id, bcm->chip_rev);
 	fappend("core_id: 0x%04x   core_rev: 0x%02x   core_index: 0x%02x\n",
 		bcm->core_id, bcm->core_rev, bcm->core_index);
+	fappend("sbimstate: 0x%08x   sbtmstatelow: 0x%08x   sbtmstatehigh: 0x%08x\n",
+		bcm->sbimstate, bcm->sbtmstatelow, bcm->sbtmstatehigh);
+	fappend("phy_version: 0x%02x   phy_type: 0x%02x   phy_rev: 0x%02x\n",
+		bcm->phy_version, bcm->phy_type, bcm->phy_rev);
 
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
