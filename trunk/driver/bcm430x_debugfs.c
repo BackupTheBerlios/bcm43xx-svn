@@ -92,12 +92,25 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("IRQ: %d\n", pci_dev->irq);
 	fappend("mmio_addr: 0x%p   mmio_len: %u\n", bcm->mmio_addr, bcm->mmio_len);
 	fappend("chip_id: 0x%04x   chip_rev: 0x%02x\n", bcm->chip_id, bcm->chip_rev);
-	fappend("core_id: 0x%04x   core_rev: 0x%02x   core_index: 0x%02x\n",
-		bcm->core_id, bcm->core_rev, bcm->core_index);
 	fappend("sbimstate: 0x%08x   sbtmstatelow: 0x%08x   sbtmstatehigh: 0x%08x\n",
 		bcm->sbimstate, bcm->sbtmstatelow, bcm->sbtmstatehigh);
 	fappend("phy_version: 0x%02x   phy_type: 0x%02x   phy_rev: 0x%02x\n",
 		bcm->phy_version, bcm->phy_type, bcm->phy_rev);
+
+	fappend("\nCores:\n");
+#define fappend_core(name, info) fappend("core \"" name "\" %s, %s, id: 0x%04x, "	\
+					 "rev: 0x%02x, index: 0x%02x\n",		\
+					 (info).flags & BCM430x_COREFLAG_AVAILABLE	\
+						? "available" : "nonavailable",		\
+					 (info).flags & BCM430x_COREFLAG_ENABLED	\
+						? "enabled" : "disabled",		\
+					 (info).id, (info).rev, (info).index)
+	fappend_core("CHIPCOMMON", bcm->core_chipcommon);
+	fappend_core("PCI", bcm->core_pci);
+	fappend_core("V90", bcm->core_v90);
+	fappend_core("PCMCIA", bcm->core_pcmcia);
+	fappend_core("80211", bcm->core_80211);
+#undef fappend_core
 
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
@@ -157,15 +170,15 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	size_t pos = 0;
 	ssize_t res;
 
-	if (bcm->core_rev == 2)
+	if (bcm->core_80211.rev == 2)
 		microcode_len = bcm430x_ucode2_size;
-	else if (bcm->core_rev == 4)
+	else if (bcm->core_80211.rev == 4)
 		microcode_len = bcm430x_ucode4_size;
-	else if (bcm->core_rev >= 5)
+	else if (bcm->core_80211.rev >= 5)
 		microcode_len = bcm430x_ucode5_size;
 	else
 		microcode_len = 0;
-	if (bcm->core_rev < 5)
+	if (bcm->core_80211.rev < 5)
 		pcm_len = bcm430x_pcm4_size;
 	else
 		pcm_len = bcm430x_pcm5_size;

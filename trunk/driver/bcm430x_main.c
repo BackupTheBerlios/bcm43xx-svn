@@ -258,24 +258,25 @@ static void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 }
 
 /* Puts the index of the current core into user supplied core variable */
-static int bcm430x_get_current_core(struct bcm430x_private *bcm, int *core)
+static int _get_current_core(struct bcm430x_private *bcm, int *core)
 {
 	int err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE, core);
 	*core = (*core - 0x18000000) / 0x1000;
 	return err;
 }
 
-static int bcm430x_switch_core(struct bcm430x_private *bcm, int core)
+/* Lowlevel core-switch function. This is only to be used in
+ * bcm430x_switch_core() and bcm430x_probe_cores()
+ */
+static int _switch_core(struct bcm430x_private *bcm, int core)
 {
 	int err;
 	int attempts = 0;
 	int current_core = -1;
 
-	/* refuse to map a negative core number */
-	if (core < 0)
-		return -EINVAL;
-	
-	err = bcm430x_get_current_core(bcm, &current_core);
+	assert(core >= 0);
+
+	err = _get_current_core(bcm, &current_core);
 	if (err)
 		goto out;
 
@@ -292,11 +293,26 @@ static int bcm430x_switch_core(struct bcm430x_private *bcm, int core)
 		bcm430x_pci_write_config_32(bcm->pci_dev,
 					    BCM430x_REG_ACTIVE_CORE,
 					    (core * 0x1000) + 0x18000000);
-		bcm430x_get_current_core(bcm, &current_core);
+		_get_current_core(bcm, &current_core);
 	}
 
 	assert(err == 0);
 out:
+	return err;
+}
+
+static int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core)
+{
+	int err;
+
+	if (!(new_core->flags & BCM430x_COREFLAG_AVAILABLE))
+		return -ENODEV;
+	if (bcm->current_core == new_core)
+		return 0;
+	err = _switch_core(bcm, new_core->index);
+	if (!err)
+		bcm->current_core = new_core;
+
 	return err;
 }
 
@@ -322,7 +338,7 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
 
 	/* core is already in reset */
 	if (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_RESET)
-		return 0;
+		goto out;
 
 	if (! (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_CLOCK)) {
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
@@ -364,6 +380,9 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
 			BCM430x_SBTMSTATELOW_RESET |
 			BCM430x_SBTMSTATELOW_REJECT |
 			core_flags);
+
+out:
+	bcm->current_core->flags &= ~ BCM430x_COREFLAG_ENABLED;
 	return 0;
 }
 
@@ -405,6 +424,7 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 			BCM430x_SBTMSTATELOW_CLOCK |
 			core_flags);
 
+	bcm->current_core->flags |= BCM430x_COREFLAG_ENABLED;
 	assert(err == 0);
 out:
 	return err;
@@ -453,13 +473,13 @@ static void bcm430x_write_pcm(struct bcm430x_private *bcm,
 
 static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 {
-	if (bcm->core_rev == 2) {
+	if (bcm->core_80211.rev == 2) {
 		bcm430x_write_microcode(bcm, bcm430x_ucode2_data,
 					bcm430x_ucode2_size);
-	} else if (bcm->core_rev == 4) {
+	} else if (bcm->core_80211.rev == 4) {
 		bcm430x_write_microcode(bcm, bcm430x_ucode4_data,
 					bcm430x_ucode4_size);
-	} else if (bcm->core_rev >= 5) {
+	} else if (bcm->core_80211.rev >= 5) {
 		bcm430x_write_microcode(bcm, bcm430x_ucode5_data,
 					bcm430x_ucode5_size);
 	} else {
@@ -467,7 +487,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 		return -ENODEV;
 	}
 
-	if (bcm->core_rev < 5) {
+	if (bcm->core_80211.rev < 5) {
 		bcm430x_write_pcm(bcm, bcm430x_pcm4_data,
 				  bcm430x_pcm4_size);
 	} else {
@@ -564,7 +584,7 @@ static void write_initvals_array(struct bcm430x_private *bcm,
  */
 static int bcm430x_write_initvals(struct bcm430x_private *bcm)
 {
-	if (bcm->core_rev == 2 || bcm->core_rev == 4) {
+	if (bcm->core_80211.rev == 2 || bcm->core_80211.rev == 4) {
 		switch (bcm->phy_type) {
 		case BCM430x_PHYTYPE_A:
 			write_initvals_array(bcm, bcm430x_initvals_core24_aphy);
@@ -576,7 +596,7 @@ static int bcm430x_write_initvals(struct bcm430x_private *bcm)
 		default:
 			goto out_noinitval;
 		}
-	} else if (bcm->core_rev >= 5) {
+	} else if (bcm->core_80211.rev >= 5) {
 		switch (bcm->phy_type) {
 		case BCM430x_PHYTYPE_A:
 			write_initvals_array(bcm, bcm430x_initvals_core5_aphy);
@@ -622,7 +642,7 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	/* some magic from http://bcm-specs.sipsolutions.net/DeviceInitialization */
 
 	/* select and enable 80211 core */
-	err = bcm430x_switch_core(bcm, bcm->core_index);
+	err = bcm430x_switch_core(bcm, &bcm->core_80211);
 	if (err)
 		goto out;
 	err = bcm430x_core_enable(bcm, 0x20040000);
@@ -687,12 +707,12 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	u16 pci_device, chip_id_16;
 
 	/* save current core */
-	err = bcm430x_get_current_core(bcm, &original_core);
+	err = _get_current_core(bcm, &original_core);
 	if (err)
 		goto out;
 
 	/* map core 0 */
-	err = bcm430x_switch_core(bcm, 0);
+	err = _switch_core(bcm, 0);
 	if (err)
 		goto out;
 
@@ -710,6 +730,10 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	if (core_id == BCM430x_COREID_CHIPCOMMON) {
 		chip_id_32 = bcm430x_read32(bcm, 0);
 		chip_id_16 = chip_id_32 & 0xFFFF;
+		bcm->core_chipcommon.flags |= BCM430x_COREFLAG_AVAILABLE;
+		bcm->core_chipcommon.id = core_id;
+		bcm->core_chipcommon.rev = core_rev;
+		bcm->core_chipcommon.index = 0;
 	} else {
 		/* without a chipCommon, use a hard coded table. */
 		pci_device = bcm->pci_dev->device;
@@ -765,7 +789,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	}
 
 	for (current_core = 1; current_core < core_count; current_core++) {
-		err = bcm430x_switch_core(bcm, current_core);
+		err = _switch_core(bcm, current_core);
 		if (err)
 			goto out;
 
@@ -779,12 +803,36 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		
 		core_enabled = bcm430x_core_enabled(bcm);
 
-		/* if we find an 802.11 core, reset/enable it
-		 * and store its info in the device struct */
-		if (core_id == BCM430x_COREID_80211) {
-			bcm->core_id = core_id;
-			bcm->core_index = current_core;
-			bcm->core_rev = core_rev;
+		switch (core_id) {
+		case BCM430x_COREID_PCI:
+			bcm->core_pci.flags |= BCM430x_COREFLAG_AVAILABLE;
+			bcm->core_pci.id = core_id;
+			bcm->core_pci.rev = core_rev;
+			bcm->core_pci.index = current_core;
+			break;
+		case BCM430x_COREID_V90:
+			bcm->core_v90.flags |= BCM430x_COREFLAG_AVAILABLE;
+			bcm->core_v90.id = core_id;
+			bcm->core_v90.rev = core_rev;
+			bcm->core_v90.index = current_core;
+			break;
+		case BCM430x_COREID_PCMCIA:
+			bcm->core_pcmcia.flags |= BCM430x_COREFLAG_AVAILABLE;
+			bcm->core_pcmcia.id = core_id;
+			bcm->core_pcmcia.rev = core_rev;
+			bcm->core_pcmcia.index = current_core;
+			break;
+		case BCM430x_COREID_80211:
+			bcm->core_80211.flags |= BCM430x_COREFLAG_AVAILABLE;
+			bcm->core_80211.id = core_id;
+			bcm->core_80211.rev = core_rev;
+			bcm->core_80211.index = current_core;
+			break;
+		case BCM430x_COREID_CHIPCOMMON:
+			printk(KERN_WARNING PFX "Strange, two chipcommon cores found.\n");
+			break;
+		default:
+			printk(KERN_WARNING PFX "Unknown core found (ID 0x%x)\n", core_id);
 		}
 
 		printk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
@@ -793,7 +841,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	}
 
 	/* restore original core mapping */
-	err = bcm430x_switch_core(bcm, original_core);
+	err = _switch_core(bcm, original_core);
 	if (err)
 		goto out;
 

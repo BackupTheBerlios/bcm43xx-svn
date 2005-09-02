@@ -175,6 +175,20 @@
 struct net_device;
 struct pci_dev;
 
+#define BCM430x_COREFLAG_AVAILABLE	(1 << 0)
+#define BCM430x_COREFLAG_ENABLED	(1 << 1)
+
+struct bcm430x_coreinfo {
+	/** Driver internal flags. See BCM430x_COREFLAG_* */
+	u32 flags;
+	/** core_id ID number */
+	u16 id;
+	/** core_rev revision number */
+	u8 rev;
+	/** Index number for _switch_core() */
+	u8 index;
+};
+
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
 
@@ -189,10 +203,6 @@ struct bcm430x_private {
 	u16 chip_id;
 	u8 chip_rev;
 
-	u16 core_id;
-	u8 core_rev;
-	u8 core_index;
-
 	u32 sbimstate;
 	u32 sbtmstatelow;
 	u32 sbtmstatehigh;
@@ -200,6 +210,19 @@ struct bcm430x_private {
 	u8 phy_version;
 	u8 phy_type;
 	u8 phy_rev;
+
+	/* The currently active core. NULL if not initialized, yet. */
+	struct bcm430x_coreinfo *current_core;
+	/* coreinfo structs for all possible cores follow.
+	 * Note that a core might not exist.
+	 * So check the coreinfo flags before using it.
+	 */
+	struct bcm430x_coreinfo core_chipcommon;
+	struct bcm430x_coreinfo core_pci;
+	struct bcm430x_coreinfo core_v90;
+	struct bcm430x_coreinfo core_pcmcia;
+	struct bcm430x_coreinfo core_80211;
+	/*TODO: add the remaining coreinfo structs. */
 };
 
 static inline
