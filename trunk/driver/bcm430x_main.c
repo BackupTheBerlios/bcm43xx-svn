@@ -967,6 +967,10 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	if (strcmp(pci_name(pdev), DEBUG_SINGLE_DEVICE_ONLY))
 		return -ENODEV;
 #endif
+	/* TODO: Almost everything here (except net_device registration)
+	 *       should be done at bcm430x_net_open() time.
+	 *       For now we do it here for easier development.
+	 */
 
 	bcm430x_pci_read_config_8(pdev, PCI_REVISION_ID, &pci_rev);
 
