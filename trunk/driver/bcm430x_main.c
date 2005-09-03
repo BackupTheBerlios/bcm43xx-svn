@@ -615,6 +615,12 @@ static int bcm430x_gpio_cleanup(struct bcm430x_private *bcm)
 	return 0;
 }
 
+/* This is the opposite of bcm430x_chip_init() */
+static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
+{
+	bcm430x_gpio_cleanup(bcm);
+}
+
 /* Initialize the chip
  * http://bcm-specs.sipsolutions.net/ChipInit
  */
@@ -1092,24 +1098,20 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 		goto err_pci_release;
 	err = bcm430x_write_initvals(bcm);
 	if (err)
-		goto err_pci_release; /* FIXME: Maybe we need to de-init the chip? Also in rmmod code... */
+		goto err_chip_cleanup;
 
 	*bcm_out = bcm;
 	assert(err == 0);
 out:
 	return err;
 
+err_chip_cleanup:
+	bcm430x_chip_cleanup(bcm);
 err_pci_release:
 	pci_release_regions(pdev);
 err_free_ieee:
 	free_netdev(net_dev);
 	goto out;
-}
-
-/* This is the opposite of bcm430x_chip_init() */
-static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
-{
-	bcm430x_gpio_cleanup(bcm);
 }
 
 /* This is the opposite of bcm430x_init_board() */
