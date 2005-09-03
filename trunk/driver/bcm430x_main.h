@@ -109,6 +109,23 @@
 #define BCM430x_SPROM_ANTENNA_GAIN	(BCM430x_SPROM_BASE + (2 * 0x3a))
 #define BCM430x_SPROM_VERSION		(BCM430x_SPROM_BASE + (2 * 0x3f))
 
+/* BCM430x_SPROM_BOARDFLAGS values */
+#define BCM430x_BFL_BTCOEXIST		0x0001 /* implements Bluetooth coexistance */
+#define BCM430x_BFL_PACTRL		0x0002 /* GPIO 9 controlling the PA */
+#define BCM430x_BFL_AIRLINEMODE		0x0004 /* implements GPIO 13 radio disable indication */
+#define BCM430x_BFL_RSSI		0x0008 /* FIXME: what's this? */
+#define BCM430x_BFL_ENETSPI		0x0010 /* has ephy roboswitch spi */
+#define BCM430x_BFL_XTAL		0x0020 /* FIXME: what's this? */
+#define BCM430x_BFL_CCKHIPWR		0x0040 /* can do high power CCK transmission */
+#define BCM430x_BFL_ENETADM		0x0080 /* has ADMtek switch *//
+#define BCM430x_BFL_ENETVLAN		0x0100 /* can do vlan */
+#define BCM430x_BFL_AFTERBURNER		0x0200 /* supports Afterburner mode */
+#define BCM430x_BFL_NOPCI		0x0400 /* leaves PCI floating */
+#define BCM430x_BFL_FEM			0x0800 /* supports the Front End Module */
+
+/* GPIO register offset, in both ChipCommon and PCI core. */
+#define BCM430x_GPIO_CONTROL		0x6c
+
 /* SHM Routing */
 #define BCM430x_SHM_SHARED		0x00010000
 /* #define BCM430x_SHM_????		0x00020000*/
@@ -175,6 +192,10 @@
 struct net_device;
 struct pci_dev;
 
+struct bcm430x_sprominfo {
+	u16 boardflags;
+};
+
 #define BCM430x_COREFLAG_AVAILABLE	(1 << 0)
 #define BCM430x_COREFLAG_ENABLED	(1 << 1)
 
@@ -210,6 +231,8 @@ struct bcm430x_private {
 	u8 phy_version;
 	u8 phy_type;
 	u8 phy_rev;
+
+	struct bcm430x_sprominfo sprom;
 
 	/* The currently active core. NULL if not initialized, yet. */
 	struct bcm430x_coreinfo *current_core;

@@ -209,13 +209,21 @@ static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 /* Read SPROM and fill the useful values in the net_device struct */
 static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 {
+	u16 value;
 	struct net_device *net_dev = bcm->net_dev;
 
 	/* read MAC address into dev->dev_addr */
-	*((u16 *)net_dev->dev_addr + 0) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0));
-	*((u16 *)net_dev->dev_addr + 1) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2));
-	*((u16 *)net_dev->dev_addr + 2) = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4));
+	value = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0);
+	*((u16 *)net_dev->dev_addr + 0) = be16_to_cpu(value);
+	value = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2);
+	*((u16 *)net_dev->dev_addr + 1) = be16_to_cpu(value);
+	value = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4);
+	*((u16 *)net_dev->dev_addr + 2) = be16_to_cpu(value);
 
+	value = bcm430x_read16(bcm, BCM430x_SPROM_BOARDFLAGS);
+	if (value == 0xffff)
+		value = 0x0000;
+	bcm->sprom.boardflags = value;
 }
 
 static void bcm430x_clr_target_abort(struct bcm430x_private *bcm)
@@ -305,6 +313,8 @@ static int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_corei
 {
 	int err;
 
+	if (!new_core)
+		return 0;
 	if (!(new_core->flags & BCM430x_COREFLAG_AVAILABLE))
 		return -ENODEV;
 	if (bcm->current_core == new_core)
@@ -530,11 +540,77 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 	return 0;
 }
 
+/* Switch to the core used to write the GPIO register.
+ * This is either the ChipCommon, or the PCI core.
+ */
+static int switch_to_gpio_core(struct bcm430x_private *bcm)
+{
+	int err;
+
+	/* Where to find the GPIO register depends on the chipset.
+	 * If it has a ChipCommon, its register at offset 0x6c is the GPIO
+	 * control register. Otherwise the register at offset 0x6c in the
+	 * PCI core is the GPIO control register.
+	 */
+	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	if (err == -ENODEV) {
+		err = bcm430x_switch_core(bcm, &bcm->core_pci);
+		if (err == -ENODEV) {
+			printk(KERN_ERR PFX "gpio error: "
+			       "Neither ChipCommon nor PCI core available!\n");
+			return -ENODEV;
+		} else if (err != 0)
+			return -ENODEV;
+	} else if (err != 0)
+		return -ENODEV;
+
+	return 0;
+}
+
 /* Initialize the GPIOs
  * http://bcm-specs.sipsolutions.net/GPIO
  */
 static int bcm430x_gpio_init(struct bcm430x_private *bcm)
-{/*TODO*/
+{
+	struct bcm430x_coreinfo *old_core;
+	int err;
+	u32 value = 0x00000000;
+
+	old_core = bcm->current_core;
+	err = switch_to_gpio_core(bcm);
+	if (err)
+		return err;
+
+	if (bcm->core_80211.rev <= 2)
+		value |= 0x10;
+	/*FIXME: Need to set up some LED flags here? */
+	if (bcm->chip_id == 0x4301)
+		value |= 0x60;
+	if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
+		value |= 0x200;
+
+	bcm430x_write32(bcm, BCM430x_GPIO_CONTROL, value);
+
+	err = bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+
+	return 0;
+}
+
+/* Turn off all GPIO stuff. Call this on module unload, for example. */
+static int bcm430x_gpio_cleanup(struct bcm430x_private *bcm)
+{
+	struct bcm430x_coreinfo *old_core;
+	int err;
+
+	old_core = bcm->current_core;
+	err = switch_to_gpio_core(bcm);
+	if (err)
+		return err;
+	bcm430x_write32(bcm, BCM430x_GPIO_CONTROL, 0x00000000);
+	err = bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+
 	return 0;
 }
 
@@ -992,10 +1068,18 @@ err_free_ieee:
 	goto out;
 }
 
+/* This is the opposite of bcm430x_chip_init() */
+static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
+{
+	bcm430x_gpio_cleanup(bcm);
+}
+
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
 	struct pci_dev *pci_dev = bcm->pci_dev;
+
+	bcm430x_chip_cleanup(bcm);
 
 	bcm430x_pctl_set_crystal(bcm, 0);
 	iounmap(bcm->mmio_addr);
