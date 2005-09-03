@@ -864,6 +864,9 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		}
 	}
 
+	bcm->chip_id = chip_id_16;
+	bcm->chip_rev = (chip_id_32 & 0x000f0000) >> 16;
+
 	for (current_core = 1; current_core < core_count; current_core++) {
 		err = _switch_core(bcm, current_core);
 		if (err)
