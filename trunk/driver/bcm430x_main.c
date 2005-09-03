@@ -908,7 +908,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			bcm->core_80211.index = current_core;
 			break;
 		case BCM430x_COREID_CHIPCOMMON:
-			printk(KERN_WARNING PFX "Strange, two chipcommon cores found.\n");
+			printk(KERN_WARNING PFX "Strange, another chipcommon core found.\n");
 			break;
 		default:
 			printk(KERN_WARNING PFX "Unknown core found (ID 0x%x)\n", core_id);
