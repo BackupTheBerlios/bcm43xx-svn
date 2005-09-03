@@ -150,8 +150,7 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "sprom_dump" file */
-	fappend("IMPLEMENT ME\n");
-	/*TODO*/
+	fappend("boardflags: 0x%04x\n", bcm->sprom.boardflags);
 
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
