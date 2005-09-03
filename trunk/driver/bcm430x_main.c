@@ -450,6 +450,7 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	if (reason == 0xffffffff)
 		return IRQ_NONE; // irq not for us (shared irq)
 
+if (printk_ratelimit())
 printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
 
 	return IRQ_HANDLED;
@@ -940,6 +941,8 @@ static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 					     struct net_device *net_dev,
 					     int pri)
 {/*TODO*/
+if (printk_ratelimit())
+printk(KERN_INFO PFX "hard_start_xmit()\n");
 	return 0;
 }
 
