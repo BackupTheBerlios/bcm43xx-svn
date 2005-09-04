@@ -6,6 +6,9 @@
                      Stefano Brivio <st3@riseup.net>
                      Michael Buesch <mbuesch@freenet.de>
 
+  Some parts of the code in this file are derived from the ipw2200
+  driver  Copyright(c) 2003 - 2004 Intel Corporation.
+
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
@@ -450,6 +453,34 @@ out:
 	return err;
 }
 
+/* Enable IRQ handling. */
+static inline void bcm430x_interrupt_enable(struct bcm430x_private *bcm)
+{
+	bcm->status |= BCM430x_STAT_IRQ_ENABLED;
+	/*TODO: Poke the card to generate interrupts. */
+}
+
+/* Disable IRQ handling. */
+static inline void bcm430x_interrupt_disable(struct bcm430x_private *bcm)
+{
+	bcm->status &= ~ BCM430x_STAT_IRQ_ENABLED;
+	/*TODO: Stop the card from generating interrupts. */
+}
+
+/* Interrupt handler bottom-half */
+static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	/*TODO*/
+
+	bcm430x_interrupt_enable(bcm);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+}
+
+/* Interrupt handler top-half */
 static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
 {
 	struct bcm430x_private *bcm = dev_id;
@@ -469,7 +500,13 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 if (printk_ratelimit())
 printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
 
-	/*TODO*/
+	/*TODO: ACK the IRQ */
+
+	/* save the reason code and call our bottom half. */
+	bcm->irq_reason = reason;
+	tasklet_schedule(&bcm->isr_tasklet);
+
+	spin_unlock(&bcm->lock);
 
 	return IRQ_HANDLED;
 
@@ -1053,6 +1090,9 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
 	spin_lock_init(&bcm->lock);
+	tasklet_init(&bcm->isr_tasklet,
+		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
+		     (unsigned long)bcm);
 
 	switch (mode) {
 	case 1:
@@ -1129,6 +1169,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	err = bcm430x_validate_chip(bcm);
 	if (err)
 		goto err_pci_release;
+	bcm430x_read_sprom(bcm);
 	err = bcm430x_chip_init(bcm);
 	if (err)
 		goto err_pci_release;
@@ -1192,9 +1233,8 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		       "aborting.\n");
 		goto err_freeboard;
 	}
-
-	bcm430x_read_sprom(bcm);
 	pci_set_drvdata(pdev, net_dev);
+	bcm430x_interrupt_enable(bcm);
 
 	bcm430x_debugfs_add_device(bcm);
 

@@ -4,6 +4,7 @@
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
+#include <linux/interrupt.h>
 #include <net/ieee80211.h>
 
 #define DRV_NAME			"bcm430x"
@@ -251,6 +252,12 @@ struct bcm430x_private {
 	struct bcm430x_coreinfo core_pcmcia;
 	struct bcm430x_coreinfo core_80211;
 	/*TODO: add the remaining coreinfo structs. */
+
+	/* Reason code of the last interrupt. */
+	u32 irq_reason;
+
+	/* Interrupt Service Routine tasklet (bottom-half) */
+	struct tasklet_struct isr_tasklet;
 };
 
 static inline
