@@ -441,19 +441,31 @@ out:
 }
 
 static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
-{/*TODO*/
+{
 	struct bcm430x_private *bcm = dev_id;
 	u32 reason;
 
-	assert(bcm);
+	if (!bcm)
+		return IRQ_NONE;
+
+	spin_lock(&bcm->lock);
+
+	if (!(bcm->status & BCM430x_STAT_IRQ_ENABLED))
+		goto err_none_unlock;
 	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
 	if (reason == 0xffffffff)
-		return IRQ_NONE; // irq not for us (shared irq)
+		goto err_none_unlock; // irq not for us (shared irq)
 
 if (printk_ratelimit())
 printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
 
+	/*TODO*/
+
 	return IRQ_HANDLED;
+
+err_none_unlock:
+	spin_unlock(&bcm->lock);
+	return IRQ_NONE;
 }
 
 static void bcm430x_write_microcode(struct bcm430x_private *bcm,

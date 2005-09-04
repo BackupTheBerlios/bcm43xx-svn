@@ -210,6 +210,8 @@ struct bcm430x_coreinfo {
 	u8 index;
 };
 
+#define BCM430x_STAT_IRQ_ENABLED	(1 << 0)
+
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
 
@@ -220,6 +222,9 @@ struct bcm430x_private {
 	unsigned int mmio_len;
 
 	spinlock_t lock;
+
+	/* Driver status flags BCM430x_STAT_XXX */
+	u32 status;
 
 	u16 chip_id;
 	u8 chip_rev;
