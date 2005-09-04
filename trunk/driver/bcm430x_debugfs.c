@@ -77,11 +77,15 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
-
-	struct net_device *net_dev = bcm->net_dev;
-	struct pci_dev *pci_dev = bcm->pci_dev;
+	struct net_device *net_dev;
+	struct pci_dev *pci_dev;
+	unsigned long flags;
 
 	down(&big_buffer_sem);
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	net_dev = bcm->net_dev;
+	pci_dev = bcm->pci_dev;
 
 	/* This is where the information is written to the "devinfo" file */
 	fappend("*** %s devinfo ***\n", net_dev->name);
@@ -112,6 +116,7 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend_core("80211", bcm->core_80211);
 #undef fappend_core
 
+	spin_unlock_irqrestore(&bcm->lock, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
 	return res;
@@ -146,12 +151,15 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
+	unsigned long flags;
 
 	down(&big_buffer_sem);
+	spin_lock_irqsave(&bcm->lock, flags);
 
 	/* This is where the information is written to the "sprom_dump" file */
 	fappend("boardflags: 0x%04x\n", bcm->sprom.boardflags);
 
+	spin_unlock_irqrestore(&bcm->lock, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
 	return res;
@@ -168,6 +176,10 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
+	unsigned long flags;
+
+	down(&big_buffer_sem);
+	spin_lock_irqsave(&bcm->lock, flags);
 
 	if (bcm->core_80211.rev == 2)
 		microcode_len = bcm430x_ucode2_size;
@@ -181,8 +193,6 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 		pcm_len = bcm430x_pcm4_size;
 	else
 		pcm_len = bcm430x_pcm5_size;
-
-	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "shm_dump" file */
 	/*TODO: dump shared_memory, hw_mac, init_ucode, 0x0002 and maybe others */
@@ -198,6 +208,7 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	fappend_ioblock32(microcode_len, BCM430x_MMIO_SHM_DATA);
 	fappend("\nMicrocode end\n\n");
 
+	spin_unlock_irqrestore(&bcm->lock, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
 	return res;
