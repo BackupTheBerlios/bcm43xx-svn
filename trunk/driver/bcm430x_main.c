@@ -160,6 +160,35 @@ static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, val);
 }
 
+static u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
+{
+	if (bcm->phy_type == BCM430x_PHYTYPE_A)
+		offset |= 0x40;
+	else if (bcm->phy_type == BCM430x_PHYTYPE_B) {
+		switch (bcm->radio_id & 0x0FFFF000) {
+			case 0x02053000:
+				if (offset < 0x70)
+					offset += 0x80;
+				else if (offset < 0x80)
+					offset += 0x70;
+			break;
+			case 0x02050000:
+				offset |= 0x80;
+			break;
+		}
+	} else if (bcm->phy_type == BCM430x_PHYTYPE_G)
+		offset |= 0x80;
+	
+	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
+	return bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA);
+}
+
+static void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
+{
+	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
+	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_DATA, val);
+}
+
 static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 {
 	int err;
@@ -208,6 +237,27 @@ static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 //	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
 	return pci_write_config_dword(pdev, offset, val);
 }
+
+static void bcm430x_read_radio_id(struct bcm430x_private *bcm)
+{
+	u32 val;
+	
+	if (bcm->chip_id == 0x4317) {
+		if (bcm->chip_rev == 0x00)
+			val = 0x3205017F;
+		else if (bcm->chip_rev == 0x01)
+			val = 0x4205017F;
+		else
+			val = 0x5205017F; /*FIXME: Is there a typo in specs? */
+	} else {
+		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIO_ID);
+		val = (u32)bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA) << 16;
+		val |= bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA_LOW);
+	}
+	
+	bcm->radio_id = val;
+	
+}	
 
 /* Read SPROM and fill the useful values in the net_device struct */
 static void bcm430x_read_sprom(struct bcm430x_private *bcm)

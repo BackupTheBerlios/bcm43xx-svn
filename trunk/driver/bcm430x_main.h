@@ -175,6 +175,9 @@
 #define BCM430x_PHYTYPE_B		0x01
 #define BCM430x_PHYTYPE_G		0x02
 
+/* RadioRegisters */
+#define BCM430x_RADIO_ID		0x01
+
 #ifdef assert
 # undef assert
 #endif
@@ -229,6 +232,8 @@ struct bcm430x_private {
 
 	u16 chip_id;
 	u8 chip_rev;
+	
+	u32 radio_id;
 
 	u32 sbimstate;
 	u32 sbtmstatelow;
