@@ -936,6 +936,15 @@ out:
 	return err;
 }
 
+/* Do the Hardware IO operations to send the txb */
+static inline void bcm430x_tx(struct bcm430x_private *bcm,
+			      struct ieee80211_txb *txb)
+{/*TODO*/
+if (printk_ratelimit())
+printk(KERN_INFO PFX "bcm430x_tx()\n");
+
+}
+
 /* set_security() callback in struct ieee80211_device */
 static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
 					   struct ieee80211_security *sec)
@@ -946,9 +955,14 @@ static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
 static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 					     struct net_device *net_dev,
 					     int pri)
-{/*TODO*/
-if (printk_ratelimit())
-printk(KERN_INFO PFX "hard_start_xmit()\n");
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm430x_tx(bcm, txb);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return 0;
 }
 
