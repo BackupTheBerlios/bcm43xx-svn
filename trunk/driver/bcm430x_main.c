@@ -1221,6 +1221,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	if (err)
 		goto err_iounmap;
 	bcm430x_read_sprom(bcm);
+	bcm430x_read_radio_id(bcm);
 	err = bcm430x_chip_init(bcm);
 	if (err)
 		goto err_iounmap;
