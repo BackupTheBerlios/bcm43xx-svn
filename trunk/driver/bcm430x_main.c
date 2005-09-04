@@ -265,12 +265,22 @@ static void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 	}
 }
 
-/* Puts the index of the current core into user supplied core variable */
+/* Puts the index of the current core into user supplied core variable.
+ * This function reads the value from the device.
+ * Almost always you don't want to call this, but use bcm->current_core
+ */
 static int _get_current_core(struct bcm430x_private *bcm, int *core)
 {
-	int err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE, core);
+	int err;
+
+	err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE, core);
+	if (err) {
+		printk(KERN_ERR PFX "Error: cannot read ACTIVE_CORE register!\n");
+		return -ENODEV;
+	}
 	*core = (*core - 0x18000000) / 0x1000;
-	return err;
+
+	return 0;
 }
 
 /* Lowlevel core-switch function. This is only to be used in
