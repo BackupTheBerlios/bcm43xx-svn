@@ -677,6 +677,7 @@ static int bcm430x_gpio_cleanup(struct bcm430x_private *bcm)
 /* This is the opposite of bcm430x_chip_init() */
 static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
 {
+	free_irq(bcm->pci_dev->irq, bcm);
 	bcm430x_gpio_cleanup(bcm);
 }
 
@@ -1128,21 +1129,21 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 		       "%s, region #0 not an MMIO resource, aborting\n",
 		       pci_name(pdev));
 		err = -ENODEV;
-		goto err_free_ieee;
+		goto err_pci_disable;
 	}
 	if (mmio_len != BCM430x_IO_SIZE) {
 		printk(KERN_ERR PFX
 		       "%s: invalid PCI mem region size(s), aborting\n",
 		       pci_name(pdev));
 		err = -ENODEV;
-		goto err_free_ieee;
+		goto err_pci_disable;
 	}
 
 	err = pci_request_regions(pdev, DRV_NAME);
 	if (err) {
 		printk(KERN_ERR PFX
 		       "could not access PCI resources (%i)\n", err);
-		goto err_free_ieee;
+		goto err_pci_disable;
 	}
 
 	/* enable PCI bus-mastering */
@@ -1165,14 +1166,14 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	bcm430x_clr_target_abort(bcm);
 	err = bcm430x_probe_cores(bcm);
 	if (err)
-		goto err_pci_release;
+		goto err_iounmap;
 	err = bcm430x_validate_chip(bcm);
 	if (err)
-		goto err_pci_release;
+		goto err_iounmap;
 	bcm430x_read_sprom(bcm);
 	err = bcm430x_chip_init(bcm);
 	if (err)
-		goto err_pci_release;
+		goto err_iounmap;
 	err = bcm430x_write_initvals(bcm);
 	if (err)
 		goto err_chip_cleanup;
@@ -1184,8 +1185,12 @@ out:
 
 err_chip_cleanup:
 	bcm430x_chip_cleanup(bcm);
+err_iounmap:
+	iounmap(bcm->mmio_addr);
 err_pci_release:
 	pci_release_regions(pdev);
+err_pci_disable:
+	pci_disable_device(pdev);
 err_free_ieee:
 	free_netdev(net_dev);
 	goto out;
@@ -1201,7 +1206,8 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	bcm430x_pctl_set_crystal(bcm, 0);
 	iounmap(bcm->mmio_addr);
 	pci_release_regions(pci_dev);
-	free_irq(pci_dev->irq, bcm);
+	pci_set_drvdata(pci_dev, NULL);
+	pci_disable_device(pci_dev);
 }
 
 static int __devinit bcm430x_init_one(struct pci_dev *pdev,
@@ -1259,8 +1265,6 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 		unregister_netdev(net_dev);
 		free_netdev(net_dev);
 	}
-	pci_set_drvdata(pdev, NULL);
-	pci_disable_device(pdev);
 }
 
 #ifdef CONFIG_PM
