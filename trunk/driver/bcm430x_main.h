@@ -177,6 +177,7 @@
 
 /* RadioRegisters */
 #define BCM430x_RADIO_ID		0x01
+#define BCM430x_RADIO_ID_NORF		0x4E4F5246
 
 #ifdef assert
 # undef assert
