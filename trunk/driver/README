@@ -1,0 +1,22 @@
+
+			BCM43XX Linux Driver Project
+			============================
+
+About this software
+-------------------
+
+The goal of this software is developing a linux driver for Broadcom
+BCM43xx chips, based on the specification at 
+http://bcm-specs.sipsolutions.net/
+
+The project page is http://bcm43xx.berlios.de/
+
+
+Requirements
+------------
+
+1)	Linux Kernel 2.6.11(?) or later
+	http://www.kernel.org/
+
+2) 	IEEE80211 subsystem
+	http://ieee80211.sourceforge.net/
