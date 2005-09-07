@@ -232,6 +232,12 @@
 #define BCM430x_DMA_RXSTAT_STAT_MASK		0x0000f000
 #define BCM430x_DMA_RXSTAT_ERROR_MASK		0x000f0000
 
+/* DMA descriptor control field values. */
+#define BCM430x_DMADTOR_BYTECNT_MASK		0x00001fff
+#define BCM430x_DMADTOR_DTABLEEND		(1 << 28) /* end of descriptor table */
+#define BCM430x_DMADTOR_COMPIRQ			(1 << 29) /* irq on comppletion request */
+#define BCM430x_DMADTOR_FRAMEEND		(1 << 30)
+#define BCM430x_DMADTOR_FRAMESTART		(1 << 31)
 
 #ifdef assert
 # undef assert
