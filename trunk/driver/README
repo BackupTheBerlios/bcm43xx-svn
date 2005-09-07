@@ -5,7 +5,7 @@
 About this software
 -------------------
 
-The goal of this software is developing a linux driver for Broadcom
+The goal of this project is to develop a linux driver for Broadcom
 BCM43xx chips, based on the specification at 
 http://bcm-specs.sipsolutions.net/
 
@@ -25,4 +25,4 @@ Requirements
 		/lib/modules/`uname -r`/build/include/net/ieee80211.h; \
 		ln -s /usr/include/net/ieee80211_crypt.h \
 		/lib/modules/`uname -r`/build/include/net/ieee80211_crypt.h
-	      in order to build the module.
+	      in order to build the driver, after installing the ieee80211 modules.

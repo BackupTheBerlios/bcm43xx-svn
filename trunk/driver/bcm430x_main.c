@@ -676,6 +676,7 @@ static inline void bcm430x_interrupt_enable(struct bcm430x_private *bcm)
 {
 	bcm->status |= BCM430x_STAT_IRQ_ENABLED;
 	/*TODO: Poke the card to generate interrupts. */
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, 0xffffffff);
 }
 
 /* Disable IRQ handling. */
@@ -688,9 +689,16 @@ static inline void bcm430x_interrupt_disable(struct bcm430x_private *bcm)
 /* Interrupt handler bottom-half */
 static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 {
+	u32 reason;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
+
+	reason = bcm->irq_reason;
+
+if (printk_ratelimit())
+printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
+
 
 	/*TODO*/
 
@@ -714,9 +722,6 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
 	if (reason == 0xffffffff)
 		goto err_none_unlock; // irq not for us (shared irq)
-
-if (printk_ratelimit())
-printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
 
 	/*TODO: ACK the IRQ */
 
