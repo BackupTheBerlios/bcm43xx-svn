@@ -240,6 +240,7 @@
 #define BCM430x_DMADTOR_FRAMEEND		(1 << 30)
 #define BCM430x_DMADTOR_FRAMESTART		(1 << 31)
 
+
 #ifdef assert
 # undef assert
 #endif
@@ -254,6 +255,13 @@
 		}							\
 	} while (0)
 #endif
+
+/* rate limited printk(). Just a debug helper. */
+#ifdef printkl
+# undef printkl
+#endif
+#define printkl(f, x...)  do { if (printk_ratelimit()) printk(f ,##x); } while (0)
+
 
 /* DMA descriptor field to post on the chip. */
 struct bcm430x_dmadesc {

@@ -704,15 +704,60 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	u32 reason;
 	unsigned long flags;
 
-	spin_lock_irqsave(&bcm->lock, flags);
+#ifdef BCM430x_DEBUG
+	int _handled = 0;
+# define bcmirq_handled()	do { _handled = 1; } while (0)
+#else
+# define bcmirq_handled()	do { /* nothing */ } while (0)
+#endif /* BCM430x_DEBUG */
 
+	spin_lock_irqsave(&bcm->lock, flags);
 	reason = bcm->irq_reason;
 
-if (printk_ratelimit())
-printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
+printkl(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
 
+	assert(!(reason & BCM430x_IRQ_ACK));
 
-	/*TODO*/
+	if (reason & BCM430x_IRQ_BEACON) {
+		/*TODO*/
+		//bcmirq_handled();
+	}
+
+	if (reason & BCM430x_IRQ_TBTT) {
+		/*TODO*/
+		//bcmirq_handled();
+	}
+
+	if (reason & BCM430x_IRQ_REG124) {
+		/*TODO*/
+		//bcmirq_handled();
+	}
+
+	if (reason & BCM430x_IRQ_PMQ) {
+		/*TODO*/
+		//bcmirq_handled();
+	}
+
+	if (reason & BCM430x_IRQ_SCAN) {
+		/*TODO*/
+		//bcmirq_handled();
+	}
+
+	if (reason & BCM430x_IRQ_BGNOISE) {
+		/*TODO*/
+		//bcmirq_handled();
+	}
+
+	if (reason & BCM430x_IRQ_XMIT_STATUS) {
+		/*TODO*/
+		//bcmirq_handled();
+	}
+
+#ifdef BCM430x_DEBUG
+	if (!_handled)
+		printkl(KERN_WARNING PFX "Unhandled IRQ! Reason: 0x%08x\n", reason);
+#endif
+#undef bcmirq_handled
 
 	bcm430x_interrupt_enable(bcm, bcm->irq_savedstate);
 	spin_unlock_irqrestore(&bcm->lock, flags);
@@ -1238,8 +1283,7 @@ out:
 static inline void bcm430x_tx(struct bcm430x_private *bcm,
 			      struct ieee80211_txb *txb)
 {/*TODO*/
-if (printk_ratelimit())
-printk(KERN_INFO PFX "bcm430x_tx()\n");
+printkl(KERN_INFO PFX "bcm430x_tx()\n");
 
 }
 
