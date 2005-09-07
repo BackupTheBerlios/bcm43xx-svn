@@ -52,7 +52,7 @@
 #define BCM430x_MMIO_LED_CONTROL	0x49c
 
 
-/* DMA offsets. These are actually MMIO offsets. */
+/* DMA controller register offsets. These are actually 80211 MMIO offsets. */
 #define BCM430x_DMA1_TX_CONTROL		(BCM430x_MMIO_DMA1_BASE + 0x00)
 #define BCM430x_DMA1_TX_DESC_RING	(BCM430x_MMIO_DMA1_BASE + 0x04)
 #define BCM430x_DMA1_TX_DESC_INDEX	(BCM430x_MMIO_DMA1_BASE + 0x08)
@@ -180,6 +180,58 @@
 /* RadioRegisters */
 #define BCM430x_RADIO_ID		0x01
 #define BCM430x_RADIO_ID_NORF		0x4E4F5246
+
+/* Generic-Interrupt reasons. */
+/*TODO: add the missing ones. */
+#define BCM430x_IRQ_BEACON		(1 << 1)
+#define BCM430x_IRQ_TBTT		(1 << 2) /*FIXME: purpose? */
+#define BCM430x_IRQ_REG124		(1 << 5) /*FIXME: purpose? */
+#define BCM430x_IRQ_PMQ			(1 << 6) /*FIXME: purpose? */
+#define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
+#define BCM430x_IRQ_BGNOISE		(1 << 18)
+#define BCM430x_IRQ_XMIT_STATUS		(1 << 29)
+#define BCM430x_IRQ_ALL			0xffffffff
+
+/* DMA-Interrupt reasons. */
+/*TODO: add the missing ones. */
+#define BCM430x_DMAIRQ_ERR0		(1 << 10)
+#define BCM430x_DMAIRQ_ERR1		(1 << 11)
+#define BCM430x_DMAIRQ_ERR2		(1 << 12)
+#define BCM430x_DMAIRQ_ERR3		(1 << 13)
+#define BCM430x_DMAIRQ_ERR4		(1 << 14)
+#define BCM430x_DMAIRQ_ERR5		(1 << 15)
+#define BCM430x_DMAIRQ_RX_DONE		(1 << 16)
+/* helpers */
+#define BCM430x_DMAIRQ_ANYERR		(BCM430x_DMAIRQ_ERR0 | \
+					 BCM430x_DMAIRQ_ERR1 | \
+					 BCM430x_DMAIRQ_ERR2 | \
+					 BCM430x_DMAIRQ_ERR3 | \
+					 BCM430x_DMAIRQ_ERR4 | \
+					 BCM430x_DMAIRQ_ERR5)
+#define BCM430x_DMAIRQ_FATALERR		(BCM430x_DMAIRQ_ERR0 | \
+					 BCM430x_DMAIRQ_ERR1 | \
+					 BCM430x_DMAIRQ_ERR2 | \
+					 BCM430x_DMAIRQ_ERR4 | \
+					 BCM430x_DMAIRQ_ERR5)
+#define BCM430x_DMAIRQ_NONFATALERR	BCM430x_DMAIRQ_ERR3
+
+/* DMA controller channel control word values. */
+#define BCM430x_DMA_TXCTRL_ENABLE		(1 << 0)
+#define BCM430x_DMA_TXCTRL_SUSPEND		(1 << 1)
+#define BCM430x_DMA_TXCTRL_LOOPBACK		(1 << 2)
+#define BCM430x_DMA_TXCTRL_FLUSH		(1 << 4)
+#define BCM430x_DMA_RXCTRL_ENABLE		(1 << 0)
+#define BCM430x_DMA_RXCTRL_FRAMEOFF_MASK	0x000000fe
+#define BCM430x_DMA_RXCTRL_PIO			(1 << 8)
+/* DMA controller channel status word values. */
+#define BCM430x_DMA_TXSTAT_DPTR_MASK		0x00000fff
+#define BCM430x_DMA_TXSTAT_STAT_MASK		0x0000f000
+#define BCM430x_DMA_TXSTAT_ERROR_MASK		0x000f0000
+#define BCM430x_DMA_TXSTAT_FLUSHED		(1 << 20)
+#define BCM430x_DMA_RXSTAT_DPTR_MASK		0x00000fff
+#define BCM430x_DMA_RXSTAT_STAT_MASK		0x0000f000
+#define BCM430x_DMA_RXSTAT_ERROR_MASK		0x000f0000
+
 
 #ifdef assert
 # undef assert
