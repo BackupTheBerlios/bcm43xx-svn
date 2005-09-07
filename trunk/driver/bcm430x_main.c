@@ -398,9 +398,8 @@ static int bcm430x_turn_radio_off(struct bcm430x_private *bcm)
  */
 static int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
-	short int i = 0x00;
-	short int j = 0x00;
-	short int packet_number;
+	unsigned int i, j;
+	u16 packet_number;
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
