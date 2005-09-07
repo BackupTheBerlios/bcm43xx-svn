@@ -5,9 +5,10 @@
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
+#include <linux/stringify.h>
 #include <net/ieee80211.h>
 
-#define DRV_NAME			"bcm430x"
+#define DRV_NAME			__stringify(KBUILD_MODNAME)
 #define DRV_VERSION			"0.0.1"
 #define BCM430x_DRIVER_NAME		DRV_NAME " driver " DRV_VERSION
 #define PFX				DRV_NAME ": "
