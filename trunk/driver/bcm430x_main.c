@@ -299,8 +299,9 @@ static int bcm430x_turn_radio_on(struct bcm430x_private *bcm)
 {
 	if (bcm->radio_id == BCM430x_RADIO_ID_NORF)
 		return -ENODEV;
-	
-	if (bcm->phy_type == BCM430x_PHYTYPE_A) {
+
+	switch (bcm->phy_type) {
+	case BCM430x_PHYTYPE_A:
 		bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
 		bcm430x_radio_write16(bcm, 0x0005, 0x0008);
 		bcm430x_phy_write(bcm, 0x0010, bcm430x_phy_read(bcm, 0x0010) & 0xFFF7);
@@ -335,7 +336,9 @@ static int bcm430x_turn_radio_on(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x006A, 0x0000);
 		/*TODO: set to the default starting channel */
 		udelay(1000);
-	} else {
+		break;
+        case BCM430x_PHYTYPE_B:
+        case BCM430x_PHYTYPE_G:
 		bcm430x_phy_write(bcm, 0x0015, 0x8000);
 		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
 #if 0		
@@ -346,6 +349,10 @@ static int bcm430x_turn_radio_on(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x0015, 0x0000);
 #endif
 		/*TODO: set to the default starting channel */
+		break;
+	default:
+		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
+		return -1;
 	}
 
 	return 0;
@@ -355,13 +362,16 @@ static int bcm430x_turn_radio_off(struct bcm430x_private *bcm)
 {
 	if (bcm->radio_id == BCM430x_RADIO_ID_NORF)
 		return -ENODEV;
-	
-	if (bcm->phy_type == BCM430x_PHYTYPE_A) {
+
+	switch (bcm->phy_type) {
+	case BCM430x_PHYTYPE_A:
 		bcm430x_radio_write16(bcm, 0x0004, 0x00FF);
 		bcm430x_radio_write16(bcm, 0x0005, 0x00FB);
 		bcm430x_phy_write(bcm, 0x0010, (bcm430x_phy_read(bcm, 0x0010) & 0xFFFF) | 0x0008);
 		bcm430x_phy_write(bcm, 0x0011, (bcm430x_phy_read(bcm, 0x0011) & 0xFFFF) | 0x0008);
-	} else {
+		break;
+	case BCM430x_PHYTYPE_B:
+	case BCM430x_PHYTYPE_G:
 		if (bcm->chip_rev < 5)
 			bcm430x_phy_write(bcm, 0x0015, 0xAA00);
 		else {
@@ -369,6 +379,10 @@ static int bcm430x_turn_radio_off(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x0812, bcm430x_phy_read(bcm, 0x0812) & 0xFF73);
 			/*FIXME: 'set of 0', as above */
 		}
+		break;
+	default:
+		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
+		return -1;
 	}
 	
 	return 0;
@@ -401,6 +415,7 @@ static int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 		bcm430x_ram_write(bcm, 0x0002, 0x0B00);
 		break;
 	default:
+		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
 		return -1;
 	}
 
