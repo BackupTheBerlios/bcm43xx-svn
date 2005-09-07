@@ -380,21 +380,27 @@ static int bcm430x_turn_radio_off(struct bcm430x_private *bcm)
  * Also I padded all values to 16 bit.
  * I finished doing it at 2:25 AM, so don't expect it works.
  */
-static void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
+static int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
 	short int i = 0x00;
 	short int j = 0x00;
 
-	if (bcm->phy_type == BCM430x_PHYTYPE_A) {
+	switch (bcm->phy_type) {
+	case BCM430x_PHYTYPE_A:
 		j = 0x1E;					// This is the exit condition for the loop below.
 		bcm430x_ram_write(bcm, 0x0000, 0xCC01);		// It was better to initialize it here than to put
 		bcm430x_ram_write(bcm, 0x0002, 0x0200);		// another if(bcm->phy_type...) below.
-		                                                // And it's BEFORE writes, just to not affect timing.
-	} else {
+		break;                                          // And it's BEFORE writes, just to not affect timing.
+	case BCM430x_PHYTYPE_B:
+	case BCM430x_PHYTYPE_G:
 		j = 0xFA;
 		bcm430x_ram_write(bcm, 0x0000, 0x6E84);
 		bcm430x_ram_write(bcm, 0x0002, 0x0B00);
+		break;
+	default:
+		return -1;
 	}
+
 	bcm430x_ram_write(bcm, 0x0004, 0x0000);
 	bcm430x_ram_write(bcm, 0x0006, 0xD400);
 	bcm430x_ram_write(bcm, 0x0008, 0x0000);
@@ -434,6 +440,8 @@ static void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 			break;
 		udelay(10);
 	}
+
+	return 0;
 }
 
 static void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
