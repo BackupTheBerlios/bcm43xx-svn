@@ -15,6 +15,8 @@ DEBUGFS_OBJ =
 CFLAGS += -O2 -DBCM430x_NDEBUG
 endif
 
+CFLAGS += -DBCM430x_VERSION=$(VERSION)
+
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 

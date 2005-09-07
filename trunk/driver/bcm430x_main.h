@@ -9,7 +9,7 @@
 #include <net/ieee80211.h>
 
 #define DRV_NAME			__stringify(KBUILD_MODNAME)
-#define DRV_VERSION			"0.0.1"
+#define DRV_VERSION			__stringify(BCM430x_VERSION)
 #define BCM430x_DRIVER_NAME		DRV_NAME " driver " DRV_VERSION
 #define PFX				DRV_NAME ": "
 
