@@ -298,8 +298,10 @@ static void bcm430x_clr_target_abort(struct bcm430x_private *bcm)
 
 static int bcm430x_turn_radio_on(struct bcm430x_private *bcm)
 {
-	if (bcm->radio_id == BCM430x_RADIO_ID_NORF)
+	if (bcm->radio_id == BCM430x_RADIO_ID_NORF) {
+		printk(KERN_ERR PFX "Error: No radio device found on chip!\n");
 		return -ENODEV;
+	}
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
