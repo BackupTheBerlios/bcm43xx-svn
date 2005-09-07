@@ -187,6 +187,7 @@
 #define BCM430x_IRQ_TBTT		(1 << 2) /*FIXME: purpose? */
 #define BCM430x_IRQ_REG124		(1 << 5) /*FIXME: purpose? */
 #define BCM430x_IRQ_PMQ			(1 << 6) /*FIXME: purpose? */
+#define BCM430x_IRQ_ACK			(1 << 15) /*FIXME: Is this correct? I guessed this, but it seems to work (Michael). */
 #define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
 #define BCM430x_IRQ_BGNOISE		(1 << 18)
 #define BCM430x_IRQ_XMIT_STATUS		(1 << 29)
@@ -281,7 +282,8 @@ struct bcm430x_coreinfo {
 	u8 index;
 };
 
-#define BCM430x_STAT_IRQ_ENABLED	(1 << 0)
+/* XXX: currently no driver STATUS values available. Coming soon... ;) */
+/*#define BCM430x_STAT_FOOBAR		(1 << 0)*/
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
@@ -327,6 +329,8 @@ struct bcm430x_private {
 
 	/* Reason code of the last interrupt. */
 	u32 irq_reason;
+	/* saved irq enable/disable state bitfield. */
+	u32 irq_savedstate;
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;

@@ -672,18 +672,30 @@ out:
 
 
 
-/* Enable IRQ handling. */
-static inline void bcm430x_interrupt_enable(struct bcm430x_private *bcm)
+/* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
+ * Returns the _previously_ enabled IRQ mask.
+ */
+static inline u32 bcm430x_interrupt_enable(struct bcm430x_private *bcm, u32 mask)
 {
-	bcm->status |= BCM430x_STAT_IRQ_ENABLED;
-	/*TODO: Poke the card to generate interrupts. */
+	u32 old_mask;
+
+	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask | mask);
+
+	return old_mask;
 }
 
-/* Disable IRQ handling. */
-static inline void bcm430x_interrupt_disable(struct bcm430x_private *bcm)
+/* Disable a Generic IRQ. "mask" is the mask of which IRQs to disable.
+ * Returns the _previously_ enabled IRQ mask.
+ */
+static inline u32 bcm430x_interrupt_disable(struct bcm430x_private *bcm, u32 mask)
 {
-	bcm->status &= ~ BCM430x_STAT_IRQ_ENABLED;
-	/*TODO: Stop the card from generating interrupts. */
+	u32 old_mask;
+
+	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask & ~mask);
+
+	return old_mask;
 }
 
 /* Interrupt handler bottom-half */
@@ -702,7 +714,7 @@ printk(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
 
 	/*TODO*/
 
-	bcm430x_interrupt_enable(bcm);
+	bcm430x_interrupt_enable(bcm, bcm->irq_savedstate);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
@@ -717,13 +729,16 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 
 	spin_lock(&bcm->lock);
 
-	if (!(bcm->status & BCM430x_STAT_IRQ_ENABLED))
-		goto err_none_unlock;
 	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
 	if (reason == 0xffffffff)
 		goto err_none_unlock; // irq not for us (shared irq)
 
-	/*TODO: ACK the IRQ */
+	/* disable all IRQs. They are enabled again in the bottom half. */
+	bcm->irq_savedstate = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+
+	/* ACK the IRQ */
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON,
+			reason | BCM430x_IRQ_ACK);
 
 	/* save the reason code and call our bottom half. */
 	bcm->irq_reason = reason;
@@ -819,7 +834,7 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 		}
 		udelay(10);
 	}
-	/* TODO? */
+
 	return 0;
 }
 
@@ -1464,7 +1479,9 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		goto err_freeboard;
 	}
 	pci_set_drvdata(pdev, net_dev);
-	bcm430x_interrupt_enable(bcm);
+
+	/*FIXME: Which interrupts do we have to enable? _Really_ all? */
+	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_ALL);
 
 	bcm430x_debugfs_add_device(bcm);
 
@@ -1484,6 +1501,7 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 
 	bcm430x_debugfs_remove_device(bcm);
 
+	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
 	bcm430x_free_board(bcm);
 	if (net_dev) {
 		unregister_netdev(net_dev);
