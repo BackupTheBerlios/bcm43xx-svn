@@ -676,7 +676,6 @@ static inline void bcm430x_interrupt_enable(struct bcm430x_private *bcm)
 {
 	bcm->status |= BCM430x_STAT_IRQ_ENABLED;
 	/*TODO: Poke the card to generate interrupts. */
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, 0xffffffff);
 }
 
 /* Disable IRQ handling. */
