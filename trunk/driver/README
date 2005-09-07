@@ -20,3 +20,9 @@ Requirements
 
 2) 	IEEE80211 subsystem
 	http://ieee80211.sourceforge.net/
+	NOTE: on some systems you may need to:
+		ln -s /usr/include/net/ieee80211.h \
+		/lib/modules/`uname -r`/build/include/net/ieee80211.h; \
+		ln -s /usr/include/net/ieee80211_crypt.h \
+		/lib/modules/`uname -r`/build/include/net/ieee80211_crypt.h
+	      in order to build the module.
