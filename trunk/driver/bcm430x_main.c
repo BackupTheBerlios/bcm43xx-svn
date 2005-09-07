@@ -146,6 +146,12 @@ static void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
 	bcm430x_write16(bcm, BCM430x_MMIO_PHY_DATA, val);
 }
 
+static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
+{
+	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
+	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, val);
+}
+
 static void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
 {
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_CONTROL, control);
@@ -366,6 +372,68 @@ static int bcm430x_turn_radio_off(struct bcm430x_private *bcm)
 	}
 	
 	return 0;
+}
+
+/* DummyTransmission function, as documented on 
+ * http://bcm-specs.sipsolutions.net/DummyTransmission
+ * Where register width wasn't specified, I used 16 bit read/writes.
+ * Also I padded all values to 16 bit.
+ * I finished doing it at 2:25 AM, so don't expect it works.
+ */
+static void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
+{
+	short int i = 0x00;
+	short int j = 0x00;
+
+	if (bcm->phy_type == BCM430x_PHYTYPE_A) {
+		j = 0x1E;					// This is the exit condition for the loop below.
+		bcm430x_ram_write(bcm, 0x0000, 0xCC01);		// It was better to initialize it here than to put
+		bcm430x_ram_write(bcm, 0x0002, 0x0200);		// another if(bcm->phy_type...) below.
+		                                                // And it's BEFORE writes, just to not affect timing.
+	} else {
+		j = 0xFA;
+		bcm430x_ram_write(bcm, 0x0000, 0x6E84);
+		bcm430x_ram_write(bcm, 0x0002, 0x0B00);
+	}
+	bcm430x_ram_write(bcm, 0x0004, 0x0000);
+	bcm430x_ram_write(bcm, 0x0006, 0xD400);
+	bcm430x_ram_write(bcm, 0x0008, 0x0000);
+	bcm430x_ram_write(bcm, 0x000A, 0x0000);
+	bcm430x_ram_write(bcm, 0x000C, 0x0000);
+	bcm430x_ram_write(bcm, 0x000E, 0x0001);
+	bcm430x_ram_write(bcm, 0x0010, 0x0000);
+	bcm430x_ram_write(bcm, 0x0012, 0x0000);
+
+	bcm430x_read32(bcm, 0x0120);
+	bcm430x_write16(bcm, 0x0568, 0x0000);
+	bcm430x_write16(bcm, 0x07C0, 0x0000);
+	if (bcm->phy_type == BCM430x_PHYTYPE_A)
+		bcm430x_write16(bcm, 0x0000, 0x050C);
+	else
+		bcm430x_write16(bcm, 0x0001, 0x050C);
+	bcm430x_write16(bcm, 0x0508, 0x0000);
+	bcm430x_write16(bcm, 0x050A, 0x0000);
+	bcm430x_write16(bcm, 0x054C, 0x0000);
+	bcm430x_write16(bcm, 0x056A, 0x0014);
+	bcm430x_write16(bcm, 0x0568, 0x0826);
+	bcm430x_write16(bcm, 0x0500, 0x0000);
+	bcm430x_write16(bcm, 0x0502, 0x0030);
+
+	for (i = 0x00; i < j; i++) {
+		if (bcm430x_read16(bcm, 0x050E) != 0 && bcm430x_read16(bcm,0x0080) != 0) 
+			break;
+		udelay(10);
+	}
+	for (i = 0x00; i < 0x0A; i++) {
+		if (bcm430x_read16(bcm, 0x050E) != 0 && bcm430x_read16(bcm,0x0400) != 0) 
+			break;
+		udelay(10);
+	}
+	for (i = 0x00; i < 0x0A; i++) {
+		if (bcm430x_read16(bcm, 0x0690) != 0 && bcm430x_read16(bcm,0x0100) != 0) 
+			break;
+		udelay(10);
+	}
 }
 
 static void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
