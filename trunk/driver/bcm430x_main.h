@@ -254,6 +254,12 @@
 	} while (0)
 #endif
 
+/* DMA descriptor field to post on the chip. */
+struct bcm430x_dmadesc {
+	u32 control;
+	u32 address;
+} __attribute__((__packed__));
+
 struct net_device;
 struct pci_dev;
 
