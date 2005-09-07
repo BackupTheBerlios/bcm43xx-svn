@@ -344,6 +344,7 @@ static int bcm430x_turn_radio_on(struct bcm430x_private *bcm)
         case BCM430x_PHYTYPE_G:
 		bcm430x_phy_write(bcm, 0x0015, 0x8000);
 		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
+printk(KERN_INFO PFX "turn_radio_on() FIXME\n");
 #if 0		
 		/*FIXME: currentPHY isn't documented yet */
 		if (currentPHY)
@@ -357,6 +358,7 @@ static int bcm430x_turn_radio_on(struct bcm430x_private *bcm)
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
 		return -1;
 	}
+printk(KERN_INFO PFX "radio turned on\n");
 
 	return 0;
 }
@@ -796,6 +798,15 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 err_none_unlock:
 	spin_unlock(&bcm->lock);
 	return IRQ_NONE;
+}
+
+static int bcm430x_dma_init(struct bcm430x_private *bcm)
+{/*TODO*/
+	return 0;
+}
+
+static void bcm430x_dma_free(struct bcm430x_private *bcm)
+{/*TODO*/
 }
 
 static void bcm430x_write_microcode(struct bcm430x_private *bcm,
@@ -1460,12 +1471,20 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	err = bcm430x_write_initvals(bcm);
 	if (err)
 		goto err_chip_cleanup;
+	err = bcm430x_turn_radio_on(bcm);
+	if (err)
+		goto err_chip_cleanup;
+	err = bcm430x_dma_init(bcm);
+	if (err)
+		goto err_radio_off;
 
 	*bcm_out = bcm;
 	assert(err == 0);
 out:
 	return err;
 
+err_radio_off:
+	bcm430x_turn_radio_off(bcm);
 err_chip_cleanup:
 	bcm430x_chip_cleanup(bcm);
 err_iounmap:
@@ -1484,6 +1503,8 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
 	struct pci_dev *pci_dev = bcm->pci_dev;
 
+	bcm430x_dma_free(bcm);
+	bcm430x_turn_radio_off(bcm);
 	bcm430x_chip_cleanup(bcm);
 
 	bcm430x_pctl_set_crystal(bcm, 0);
