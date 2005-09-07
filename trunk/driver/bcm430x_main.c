@@ -384,15 +384,18 @@ static int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
 	short int i = 0x00;
 	short int j = 0x00;
+	short int packet_number;
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
+		packet_number = 0;
 		j = 0x1E;					// This is the exit condition for the loop below.
 		bcm430x_ram_write(bcm, 0x0000, 0xCC01);		// It was better to initialize it here than to put
 		bcm430x_ram_write(bcm, 0x0002, 0x0200);		// another if(bcm->phy_type...) below.
 		break;                                          // And it's BEFORE writes, just to not affect timing.
 	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
+		packet_number = 1;
 		j = 0xFA;
 		bcm430x_ram_write(bcm, 0x0000, 0x6E84);
 		bcm430x_ram_write(bcm, 0x0002, 0x0B00);
@@ -411,12 +414,10 @@ static int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	bcm430x_ram_write(bcm, 0x0012, 0x0000);
 
 	bcm430x_read32(bcm, 0x0120);
+
 	bcm430x_write16(bcm, 0x0568, 0x0000);
 	bcm430x_write16(bcm, 0x07C0, 0x0000);
-	if (bcm->phy_type == BCM430x_PHYTYPE_A)
-		bcm430x_write16(bcm, 0x0000, 0x050C);
-	else
-		bcm430x_write16(bcm, 0x0001, 0x050C);
+	bcm430x_write16(bcm, packet_number, 0x050C);
 	bcm430x_write16(bcm, 0x0508, 0x0000);
 	bcm430x_write16(bcm, 0x050A, 0x0000);
 	bcm430x_write16(bcm, 0x054C, 0x0000);
