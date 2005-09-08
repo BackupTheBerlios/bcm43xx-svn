@@ -1,0 +1,8 @@
+AC_INIT(fwcutter.c)
+AM_INIT_AUTOMAKE(fwcutter, 0.0.1)
+
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_STDC_HEADERS
+
+AC_OUTPUT(Makefile)
