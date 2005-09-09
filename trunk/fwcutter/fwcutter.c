@@ -109,9 +109,7 @@ static void extract_fw(const char *infile, const char *outfile, int byteorder, u
 	}
 }
 
-int main(argc, argv)
-  int argc; 
-  char *argv[];
+int main(int argc, char *argv[])
 {
 	unsigned char buffer[16384], signature[16];
 	char md5sig[33];
@@ -188,15 +186,3 @@ int main(argc, argv)
 
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
