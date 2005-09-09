@@ -1246,31 +1246,47 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 		switch (core_id) {
 		case BCM430x_COREID_PCI:
+			if (bcm->core_pci.flags & BCM430x_COREFLAG_AVAILABLE) {
+				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
+				break;
+			}
 			bcm->core_pci.flags |= BCM430x_COREFLAG_AVAILABLE;
 			bcm->core_pci.id = core_id;
 			bcm->core_pci.rev = core_rev;
 			bcm->core_pci.index = current_core;
 			break;
 		case BCM430x_COREID_V90:
+			if (bcm->core_v90.flags & BCM430x_COREFLAG_AVAILABLE) {
+				printk(KERN_WARNING PFX "Multiple V90 cores found.\n");
+				break;
+			}
 			bcm->core_v90.flags |= BCM430x_COREFLAG_AVAILABLE;
 			bcm->core_v90.id = core_id;
 			bcm->core_v90.rev = core_rev;
 			bcm->core_v90.index = current_core;
 			break;
 		case BCM430x_COREID_PCMCIA:
+			if (bcm->core_pcmcia.flags & BCM430x_COREFLAG_AVAILABLE) {
+				printk(KERN_WARNING PFX "Multiple PCMCIA cores found.\n");
+				break;
+			}
 			bcm->core_pcmcia.flags |= BCM430x_COREFLAG_AVAILABLE;
 			bcm->core_pcmcia.id = core_id;
 			bcm->core_pcmcia.rev = core_rev;
 			bcm->core_pcmcia.index = current_core;
 			break;
 		case BCM430x_COREID_80211:
+			if (bcm->core_80211.flags & BCM430x_COREFLAG_AVAILABLE) {
+				printk(KERN_WARNING PFX "Multiple 802.11 cores found.\n");
+				break;
+			}
 			bcm->core_80211.flags |= BCM430x_COREFLAG_AVAILABLE;
 			bcm->core_80211.id = core_id;
 			bcm->core_80211.rev = core_rev;
 			bcm->core_80211.index = current_core;
 			break;
 		case BCM430x_COREID_CHIPCOMMON:
-			printk(KERN_WARNING PFX "Strange, another chipcommon core found.\n");
+			printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");
 			break;
 		default:
 			printk(KERN_WARNING PFX "Unknown core found (ID 0x%x)\n", core_id);
