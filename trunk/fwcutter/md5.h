@@ -16,10 +16,8 @@
     insures we work on new platforms regardless of their byte
     order.  */
 
-#define HIGHFIRST
-
-#ifdef __i386__
-#undef HIGHFIRST
+#ifdef BIG_ENDIAN_CPU
+# define HIGHFIRST
 #endif
 
 /*  On machines where "long" is 64 bits, we need to declare

@@ -6,19 +6,24 @@ LDFLAGS =
 
 OBJECTS = fwcutter.o md5.o
 
+CFLAGS += $(shell if [ -x ./.get_endianess ]; then ./.get_endianess; fi)
+
 all: fwcutter
 
-fwcutter: $(OBJECTS)
+fwcutter: get_endianess $(OBJECTS)
 	$(CC) $(CFLAGS) -o fwcutter $(OBJECTS) $(LDFLAGS)
 
 install: all
 	-cp fwcutter $(PREFIX)/bin
 
 clean:
-	-rm -f *~ *.o *.orig *.rej
+	-rm -f *~ *.o *.orig *.rej .get_endianess
 
 distclean: clean
 	-rm -f fwcutter
+
+get_endianess: get_endianess.o
+	$(CC) $(CFLAGS) -o .get_endianess get_endianess.o
 
 # dependencies
 fwcutter.o: md5.h fwcutter_list.h
