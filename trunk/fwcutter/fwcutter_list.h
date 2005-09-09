@@ -75,6 +75,21 @@ static const struct file {
 		.pcm5_pos    = 0x4bf38,
 		.pcm5_length = 0x477,
 	},
+	{ 
+		.version     = "3.100.46.0",                            /* bcmwl5.sys  12/22/2004 */
+		.md5         = "38ca1443660d0f5f06887c6a2e692aeb", 
+		.byteorder   = BYTE_ORDER_DDCCBBAA,
+		.uc2_pos     = 0x41af0,
+		.uc2_length  = 0x3f58,
+		.uc4_pos     = 0x45a50, 
+		.uc4_length  = 0x4df8,
+		.uc5_pos     = 0x4a850, 
+		.uc5_length  = 0x57f7,
+		.pcm4_pos    = 0x50050,
+		.pcm4_length = 0x51f,
+		.pcm5_pos    = 0x50578,
+		.pcm5_length = 0x51f,
+	},
 };
 
 #define FILES (sizeof(files) / sizeof(files[0]))
