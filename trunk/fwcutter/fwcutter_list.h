@@ -1,7 +1,7 @@
 
 static const struct file {
 	const char *version;
-	const unsigned char *md5;
+	const char *md5;
 	const int byteorder;
 	const uint32 uc2_pos;
 	const uint32 uc2_length;

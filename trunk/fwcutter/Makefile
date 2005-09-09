@@ -1,6 +1,6 @@
 CC = cc
 PREFIX = /usr
-CFLAGS = -O2 -Wall
+CFLAGS = -std=c99 -O2 -Wall -pedantic -D_BSD_SOURCE
 LDFLAGS =
 
 
