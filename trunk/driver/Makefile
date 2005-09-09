@@ -3,6 +3,11 @@
 VERSION		:= 0.0.1
 RELEASE_NAME	:= bcm430x-$(VERSION)
 
+KVER		:= $(shell uname -r)
+KDIR		?= /lib/modules/$(KVER)/build
+PWD		:= $(shell pwd)
+MODPATH		:= $(DESTDIR)/lib/modules/$(KVER)/kernel/drivers/net/bcm430
+
 # Comment/uncomment to enable/disable debugging
 DEBUG = y
 
@@ -25,13 +30,19 @@ bcm430x-objs := bcm430x_main.o $(DEBUGFS_OBJ) bcm430x_initvals.o bcm430x_ucode.o
 
 else
 
-KDIR	?= /lib/modules/$(shell uname -r)/build
-PWD	:= $(shell pwd)
-
 default: modules
 
 modules:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+install: bcm430x.ko
+	install -d $(MODPATH)
+	install -m 644 -c bcm430x.ko $(MODPATH)
+	/sbin/depmod -a
+
+uninstall:
+	rm -rf $(MODPATH)
+	/sbin/depmod -a
 
 endif
 
