@@ -67,6 +67,49 @@ static void write_fw(const char *infilename, const char *outfilename, int byteor
 	fclose(fw);
 }
 
+static void write_iv(const char *infilename, int byteorder, byte *data)
+{
+	FILE* fw;
+	char ivfilename[8];
+	int i;
+
+	for (i = 1; i <= 10; i++) {
+
+		sprintf(ivfilename, "initval%02d.fw", i);
+		fw = fopen(ivfilename, "w");
+
+		if (!fw) {
+			perror(ivfilename);
+			exit(1);
+		}
+
+		printf("extracting %s ...\n", ivfilename);
+
+		while (1) {
+
+			if ((data[0]==0xff) && (data[1]==0xff) && (data[2]==0x00) && (data[3]==0x00)) {
+				data = data + 8;
+				break;
+			}
+
+			switch(byteorder) {
+			case BYTE_ORDER_DDCCBBAA:
+				fprintf(fw, "%02x%02x%02x%02x%02x%02x%02x%02x\n",
+					data[1], data[0], data[3], data[2], data[7], data[6], data[5], data[4]);
+				break;
+			case BYTE_ORDER_UNKNOWN:
+			default:
+				printf("unknown byteorder...\n");
+				exit(1);
+			}
+
+			data = data + 8;
+		}
+		fflush(fw);
+		fclose(fw);
+	}
+}
+
 static byte* read_file(const char* filename)
 {
 	FILE* file;
@@ -107,6 +150,15 @@ static void extract_fw(const char *infile, const char *outfile, int byteorder, u
 		write_fw(infile, outfile, byteorder, filedata + pos, length);
 		free(filedata);
 	}
+}
+
+static void extract_iv(const char *infile, int byteorder, uint32 pos)
+{
+	byte* filedata;
+
+	filedata = read_file(infile);
+	write_iv(infile, byteorder, filedata + pos);
+	free(filedata);
 }
 
 int main(int argc, char *argv[])
@@ -159,6 +211,7 @@ int main(int argc, char *argv[])
 						extract_fw(cp, "microcode5.fw", files[i].byteorder, files[i].uc5_pos, files[i].uc5_length);
 						extract_fw(cp, "pcm4.fw", files[i].byteorder, files[i].pcm4_pos, files[i].pcm4_length);
 						extract_fw(cp, "pcm5.fw", files[i].byteorder, files[i].pcm5_pos, files[i].pcm5_length);
+						extract_iv(cp, files[i].byteorder, files[i].iv_pos);
 						++count;
 					}
 				}
