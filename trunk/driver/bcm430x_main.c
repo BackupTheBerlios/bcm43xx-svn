@@ -1536,7 +1536,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 				      const struct pci_device_id *ent)
 {
 	struct net_device *net_dev = NULL;
-	struct bcm430x_private *bcm;
+	struct bcm430x_private *bcm = NULL;
 	int err;
 	u8 pci_rev;
 
