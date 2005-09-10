@@ -1,5 +1,24 @@
-aclocal
-automake --foreign --add-missing --copy
-autoconf
-./configure
-make
+			BCM43XX Linux Driver Project
+			============================
+
+
+About this software
+-------------------
+
+fwcutter is a tool which can extract firmware from various source files.
+It's written for BCM43xx driver files.
+
+The project page is http://bcm43xx.berlios.de/
+
+
+Usage
+-----
+
+fwcutter -iFILE 	extracts the firmware from a source FILE.
+fwcutter -l		prints a list of supported driver source files.
+
+Where can I find some driver source files?
+
+bcmwl5.sys	Link
+--------------------------------------------------------------------
+3.100.46.0	ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/80211g.zip
