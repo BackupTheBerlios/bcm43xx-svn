@@ -27,10 +27,8 @@
 
 */
 
+u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset);
+void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
 
-u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
-
-u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val);
-
+int bcm430x_radio_turn_on(struct bcm430x_private *bcm);
+int bcm430x_radio_turn_off(struct bcm430x_private *bcm);

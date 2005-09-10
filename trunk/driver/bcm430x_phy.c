@@ -27,10 +27,21 @@
 
 */
 
+#include <linux/types.h>
 
-u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
+#include "bcm430x.h"
+#include "bcm430x_phy.h"
+#include "bcm430x_main.h"
 
-u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val);
 
+u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset)
+{
+	bcm430x_write16(bcm, BCM430x_MMIO_PHY_CONTROL, offset);
+	return bcm430x_read16(bcm, BCM430x_MMIO_PHY_DATA);
+}
+
+void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
+{
+	bcm430x_write16(bcm, BCM430x_MMIO_PHY_CONTROL, offset);
+	bcm430x_write16(bcm, BCM430x_MMIO_PHY_DATA, val);
+}

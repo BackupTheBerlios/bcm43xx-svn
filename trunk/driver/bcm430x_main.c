@@ -5,6 +5,7 @@
   Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
                      Stefano Brivio <st3@riseup.net>
                      Michael Buesch <mbuesch@freenet.de>
+                     Danny van Dyk <kugelfang@gentoo.org>
 
   Some parts of the code in this file are derived from the ipw2200
   driver  Copyright(c) 2003 - 2004 Intel Corporation.
@@ -34,10 +35,13 @@
 #include <linux/etherdevice.h>
 #include <linux/version.h>
 
+#include "bcm430x.h"
 #include "bcm430x_main.h"
 #include "bcm430x_ucode.h"
 #include "bcm430x_initvals.h"
 #include "bcm430x_debugfs.h"
+#include "bcm430x_radio.h"
+#include "bcm430x_phy.h"
 
 #ifdef dprintk
 # undef dprintk
@@ -107,7 +111,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 };
 
 
-static u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
+u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 {
 	u16 val;
 
@@ -116,13 +120,13 @@ static u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 	return val;
 }
 
-static void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
+void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
 	iowrite16(val, bcm->mmio_addr + offset);
 //	dprintk(KERN_INFO PFX "write 16  0x%04x  0x%04x\n", offset, val);
 }
 
-static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
+u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 {
 	u32 val;
 
@@ -131,23 +135,12 @@ static u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 	return val;
 }
 
-static void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
+void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
 	iowrite32(val, bcm->mmio_addr + offset);
 //	dprintk(KERN_INFO PFX "write 32  0x%04x  0x%08x\n", offset, val);
 }
 
-static u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset)
-{
-	bcm430x_write16(bcm, BCM430x_MMIO_PHY_CONTROL, offset);
-	return bcm430x_read16(bcm, BCM430x_MMIO_PHY_DATA);
-}
-
-static void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
-{
-	bcm430x_write16(bcm, BCM430x_MMIO_PHY_CONTROL, offset);
-	bcm430x_write16(bcm, BCM430x_MMIO_PHY_DATA, val);
-}
 
 static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
@@ -168,35 +161,6 @@ static u32 bcm430x_shm_read32(struct bcm430x_private *bcm)
 static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
 {
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, val);
-}
-
-static u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
-{
-	if (bcm->phy_type == BCM430x_PHYTYPE_A)
-		offset |= 0x40;
-	else if (bcm->phy_type == BCM430x_PHYTYPE_B) {
-		switch (bcm->radio_id & 0x0FFFF000) {
-			case 0x02053000:
-				if (offset < 0x70)
-					offset += 0x80;
-				else if (offset < 0x80)
-					offset += 0x70;
-			break;
-			case 0x02050000:
-				offset |= 0x80;
-			break;
-		}
-	} else if (bcm->phy_type == BCM430x_PHYTYPE_G)
-		offset |= 0x80;
-	
-	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
-	return bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA);
-}
-
-static void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
-{
-	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
-	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_DATA, val);
 }
 
 static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
@@ -296,103 +260,6 @@ static void bcm430x_clr_target_abort(struct bcm430x_private *bcm)
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
 	pci_status &= ~ PCI_STATUS_SIG_TARGET_ABORT;
 	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status);
-}
-
-static int bcm430x_turn_radio_on(struct bcm430x_private *bcm)
-{
-	if (bcm->radio_id == BCM430x_RADIO_ID_NORF) {
-		printk(KERN_ERR PFX "Error: No radio device found on chip!\n");
-		return -ENODEV;
-	}
-
-	switch (bcm->phy_type) {
-	case BCM430x_PHYTYPE_A:
-		bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
-		bcm430x_radio_write16(bcm, 0x0005, 0x0008);
-		bcm430x_phy_write(bcm, 0x0010, bcm430x_phy_read(bcm, 0x0010) & 0xFFF7);
-		bcm430x_phy_write(bcm, 0x0011, bcm430x_phy_read(bcm, 0x0011) & 0xFFF7);
-		bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
-		bcm430x_radio_write16(bcm, 0x0005, 0x0008);
-		bcm430x_radio_write16(bcm, 0x0009, 0x0040);
-		bcm430x_radio_write16(bcm, 0x0005, 0x00AA);
-		bcm430x_radio_write16(bcm, 0x0032, 0x008F);
-		bcm430x_radio_write16(bcm, 0x0006, 0x008F);
-		bcm430x_radio_write16(bcm, 0x0034, 0x008F);
-		bcm430x_radio_write16(bcm, 0x002C, 0x0007);
-		bcm430x_radio_write16(bcm, 0x0082, 0x0080);
-		bcm430x_radio_write16(bcm, 0x0080, 0x0000);
-		bcm430x_radio_write16(bcm, 0x003F, 0x00DA);
-		bcm430x_radio_write16(bcm, 0x0005, bcm430x_radio_read16(bcm, 0x0005) & 0x0008);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0010);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0020);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0020);
-		udelay(400);
-		bcm430x_radio_write16(bcm, 0x0081, (bcm430x_radio_read16(bcm, 0x0081) & 0x0020) | 0x0010);
-		udelay(400);
-		bcm430x_radio_write16(bcm, 0x0005, (bcm430x_radio_read16(bcm, 0x0005) & 0x0008) | 0x0008);
-		bcm430x_radio_write16(bcm, 0x0085, bcm430x_radio_read16(bcm, 0x0085) & 0x0010);
-		bcm430x_radio_write16(bcm, 0x0005, bcm430x_radio_read16(bcm, 0x0005) & 0x0008);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0040);
-		bcm430x_radio_write16(bcm, 0x0081, (bcm430x_radio_read16(bcm, 0x0081) & 0x0040) | 0x0040);
-		bcm430x_radio_write16(bcm, 0x0005, (bcm430x_radio_read16(bcm, 0x0081) & 0x0008) | 0x0008);
-		/*FIXME: specs specify a set (or'ing) of '0' for some of these values, but this doesn't make sense */	
-		bcm430x_phy_write(bcm, 0x0063, 0xDDC6);
-		bcm430x_phy_write(bcm, 0x0069, 0x07BE);
-		bcm430x_phy_write(bcm, 0x006A, 0x0000);
-		/*TODO: set to the default starting channel */
-		udelay(1000);
-		break;
-        case BCM430x_PHYTYPE_B:
-        case BCM430x_PHYTYPE_G:
-		bcm430x_phy_write(bcm, 0x0015, 0x8000);
-		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
-printk(KERN_INFO PFX "turn_radio_on() FIXME\n");
-#if 0		
-		/*FIXME: currentPHY isn't documented yet */
-		if (currentPHY)
-			bcm430x_phy_write(bcm, 0x0015, 0x00C0);
-		else
-			bcm430x_phy_write(bcm, 0x0015, 0x0000);
-#endif
-		/*TODO: set to the default starting channel */
-		break;
-	default:
-		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
-		return -1;
-	}
-printk(KERN_INFO PFX "radio turned on\n");
-
-	return 0;
-}
-	
-static int bcm430x_turn_radio_off(struct bcm430x_private *bcm)
-{
-	if (bcm->radio_id == BCM430x_RADIO_ID_NORF)
-		return -ENODEV;
-
-	switch (bcm->phy_type) {
-	case BCM430x_PHYTYPE_A:
-		bcm430x_radio_write16(bcm, 0x0004, 0x00FF);
-		bcm430x_radio_write16(bcm, 0x0005, 0x00FB);
-		bcm430x_phy_write(bcm, 0x0010, (bcm430x_phy_read(bcm, 0x0010) & 0xFFFF) | 0x0008);
-		bcm430x_phy_write(bcm, 0x0011, (bcm430x_phy_read(bcm, 0x0011) & 0xFFFF) | 0x0008);
-		break;
-	case BCM430x_PHYTYPE_B:
-	case BCM430x_PHYTYPE_G:
-		if (bcm->chip_rev < 5)
-			bcm430x_phy_write(bcm, 0x0015, 0xAA00);
-		else {
-			bcm430x_phy_write(bcm, 0x0811, (bcm430x_phy_read(bcm, 0x0811) & 0xFFFF) | 0x008C);
-			bcm430x_phy_write(bcm, 0x0812, bcm430x_phy_read(bcm, 0x0812) & 0xFF73);
-			/*FIXME: 'set of 0', as above */
-		}
-		break;
-	default:
-		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
-		return -1;
-	}
-	
-	return 0;
 }
 
 /* DummyTransmission function, as documented on 
@@ -1489,7 +1356,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	err = bcm430x_write_initvals(bcm);
 	if (err)
 		goto err_chip_cleanup;
-	err = bcm430x_turn_radio_on(bcm);
+	err = bcm430x_radio_turn_on(bcm);
 	if (err)
 		goto err_chip_cleanup;
 	err = bcm430x_dma_init(bcm);
@@ -1502,7 +1369,7 @@ out:
 	return err;
 
 err_radio_off:
-	bcm430x_turn_radio_off(bcm);
+	bcm430x_radio_turn_off(bcm);
 err_chip_cleanup:
 	bcm430x_chip_cleanup(bcm);
 err_iounmap:
@@ -1522,7 +1389,7 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	struct pci_dev *pci_dev = bcm->pci_dev;
 
 	bcm430x_dma_free(bcm);
-	bcm430x_turn_radio_off(bcm);
+	bcm430x_radio_turn_off(bcm);
 	bcm430x_chip_cleanup(bcm);
 
 	bcm430x_pctl_set_crystal(bcm, 0);
