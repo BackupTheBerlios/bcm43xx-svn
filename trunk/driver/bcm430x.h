@@ -215,6 +215,9 @@
 #define BCM430x_DMADTOR_FRAMEEND		(1 << 30)
 #define BCM430x_DMADTOR_FRAMESTART		(1 << 31)
 
+#define BCM430x_TXRING_SLOTS			256
+#define BCM430x_RXRING_SLOTS			256
+
 
 #ifdef assert
 # undef assert
@@ -240,6 +243,7 @@
 
 struct net_device;
 struct pci_dev;
+struct bcm430x_dmaring;
 
 struct bcm430x_sprominfo {
 	u16 boardflags;
@@ -319,6 +323,10 @@ struct bcm430x_private {
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;
+
+	/* DMA */
+	struct bcm430x_dmaring *tx_ring;
+	struct bcm430x_dmaring *rx_ring;
 };
 
 static inline

@@ -43,6 +43,7 @@
 #include "bcm430x_debugfs.h"
 #include "bcm430x_radio.h"
 #include "bcm430x_phy.h"
+#include "bcm430x_dma.h"
 
 #ifdef dprintk
 # undef dprintk
@@ -671,12 +672,44 @@ err_none_unlock:
 }
 
 static int bcm430x_dma_init(struct bcm430x_private *bcm)
-{/*TODO*/
-	return 0;
+{
+	int err = -ENOMEM;
+
+	bcm->tx_ring = bcm430x_alloc_dmaring(bcm, BCM430x_TXRING_SLOTS,
+					     BCM430x_MMIO_DMA2_BASE, 1);
+	if (!bcm->tx_ring)
+		goto out;
+	bcm->rx_ring = bcm430x_alloc_dmaring(bcm, BCM430x_RXRING_SLOTS,
+					     BCM430x_MMIO_DMA1_BASE, 0);
+	if (!bcm->rx_ring)
+		goto err_free_tx;
+
+	err = bcm430x_post_dmaring(bcm->tx_ring);
+	if (err)
+		goto err_free_rx;
+	err = bcm430x_post_dmaring(bcm->rx_ring);
+	if (err)
+		goto err_unpost_tx;
+
+printk(KERN_INFO PFX "DMA initialized.\n");
+out:
+	return err;
+
+err_unpost_tx:
+	bcm430x_unpost_dmaring(bcm->tx_ring);
+err_free_rx:
+	bcm430x_free_dmaring(bcm->rx_ring);
+err_free_tx:
+	bcm430x_free_dmaring(bcm->tx_ring);
+	goto out;
 }
 
 static void bcm430x_dma_free(struct bcm430x_private *bcm)
-{/*TODO*/
+{
+	bcm430x_unpost_dmaring(bcm->rx_ring);
+	bcm430x_unpost_dmaring(bcm->tx_ring);
+	bcm430x_free_dmaring(bcm->rx_ring);
+	bcm430x_free_dmaring(bcm->tx_ring);
 }
 
 static void bcm430x_write_microcode(struct bcm430x_private *bcm,
