@@ -6,6 +6,7 @@
                      Stefano Brivio <st3@riseup.net>
                      Michael Buesch <mbuesch@freenet.de>
                      Danny van Dyk <kugelfang@gentoo.org>
+                     Andreas Jaggi <andreas.jaggi@waterwave.ch>
 
   Some parts of the code in this file are derived from the ipw2200
   driver  Copyright(c) 2003 - 2004 Intel Corporation.
@@ -543,7 +544,136 @@ out:
 	return err;
 }
 
+/* get min slowclock frequency
+ * as described in http://bcm-specs.sipsolutions.net/PowerControl
+ */
+static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
+{
+	int err;
+	u32 cap, out, slow_clk_ctl;
+	struct bcm430x_coreinfo *old_core;
 
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+
+	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
+		bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap);
+		if (cap & BCM430x_CAPABILITIES_PCTLMASK) {
+			if ( bcm->current_core->rev < 6 ) {
+				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
+				if ( out & 0x10 ) {
+					/* PCI */
+					return 25000000/64;
+				} else {
+					/* XTAL */
+					return 19800000/32;
+				}
+			} else {
+				// FIXME: chipcommon slow_clk_ctl not yet documented
+				//bcm430x_pci_read_config_32(bcm->pci_dev, ChipCommon slow_clk_ctl register, &slow_clk_ctl);
+				switch ( slow_clk_ctl & 0x7 ) {
+				case 0:
+				case 1:
+					/* LPO */
+					return 25000;
+					break;
+				case 2:
+					/* XTAL */
+					return 19800000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+					break;
+				case 3:
+				default:
+					/* PCI */
+					return 25000000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+					break;
+				}
+			}
+		}
+	}
+
+	err = bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+
+	return -1;
+}
+
+/* get max slowclock frequency
+ * as described in http://bcm-specs.sipsolutions.net/PowerControl
+ */
+static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
+{
+	int err;
+	u32 cap, out;
+	u32 slow_clk_ctl = 0;
+	struct bcm430x_coreinfo *old_core;
+
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+
+	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
+		bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap);
+		if (cap & BCM430x_CAPABILITIES_PCTLMASK) {
+			if ( bcm->current_core->rev < 6 ) {
+				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
+				if ( out & 0x10 ) {
+					/* PCI */
+					return 34000000/64;
+				} else {
+					/* XTAL */
+					return 20200000/32;
+				}
+			} else {
+				// FIXME: chipcommon slow_clk_ctl not yet documented
+				//bcm430x_pci_read_config_32(bcm->pci_dev, ChipCommon slow_clk_ctl register, &slow_clk_ctl);
+				switch ( slow_clk_ctl & 0x7 ) {
+				case 0:
+				case 1:
+					/* LPO */
+					return 43000;
+					break;
+				case 2:
+					/* XTAL */
+					return 20200000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+					break;
+				case 3:
+				default:
+					/* PCI */
+					return 34000000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+					break;
+				}
+			}
+		}
+	}
+
+	err = bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+
+	return -1;
+}
+
+/* init power control
+ * as described in http://bcm-specs.sipsolutions.net/PowerControl
+ */
+void bcm430x_pctl_init(struct bcm430x_private *bcm)
+{
+	int err, maxfreq;
+	u32 cap;
+	struct bcm430x_coreinfo *old_core;
+
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+
+	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
+		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
+			maxfreq = bcm430x_pctl_get_maxslowclk(bcm);
+			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_IN, (maxfreq*250+999999)/1000000);
+			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, (maxfreq*250+999999)/1000000);
+		}
+	}
+
+	err = bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+}
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.

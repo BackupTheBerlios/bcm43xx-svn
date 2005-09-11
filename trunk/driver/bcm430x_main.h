@@ -36,3 +36,6 @@ void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
 
 u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val);
+
+void bcm430x_pctl_init(struct bcm430x_private *bcm);
+int bcm430x_dummy_transmission(struct bcm430x_private *bcm);

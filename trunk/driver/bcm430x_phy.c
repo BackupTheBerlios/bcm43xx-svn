@@ -140,7 +140,7 @@ static int bcm430x_phy_initb2(struct bcm430x_private *bcm) {
 		bcm430x_phy_write(bcm, 0x88C2, 0x002A);
 	}
 	//FIXME: set transmission power
-	//FIXME: initialize power control
+	bcm430x_pctl_init(bcm);
 	
 	return 0;
 }
