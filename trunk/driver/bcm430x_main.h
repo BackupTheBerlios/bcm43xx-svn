@@ -28,6 +28,9 @@
 */
 
 
+struct bcm430x_private;
+
+
 u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
 
