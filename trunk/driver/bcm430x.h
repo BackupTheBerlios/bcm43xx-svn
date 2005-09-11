@@ -279,6 +279,8 @@ struct bcm430x_private {
 	void *mmio_addr;
 	unsigned int mmio_len;
 
+	u32 shm_addr;
+
 	spinlock_t lock;
 
 	/* Driver status flags BCM430x_STAT_XXX */
@@ -291,6 +293,10 @@ struct bcm430x_private {
 	u8 chip_rev;
 	
 	u32 radio_id;
+	// 0: baseband attenuation,
+	// 1: generic attenuation, 
+	// 2: tx_CTL1 attenuation
+	u16 radio_txpower[3];
 
 	u32 sbimstate;
 	u32 sbtmstatelow;

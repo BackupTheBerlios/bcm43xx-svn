@@ -151,14 +151,25 @@ static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, val);
 }
 
-static void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
+void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
 {
+	bcm->shm_addr = control;
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_CONTROL, control);
+}
+
+u16 bcm430x_shm_read16(struct bcm430x_private *bcm)
+{
+	return bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA + (bcm->shm_addr % 4));
 }
 
 static u32 bcm430x_shm_read32(struct bcm430x_private *bcm)
 {
 	return bcm430x_read32(bcm, BCM430x_MMIO_SHM_DATA);
+}
+
+void bcm430x_shm_write16(struct bcm430x_private *bcm, u16 val)
+{
+	bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA + (bcm->shm_addr % 4), val);
 }
 
 static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)

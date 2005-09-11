@@ -195,6 +195,7 @@ u16 bcm430x_radio_init2060(struct bcm430x_private *bcm) {
 	
 	//FIXME: What is the default channel for PHYTYPE_A
 	//bcm430x_radio_selectchannel(bcm, BCM430x_PHYTYPE_A_DEFAULT_CHANNEL);
+printk(KERN_WARNING PFX "FIXME: radio_init2060(), what is the 802.11a default channel?\n");
 	udelay(1000);
 
 	return 0;
@@ -251,11 +252,49 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 	return 0;
 }
 
-void bcm430x_radio_set_txpower(struct bcm430x_private *bcm, u16 val)
+void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower)
 {
 	/* TODO */
-printk(KERN_WARNING PFX "FIXME: set_txpower(val = 0x%04x).\n", val);
-	return;
+printk(KERN_WARNING PFX "TODO: set_txpower_a()\n");
+}
+
+void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
+                                 u16 baseband_attenuation, u16 attenuation,
+			         u16 txpower)
+{
+	u16 reg = 0x0060, tmp;
+
+	if (baseband_attenuation == 0xFFFF)
+		baseband_attenuation = bcm->radio_txpower[0];
+	else
+		bcm->radio_txpower[0] = baseband_attenuation;
+	if (attenuation == 0xFFFF)
+		attenuation = bcm->radio_txpower[1];
+	else
+		baseband_attenuation = attenuation;
+	if (txpower == 0xFFFF)
+		txpower = bcm->radio_txpower[2];
+	else
+		bcm->radio_txpower[2] = txpower;
+	
+	if (bcm->phy_version == 0) {
+		reg = 0x03E6;
+		tmp = (bcm430x_phy_read(bcm, reg) & 0xFFF0) | baseband_attenuation;
+	} else if (bcm->phy_version == 1) {
+		tmp  = bcm430x_phy_read(bcm, reg) & ~0x0078;
+		tmp |= (baseband_attenuation << 3) & 0x0078;
+	} else {
+		tmp  = bcm430x_phy_read(bcm, reg) & ~0x003C;
+		tmp |= (baseband_attenuation << 2) & 0x003C;
+	}
+	bcm430x_phy_write(bcm, reg, tmp);
+	bcm430x_write16(bcm, 0x0043, attenuation);
+	bcm430x_shm_control(bcm, 0x0064);
+	bcm430x_shm_write16(bcm, attenuation);
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
+		bcm430x_radio_write16(bcm, 0x0052,
+		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F) | txpower);
+	//FIXME: FuncPlaceholder
 }
 
 
@@ -272,46 +311,14 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		bcm430x_radio_write16(bcm, 0x0005, 0x0008);
 		bcm430x_phy_write(bcm, 0x0010, bcm430x_phy_read(bcm, 0x0010) & 0xFFF7);
 		bcm430x_phy_write(bcm, 0x0011, bcm430x_phy_read(bcm, 0x0011) & 0xFFF7);
-		bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
-		bcm430x_radio_write16(bcm, 0x0005, 0x0008);
-		bcm430x_radio_write16(bcm, 0x0009, 0x0040);
-		bcm430x_radio_write16(bcm, 0x0005, 0x00AA);
-		bcm430x_radio_write16(bcm, 0x0032, 0x008F);
-		bcm430x_radio_write16(bcm, 0x0006, 0x008F);
-		bcm430x_radio_write16(bcm, 0x0034, 0x008F);
-		bcm430x_radio_write16(bcm, 0x002C, 0x0007);
-		bcm430x_radio_write16(bcm, 0x0082, 0x0080);
-		bcm430x_radio_write16(bcm, 0x0080, 0x0000);
-		bcm430x_radio_write16(bcm, 0x003F, 0x00DA);
-		bcm430x_radio_write16(bcm, 0x0005, bcm430x_radio_read16(bcm, 0x0005) & 0x0008);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0010);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0020);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0020);
-		udelay(400);
-		bcm430x_radio_write16(bcm, 0x0081, (bcm430x_radio_read16(bcm, 0x0081) & 0x0020) | 0x0010);
-		udelay(400);
-		bcm430x_radio_write16(bcm, 0x0005, (bcm430x_radio_read16(bcm, 0x0005) & 0x0008) | 0x0008);
-		bcm430x_radio_write16(bcm, 0x0085, bcm430x_radio_read16(bcm, 0x0085) & 0x0010);
-		bcm430x_radio_write16(bcm, 0x0005, bcm430x_radio_read16(bcm, 0x0005) & 0x0008);
-		bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & 0x0040);
-		bcm430x_radio_write16(bcm, 0x0081, (bcm430x_radio_read16(bcm, 0x0081) & 0x0040) | 0x0040);
-		bcm430x_radio_write16(bcm, 0x0005, (bcm430x_radio_read16(bcm, 0x0081) & 0x0008) | 0x0008);
-		/*FIXME: specs specify a set (or'ing) of '0' for some of these values, but this doesn't make sense */	
-		bcm430x_phy_write(bcm, 0x0063, 0xDDC6);
-		bcm430x_phy_write(bcm, 0x0069, 0x07BE);
-		bcm430x_phy_write(bcm, 0x006A, 0x0000);
-		/*TODO: set to the default starting channel */
-		udelay(1000);
+		bcm430x_radio_init2060(bcm);	
 		break;
         case BCM430x_PHYTYPE_B:
         case BCM430x_PHYTYPE_G:
 		bcm430x_phy_write(bcm, 0x0015, 0x8000);
 		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
 		bcm430x_phy_write(bcm, 0x0015, ((bcm->status & BCM430x_STAT_PHYCONNECTED) ? 0x00C0 : 0x0000));
-printk(KERN_INFO PFX "turn_radio_on() FIXME\n");
-		//FIXME: Assuming 7 for the default starting channel
-		//       for 802.11b/g
-		bcm430x_radio_selectchannel(bcm, 7);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULTCHANNEL);
 		break;
 	default:
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");

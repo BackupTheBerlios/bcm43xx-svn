@@ -55,7 +55,7 @@ void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 	if (bcm->status & BCM430x_STAT_PHYCALIBRATED)
 		return;
 	if (bcm->phy_type == BCM430x_PHYTYPE_A)
-		bcm430x_radio_set_txpower(bcm, 0x0018);
+		bcm430x_radio_set_txpower_a(bcm, 0x0018);
 	else {
 		//FIXME: (Only variables are set, most have unknown usage, working on it)
 	}

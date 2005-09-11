@@ -27,6 +27,9 @@
 
 */
 
+//#defime BCM430x_RADIO_A_DEFAULT_CHANNEL	0
+#define BCM430x_RADIO_BG_DEFAULT_CHANNEL	6
+
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
 
@@ -37,4 +40,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm);
 u16 bcm430x_radio_init2060(struct bcm430x_private *bcm);
 
 int bcm430x_radio_selectchannel(struct bcm430x_private *bcm, u8 channel);
-void bcm430x_radio_set_txpower(struct bcm430x_private *bcm, u16 val);
+void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower);
+void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
+                               u16 baseband_attenuation, u16 attenuation,
+			       u16 txpower);
