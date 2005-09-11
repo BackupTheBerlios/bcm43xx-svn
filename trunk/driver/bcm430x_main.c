@@ -163,7 +163,7 @@ static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, val);
 }
 
-static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
+int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 {
 	int err;
 
@@ -172,7 +172,7 @@ static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 	return err;
 }
 
-static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
+int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 				      u16 * val)
 {
 	int err;
@@ -182,7 +182,7 @@ static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
+int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 				      u32 * val)
 {
 	int err;
@@ -192,20 +192,20 @@ static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-static int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
+int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
 	return pci_write_config_byte(pdev, offset, val);
 }
 
-static int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
+int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
 				       u16 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
 	return pci_write_config_word(pdev, offset, val);
 }
 
-static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
+int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 				       u32 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
@@ -267,7 +267,7 @@ static void bcm430x_clr_target_abort(struct bcm430x_private *bcm)
  * Used 32 bit read/writes.
  * I finished doing it at 2:25 AM, so don't expect it works.
  */
-static int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
+int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
 	unsigned int i, j;
 	u16 packet_number;
