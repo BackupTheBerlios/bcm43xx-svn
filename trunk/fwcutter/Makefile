@@ -1,5 +1,5 @@
 CC = cc
-PREFIX = /usr
+PREFIX = /usr/local
 CFLAGS = -std=c99 -O2 -Wall -pedantic -D_BSD_SOURCE
 LDFLAGS =
 
@@ -14,7 +14,7 @@ fwcutter: get_endianess $(OBJECTS)
 	$(CC) $(CFLAGS) -o fwcutter $(OBJECTS) $(LDFLAGS)
 
 install: all
-	-cp fwcutter $(PREFIX)/bin
+	-install -o 0 -g 0 -m 755 fwcutter $(PREFIX)/bin/
 
 clean:
 	-rm -f *~ *.o *.orig *.rej .get_endianess *.fw fwcutter
@@ -23,7 +23,8 @@ get_endianess: get_endianess.o
 	$(CC) $(CFLAGS) -o .get_endianess get_endianess.o
 
 installfw:
-	-cp bcm430x_*.fw /lib/firmware
+	-if ! [ -d /lib/firmware ]; then mkdir /lib/firmware; fi
+	-install -o 0 -g 0 -m 600 bcm430x_*.fw /lib/firmware/
 
 # dependencies
 fwcutter.o: md5.h fwcutter_list.h
