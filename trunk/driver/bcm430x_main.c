@@ -569,8 +569,7 @@ static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
 					return 19800000/32;
 				}
 			} else {
-				// FIXME: chipcommon slow_clk_ctl not yet documented
-				//bcm430x_pci_read_config_32(bcm->pci_dev, ChipCommon slow_clk_ctl register, &slow_clk_ctl);
+				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
 				switch ( slow_clk_ctl & 0x7 ) {
 				case 0:
 				case 1:
@@ -623,8 +622,7 @@ static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
 					return 20200000/32;
 				}
 			} else {
-				// FIXME: chipcommon slow_clk_ctl not yet documented
-				//bcm430x_pci_read_config_32(bcm->pci_dev, ChipCommon slow_clk_ctl register, &slow_clk_ctl);
+				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
 				switch ( slow_clk_ctl & 0x7 ) {
 				case 0:
 				case 1:
