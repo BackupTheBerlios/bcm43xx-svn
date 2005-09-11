@@ -6,6 +6,7 @@
                      Stefano Brivio <st3@riseup.net>
                      Michael Buesch <mbuesch@freenet.de>
                      Danny van Dyk <kugelfang@gentoo.org>
+                     Andreas Jaggi <andreas.jaggi@waterwave.ch>
 
   Some parts of the code in this file are derived from the ipw2200
   driver  Copyright(c) 2003 - 2004 Intel Corporation.
@@ -220,7 +221,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 		//FIXME: FuncPlaceholder
 		//FIXME: FuncPlaceholder
 	}
-	//FIXME: FuncPlaceholder
+	bcm430x_pctl_init(bcm);
 }
 
 static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
@@ -397,13 +398,13 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 	bcm430x_radio_write16(bcm, 0x005D, 0x000D);
 	bcm430x_write16(bcm, 0x03E4,
 	                (bcm430x_read16(bcm, 0x03E4) & 0xFFC0) | 0x0004);
-	if (bcm->phy_type == BCM430x_PHYTYPE_G) {
+	if (bcm->phy_type == BCM430x_PHYTYPE_B) {
 		bcm430x_phy_write(bcm, 0x0016, 0x5410);
 		bcm430x_phy_write(bcm, 0x0017, 0xA820);
 		bcm430x_phy_write(bcm, 0x0007, 0x0062);
-		//FIXME: FuncPlaceholder
+		bcm430x_pctl_init(bcm);
 	}
-}	
+}
 
 static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 {
