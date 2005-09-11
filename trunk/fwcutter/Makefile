@@ -17,13 +17,16 @@ install: all
 	-cp fwcutter $(PREFIX)/bin
 
 clean:
-	-rm -f *~ *.o *.orig *.rej .get_endianess
+	-rm -f *~ *.o *.orig *.rej .get_endianess *.fw fwcutter
 
 distclean: clean
 	-rm -f fwcutter
 
 get_endianess: get_endianess.o
 	$(CC) $(CFLAGS) -o .get_endianess get_endianess.o
+
+installfw:
+	-cp bcm430x_*.fw /lib/firmware
 
 # dependencies
 fwcutter.o: md5.h fwcutter_list.h

@@ -79,7 +79,7 @@ static void write_iv(const char *infilename, int byteorder, byte *data)
 
 	for (i = 1; i <= 10; i++) {
 
-		sprintf(ivfilename, "initval%02d.fw", i);
+		sprintf(ivfilename, "bcm430x_initval%02d.fw", i);
 		fw = fopen(ivfilename, "w");
 
 		if (!fw) {
