@@ -37,4 +37,4 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm);
 u16 bcm430x_radio_init2060(struct bcm430x_private *bcm);
 
 int bcm430x_radio_selectchannel(struct bcm430x_private *bcm, u8 channel);
-
+void bcm430x_radio_set_txpower(struct bcm430x_private *bcm, u16 val);

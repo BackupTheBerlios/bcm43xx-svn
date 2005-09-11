@@ -267,7 +267,8 @@ struct bcm430x_coreinfo {
 };
 
 /* Driver STATUS values */
-#define BCM430x_STAT_PHYCONNECTED		(1 << 0)
+#define BCM430x_STAT_PHYCALIBRATED		(1 << 0)
+#define BCM430x_STAT_PHYCONNECTED		(1 << 1)
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;

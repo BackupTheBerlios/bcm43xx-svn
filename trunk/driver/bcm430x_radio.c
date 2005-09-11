@@ -69,7 +69,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 			stack[index++] = bcm430x_phy_read(bcm, 0x0812);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0811);
 			bcm430x_phy_write(bcm, 0x0814,
-                                          ((bcm430x_phy_read(bcm, 0x0814) & 0xFFFF) | 0x0003));
+                                          (bcm430x_phy_read(bcm, 0x0814) | 0x0003));
 			bcm430x_phy_write(bcm, 0x0815,
                                           (bcm430x_phy_read(bcm, 0x0815) & 0xFFFC));	
 			bcm430x_phy_write(bcm, 0x0429,
@@ -80,7 +80,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 			bcm430x_phy_write(bcm, 0x0812, 0x0fb2);
 		}
 		bcm430x_write16(bcm, 0x03E2,
-		                ((bcm430x_read16(bcm, 0x03E2) & 0xFFFF) | 0x8000));
+		                (bcm430x_read16(bcm, 0x03E2) | 0x8000));
 	}
 	stack[index++] = bcm430x_phy_read(bcm, 0x0035);
 	bcm430x_phy_write(bcm, 0x0035,
@@ -97,7 +97,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 		if (bcm->phy_version >= 2)
 			bcm430x_write16(bcm, 0x03E6, 0x0040);
 		bcm430x_write16(bcm, 0x03F4,
-                                ((bcm430x_read16(bcm, 0x03F4) & 0xFFFF) | 0x2000));
+                                (bcm430x_read16(bcm, 0x03F4) | 0x2000));
 	}
 
 	ret = bcm430x_radio_calibrationvalue(bcm);
@@ -112,7 +112,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 		bcm430x_phy_write(bcm, 0x0812, 0x00B2);
 	bcm430x_phy_write(bcm, 0x0015, 0xBFA0);
 	bcm430x_radio_write16(bcm, 0x0051,
-	                      ((bcm430x_read16(bcm, 0x0051) & 0xFFFF) | 0x0004));
+	                      (bcm430x_read16(bcm, 0x0051) | 0x0004));
 	bcm430x_radio_write16(bcm, 0x0052, 0x0000);
 	bcm430x_radio_write16(bcm, 0x0043, 0x0009);
 	bcm430x_radio_write16(bcm, 0x0058, 0x0000);
@@ -249,6 +249,13 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
                 return -1;
         }
 	return 0;
+}
+
+void bcm430x_radio_set_txpower(struct bcm430x_private *bcm, u16 val)
+{
+	/* TODO */
+printk(KERN_WARNING PFX "FIXME: set_txpower(val = 0x%04x).\n", val);
+	return;
 }
 
 
