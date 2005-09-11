@@ -85,13 +85,13 @@ static int bcm430x_phy_initb2(struct bcm430x_private *bcm) {
 		val -= 0x0202;
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x2050) {
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
 		bcm430x_radio_write16(bcm, 0x0079, 0x0081);
 	}
 	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0023);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x2050) {
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0050, 0x0020);
 		bcm430x_radio_write16(bcm, 0x005A, 0x0070);
 		bcm430x_radio_write16(bcm, 0x005B, 0x007B);
@@ -104,7 +104,7 @@ static int bcm430x_phy_initb2(struct bcm430x_private *bcm) {
 	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
 	bcm430x_phy_write(bcm, 0x0032, 0x00CC);
 	bcm430x_phy_write(bcm, 0x0035, 0x07C2);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x2050) {
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
 		bcm430x_phy_write(bcm, 0x88C2, 0x002A);
 	}
 	//FIXME: set transmission power
@@ -131,13 +131,13 @@ static int bcm430x_phy_initb4(struct bcm430x_private *bcm) {
 		val -= 0x0202;
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x2050) {
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
 		bcm430x_radio_write16(bcm, 0x0079, 0x0081);
 	}
 	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0023);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x2050) {
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0050, 0x0020);
 		bcm430x_radio_write16(bcm, 0x005A, 0x0070);
 		bcm430x_radio_write16(bcm, 0x005B, 0x007B);
@@ -148,16 +148,16 @@ static int bcm430x_phy_initb4(struct bcm430x_private *bcm) {
 	}
 	bcm430x_phy_write(bcm, 0x0014, 0x0080);
 	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x2050)
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_phy_write(bcm, 0x0032, 0x00E0);
 	bcm430x_phy_write(bcm, 0x0035, 0x07C2);
 	//FIXME: FuncPlaceholder
 	bcm430x_phy_write(bcm, 0x0026, 0xCC00);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x2050)
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_phy_write(bcm, 0x0026, 0xCE00);
 	bcm430x_write16(bcm, 0x03F4, 0x1100);
 	bcm430x_phy_write(bcm, 0x002A, 0x88A3);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 2050)
+	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_phy_write(bcm, 0x002A, 0x88C2);
 	//FIXME: FuncPlaceholder
 	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
@@ -168,7 +168,115 @@ static int bcm430x_phy_initb4(struct bcm430x_private *bcm) {
 }
 
 static int bcm430x_phy_initb5(struct bcm430x_private *bcm) {
-	/* TODO */
+
+	u16 offset;
+
+	if ( bcm->phy_rev == 1 && (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+		bcm430x_radio_write16(bcm, 0x007A, bcm430x_radio_read16(bcm, 0x007A) | 0x0050);
+	}
+
+	//FIXME: BoardVendor, BoardType not yet documented
+	//if ( BoardVendor != 0x14E4 && BoardType != 0x0416 ) {
+	//	for ( offset = 0x00A8 ; offset < 0x00C7; offset++ ) {
+	//		bcm430x_phy_write(bcm, offset, (bcm430x_phy_read(bcm, offset) + 0x2020) & 0x3F3F);
+	//	}
+	//}
+
+	bcm430x_phy_write(bcm, 0x0035, (bcm430x_phy_read(bcm, 0x0035) & 0xF0FF) | 0x0700);
+
+	if ( (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+		bcm430x_phy_write(bcm, 0x0038, 0x0667);
+	}
+
+#if 0
+	//FIXME: phy_connected PATCH not yet in trunk?
+	if ( bcm->phy_connected ) {
+		if ( (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+			bcm430x_radio_write16(bcm, 0x007A, bcm430x_radio_read16(bcm, 0x007A) | 0x0020);
+			bcm430x_radio_write16(bcm, 0x0051, bcm430x_radio_read16(bcm, 0x0051) | 0x0004);
+		}
+
+		bcm430x_write16(bcm, 0x03E2, 0x0000);
+
+		bcm430x_phy_write(bcm, 0x0802, bcm430x_phy_read(bcm, 0x0802) | 0x0100);
+		bcm430x_phy_write(bcm, 0x042B, bcm430x_phy_read(bcm, 0x042B) | 0x2000);
+
+		bcm430x_phy_write(bcm, 0x001C, 0x186A);
+
+		bcm430x_phy_write(bcm, 0x0013, (bcm430x_phy_read(bcm, 0x0013) & 0x00FF) | 0x1900);
+		bcm430x_phy_write(bcm, 0x0035, (bcm430x_phy_read(bcm, 0x0035) & 0xFFC0) | 0x0064);
+		bcm430x_phy_write(bcm, 0x005D, (bcm430x_phy_read(bcm, 0x005D) & 0xFF80) | 0x000A);
+	}
+#endif
+
+	//FIXME: roam_delta not yet documented
+	//if ( roam_delta ) {
+	//	bcm430x_phy_write(bcm, 0x0401, (bcm430x_phy_read(bcm, 0x0401) & 0x0000) | 0x1000);
+	//}
+
+	if ( bcm->phy_rev == 1 && (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+		bcm430x_phy_write(bcm, 0x0026, 0xCE00);
+		bcm430x_phy_write(bcm, 0x0021, 0x3763);
+		bcm430x_phy_write(bcm, 0x0022, 0x1BC3);
+		bcm430x_phy_write(bcm, 0x0023, 0x06F9);
+		bcm430x_phy_write(bcm, 0x0024, 0x037E);
+	} else {
+		bcm430x_phy_write(bcm, 0x0026, 0xCC00);
+	}
+
+	bcm430x_phy_write(bcm, 0x0030, 0x00C6);
+
+	bcm430x_write16(bcm, 0x3F22, 0x03EC);
+
+	if (bcm->radio_id == BCM430x_RADIO_ID_NORF) {
+		bcm430x_phy_write(bcm, 0x0020, 0x281E);
+		return -1;
+	}
+
+	if ( bcm->phy_rev == 1 && (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+		bcm430x_phy_write(bcm, 0x0020, 0x3E1C);
+	} else {
+		bcm430x_phy_write(bcm, 0x0020, 0x301C);
+	}
+
+	if ( bcm->phy_rev == 0 ) {
+		bcm430x_write16(bcm, 0x03E4, 0x3000);
+	}
+
+	bcm430x_radio_selectchannel(bcm, 7);
+
+	if ( (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
+		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
+		bcm430x_radio_write16(bcm, 0x0079, 0x0081);
+	}
+
+	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
+	bcm430x_radio_write16(bcm, 0x0050, 0x0023);
+
+	if ( (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+		bcm430x_radio_write16(bcm, 0x0050, 0x0020);
+		bcm430x_radio_write16(bcm, 0x005A, 0x0070);
+	}
+
+	bcm430x_radio_write16(bcm, 0x005B, 0x007B);
+	bcm430x_radio_write16(bcm, 0x005C, 0x00B0);
+
+	bcm430x_radio_write16(bcm, 0x007A, bcm430x_radio_read16(bcm, 0x007A) | 0x0007);
+
+	/* FIXME: set channel do default channel */
+
+	bcm430x_phy_write(bcm, 0x0014, 0x0080);
+	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
+	bcm430x_phy_write(bcm, 0x88A3, 0x88A3);
+
+	/* FIXME: FuncPlaceholder, not yet documented */
+
+	if ( (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+		bcm430x_radio_write16(bcm, 0x005D, 0x000D);
+	}
+
+	bcm430x_write16(bcm, 0x03E4, (bcm430x_read16(bcm, 0x03E4) & 0xFFC0) | 0x0004);
+
 	return 0;
 }
 
@@ -297,8 +405,7 @@ int bcm430x_phy_init(struct bcm430x_private *bcm) {
 		}
 		break;
 	case BCM430x_PHYTYPE_G:
-		if ((bcm->phy_rev == 1) || (bcm->phy_rev == 2))
-			ret = bcm430x_phy_initg(bcm);
+		ret = bcm430x_phy_initg(bcm);
 	}
 
 	return ret;
