@@ -144,7 +144,7 @@ static byte* read_file(const char* filename)
 	return data;
 }
 
-static void extract_fw(const char *infile, const char *outfile, int byteorder, uint32 pos, uint32 length)
+static void extract_fw(const char *infile, const char *outfile, int byteorder, uint32_t pos, uint32_t length)
 {
 	byte* filedata;
 
@@ -156,7 +156,7 @@ static void extract_fw(const char *infile, const char *outfile, int byteorder, u
 	}
 }
 
-static void extract_iv(const char *infile, int byteorder, uint32 pos)
+static void extract_iv(const char *infile, int byteorder, uint32_t pos)
 {
 	byte* filedata;
 

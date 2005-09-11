@@ -3,17 +3,17 @@ static const struct file {
 	const char *version;
 	const char *md5;
 	const int byteorder;
-	const uint32 iv_pos;
-	const uint32 uc2_pos;
-	const uint32 uc2_length;
-	const uint32 uc4_pos;
-	const uint32 uc4_length;
-	const uint32 uc5_pos;
-	const uint32 uc5_length;
-	const uint32 pcm4_pos;
-	const uint32 pcm4_length;
-	const uint32 pcm5_pos;
-	const uint32 pcm5_length;
+	const uint32_t iv_pos;
+	const uint32_t uc2_pos;
+	const uint32_t uc2_length;
+	const uint32_t uc4_pos;
+	const uint32_t uc4_length;
+	const uint32_t uc5_pos;
+	const uint32_t uc5_length;
+	const uint32_t pcm4_pos;
+	const uint32_t pcm4_length;
+	const uint32_t pcm5_pos;
+	const uint32_t pcm5_length;
 } files[] = 
 {
 	{ 
