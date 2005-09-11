@@ -165,6 +165,8 @@ static int bcm430x_phy_initb4(struct bcm430x_private *bcm) {
 		//FIXME: FuncPlaceholder
 	}
 	//FIXME: FuncPlaceholder
+
+	return 0;
 }
 
 static int bcm430x_phy_initb5(struct bcm430x_private *bcm) {
@@ -378,6 +380,8 @@ static int bcm430x_phy_initg(struct bcm430x_private *bcm) {
 		return 0;
 	//FIXME: Add element to struct bcm430x_private for keeping retval
 	//       of _radio_initXXXX()
+
+	return 0;
 }
 
 int bcm430x_phy_init(struct bcm430x_private *bcm) {
