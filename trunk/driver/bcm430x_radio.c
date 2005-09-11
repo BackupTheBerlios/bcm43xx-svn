@@ -318,7 +318,7 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0015, 0x8000);
 		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
 		bcm430x_phy_write(bcm, 0x0015, ((bcm->status & BCM430x_STAT_PHYCONNECTED) ? 0x00C0 : 0x0000));
-		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULTCHANNEL);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
 		break;
 	default:
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
