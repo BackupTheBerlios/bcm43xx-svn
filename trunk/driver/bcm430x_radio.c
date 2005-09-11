@@ -87,10 +87,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 	                  (bcm430x_phy_read(bcm, 0x0035) & 0xFF7F));
 	stack[index++] = bcm430x_read16(bcm, 0x03F4);
 	stack[index++] = bcm430x_read16(bcm, 0x03E6);
-	// NOT IN SPECS!
 	stack[index++] = bcm430x_radio_read16(bcm, 0x0043);
 	stack[index++] = bcm430x_phy_read(bcm, 0x0015);
-	// END NOT IN SPECS!
 	
 	// Initialization
 	if (bcm->phy_version == 0)
@@ -128,29 +126,29 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 	
 	// Restore data from stack
 	// Restoring data that specs says we should not backup (PHY:0x15, radio:0x43)
-	bcm430x_phy_write(bcm, 0x0015, stack[index--]);
+	bcm430x_phy_write(bcm, 0x0015, stack[--index]);
 	bcm430x_radio_write16(bcm, 0x0051,
 	                      (bcm430x_radio_read16(bcm, 0x0051) & 0xFFFB));
 	bcm430x_radio_write16(bcm, 0x0051, 0x0009);
-	bcm430x_radio_write16(bcm, 0x0043, stack[index--]);
-	bcm430x_write16(bcm, 0x003E6, stack[index--]);
+	bcm430x_radio_write16(bcm, 0x0043, stack[--index]);
+	bcm430x_write16(bcm, 0x003E6, stack[--index]);
+	--index;
 	if (!bcm->phy_version == 0)
 		bcm430x_write16(bcm, 0x003E6, stack[index]);
-	--index;
-	bcm430x_phy_write(bcm, 0x0035, stack[index--]);
+	bcm430x_phy_write(bcm, 0x0035, stack[--index]);
 	if (bcm->phy_type == BCM430x_PHYTYPE_B) {
-		bcm430x_phy_write(bcm, 0x0030, stack[index--]);
-		bcm430x_write16(bcm, 0x03EC, stack[index--]);
+		bcm430x_phy_write(bcm, 0x0030, stack[--index]);
+		bcm430x_write16(bcm, 0x03EC, stack[--index]);
 	} else {
 		bcm430x_write16(bcm, 0x03E2,
 		                (bcm430x_read16(bcm, 0x03E2) & 0x7FFF));
 		if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
-			bcm430x_phy_write(bcm, 0x0811, stack[index--]);
-			bcm430x_phy_write(bcm, 0x0812, stack[index--]);
-			bcm430x_phy_write(bcm, 0x0814, stack[index--]);
-			bcm430x_phy_write(bcm, 0x0815, stack[index--]);
-			bcm430x_phy_write(bcm, 0x0429, stack[index--]);
-			bcm430x_phy_write(bcm, 0x0802, stack[index--]);
+			bcm430x_phy_write(bcm, 0x0811, stack[--index]);
+			bcm430x_phy_write(bcm, 0x0812, stack[--index]);
+			bcm430x_phy_write(bcm, 0x0814, stack[--index]);
+			bcm430x_phy_write(bcm, 0x0815, stack[--index]);
+			bcm430x_phy_write(bcm, 0x0429, stack[--index]);
+			bcm430x_phy_write(bcm, 0x0802, stack[--index]);
 		}
 	}
 	//FIXME:
