@@ -292,6 +292,11 @@ struct bcm430x_private {
 	u8 phy_type;
 	u8 phy_rev;
 
+#ifdef BCM430x_DEBUG
+	u16 ucode_size;
+	u16 pcm_size;
+#endif
+
 	struct bcm430x_sprominfo sprom;
 
 	/* The currently active core. NULL if not initialized, yet. */

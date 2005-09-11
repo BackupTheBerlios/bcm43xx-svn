@@ -173,8 +173,6 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	unsigned int microcode_len;
-	unsigned int pcm_len;
 	struct bcm430x_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
@@ -184,31 +182,18 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	if (bcm->core_80211.rev == 2)
-		microcode_len = bcm430x_ucode2_size;
-	else if (bcm->core_80211.rev == 4)
-		microcode_len = bcm430x_ucode4_size;
-	else if (bcm->core_80211.rev >= 5)
-		microcode_len = bcm430x_ucode5_size;
-	else
-		microcode_len = 0;
-	if (bcm->core_80211.rev < 5)
-		pcm_len = bcm430x_pcm4_size;
-	else
-		pcm_len = bcm430x_pcm5_size;
-
 	/* This is where the information is written to the "shm_dump" file */
 	/*TODO: dump shared_memory, hw_mac, init_ucode, 0x0002 and maybe others */
-	fappend("PCM data (length %u bytes):", pcm_len * sizeof(u32));
+	fappend("PCM data (size: %u bytes):", bcm->pcm_size);
 	fappend("\nFIXME: This is all 0x00000000 on my machine. Maybe we cannot read "
 		"PCM data back... (Michael)");
 	iowrite32(BCM430x_SHM_PCM + 0x01eb, bcm->mmio_addr + BCM430x_MMIO_SHM_CONTROL);
-	fappend_ioblock32(pcm_len, BCM430x_MMIO_SHM_DATA);
+	fappend_ioblock32(bcm->pcm_size / sizeof(u32), BCM430x_MMIO_SHM_DATA);
 	fappend("\nPCM data end\n\n");
 
-	fappend("Microcode (length %u bytes):", microcode_len * sizeof(u32));
+	fappend("Microcode (size: %u bytes):", bcm->ucode_size);
 	iowrite32(BCM430x_SHM_UCODE + 0x0000, bcm->mmio_addr + BCM430x_MMIO_SHM_CONTROL);
-	fappend_ioblock32(microcode_len, BCM430x_MMIO_SHM_DATA);
+	fappend_ioblock32(bcm->ucode_size / sizeof(u32), BCM430x_MMIO_SHM_DATA);
 	fappend("\nMicrocode end\n\n");
 
 	spin_unlock_irqrestore(&bcm->lock, flags);

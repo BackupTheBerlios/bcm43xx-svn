@@ -37,8 +37,12 @@ typedef unsigned char byte;
 
 static void write_ddccbbaa(FILE *f, byte *buffer, int len) 
 {
+	byte swapbuf[4];
+
 	while (len > 0) {
-		fprintf(f, "%02x%02x%02x%02x", buffer[3], buffer[2], buffer[1], buffer[0]);
+		swapbuf[0] = buffer[3]; swapbuf[1] = buffer[2];
+		swapbuf[2] = buffer[1]; swapbuf[3] = buffer[0];
+		fwrite(swapbuf, 4, 1, f);
 		buffer = buffer + 4;
 		len  = len - 4;
 	}
@@ -206,11 +210,11 @@ int main(int argc, char *argv[])
 				for (i = 0; i < FILES; ++i) {
 					if (strcasecmp(md5sig, files[i].md5) == 0) {
 						printf("Your firmware file is known. It's version %s.\n", files[i].version);
-						extract_fw(cp, "microcode2.fw", files[i].byteorder, files[i].uc2_pos, files[i].uc2_length);
-						extract_fw(cp, "microcode4.fw", files[i].byteorder, files[i].uc4_pos, files[i].uc4_length);
-						extract_fw(cp, "microcode5.fw", files[i].byteorder, files[i].uc5_pos, files[i].uc5_length);
-						extract_fw(cp, "pcm4.fw", files[i].byteorder, files[i].pcm4_pos, files[i].pcm4_length);
-						extract_fw(cp, "pcm5.fw", files[i].byteorder, files[i].pcm5_pos, files[i].pcm5_length);
+						extract_fw(cp, "bcm430x_microcode2.fw", files[i].byteorder, files[i].uc2_pos, files[i].uc2_length);
+						extract_fw(cp, "bcm430x_microcode4.fw", files[i].byteorder, files[i].uc4_pos, files[i].uc4_length);
+						extract_fw(cp, "bcm430x_microcode5.fw", files[i].byteorder, files[i].uc5_pos, files[i].uc5_length);
+						extract_fw(cp, "bcm430x_pcm4.fw", files[i].byteorder, files[i].pcm4_pos, files[i].pcm4_length);
+						extract_fw(cp, "bcm430x_pcm5.fw", files[i].byteorder, files[i].pcm5_pos, files[i].pcm5_length);
 						extract_iv(cp, files[i].byteorder, files[i].iv_pos);
 						++count;
 					}

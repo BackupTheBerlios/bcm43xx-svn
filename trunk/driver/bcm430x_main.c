@@ -34,6 +34,7 @@
 #include <linux/if_arp.h>
 #include <linux/etherdevice.h>
 #include <linux/version.h>
+#include <linux/firmware.h>
 
 #include "bcm430x.h"
 #include "bcm430x_main.h"
@@ -163,7 +164,7 @@ static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, val);
 }
 
-int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
+static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 {
 	int err;
 
@@ -172,7 +173,7 @@ int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 	return err;
 }
 
-int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
+static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 				      u16 * val)
 {
 	int err;
@@ -182,7 +183,7 @@ int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
+static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 				      u32 * val)
 {
 	int err;
@@ -192,20 +193,20 @@ int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
+static int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
 	return pci_write_config_byte(pdev, offset, val);
 }
 
-int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
+static int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
 				       u16 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
 	return pci_write_config_word(pdev, offset, val);
 }
 
-int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
+static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 				       u32 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
@@ -682,12 +683,12 @@ static void bcm430x_write_microcode(struct bcm430x_private *bcm,
 				    const u32 *data, const unsigned int len)
 {
 	unsigned int i;
-
 	bcm430x_shm_control(bcm, BCM430x_SHM_UCODE + 0x0000);
 	for (i = 0; i < len; i++) {
 		bcm430x_shm_write32(bcm, data[i]);
 		udelay(10);
 	}
+
 }
 
 static void bcm430x_write_pcm(struct bcm430x_private *bcm,
@@ -706,27 +707,35 @@ static void bcm430x_write_pcm(struct bcm430x_private *bcm,
 
 static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 {
-	if (bcm->core_80211.rev == 2) {
-		bcm430x_write_microcode(bcm, bcm430x_ucode2_data,
-					bcm430x_ucode2_size);
-	} else if (bcm->core_80211.rev == 4) {
-		bcm430x_write_microcode(bcm, bcm430x_ucode4_data,
-					bcm430x_ucode4_size);
-	} else if (bcm->core_80211.rev >= 5) {
-		bcm430x_write_microcode(bcm, bcm430x_ucode5_data,
-					bcm430x_ucode5_size);
-	} else {
-		printk(KERN_ERR PFX "Error: No microcode available.\n");
+	const struct firmware *ucode_fw, *pcm_fw;
+	char ucode_name[20] = { 0 }, pcm_name[20] = { 0 };
+	
+	sprintf(ucode_name, "bcm430x_microcode%d.fw",
+	        (bcm->core_80211.rev >= 5 ? 5 : bcm->core_80211.rev ));
+	if (request_firmware(&ucode_fw, ucode_name, &bcm->pci_dev->dev) != 0) {
+		printk(KERN_ERR PFX 
+		       "Error: Microcode \"%s\" not available or load failed.\n",
+		        ucode_name);
 		return -ENODEV;
 	}
+	bcm430x_write_microcode(bcm, (u32 *)ucode_fw->data, ucode_fw->size / sizeof(u32));
+#ifdef BCM430x_DEBUG
+	bcm->ucode_size = ucode_fw->size;
+#endif
+	release_firmware(ucode_fw);
 
-	if (bcm->core_80211.rev < 5) {
-		bcm430x_write_pcm(bcm, bcm430x_pcm4_data,
-				  bcm430x_pcm4_size);
-	} else {
-		bcm430x_write_pcm(bcm, bcm430x_pcm5_data,
-				  bcm430x_pcm5_size);
+	sprintf(pcm_name, "bcm430x_pcm%d.fw", (bcm->core_80211.rev < 5 ? 4 : 5));
+	if (request_firmware(&pcm_fw, pcm_name, &bcm->pci_dev->dev) != 0) {
+		printk(KERN_ERR PFX
+		       "Error: PCM \"%s\" not available or load failed.\n",
+		       pcm_name);
+		return -ENODEV;
 	}
+	bcm430x_write_pcm(bcm, (u32 *)pcm_fw->data, pcm_fw->size / sizeof(u32));
+#ifdef BCM430x_DEBUG
+	bcm->pcm_size = pcm_fw->size;
+#endif
+	release_firmware(pcm_fw);
 
 	return 0;
 }

@@ -17,6 +17,8 @@ Usage
 fwcutter -iFILE 	extracts the firmware from a source FILE.
 fwcutter -l		prints a list of supported driver source files.
 
+After extraction, copy bcm430x*.fw to /lib/firmware for usage by the driver.
+
 Where can I find some driver source files?
 
 bcmwl5.sys	Link
