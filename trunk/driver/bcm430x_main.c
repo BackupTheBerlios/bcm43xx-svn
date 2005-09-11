@@ -1340,6 +1340,11 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	bcm->mmio_addr = ioaddr;
 	bcm->mmio_len = mmio_len;
 
+	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_VENDOR_ID,
+	                           &bcm->board_vendor);
+	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID,
+	                           &bcm->board_type);
+
 	bcm430x_pctl_set_crystal(bcm, 1);
 	bcm430x_clr_target_abort(bcm);
 	err = bcm430x_probe_cores(bcm);

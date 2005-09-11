@@ -276,6 +276,9 @@ struct bcm430x_private {
 	/* Driver status flags BCM430x_STAT_XXX */
 	u32 status;
 
+	u16 board_vendor;
+	u16 board_type;
+
 	u16 chip_id;
 	u8 chip_rev;
 	

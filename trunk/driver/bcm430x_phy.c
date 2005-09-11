@@ -49,8 +49,6 @@ void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
 }
 
 static int bcm430x_phy_inita(struct bcm430x_private *bcm) {
-	u16 boardvendor = 0x0000;
-	u16 boardtype = 0x0000;
 	//FIXME: APHYSetup
 	if (bcm->phy_type != BCM430x_PHYTYPE_A) {
 		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
@@ -63,9 +61,8 @@ static int bcm430x_phy_inita(struct bcm430x_private *bcm) {
 	if (bcm->radio_id != BCM430x_RADIO_ID_NORF) {
 		bcm430x_radio_init2060(bcm);
 
-		bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_VENDOR_ID, &boardvendor);
-		bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID, &boardtype);
-		if ( boardvendor == PCI_VENDOR_ID_BROADCOM && (boardtype == 0x0416 || boardtype == 0x040A) ) {
+		if ((bcm->board_vendor == PCI_VENDOR_ID_BROADCOM)
+		    && (bcm->board_type == 0x0416 || bcm->board_type == 0x040A)) {
 #if 0
 			//FIXME: unk31A
 			if ( unk31A == -1 ) {
@@ -207,16 +204,12 @@ static int bcm430x_phy_initb4(struct bcm430x_private *bcm) {
 static int bcm430x_phy_initb5(struct bcm430x_private *bcm) {
 
 	u16 offset;
-	u16 boardvendor = 0x0000;
-	u16 boardtype = 0x0000;
 
 	if ( bcm->phy_rev == 1 && (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x007A, bcm430x_radio_read16(bcm, 0x007A) | 0x0050);
 	}
 
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_VENDOR_ID, &boardvendor);
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID, &boardtype);
-	if ( boardvendor != PCI_VENDOR_ID_BROADCOM && boardtype != 0x0416 ) {
+	if ( bcm->board_vendor != PCI_VENDOR_ID_BROADCOM && bcm->board_type != 0x0416 ) {
 		for ( offset = 0x00A8 ; offset < 0x00C7; offset++ ) {
 			bcm430x_phy_write(bcm, offset, (bcm430x_phy_read(bcm, offset) + 0x2020) & 0x3F3F);
 		}

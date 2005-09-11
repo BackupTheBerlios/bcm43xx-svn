@@ -101,6 +101,8 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("phy_version: 0x%02x   phy_type: 0x%02x   phy_rev: 0x%02x\n",
 		bcm->phy_version, bcm->phy_type, bcm->phy_rev);
 	fappend("radio_id: 0x%08x\n", bcm->radio_id);
+	fappend("board_vendor: 0x%04x   board_type: 0x%04x\n", bcm->board_vendor,
+	        bcm->board_type);
 
 	fappend("\nCores:\n");
 #define fappend_core(name, info) fappend("core \"" name "\" %s, %s, id: 0x%04x, "	\
