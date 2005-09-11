@@ -19,9 +19,6 @@ install: all
 clean:
 	-rm -f *~ *.o *.orig *.rej .get_endianess *.fw fwcutter
 
-distclean: clean
-	-rm -f fwcutter
-
 get_endianess: get_endianess.o
 	$(CC) $(CFLAGS) -o .get_endianess get_endianess.o
 
