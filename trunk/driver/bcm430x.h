@@ -142,6 +142,9 @@
 /* RadioRegisters */
 #define BCM430x_RADIO_ID		0x01
 #define BCM430x_RADIO_ID_NORF		0x4E4F5246
+#define BCM430x_RADIO_ID_REVISIONMASK	0xF0000000
+#define BCM430x_RADIO_ID_VERSIONMASK	0x0FFFF000
+#define BCM430x_RADIO_ID_MANUFACTMASK	0x00000FFF
 
 /* Generic-Interrupt reasons. */
 /*TODO: add the missing ones. */

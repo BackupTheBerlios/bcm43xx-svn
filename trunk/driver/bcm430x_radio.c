@@ -52,7 +52,7 @@ static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm) {
 	return ret;
 }
 
-static u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
+u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 	u16 stack[20];
 	u16 index = 0, ret;
 
@@ -160,6 +160,48 @@ static u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 	return ret;
 }
 
+u16 bcm430x_radio_init2060(struct bcm430x_private *bcm) {
+	bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
+	bcm430x_radio_write16(bcm, 0x0005, 0x0008);
+	bcm430x_phy_write(bcm, 0x0010, bcm430x_phy_read(bcm, 0x0010) & 0xFFF7);
+	bcm430x_phy_write(bcm, 0x0011, bcm430x_phy_read(bcm, 0x0011) & 0xFFF7);
+	bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
+	bcm430x_radio_write16(bcm, 0x0005, 0x0008);
+	bcm430x_radio_write16(bcm, 0x0009, 0x0040);
+	bcm430x_radio_write16(bcm, 0x0005, 0x00AA);
+	bcm430x_radio_write16(bcm, 0x0032, 0x008F);
+	bcm430x_radio_write16(bcm, 0x0006, 0x008F);
+	bcm430x_radio_write16(bcm, 0x0034, 0x008F);
+	bcm430x_radio_write16(bcm, 0x002C, 0x0007);
+	bcm430x_radio_write16(bcm, 0x0082, 0x0080);
+	bcm430x_radio_write16(bcm, 0x0080, 0x0000);
+	bcm430x_radio_write16(bcm, 0x003F, 0x00DA);
+	bcm430x_radio_write16(bcm, 0x0005, bcm430x_radio_read16(bcm, 0x0005) & ~0x0008);
+	bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & ~0x0010);
+	bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & ~0x0020);
+	bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & ~0x0020);
+	udelay(400);
+	
+	bcm430x_radio_write16(bcm, 0x0081, (bcm430x_radio_read16(bcm, 0x0081) & ~0x0020) | 0x0010);
+	udelay(400);
+	
+	bcm430x_radio_write16(bcm, 0x0005, (bcm430x_radio_read16(bcm, 0x0005) & ~0x0008) | 0x0008);
+	bcm430x_radio_write16(bcm, 0x0085, bcm430x_radio_read16(bcm, 0x0085) & ~0x0010);
+	bcm430x_radio_write16(bcm, 0x0005, bcm430x_radio_read16(bcm, 0x0005) & ~0x0008);
+	bcm430x_radio_write16(bcm, 0x0081, bcm430x_radio_read16(bcm, 0x0081) & ~0x0040);
+	bcm430x_radio_write16(bcm, 0x0081, (bcm430x_radio_read16(bcm, 0x0081) & ~0x0040) | 0x0040);
+	bcm430x_radio_write16(bcm, 0x0005, (bcm430x_radio_read16(bcm, 0x0081) & ~0x0008) | 0x0008);
+	bcm430x_phy_write(bcm, 0x0063, 0xDDC6);
+	bcm430x_phy_write(bcm, 0x0069, 0x07BE);
+	bcm430x_phy_write(bcm, 0x006A, 0x0000);
+	
+	//FIXME: What is the default channel for PHYTYPE_A
+	//bcm430x_radio_selectchannel(bcm, BCM430x_PHYTYPE_A_DEFAULT_CHANNEL);
+	udelay(1000);
+
+	return 0;
+}
+
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset) {
 	if (bcm->phy_type == BCM430x_PHYTYPE_A)
 		offset |= 0x40;
@@ -182,7 +224,7 @@ u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset) {
 	return bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA);
 }
 
-static int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
+int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
                                        u8 channel) {
 	// Frequencies are given as differences to 2.4GHz
 	// starting with channel 1
@@ -192,10 +234,10 @@ static int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 		52, 57, 62, 67,
 		72, 84,
 	};
+
         switch (bcm->phy_type) {
         case BCM430x_PHYTYPE_A:
                 //FIXME: Specs incomplete 2005/09/09
-                // return -1;
 		break;
         case BCM430x_PHYTYPE_B:
         case BCM430x_PHYTYPE_G:
@@ -203,11 +245,12 @@ static int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
                         return -1;
                 bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
 		                frequencies_bg[channel - 1]);
-                return 0;
+                break;
         default:
                 printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
                 return -1;
         }
+	return 0;
 }
 
 
