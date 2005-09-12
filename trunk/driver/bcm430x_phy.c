@@ -72,6 +72,62 @@ void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 	}
 }
 
+/* intialize B PHY power control
+ * as described in http://bcm-specs.sipsolutions.net/InitPowerControl
+ */
+static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
+{
+	u16 t_batt = 0xFFFF;
+	u16 t_ratt = 0xFFFF;
+	u16 t_txatt = 0xFFFF;
+	u16 phy29;
+
+	if ( bcm->board_vendor == PCI_VENDOR_ID_BROADCOM && bcm->board_type == 0x0416 ) {
+		return;
+	}
+
+	bcm430x_write16(bcm, 0x03E6, bcm430x_read16(bcm, 0x03E6) & 0xFFDF);
+	bcm430x_phy_write(bcm, 0x0028, 0x8018);
+
+	if (bcm->phy_type == BCM430x_PHYTYPE_G) {
+		if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
+			bcm430x_phy_write(bcm, 0x047A, 0xC111);
+		} else {
+			return;
+		}
+	}
+#if 0
+	// FIXME: saved variable
+	if ( saved variable != 0 ) {
+			return 0;
+	}
+#endif
+	if (bcm->phy_type == BCM430x_PHYTYPE_B && bcm->phy_rev >= 2 && (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+		bcm430x_radio_write16(bcm, 0x0076, bcm430x_radio_read16(bcm, 0x0076) | 0x0084);
+	} else {
+		t_batt = bcm->radio_txpower[0];
+		t_ratt = bcm->radio_txpower[1];
+		t_txatt = bcm->radio_txpower[2];
+		bcm430x_radio_set_txpower_b(bcm, 0x000B, 0x0009, 0x0000);
+	}
+
+	bcm430x_dummy_transmission(bcm);
+
+	phy29 = bcm430x_phy_read(bcm, 0x0029);
+
+	if ( bcm->phy_type != BCM430x_PHYTYPE_B || bcm->phy_rev < 2 || (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
+		bcm430x_radio_set_txpower_b(bcm, t_batt, t_ratt, t_txatt);
+	}
+
+#if 0
+	//FIXME: saved variable
+	saved variable = phy29;
+#endif
+	bcm430x_radio_write16(bcm, 0x0076, bcm430x_radio_read16(bcm, 0x0076) & 0xFF7B);
+
+	//FIXME: FuncPlaceHolder
+}
+
 static void bcm430x_phy_inita(struct bcm430x_private *bcm)
 {
 	//FIXME: APHYSetup
@@ -166,7 +222,7 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x88C2, 0x002A);
 	}
 	//FIXME: set transmission power to 0xFFFF, 0xFFFF, 0xFFFF
-	bcm430x_pctl_init(bcm);
+	bcm430x_phy_init_pctl(bcm);
 }
 
 static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
@@ -221,7 +277,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 		//FIXME: FuncPlaceholder
 		//FIXME: FuncPlaceholder
 	}
-	bcm430x_pctl_init(bcm);
+	bcm430x_phy_init_pctl(bcm);
 }
 
 static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
@@ -402,7 +458,7 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 		bcm430x_phy_write(bcm, 0x0016, 0x5410);
 		bcm430x_phy_write(bcm, 0x0017, 0xA820);
 		bcm430x_phy_write(bcm, 0x0007, 0x0062);
-		bcm430x_pctl_init(bcm);
+		bcm430x_phy_init_pctl(bcm);
 	}
 }
 
@@ -466,6 +522,7 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	}
 	//FIXME: FuncPlaceholder
 }
+
 
 void bcm430x_phy_init(struct bcm430x_private *bcm) {
 	switch (bcm->phy_type) {
