@@ -29,27 +29,6 @@
 */
 
 
-struct bcm430x_private;
-
-
-u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
-
-u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val);
-
-void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control);
-u16 bcm430x_shm_read16(struct bcm430x_private *bcm);
-void bcm430x_shm_write16(struct bcm430x_private *bcm, u16 val);
-
-int bcm430x_dummy_transmission(struct bcm430x_private *bcm);
-
-int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core);
-
-int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val);
-int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset, u16 * val);
-int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset, u32 * val);
-
-int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val);
-int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset, u16 val);
-int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset, u32 val);
+void bcm430x_pctl_init(struct bcm430x_private *bcm);
+void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode);
+void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on);

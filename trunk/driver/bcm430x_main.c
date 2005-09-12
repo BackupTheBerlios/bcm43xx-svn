@@ -45,6 +45,7 @@
 #include "bcm430x_radio.h"
 #include "bcm430x_phy.h"
 #include "bcm430x_dma.h"
+#include "bcm430x_power.h"
 
 #ifdef dprintk
 # undef dprintk
@@ -177,7 +178,7 @@ static void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, val);
 }
 
-static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
+int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 {
 	int err;
 
@@ -186,7 +187,7 @@ static int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
 	return err;
 }
 
-static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
+int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 				      u16 * val)
 {
 	int err;
@@ -196,7 +197,7 @@ static int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
+int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 				      u32 * val)
 {
 	int err;
@@ -206,20 +207,20 @@ static int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-static int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
+int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
 	return pci_write_config_byte(pdev, offset, val);
 }
 
-static int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
+int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
 				       u16 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
 	return pci_write_config_word(pdev, offset, val);
 }
 
-static int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
+int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 				       u32 val)
 {
 //	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
@@ -359,36 +360,6 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	return 0;
 }
 
-static void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
-{
-	u32 in, out, outenable;
-
-	/* All the code in this function is derived from
-	 * http://bcm-specs.sipsolutions.net/PowerControl */
-
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &in);
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &outenable);
-
-	outenable |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
-
-	if (on) {
-		out |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
-
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, outenable);
-		udelay(1000);
-
-		out &= ~BCM430x_PCTL_PLL_POWERDOWN;
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
-
-		udelay(5000);
-	} else {
-		out &= ~BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN;
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
-	}
-}
-
 /* Puts the index of the current core into user supplied core variable.
  * This function reads the value from the device.
  * Almost always you don't want to call this, but use bcm->current_core
@@ -443,7 +414,7 @@ out:
 	return err;
 }
 
-static int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core)
+int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core)
 {
 	int err;
 
@@ -600,180 +571,6 @@ static void bcm430x_core_reset(struct bcm430x_private *bcm)
 }
 #endif /*0*/
 
-/* get min slowclock frequency
- * as described in http://bcm-specs.sipsolutions.net/PowerControl
- */
-static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
-{
-	int err;
-	u32 cap, out, slow_clk_ctl;
-	struct bcm430x_coreinfo *old_core;
-
-	old_core = bcm->current_core;
-	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
-
-	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap);
-		if (cap & BCM430x_CAPABILITIES_PCTLMASK) {
-			if ( bcm->current_core->rev < 6 ) {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
-				if ( out & 0x10 ) {
-					/* PCI */
-					return 25000000/64;
-				} else {
-					/* XTAL */
-					return 19800000/32;
-				}
-			} else {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
-				switch ( slow_clk_ctl & 0x7 ) {
-				case 0:
-				case 1:
-					/* LPO */
-					return 25000;
-					break;
-				case 2:
-					/* XTAL */
-					return 19800000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				case 3:
-				default:
-					/* PCI */
-					return 25000000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				}
-			}
-		}
-	}
-
-	err = bcm430x_switch_core(bcm, old_core);
-	assert(err == 0);
-
-	return -1;
-}
-
-/* get max slowclock frequency
- * as described in http://bcm-specs.sipsolutions.net/PowerControl
- */
-static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
-{
-	int err;
-	u32 cap, out;
-	u32 slow_clk_ctl = 0;
-	struct bcm430x_coreinfo *old_core;
-
-	old_core = bcm->current_core;
-	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
-
-	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap);
-		if (cap & BCM430x_CAPABILITIES_PCTLMASK) {
-			if ( bcm->current_core->rev < 6 ) {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
-				if ( out & 0x10 ) {
-					/* PCI */
-					return 34000000/64;
-				} else {
-					/* XTAL */
-					return 20200000/32;
-				}
-			} else {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
-				switch ( slow_clk_ctl & 0x7 ) {
-				case 0:
-				case 1:
-					/* LPO */
-					return 43000;
-					break;
-				case 2:
-					/* XTAL */
-					return 20200000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				case 3:
-				default:
-					/* PCI */
-					return 34000000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				}
-			}
-		}
-	}
-
-	err = bcm430x_switch_core(bcm, old_core);
-	assert(err == 0);
-
-	return -1;
-}
-
-/* init power control
- * as described in http://bcm-specs.sipsolutions.net/PowerControl
- */
-void bcm430x_pctl_init(struct bcm430x_private *bcm)
-{
-	int err, maxfreq;
-	u32 cap;
-	struct bcm430x_coreinfo *old_core;
-
-	old_core = bcm->current_core;
-	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
-
-	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
-			maxfreq = bcm430x_pctl_get_maxslowclk(bcm);
-			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_IN, (maxfreq*250+999999)/1000000);
-			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, (maxfreq*250+999999)/1000000);
-		}
-	}
-
-	err = bcm430x_switch_core(bcm, old_core);
-	assert(err == 0);
-}
-
-/* set the powercontrol clock
- * as described in http://bcm-specs.sipsolutions.net/PowerControl
- */
-static void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
-{
-	int err;
-	u32 cap;
-	u16 oldmode;
-	struct bcm430x_coreinfo *old_core;
-
-	old_core = bcm->current_core;
-	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
-
-	//FIXME: ensure PCI
-
-	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
-			if ( bcm->current_core->rev < 6 ) {
-				if ( mode == BCM430x_PCTL_CLK_FAST )
-					bcm430x_pctl_set_crystal(bcm, 1);
-			} else {
-				switch ( mode ) {
-				case BCM430x_PCTL_CLK_FAST:
-					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
-					oldmode = (oldmode & ~BCM430x_PCTL_FORCE_SLOW) | BCM430x_PCTL_FORCE_PLL;
-					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
-					break;
-				case BCM430x_PCTL_CLK_SLOW:
-					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
-					oldmode |= BCM430x_PCTL_FORCE_SLOW;
-					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
-					break;
-				case BCM430x_PCTL_CLK_DYNAMIC:
-					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
-					oldmode = ((oldmode & ~BCM430x_PCTL_FORCE_SLOW) & ~BCM430x_PCTL_FORCE_PLL) | BCM430x_PCTL_DYN_XTAL;
-					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
-					break;
-				}
-			}
-		}
-	}
-
-	err = bcm430x_switch_core(bcm, old_core);
-	assert(err == 0);
-}
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.
