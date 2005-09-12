@@ -1637,7 +1637,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	struct net_device *net_dev = NULL;
 	struct bcm430x_private *bcm = NULL;
 	int err;
-	u8 pci_rev;
 
 #ifdef DEBUG_SINGLE_DEVICE_ONLY
 	if (strcmp(pci_name(pdev), DEBUG_SINGLE_DEVICE_ONLY))
@@ -1647,8 +1646,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	 *       should be done at bcm430x_net_open() time.
 	 *       For now we do it here for easier development.
 	 */
-
-	bcm430x_pci_read_config_8(pdev, PCI_REVISION_ID, &pci_rev);
 
 	err = bcm430x_init_board(pdev, &bcm);
 	if (err)
