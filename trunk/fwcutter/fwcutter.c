@@ -74,7 +74,7 @@ static void write_fw(const char *infilename, const char *outfilename, int byteor
 static void write_iv(const char *infilename, int byteorder, byte *data)
 {
 	FILE* fw;
-	char ivfilename[8];
+	char ivfilename[21];
 	int i;
 
 	for (i = 1; i <= 10; i++) {
