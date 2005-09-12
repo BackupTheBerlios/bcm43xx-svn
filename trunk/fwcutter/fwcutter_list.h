@@ -1,5 +1,6 @@
 
 static const struct file {
+	const char *name;
 	const char *version;
 	const char *md5;
 	const int byteorder;
@@ -17,6 +18,7 @@ static const struct file {
 } files[] = 
 {
 	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.20.23.0",                            /* bcmwl5.sys  06/13/2003 */ 
 		.md5         = "1b1cf5e962c15abca83d1ef2b3906e2f",
 		.byteorder   = BYTE_ORDER_DDCCBBAA,
@@ -28,6 +30,7 @@ static const struct file {
 		.pcm5_pos    = 0,	 .pcm5_length = 0,	       /* not available, driver is too old */
 	},
 	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.30.15.0",                            /* bcmwl5.sys  07/17/2003 */ 
 		.md5         = "ebf36d658d0da5b1ea667fa403919c26", 
 		.byteorder   = BYTE_ORDER_DDCCBBAA,
@@ -39,6 +42,7 @@ static const struct file {
 		.pcm5_pos    = 0x3ccb8,  .pcm5_length = 0x477,
 	},
 	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.40.25.3",                            /* bcmwl5.sys  10/28/2003 */ 
 		.md5         = "5e58a3148b98c9f356cde6049435cb21", 
 		.byteorder   = BYTE_ORDER_DDCCBBAA,
@@ -50,6 +54,7 @@ static const struct file {
 		.pcm5_pos    = 0x41c70,  .pcm5_length = 0x477,
 	},
 	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.50.x.y",                            /* bcmwl5.sys */
 		.md5         = "ae96075a3aed5c40f1ead477ea94acd7", 
 		.byteorder   = BYTE_ORDER_DDCCBBAA,
@@ -61,6 +66,7 @@ static const struct file {
 		.pcm5_pos    = 0x44c60,	 .pcm5_length = 0x477,
 	},
 	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.70.22.0",                            /* bcmwl5.sys  10/20/2004 */
 		.md5         = "185a6dc6d655dc31c0b228cc94fb99ac", 
 		.byteorder   = BYTE_ORDER_DDCCBBAA,
@@ -72,6 +78,7 @@ static const struct file {
 		.pcm5_pos    = 0x4bf38,	 .pcm5_length = 0x477,
 	},
 	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.100.46.0",                           /* bcmwl5.sys  12/22/2004 */
 		.md5         = "38ca1443660d0f5f06887c6a2e692aeb", 
 		.byteorder   = BYTE_ORDER_DDCCBBAA,
@@ -83,6 +90,7 @@ static const struct file {
 		.pcm5_pos    = 0x50578,	 .pcm5_length = 0x51f,
 	},
 	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.100.64.0",                           /* bcmwl5.sys  02/11/2005 */
 		.md5         = "e7debb46b9ef1f28932e533be4a3d1a9", 
 		.byteorder   = BYTE_ORDER_DDCCBBAA,
@@ -93,17 +101,18 @@ static const struct file {
 		.pcm4_pos    = 0x50b60,	 .pcm4_length = 0x51f,
 		.pcm5_pos    = 0x51088,	 .pcm5_length = 0x51f,
 	},
-        {
-                .version     = "3.70.17.5",                             /* BCMWL564.SYS, 11/09/2005 */
-                .md5         = "f5590c8784b91dfd9ee092d3040b6e40",      /* for 64bit machines   */
-                .byteorder   = BYTE_ORDER_DDCCBBAA,
-                .iv_pos      = 0x566f0,
-                .uc2_pos     = 0x5a360,  .uc2_length  = 0x3e80,
-                .uc4_pos     = 0x5e1f0,  .uc4_length  = 0x4ed0,
-                .uc5_pos     = 0x630d0,  .uc5_length  = 0x5680,
-                .pcm4_pos    = 0x68760,  .pcm4_length = 0x478,
-                .pcm5_pos    = 0x68be0,  .pcm5_length = 0x478,
-        }
+	{
+		.name        = "bcmwl564.sys",
+		.version     = "3.70.17.5",                             /* BCMWL564.SYS, 11/09/2005 */
+		.md5         = "f5590c8784b91dfd9ee092d3040b6e40",      /* for 64bit machines   */
+		.byteorder   = BYTE_ORDER_DDCCBBAA,
+		.iv_pos      = 0x566f0,
+		.uc2_pos     = 0x5a360,  .uc2_length  = 0x3e80,
+		.uc4_pos     = 0x5e1f0,  .uc4_length  = 0x4ed0,
+		.uc5_pos     = 0x630d0,  .uc5_length  = 0x5680,
+		.pcm4_pos    = 0x68760,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x68be0,  .pcm5_length = 0x478,
+	}
 };
 
 #define FILES (sizeof(files) / sizeof(files[0]))

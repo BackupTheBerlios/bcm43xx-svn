@@ -227,12 +227,10 @@ int main(int argc, char *argv[])
 
 				break;
 			case 'l':
-				printf("\nlist of driver files which are ready for firmware extracting:\n");
-				for (i = 0; i < FILES; ++i) {
-					printf("\nversion: %s   md5sum: ", files[i].version); 
-					printf(files[i].md5);
-				}
-				printf("\n");
+				printf("fwcutter supports these driver source files:\n");
+				for (i = 0; i < FILES; ++i)
+					printf("%s\t %s \t md5: %s\n", files[i].name, 
+					       files[i].version, files[i].md5);
 				break;
 			case 'v':
 				printf("fwcutter 0.0.1\n");
