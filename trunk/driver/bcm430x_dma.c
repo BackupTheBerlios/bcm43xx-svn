@@ -266,11 +266,45 @@ void bcm430x_free_dmaring(struct bcm430x_dmaring *ring)
 
 int bcm430x_post_dmaring(struct bcm430x_dmaring *ring)
 {/*TODO*/
+	if (ring->flags & BCM430x_RINGFLAG_TX) {
+		/* Set Transmit Control register to "transmit enable" */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
+				BCM430x_DMA_TXCTRL_ENABLE);
+		/* Set Transmit Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
+				ring->dmabase);
+	} else {
+		/* Set Transmit Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
+				ring->dmabase);
+	}
 	return 0;
 }
 
 void bcm430x_unpost_dmaring(struct bcm430x_dmaring *ring)
-{/*TODO*/
+{
+	if (ring->flags & BCM430x_RINGFLAG_TX) {
+		/* Zero out Transmit Control register. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
+				0x00000000);
+		/* Zero out Transmit Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
+				0x00000000);
+	} else {
+		/* Zero out Transmit Control register. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
+				0x00000000);
+		/* Zero out Transmit Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
+				0x00000000);
+	}
 }
 
 /* vim: set ts=8 sw=8 sts=8: */
