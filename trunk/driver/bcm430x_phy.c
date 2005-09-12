@@ -244,6 +244,8 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 		val -= 0x0202;
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
+	//FIXME: currently selected channel
+	//bcm430x_radio_selectchannel(bcm, currently selected channel);
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
 		bcm430x_radio_write16(bcm, 0x0079, 0x0081);
@@ -264,7 +266,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_phy_write(bcm, 0x0032, 0x00E0);
 	bcm430x_phy_write(bcm, 0x0035, 0x07C2);
-	//FIXME: FuncPlaceholder
+	//FIXME: FuncPlaceholder (BPHY2 Measurelo)
 	bcm430x_phy_write(bcm, 0x0026, 0xCC00);
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_phy_write(bcm, 0x0026, 0xCE00);
@@ -272,7 +274,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x002A, 0x88A3);
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_phy_write(bcm, 0x002A, 0x88C2);
-	//FIXME: FuncPlaceholder
+	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
 		//FIXME: FuncPlaceholder
 		//FIXME: FuncPlaceholder

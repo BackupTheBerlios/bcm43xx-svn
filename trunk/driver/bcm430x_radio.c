@@ -6,6 +6,7 @@
                      Stefano Brivio <st3@riseup.net>
                      Michael Buesch <mbuesch@freenet.de>
                      Danny van Dyk <kugelfang@gentoo.org>
+                     Andreas Jaggi <andreas.jaggi@waterwave.ch>
 
   Some parts of the code in this file are derived from the ipw2200
   driver  Copyright(c) 2003 - 2004 Intel Corporation.
@@ -363,4 +364,22 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_DATA, val);
+}
+
+void bcm430x_radio_set_tx_antenna(struct bcm430x_private *bcm, u32 val)
+{
+	u32 tmp;
+
+	bcm430x_shm_control(bcm, 0x0022);
+	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
+	bcm430x_shm_control(bcm, 0x0022);
+	bcm430x_shm_write32(bcm, tmp | val);
+	bcm430x_shm_control(bcm, 0x03A8);
+	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
+	bcm430x_shm_control(bcm, 0x03A8);
+	bcm430x_shm_write32(bcm, tmp | val);
+	bcm430x_shm_control(bcm, 0x0054);
+	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
+	bcm430x_shm_control(bcm, 0x0054);
+	bcm430x_shm_write32(bcm, tmp | val);
 }
