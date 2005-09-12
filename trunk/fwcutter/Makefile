@@ -1,3 +1,5 @@
+VERSION = 0.0.1
+
 CC = cc
 PREFIX = /usr/local
 CFLAGS = -std=c99 -O2 -Wall -pedantic -D_BSD_SOURCE
@@ -7,6 +9,7 @@ LDFLAGS =
 OBJECTS = fwcutter.o md5.o
 
 CFLAGS += $(shell if [ -x ./.get_endianess ]; then ./.get_endianess; fi)
+CFLAGS += -DFWCUTTER_VERSION_=$(VERSION)
 
 all: fwcutter
 
