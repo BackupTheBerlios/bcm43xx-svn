@@ -1342,6 +1342,8 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
 		     (unsigned long)bcm);
 
+	bcm->curr_channel = 0xFFFF;
+
 	switch (mode) {
 	case 1:
 		bcm->ieee->iw_mode = IW_MODE_ADHOC;

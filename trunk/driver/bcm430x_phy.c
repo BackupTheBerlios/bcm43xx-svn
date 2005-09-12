@@ -199,8 +199,11 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 		val -= 0x0202;
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
-	//FIXME: currently selected channel
-	//bcm430x_radio_selectchannel(bcm, currently selected channel);
+	if ( bcm->curr_channel == 0xFFFF ) {
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
+	} else {
+		bcm430x_radio_selectchannel(bcm, bcm->curr_channel);
+	}
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
 		bcm430x_radio_write16(bcm, 0x0079, 0x0081);
@@ -253,8 +256,11 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 		val -= 0x0202;
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
-	//FIXME: currently selected channel
-	//bcm430x_radio_selectchannel(bcm, currently selected channel);
+	if ( bcm->curr_channel == 0xFFFF ) {
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
+	} else {
+		bcm430x_radio_selectchannel(bcm, bcm->curr_channel);
+	}
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
 		bcm430x_radio_write16(bcm, 0x0079, 0x0081);
