@@ -684,6 +684,52 @@ void bcm430x_pctl_init(struct bcm430x_private *bcm)
 	assert(err == 0);
 }
 
+/* set the powercontrol clock
+ * as described in http://bcm-specs.sipsolutions.net/PowerControl
+ */
+static void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
+{
+	int err;
+	u32 cap;
+	u16 oldmode;
+	struct bcm430x_coreinfo *old_core;
+
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+
+	//FIXME: ensure PCI
+
+	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
+		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
+			if ( bcm->current_core->rev < 6 ) {
+				if ( mode == BCM430x_PCTL_CLK_FAST )
+					bcm430x_pctl_set_crystal(bcm, 1);
+			} else {
+				switch ( mode ) {
+				case BCM430x_PCTL_CLK_FAST:
+					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
+					oldmode = (oldmode & ~BCM430x_PCTL_FORCE_SLOW) | BCM430x_PCTL_FORCE_PLL;
+					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
+					break;
+				case BCM430x_PCTL_CLK_SLOW:
+					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
+					oldmode |= BCM430x_PCTL_FORCE_SLOW;
+					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
+					break;
+				case BCM430x_PCTL_CLK_DYNAMIC:
+					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
+					oldmode = ((oldmode & ~BCM430x_PCTL_FORCE_SLOW) & ~BCM430x_PCTL_FORCE_PLL) | BCM430x_PCTL_DYN_XTAL;
+					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
+					break;
+				}
+			}
+		}
+	}
+
+	err = bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+}
+
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.
  */

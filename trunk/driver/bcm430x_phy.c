@@ -392,7 +392,7 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 	//FIXME: defaultchannel = 7???
 	bcm430x_radio_selectchannel(bcm, 7);
 	bcm430x_phy_write(bcm, 0x0014, 0x0200);
-	//FIXME: FuncPlaceholder
+	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	bcm430x_radio_write16(bcm, 0x0052,
 	                      (bcm430x_radio_read16(bcm, 0x0052) & 0x00F0) | 0x0009);
 	bcm430x_radio_write16(bcm, 0x005D, 0x000D);
