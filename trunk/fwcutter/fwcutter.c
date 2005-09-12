@@ -28,8 +28,8 @@
 
 typedef unsigned char byte;
 
-#define BYTE_ORDER_UNKNOWN   0
-#define BYTE_ORDER_DDCCBBAA  1
+#define BYTE_ORDER_DDCCBBAA    0x01  /* 4 bytes swapped in source (DDCCBBAA instead of AABBCCDD) */
+#define INIT_VAL_08_MISSING    0x02  /* initval 8 is missing in older driver files */
 
 #include "md5.h"
 #include "fwcutter_list.h"
@@ -48,7 +48,7 @@ static void write_ddccbbaa(FILE *f, byte *buffer, int len)
 	}
 }
 
-static void write_fw(const char *infilename, const char *outfilename, int byteorder, byte *data, int len)
+static void write_fw(const char *infilename, const char *outfilename, uint8_t flags, byte *data, int len)
 {
 	FILE* fw;
 
@@ -58,26 +58,25 @@ static void write_fw(const char *infilename, const char *outfilename, int byteor
 		exit(1);
 	}
 
-        switch(byteorder) {
-        case BYTE_ORDER_DDCCBBAA:
+	if (flags & BYTE_ORDER_DDCCBBAA)
 		write_ddccbbaa(fw, data, len);
-                break;
-        case BYTE_ORDER_UNKNOWN:
-        default:
-                printf("unknown byteorder...\n");
-        }
+	else
+		printf("unknown byteorder...\n");
 
 	fflush(fw);
 	fclose(fw);
 }
 
-static void write_iv(const char *infilename, int byteorder, byte *data)
+static void write_iv(const char *infilename, uint8_t flags, byte *data)
 {
 	FILE* fw;
 	char ivfilename[21];
 	int i;
 
 	for (i = 1; i <= 10; i++) {
+
+		if ((flags & INIT_VAL_08_MISSING) && (i==8))
+			i++;
 
 		sprintf(ivfilename, "bcm430x_initval%02d.fw", i);
 		fw = fopen(ivfilename, "w");
@@ -96,13 +95,11 @@ static void write_iv(const char *infilename, int byteorder, byte *data)
 				break;
 			}
 
-			switch(byteorder) {
-			case BYTE_ORDER_DDCCBBAA:
+			if (flags & BYTE_ORDER_DDCCBBAA)
 				fprintf(fw, "%02x%02x%02x%02x%02x%02x%02x%02x\n",
-					data[1], data[0], data[3], data[2], data[7], data[6], data[5], data[4]);
-				break;
-			case BYTE_ORDER_UNKNOWN:
-			default:
+					data[1], data[0], data[3], data[2], 
+					data[7], data[6], data[5], data[4]);
+			else {
 				printf("unknown byteorder...\n");
 				exit(1);
 			}
@@ -144,24 +141,24 @@ static byte* read_file(const char* filename)
 	return data;
 }
 
-static void extract_fw(const char *infile, const char *outfile, int byteorder, uint32_t pos, uint32_t length)
+static void extract_fw(const char *infile, const char *outfile, uint8_t flags, uint32_t pos, uint32_t length)
 {
 	byte* filedata;
 
 	if (length > 0) {
 		printf("extracting %s ...\n", outfile);
 		filedata = read_file(infile);
-		write_fw(infile, outfile, byteorder, filedata + pos, length);
+		write_fw(infile, outfile, flags, filedata + pos, length);
 		free(filedata);
 	}
 }
 
-static void extract_iv(const char *infile, int byteorder, uint32_t pos)
+static void extract_iv(const char *infile, uint8_t flags, uint32_t pos)
 {
 	byte* filedata;
 
 	filedata = read_file(infile);
-	write_iv(infile, byteorder, filedata + pos);
+	write_iv(infile, flags, filedata + pos);
 	free(filedata);
 }
 
@@ -210,12 +207,12 @@ int main(int argc, char *argv[])
 				for (i = 0; i < FILES; ++i) {
 					if (strcasecmp(md5sig, files[i].md5) == 0) {
 						printf("Your firmware file is known. It's version %s.\n", files[i].version);
-						extract_fw(cp, "bcm430x_microcode2.fw", files[i].byteorder, files[i].uc2_pos, files[i].uc2_length);
-						extract_fw(cp, "bcm430x_microcode4.fw", files[i].byteorder, files[i].uc4_pos, files[i].uc4_length);
-						extract_fw(cp, "bcm430x_microcode5.fw", files[i].byteorder, files[i].uc5_pos, files[i].uc5_length);
-						extract_fw(cp, "bcm430x_pcm4.fw", files[i].byteorder, files[i].pcm4_pos, files[i].pcm4_length);
-						extract_fw(cp, "bcm430x_pcm5.fw", files[i].byteorder, files[i].pcm5_pos, files[i].pcm5_length);
-						extract_iv(cp, files[i].byteorder, files[i].iv_pos);
+						extract_fw(cp, "bcm430x_microcode2.fw", files[i].flags, files[i].uc2_pos, files[i].uc2_length);
+						extract_fw(cp, "bcm430x_microcode4.fw", files[i].flags, files[i].uc4_pos, files[i].uc4_length);
+						extract_fw(cp, "bcm430x_microcode5.fw", files[i].flags, files[i].uc5_pos, files[i].uc5_length);
+						extract_fw(cp, "bcm430x_pcm4.fw", files[i].flags, files[i].pcm4_pos, files[i].pcm4_length);
+						extract_fw(cp, "bcm430x_pcm5.fw", files[i].flags, files[i].pcm5_pos, files[i].pcm5_length);
+						extract_iv(cp, files[i].flags, files[i].iv_pos);
 						++count;
 					}
 				}
