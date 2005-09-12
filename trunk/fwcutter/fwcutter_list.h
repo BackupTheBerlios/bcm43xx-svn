@@ -112,7 +112,31 @@ static const struct file {
 		.uc5_pos     = 0x630d0,  .uc5_length  = 0x5680,
 		.pcm4_pos    = 0x68760,  .pcm4_length = 0x478,
 		.pcm5_pos    = 0x68be0,  .pcm5_length = 0x478,
-	}
+	},
+	{
+		.name        = "wl.o",
+		.version     = "2004-01-27",
+		.md5         = "191029d5e7097ed7db92cbd6e6131f85",
+		.flags       = BYTE_ORDER_DDCCBBAA,
+		.iv_pos      = 0x3a5d0,
+		.uc2_pos     = 0x3e0b8,  .uc2_length  = 0x3e00,
+		.uc4_pos     = 0x41ebc,  .uc4_length  = 0x4628,
+		.uc5_pos     = 0x464e0,  .uc5_length  = 0x5550,
+		.pcm4_pos    = 0x4ba34,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x4beb0,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl.o",
+		.version     = "2004-07-02",
+		.md5         = "f71be0e1d14f68c98d916465a300d835",
+		.flags       = BYTE_ORDER_DDCCBBAA,
+		.iv_pos      = 0x38990,
+		.uc2_pos     = 0x3c428,  .uc2_length  = 0x3db8,
+		.uc4_pos     = 0x401e4,  .uc4_length  = 0x45d8,
+		.uc5_pos     = 0x447c0,  .uc5_length  = 0x5050,
+		.pcm4_pos    = 0x49814,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x49c90,  .pcm5_length = 0x478,
+	},
 };
 
 #define FILES (sizeof(files) / sizeof(files[0]))

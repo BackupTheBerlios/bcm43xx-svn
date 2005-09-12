@@ -186,8 +186,10 @@ static void print_supported_files(void)
 
 	printf("fwcutter supports these driver source files:\n");
 	for (i = 0; i < FILES; ++i) {
-		printf("%s\t %s \t md5: %s\n", files[i].name, 
-	 	       files[i].version, files[i].md5);
+		printf("%s\t", files[i].name);
+		if (strlen(files[i].name) < 8)
+			printf("\t");
+		printf(" %s \t md5: %s\n", files[i].version, files[i].md5);
 	}
 }
 
