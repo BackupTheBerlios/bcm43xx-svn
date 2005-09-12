@@ -767,36 +767,36 @@ static void bcm430x_write_pcm(struct bcm430x_private *bcm,
 
 static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 {
-	const struct firmware *ucode_fw, *pcm_fw;
+	const struct firmware *fw;
 	char buf[22] = { 0 };
 
-	snprintf(buf, ARRAY_SIZE(buf) - 1, "bcm430x_microcode%d.fw",
+	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d.fw",
 		 (bcm->core_80211.rev >= 5 ? 5 : bcm->core_80211.rev ));
-	if (request_firmware(&ucode_fw, buf, &bcm->pci_dev->dev) != 0) {
+	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX 
 		       "Error: Microcode \"%s\" not available or load failed.\n",
 		        buf);
 		return -ENODEV;
 	}
-	bcm430x_write_microcode(bcm, (u32 *)ucode_fw->data, ucode_fw->size / sizeof(u32));
+	bcm430x_write_microcode(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
 #ifdef BCM430x_DEBUG
-	bcm->ucode_size = ucode_fw->size;
+	bcm->ucode_size = fw->size;
 #endif
-	release_firmware(ucode_fw);
+	release_firmware(fw);
 
-	snprintf(buf, ARRAY_SIZE(buf) - 1,
+	snprintf(buf, ARRAY_SIZE(buf),
 		 "bcm430x_pcm%d.fw", (bcm->core_80211.rev < 5 ? 4 : 5));
-	if (request_firmware(&pcm_fw, buf, &bcm->pci_dev->dev) != 0) {
+	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX
 		       "Error: PCM \"%s\" not available or load failed.\n",
 		       buf);
 		return -ENODEV;
 	}
-	bcm430x_write_pcm(bcm, (u32 *)pcm_fw->data, pcm_fw->size / sizeof(u32));
+	bcm430x_write_pcm(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
 #ifdef BCM430x_DEBUG
-	bcm->pcm_size = pcm_fw->size;
+	bcm->pcm_size = fw->size;
 #endif
-	release_firmware(pcm_fw);
+	release_firmware(fw);
 
 	return 0;
 }
