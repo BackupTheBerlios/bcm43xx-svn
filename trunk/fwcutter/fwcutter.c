@@ -87,8 +87,11 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 
 	for (i = 1; i <= 10; i++) {
 
-		if ((flags & INIT_VAL_08_MISSING) && (i==8))
+		if ((flags & INIT_VAL_08_MISSING) && (i==8)) {
+			printf("WARNING: initval 08 not available in driver file \"%s\". "
+			       "Driver file is too old.\n", infilename);
 			i++;
+		}
 
 		sprintf(ivfilename, "bcm430x_initval%02d.fw", i);
 		fw = fopen(ivfilename, "w");
@@ -162,6 +165,9 @@ static void extract_fw(const char *infile, const char *outfile, uint8_t flags, u
 		filedata = read_file(infile);
 		write_fw(infile, outfile, flags, filedata + pos, length);
 		free(filedata);
+	} else {
+		printf("WARNING: \"%s\" not available in driver file \"%s\". "
+		       "Driver file is too old.\n", outfile, infile);
 	}
 }
 
