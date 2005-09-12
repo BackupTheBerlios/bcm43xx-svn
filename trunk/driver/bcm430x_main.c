@@ -283,30 +283,43 @@ static void bcm430x_clr_target_abort(struct bcm430x_private *bcm)
  */
 int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
-	unsigned int i, j;
+	unsigned int i, max_loop;
 	u16 packet_number;
+	u32 buffer[5] = {
+		0x00000000,
+		cpu_to_le32(0x0000D400),
+		0x00000000,
+		cpu_to_le32(0x00000001),
+		0x00000000,
+	};
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
 		packet_number = 0;
-		j = 0x1E;						// This is the exit condition for the loop below.
-		bcm430x_ram_write(bcm, 0x0000, 0xCC010200);		// It was better to initialize it here than to
-		break;                                        		// another if(bcm->phy_type...) below.
-	case BCM430x_PHYTYPE_B:						// And it's BEFORE writes, just to not affect timing.
+		max_loop = 0x1E;				// This is the exit condition for the loop below.
+		buffer[0] = cpu_to_le32(0xCC010200);	// It was better to initialize it here than to
+		break;                                        	// another if(bcm->phy_type...) below.
+	case BCM430x_PHYTYPE_B:					// And it's BEFORE writes, just to not affect timing.
 	case BCM430x_PHYTYPE_G:
 		packet_number = 1;
-		j = 0xFA;
-		bcm430x_ram_write(bcm, 0x0000, 0x6E840B00);
+		max_loop = 0xFA;
+		buffer[0] = cpu_to_le32(0x6E840B00);
 		break;
 	default:
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
 		return -1;
 	}
 
-	bcm430x_ram_write(bcm, 0x0004, 0x0000D400);
-	bcm430x_ram_write(bcm, 0x0008, 0x00000000);
-	bcm430x_ram_write(bcm, 0x000C, 0x00000001);
-	bcm430x_ram_write(bcm, 0x0010, 0x00000000);
+#if BCM430x_DEBUG
+	printk(KERN_WARNING PFX "DummyTransmission():\n");
+	printk(KERN_WARNING PFX "Packet: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+	       buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
+#endif
+
+	for (i = 0; i < 5; i++) {
+		bcm430x_ram_write(bcm, i * 4, buffer[i]);
+	}
+	printk(KERN_WARNING PFX "Packet written\n");
 
 	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 
@@ -321,19 +334,25 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	bcm430x_write16(bcm, 0x0500, 0x0000);
 	bcm430x_write16(bcm, 0x0502, 0x0030);
 
-	for (i = 0x00; i < j; i++) {
-		if (bcm430x_read16(bcm, 0x050E) != 0 && bcm430x_read16(bcm,0x0080) != 0) 
+	for (i = 0x00; i < max_loop; i++) {
+		if ((bcm430x_read16(bcm, 0x050E) & 0x0080) != 0) {
+			printk(KERN_WARNING PFX "Loop1 broken\n");
 			break;
+		}
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
-		if (bcm430x_read16(bcm, 0x050E) != 0 && bcm430x_read16(bcm,0x0400) != 0) 
+		if ((bcm430x_read16(bcm, 0x050E) & 0x0400) != 0) {
+			printk(KERN_WARNING PFX "Loop2 broken\n");
 			break;
+		}
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
-		if (bcm430x_read16(bcm, 0x0690) != 0 && bcm430x_read16(bcm,0x0100) != 0) 
+		if ((bcm430x_read16(bcm, 0x0690) & 0x0100) != 0) {
+			printk(KERN_WARNING PFX "Loop3 broken\n");
 			break;
+		}
 		udelay(10);
 	}
 
@@ -554,6 +573,32 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 out:
 	return err;
 }
+
+#if 0
+static void bcm430x_core_reset(struct bcm430x_private *bcm)
+{
+	u32 flags = 0x00040000;
+
+	if (bcm430x_core_enabled(bcm)) {
+		//FIXME: bcm430x_reset_tx_dma(bcm, ALL);
+		//FIXME: bcm430x_reset_rx_dma(bcm, FIRST);
+		if (bcm->current_core.rev < 5)
+			//FIXME: bcm430x_reset_rx_dma(bcm, FOURTH);
+	}
+	if (Corereset_unk778)
+		bcm430x_write32(bcm, 0x0120,
+		                bcm430x_read32(bcm, 0x0120) & 0xFFFFFFFC);
+	else {
+		if (bcm->status & BCM430x_PHYCONNECTED)
+			flags |= 0x20000000;
+		bcm430x_core_enable(bcm, flags);
+		bcm430x_write16(bcm, 0x03E6, 0x0000);
+		bcm430x_write32(bcm, 0x0120, 0x00000400);
+		//XXX: Is this correct?
+		bcm430x_interrupt_disable(bcm, 0x00000000);
+	}
+}
+#endif /*0*/
 
 /* get min slowclock frequency
  * as described in http://bcm-specs.sipsolutions.net/PowerControl
@@ -1137,12 +1182,11 @@ static int bcm430x_write_initvals(struct bcm430x_private *bcm)
 			 *        as I don't know what SB_CoreFlagsHI is.
 			 *        See http://bcm-specs.sipsolutions.net/APHYBSInitVal5
 			 */
-#if 0
-			if ( SB_CoreFlagsHI & 0x10000 )
+			/* XXX: Might be bcm->current_core.flags ? */
+			if (bcm->current_core->flags & 0x00010000)
 				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_2);
 			else
 				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_1);
-#endif
 			break;
 		case BCM430x_PHYTYPE_B:
 		case BCM430x_PHYTYPE_G:
@@ -1661,6 +1705,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	/*FIXME: Which interrupts do we have to enable? _Really_ all? */
 	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_ALL);
+	bcm430x_dummy_transmission(bcm);
 
 	bcm430x_debugfs_add_device(bcm);
 

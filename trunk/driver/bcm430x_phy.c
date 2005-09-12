@@ -353,6 +353,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 		bcm430x_write16(bcm, 0x03E4, 0x3000);
 	}
 
+	//XXX: Must be 7!
 	bcm430x_radio_selectchannel(bcm, 7);
 
 	if ( (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
@@ -373,7 +374,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 
 	bcm430x_radio_write16(bcm, 0x007A, bcm430x_radio_read16(bcm, 0x007A) | 0x0007);
 
-	/* FIXME: set channel do default channel */
+	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
 
 	bcm430x_phy_write(bcm, 0x0014, 0x0080);
 	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
@@ -445,8 +446,7 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 	bcm430x_radio_write16(bcm, 0x005C, 0x00B0);
 	bcm430x_radio_write16(bcm, 0x007A,
 	                      (bcm430x_radio_read16(bcm, 0x007A) & 0x00F8) | 0x0007);
-	//FIXME: defaultchannel = 7???
-	bcm430x_radio_selectchannel(bcm, 7);
+	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
 	bcm430x_phy_write(bcm, 0x0014, 0x0200);
 	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	bcm430x_radio_write16(bcm, 0x0052,
