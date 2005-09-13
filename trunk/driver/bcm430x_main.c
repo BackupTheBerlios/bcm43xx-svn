@@ -563,14 +563,15 @@ static void bcm430x_core_reset(struct bcm430x_private *bcm)
 			//FIXME: bcm430x_reset_rx_dma(bcm, FOURTH);
 	}
 	if (Corereset_unk778)
-		bcm430x_write32(bcm, 0x0120,
-		                bcm430x_read32(bcm, 0x0120) & 0xFFFFFFFC);
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+				& 0xFFFFFFFC);
 	else {
 		if (bcm->status & BCM430x_PHYCONNECTED)
 			flags |= 0x20000000;
 		bcm430x_core_enable(bcm, flags);
 		bcm430x_write16(bcm, 0x03E6, 0x0000);
-		bcm430x_write32(bcm, 0x0120, 0x00000400);
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000400);
 		//XXX: Is this correct?
 		bcm430x_interrupt_disable(bcm, 0x00000000);
 	}
@@ -1028,7 +1029,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
 	                bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW) | 0x00100000);
 	
-	bcm430x_write16(bcm, 0x06A8, bcm430x_pctl_powerup_delay(bcm));
+	bcm430x_write16(bcm, BCM430x_MMIO_POWERUP_DELAY, bcm430x_pctl_powerup_delay(bcm));
 
 	assert(err == 0);
 printk(KERN_INFO PFX "Chip initialized\n");
@@ -1129,13 +1130,12 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	if (err)
 		goto out;
 
-	/* set bit in status register */
-	status = bcm430x_read32(bcm, 0x120);
-	status |= 0x400;
-	bcm430x_write32(bcm, 0x120, status);
+	status = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	status |= 0x400; /* FIXME: Unknown SBF flag */
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, status);
 
 	/* get phy version */
-	phy_version = bcm430x_read16(bcm, 0x3E0);
+	phy_version = bcm430x_read16(bcm, BCM430x_MMIO_PHY_VER);
 
 	bcm->phy_version = (phy_version & 0xF000) >> 12;
 	bcm->phy_type = (phy_version & 0x0F00) >> 8;
@@ -1167,8 +1167,8 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
 	bcm430x_shm_write32(bcm, shm_backup);
 
-	if (bcm430x_read32(bcm, 0x128) != 0)
-		printk(KERN_ERR PFX "Bad interrupt reason code (?) validating chip.\n");
+	if (bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON) != 0)
+		printk(KERN_ERR PFX "Bad interrupt reason code while validating chip.\n");
 
 	if (bcm->phy_type > 2)
 		printk(KERN_ERR PFX "Unknown PHY Type: %x\n", bcm->phy_type);

@@ -305,8 +305,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x0811, 0x01B3);
 			bcm430x_phy_write(bcm, 0x0812, 0x0fb2);
 		}
-		bcm430x_write16(bcm, 0x03E2,
-		                (bcm430x_read16(bcm, 0x03E2) | 0x8000));
+		bcm430x_write16(bcm, BCM430x_MMIO_PHY_RADIO,
+		                (bcm430x_read16(bcm, BCM430x_MMIO_PHY_RADIO) | 0x8000));
 	}
 	stack[index++] = bcm430x_phy_read(bcm, 0x0035);
 	bcm430x_phy_write(bcm, 0x0035,
@@ -366,8 +366,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0030, stack[--index]);
 		bcm430x_write16(bcm, 0x03EC, stack[--index]);
 	} else {
-		bcm430x_write16(bcm, 0x03E2,
-		                (bcm430x_read16(bcm, 0x03E2) & 0x7FFF));
+		bcm430x_write16(bcm, BCM430x_MMIO_PHY_RADIO,
+		                (bcm430x_read16(bcm, BCM430x_MMIO_PHY_RADIO) & 0x7FFF));
 		if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
 			bcm430x_phy_write(bcm, 0x0811, stack[--index]);
 			bcm430x_phy_write(bcm, 0x0812, stack[--index]);

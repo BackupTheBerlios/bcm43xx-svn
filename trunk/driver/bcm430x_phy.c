@@ -323,7 +323,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 			bcm430x_radio_write16(bcm, 0x0051, bcm430x_radio_read16(bcm, 0x0051) | 0x0004);
 		}
 
-		bcm430x_write16(bcm, 0x03E2, 0x0000);
+		bcm430x_write16(bcm, BCM430x_MMIO_PHY_RADIO, 0x0000);
 
 		bcm430x_phy_write(bcm, 0x0802, bcm430x_phy_read(bcm, 0x0802) | 0x0100);
 		bcm430x_phy_write(bcm, 0x042B, bcm430x_phy_read(bcm, 0x042B) | 0x2000);
@@ -352,7 +352,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 
 	bcm430x_phy_write(bcm, 0x0030, 0x00C6);
 
-	bcm430x_write16(bcm, 0x3F22, 0x03EC);
+	bcm430x_write16(bcm, 0x03EC, 0x3F22);
 
 	if (bcm->radio_id == BCM430x_RADIO_ID_NORF) {
 		bcm430x_phy_write(bcm, 0x0020, 0x281E);
@@ -588,7 +588,7 @@ int bcm430x_phy_init(struct bcm430x_private *bcm)
 void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 {
 	u16 offset;
-	u32 shm_adivbit;
+	u32 ucodeflags;
 
 	if ((bcm->phy_type == BCM430x_PHYTYPE_A) && (bcm->phy_rev == 3)) {
 		bcm->antenna_diversity = 0;
@@ -598,10 +598,10 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 		bcm->antenna_diversity = 0x180;
 	}
 
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
-	shm_adivbit = bcm430x_shm_read32(bcm);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
-	bcm430x_shm_write32(bcm, shm_adivbit & ~0x0001);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
+	ucodeflags = bcm430x_shm_read32(bcm);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
+	bcm430x_shm_write32(bcm, ucodeflags & ~BCM430x_UCODEFLAG_AUTODIV);
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
@@ -653,10 +653,10 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 		return;
 	}
 
-	if (bcm->antenna_diversity >= 0x100) {
-		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
-		shm_adivbit = bcm430x_shm_read32(bcm);
-		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
-		bcm430x_shm_write32(bcm, shm_adivbit | 0x0001);
+	if (bcm->antenna_diversity >= 0x0100) {
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_ADDR);
+		ucodeflags = bcm430x_shm_read32(bcm);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_ADDR);
+		bcm430x_shm_write32(bcm, ucodeflags |  BCM430x_UCODEFLAG_AUTODIV);
 	}
 }
