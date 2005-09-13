@@ -1447,6 +1447,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 		     (unsigned long)bcm);
 
 	bcm->curr_channel = 0xFFFF;
+	bcm->antenna_diversity = 0xFFFF;
 
 	switch (mode) {
 	case 1:
@@ -1519,6 +1520,8 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	                           &bcm->board_vendor);
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID,
 	                           &bcm->board_type);
+
+	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &bcm->chipcommon_capabilities);
 
 	bcm430x_pctl_set_crystal(bcm, 1);
 	bcm430x_clr_target_abort(bcm);

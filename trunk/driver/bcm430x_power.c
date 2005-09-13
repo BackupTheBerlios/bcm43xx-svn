@@ -40,15 +40,14 @@
 static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
 {
 	int err;
-	u32 cap, out, slow_clk_ctl;
+	u32 out, slow_clk_ctl;
 	struct bcm430x_coreinfo *old_core;
 
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 
 	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap);
-		if (cap & BCM430x_CAPABILITIES_PCTLMASK) {
+		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
 			if ( bcm->current_core->rev < 6 ) {
 				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
 				if ( out & 0x10 ) {
@@ -92,7 +91,7 @@ static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
 static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
 {
 	int err;
-	u32 cap, out;
+	u32 out;
 	u32 slow_clk_ctl = 0;
 	struct bcm430x_coreinfo *old_core;
 
@@ -100,8 +99,7 @@ static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 
 	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap);
-		if (cap & BCM430x_CAPABILITIES_PCTLMASK) {
+		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
 			if ( bcm->current_core->rev < 6 ) {
 				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
 				if ( out & 0x10 ) {
@@ -145,14 +143,13 @@ static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
 void bcm430x_pctl_init(struct bcm430x_private *bcm)
 {
 	int err, maxfreq;
-	u32 cap;
 	struct bcm430x_coreinfo *old_core;
 
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 
 	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
+		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
 			maxfreq = bcm430x_pctl_get_maxslowclk(bcm);
 			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_IN, (maxfreq*250+999999)/1000000);
 			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, (maxfreq*250+999999)/1000000);
@@ -166,7 +163,7 @@ void bcm430x_pctl_init(struct bcm430x_private *bcm)
 u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm)
 {
 	int err;
-	u32 cap, pll_on_delay;
+	u32 pll_on_delay;
 	struct bcm430x_coreinfo *old_core;
 	int minfreq;
 
@@ -176,7 +173,7 @@ u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm)
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 
 	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
+		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
 			minfreq = bcm430x_pctl_get_minslowclk(bcm);
 			bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &pll_on_delay);
 			return (((pll_on_delay+2)*1000000)+(minfreq-1))/minfreq;
@@ -195,7 +192,6 @@ u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm)
 void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 {
 	int err;
-	u32 cap;
 	u16 oldmode;
 	struct bcm430x_coreinfo *old_core;
 
@@ -206,7 +202,7 @@ void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 
 	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
-		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
+		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
 			if ( bcm->current_core->rev < 6 ) {
 				if ( mode == BCM430x_PCTL_CLK_FAST )
 					bcm430x_pctl_set_crystal(bcm, 1);
@@ -265,4 +261,3 @@ void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
 	}
 }
-

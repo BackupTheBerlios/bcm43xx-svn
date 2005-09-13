@@ -6,6 +6,7 @@
                      Stefano Brivio <st3@riseup.net>
                      Michael Buesch <mbuesch@freenet.de>
                      Danny van Dyk <kugelfang@gentoo.org>
+                     Andreas Jaggi <andreas.jaggi@waterwave.ch>
 
   Some parts of the code in this file are derived from the ipw2200
   driver  Copyright(c) 2003 - 2004 Intel Corporation.
@@ -31,3 +32,5 @@ u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val);
 
 int bcm430x_phy_init(struct bcm430x_private *bcm);
+
+void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm);

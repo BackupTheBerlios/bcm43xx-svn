@@ -323,6 +323,8 @@ struct bcm430x_private {
 
 	u16 curr_channel;
 
+	u16 antenna_diversity;
+
 #ifdef BCM430x_DEBUG
 	u16 ucode_size;
 	u16 pcm_size;
@@ -342,6 +344,8 @@ struct bcm430x_private {
 	struct bcm430x_coreinfo core_pcmcia;
 	struct bcm430x_coreinfo core_80211;
 	/*TODO: add the remaining coreinfo structs. */
+
+	u32 chipcommon_capabilities;
 
 	/* Reason code of the last interrupt. */
 	u32 irq_reason;

@@ -584,3 +584,79 @@ int bcm430x_phy_init(struct bcm430x_private *bcm)
 
 	return 0;
 }
+
+void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
+{
+	u16 offset;
+	u32 shm_adivbit;
+
+	if ( bcm->phy_type == BCM430x_PHYTYPE_A && bcm->phy_rev == 3 ) {
+		bcm->antenna_diversity = 0;
+	}
+
+	if ( bcm->antenna_diversity == 0xFFFF ) {
+		bcm->antenna_diversity = 0x180;
+	}
+
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
+	shm_adivbit = bcm430x_shm_read32(bcm);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
+	bcm430x_shm_write32(bcm, shm_adivbit & ~0x0001);
+
+	switch (bcm->phy_type) {
+	case BCM430x_PHYTYPE_A:
+		offset = 0x0000;
+	case BCM430x_PHYTYPE_G:
+		offset = 0x0400;
+
+		if ( bcm->antenna_diversity == 0x100 ) {
+			bcm430x_phy_write(bcm, offset + 1, (bcm430x_phy_read(bcm, offset + 1) & 0x7E7F) | 0x0180);
+		} else {
+			bcm430x_phy_write(bcm, offset + 1, (bcm430x_phy_read(bcm, offset + 1) & 0x7E7F) | bcm->antenna_diversity);
+		}
+
+		if ( bcm->antenna_diversity == 0x100 ) {
+			bcm430x_phy_write(bcm, offset + 0x002B, (bcm430x_phy_read(bcm, offset + 0x002B) & 0xFEFF) | 0x0100);
+		}
+
+		if ( bcm->antenna_diversity > 0x100 ) {
+			bcm430x_phy_write(bcm, offset + 0x002B, bcm430x_phy_read(bcm, offset + 0x002B) & 0xFEFF);
+		}
+
+		if (!(bcm->status & BCM430x_STAT_PHYCONNECTED)) {
+			if ( bcm->antenna_diversity < 0x100 ) {
+				bcm430x_phy_write(bcm, 0x048C, bcm430x_phy_read(bcm, 0x048C) & 0xDFFF);
+			} else {
+				bcm430x_phy_write(bcm, 0x048C, (bcm430x_phy_read(bcm, 0x048C) & 0xDFFF) | 0x2000);
+			}
+
+			if ( bcm->phy_rev >= 2 ) {
+				bcm430x_phy_write(bcm, 0x0461, bcm430x_phy_read(bcm, 0x0461) | 0x0010);
+				bcm430x_phy_write(bcm, 0x04AD, (bcm430x_phy_read(bcm, 0x04AD) & 0xFF00) | 0x0015);
+				bcm430x_phy_write(bcm, 0x0427, 0x0008);
+			}
+		}
+		break;
+	case BCM430x_PHYTYPE_B:
+		if ( bcm->current_core->rev == 2) {
+			bcm430x_phy_write(bcm, 0x03E2, (bcm430x_phy_read(bcm, 0x03E2) & 0xFE7F) | 0x0180);
+		} else {
+			if ( bcm->antenna_diversity == 0x100 ) {
+				bcm430x_phy_write(bcm, 0x03E2, (bcm430x_phy_read(bcm, 0x03E2) & 0xFE7F) | 0x0180);
+			} else {
+				bcm430x_phy_write(bcm, 0x03E2, (bcm430x_phy_read(bcm, 0x03E2) & 0xFE7F) | bcm->antenna_diversity);
+			}
+		}
+		break;
+	default:
+                printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
+		return;
+	}
+
+	if ( bcm->antenna_diversity >= 0x100 ) {
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
+		shm_adivbit = bcm430x_shm_read32(bcm);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0053);
+		bcm430x_shm_write32(bcm, shm_adivbit | 0x0001);
+	}
+}
