@@ -287,7 +287,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 		stack[index++] = bcm430x_read16(bcm, 0x03EC);
 		stack[index++] = bcm430x_phy_read(bcm, 0x0030);
 	} else {
-		if (bcm->status && BCM430x_STAT_PHYCONNECTED) {
+		if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
 			stack[index++] = bcm430x_phy_read(bcm, 0x0802);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0429);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0815);
@@ -334,7 +334,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	
 	bcm430x_radio_write16(bcm, 0x0015, 0xBFAF);
 	bcm430x_radio_write16(bcm, 0x002B, 0x1403);
-	if (!(bcm->status && BCM430x_STAT_PHYCONNECTED))
+	if (!(bcm->status & BCM430x_STAT_PHYCONNECTED))
 		bcm430x_phy_write(bcm, 0x0812, 0x00B2);
 	bcm430x_phy_write(bcm, 0x0015, 0xBFA0);
 	bcm430x_radio_write16(bcm, 0x0051,

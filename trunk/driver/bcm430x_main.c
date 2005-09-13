@@ -1065,7 +1065,7 @@ static void write_initvals_array(struct bcm430x_private *bcm,
  */
 static int bcm430x_write_initvals(struct bcm430x_private *bcm)
 {
-	if (bcm->core_80211.rev == 2 || bcm->core_80211.rev == 4) {
+	if ((bcm->core_80211.rev == 2) || (bcm->core_80211.rev == 4)) {
 		switch (bcm->phy_type) {
 		case BCM430x_PHYTYPE_A:
 			write_initvals_array(bcm, bcm430x_initvals_core24_aphy);
@@ -1237,7 +1237,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	/* ChipCommon with Core Rev >=4 encodes number of cores,
 	 * otherwise consult hardcoded table */
-	if (core_id == BCM430x_COREID_CHIPCOMMON && core_rev >= 4)
+	if ((core_id == BCM430x_COREID_CHIPCOMMON) && (core_rev >= 4))
 		core_count = (chip_id_32 & 0x0F000000) >> 24;
 	else {
 		switch (chip_id_16) {
