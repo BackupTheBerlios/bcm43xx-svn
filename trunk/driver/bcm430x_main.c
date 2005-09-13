@@ -965,7 +965,8 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto err_radio_off;
 
-	//FIXME: FuncPlaceholder (Interference);
+	//FIXME: Calling with NONE for the time being...
+	bcm430x_radio_calc_interference(bcm, BCM430x_RADIO_INTERFMODE_NONE);
 	//FIXME: SetAntennaDiversity();
 	bcm430x_radio_set_txantenna(bcm, BCM430x_RADIO_DEFAULT_ANTENNA);
 	if (bcm->phy_type == BCM430x_PHYTYPE_B)

@@ -48,8 +48,10 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 	
 	switch (mode & !BCM430x_RADIO_INTERFMODE_DISABLE) {
 	case BCM430x_RADIO_INTERFMODE_NONE:
+		if (bcm->radio_interfmode & BCM430x_RADIO_INTERFMODE_DISABLE)
+			return;
 		if (bcm->radio_interfmode != BCM430x_RADIO_INTERFMODE_NONE)
-		    bcm430x_radio_calc_interference(bcm,
+			bcm430x_radio_calc_interference(bcm,
 		                                    bcm->radio_interfmode
 						    | BCM430x_RADIO_INTERFMODE_DISABLE);
 		break;
@@ -247,8 +249,13 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 		printk(KERN_WARNING PFX "calc_interference(): Illegal mode %d\n", mode);
 		break;
 	};
-	if (!disable)
-		bcm->radio_interfsize = i;
+	
+#ifdef BCM430x_DEBUG
+	// make sure i only 0 when we disable!
+	assert( ( (disable == 0) ^ (i == 0) ) );
+#endif
+	bcm->radio_interfsize = i;
+	bcm->radio_interfmode = mode;
 }
 
 static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
