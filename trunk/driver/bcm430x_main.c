@@ -1017,8 +1017,8 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		bcm430x_write32(bcm, 0x0188, 0x80000000);
 		bcm430x_write32(bcm, 0x018C, 0x02000000);
 	}
-	bcm430x_write32(bcm, 0x0128, 0x00004000);
-	//XXX: DMA registers?
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, 0x00004000);
+	//XXX: DMA irq mask registers?
 	bcm430x_write32(bcm, 0x0024, 0x0001DC00);
 	bcm430x_write32(bcm, 0x002C, 0x0000DC00);
 	bcm430x_write32(bcm, 0x0034, 0x0000DC00);
