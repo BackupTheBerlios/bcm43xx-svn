@@ -996,8 +996,9 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	}
 #endif
 	//FIXME: Probe Response Timeout Value??? (Is 16bit!)
-	//bcm430x_shm_control(bcm, BCM43x_SHM_SHARED + 0x0074);
-	//bcm430x_shm_write16(bcm, PRTV);
+	// Default to 0, has to be set by ioctl probably... :-/
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0074);
+	bcm430x_shm_write16(bcm, 0x0000);
 	//XXX: MMIO: 0x0608 is the work_mode register?
 	if (!(bcm->work_mode & BCM430x_MODE_ADHOC) &&
 	    !(bcm->work_mode & BCM430x_MODE_ACCESSPOINT))

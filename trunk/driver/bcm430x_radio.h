@@ -31,6 +31,12 @@
 #define BCM430x_RADIO_DEFAULT_CHANNEL_BG	6
 #define BCM430x_RADIO_DEFAULT_ANTENNA		0x0300
 
+#define BCM430x_RADIO_INTERFMODE_NONE		0
+#define BCM430x_RADIO_INTERFMODE_NONWLAN	(1 << 0)
+#define BCM430x_RADIO_INTERFMODE_MANUALWLAN	(1 << 1)
+#define BCM430x_RADIO_INTERFMODE_AUTOWLAN	(1 << 2)
+#define BCM430x_RADIO_INTERFMODE_DISABLE	(1 << 3)
+
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
 

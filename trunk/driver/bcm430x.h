@@ -312,6 +312,9 @@ struct bcm430x_private {
 	// 1: generic attenuation, 
 	// 2: tx_CTL1 attenuation
 	u16 radio_txpower[3];
+	u16 radio_interfmode;
+	u16 radio_interfsize;
+	u16 radio_interfstack[20];
 
 	u32 sbimstate;
 	u32 sbtmstatelow;

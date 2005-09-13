@@ -35,6 +35,222 @@
 #include "bcm430x_phy.h"
 #include "bcm430x_radio.h"
 
+void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
+{
+	u16 disable = (mode & BCM430x_RADIO_INTERFMODE_DISABLE);
+	u16 *stack = bcm->radio_interfstack;
+	u16 i = bcm->radio_interfsize;
+
+	if (!(bcm->phy_type == BCM430x_PHYTYPE_G) || (bcm->phy_rev == 0))
+		return;
+	if (!(bcm->status & BCM430x_STAT_PHYCONNECTED))
+		return;
+	
+	switch (mode & !BCM430x_RADIO_INTERFMODE_DISABLE) {
+	case BCM430x_RADIO_INTERFMODE_NONE:
+		if (bcm->radio_interfmode != BCM430x_RADIO_INTERFMODE_NONE)
+		    bcm430x_radio_calc_interference(bcm,
+		                                    bcm->radio_interfmode
+						    | BCM430x_RADIO_INTERFMODE_DISABLE);
+		break;
+	case BCM430x_RADIO_INTERFMODE_NONWLAN:
+		if (!disable) {
+			if (bcm->phy_rev != 1) {
+				bcm430x_phy_write(bcm, 0x042B,
+				                  bcm430x_phy_read(bcm, 0x042B) & 0x0800);
+				bcm430x_phy_write(bcm, 0x0429,
+				                  bcm430x_phy_read(bcm, 0x0429) & ~0x4000);
+				return;
+			}
+			//FIXME: Flipmap
+			//FIXME: FuncPlaceholder (Set NRSSI Threshold)
+			stack[i++] = bcm430x_phy_read(bcm, 0x04AC);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04AA);
+			stack[i++] = bcm430x_phy_read(bcm, 0x0493);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A9);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A3);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A7);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04AB);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A8);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A2);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A1);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A0);
+			if (bcm->current_core->rev < 5) {
+				stack[i++] = bcm430x_phy_read(bcm, 0x0406);
+				bcm430x_phy_write(bcm, 0x0406, 0x7E28);
+			} else {
+				stack[i++] = bcm430x_phy_read(bcm, 0x04C1);
+				stack[i++] = bcm430x_phy_read(bcm, 0x04C0);
+				bcm430x_phy_write(bcm, 0x04C0, 0x3E04);
+				bcm430x_phy_write(bcm, 0x04C1, 0x0640);
+			}
+			bcm430x_phy_write(bcm, 0x042B,
+			                  bcm430x_phy_read(bcm, 0x042B) | 0x0800);
+			bcm430x_phy_write(bcm, 0x0401,
+			                  bcm430x_phy_read(bcm, 0x0401) | 0x1000);
+
+			bcm430x_phy_write(bcm, 0x04A0,
+			                  (bcm430x_phy_read(bcm, 0x04A0) & 0xC0C0) | 0x0008);
+			bcm430x_phy_write(bcm, 0x04A1,
+			                  (bcm430x_phy_read(bcm, 0x04A1) & 0xC0C0) | 0x0008);
+			bcm430x_phy_write(bcm, 0x04A2,
+			                  (bcm430x_phy_read(bcm, 0x04A2) & 0xC0C0) | 0x0008);
+			bcm430x_phy_write(bcm, 0x04A8,
+			                  (bcm430x_phy_read(bcm, 0x04A8) & 0xC0C0) | 0x0008);
+			bcm430x_phy_write(bcm, 0x04AB,
+			                  (bcm430x_phy_read(bcm, 0x04AB) & 0xC0C0) | 0x0008);
+						bcm430x_phy_write(bcm, 0x04A7, 0x0002);
+			bcm430x_phy_write(bcm, 0x04A3, 0x287A);
+			bcm430x_phy_write(bcm, 0x04A9, 0x2027);
+			bcm430x_phy_write(bcm, 0x0493, 0x32F5);
+			bcm430x_phy_write(bcm, 0x04AA, 0x2027);
+						bcm430x_phy_write(bcm, 0x04AC, 0x32F5);
+		} else { /* DISABLE */
+			if (bcm->phy_rev != 1) {
+				bcm430x_phy_write(bcm, 0x042B,
+				                  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
+				bcm430x_phy_write(bcm, 0x0429,
+				                  bcm430x_phy_read(bcm, 0x0429) & 0x4000);
+				return;
+			}
+			//FIXME: (Flipmap)
+			//FIXME: FuncPlaceholder(Set NRSSI Threshold)
+			if (bcm->current_core->rev < 5)
+				bcm430x_phy_write(bcm, 0x0406, stack[--i]);
+			else {
+				bcm430x_phy_write(bcm, 0x04C0, stack[--i]);
+				bcm430x_phy_write(bcm, 0x04C1, stack[--i]);
+			}
+			bcm430x_phy_write(bcm, 0x042B,
+			                  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
+			/*FIXME:
+			if (Bad frame preempt?)
+				bcm430x_phy_write(bcm, 0x0401,
+			                          bcm430x_phy_read(bcm, 0x0401) & 0x1000);
+			*/
+			bcm430x_phy_write(bcm, 0x0429,
+				          bcm430x_phy_read(bcm, 0x0429) & 0x4000);
+			bcm430x_phy_write(bcm, 0x04A0, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A1, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A2, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A8, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04AB, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A7, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A3, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A9, stack[--i]);
+			bcm430x_phy_write(bcm, 0x0493, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04AA, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04AC, stack[--i]);
+		}
+		break;
+	case BCM430x_RADIO_INTERFMODE_MANUALWLAN:
+		if (!disable) {
+			if (bcm430x_phy_read(bcm, 0x0033) == 0x0800)
+				return;
+			//FIXME: (16c?)
+			stack[i++] = bcm430x_phy_read(bcm, 0x04AB);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A8);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A2);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A0);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A1);
+			stack[i++] = bcm430x_phy_read(bcm, 0x0493);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04AC);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04AA);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A9);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A3);
+			stack[i++] = bcm430x_phy_read(bcm, 0x04A7);
+			stack[i++] = bcm430x_phy_read(bcm, 0x0033);
+			if (bcm->current_core->rev < 5)
+				stack[i++] = bcm430x_phy_read(bcm, 0x0406);
+			else {
+				stack[i++] = bcm430x_phy_read(bcm, 0x04C1);
+				stack[i++] = bcm430x_phy_read(bcm, 0x04C0);
+			}
+			stack[i++] = bcm430x_phy_read(bcm, 0x0429);
+			stack[i++] = bcm430x_phy_read(bcm, 0x0401);
+			bcm430x_phy_write(bcm, 0x0401,
+			                  bcm430x_phy_read(bcm, 0x0401) & 0xEFFF);
+			bcm430x_phy_write(bcm, 0x0429,
+			                  (bcm430x_phy_read(bcm, 0x0429) & 0xEFFF) | 0x0002);
+			bcm430x_phy_write(bcm, 0x04A7, 0x0800);
+			bcm430x_phy_write(bcm, 0x04A3, 0x287A);
+			bcm430x_phy_write(bcm, 0x04A9, 0x2027);
+			bcm430x_phy_write(bcm, 0x0493, 0x32F5);
+			bcm430x_phy_write(bcm, 0x04AA, 0x2027);
+			bcm430x_phy_write(bcm, 0x04AC, 0x32F5);
+			bcm430x_phy_write(bcm, 0x04A0,
+			                  (bcm430x_phy_read(bcm, 0x04A0) & 0xFFC0) | 0x001A);
+			if (bcm->current_core->rev < 5)
+				bcm430x_phy_write(bcm, 0x0406, 0x280D);
+			else {
+				bcm430x_phy_write(bcm, 0x04C0, 0x0640);
+				bcm430x_phy_write(bcm, 0x04C1, 0x00A9);
+			}
+			bcm430x_phy_write(bcm, 0x04A1,
+			                  (bcm430x_phy_read(bcm, 0x04A1) & 0xC0FF) | 0x1800);
+			bcm430x_phy_write(bcm, 0x04A1,
+			                  (bcm430x_phy_read(bcm, 0x04A1) & 0xFFC0) | 0x0016);
+			bcm430x_phy_write(bcm, 0x04A2,
+			                  (bcm430x_phy_read(bcm, 0x04A2) & 0xF0FF) | 0x0900);
+			bcm430x_phy_write(bcm, 0x04A0,
+			                  (bcm430x_phy_read(bcm, 0x04A0) & 0xF0FF) | 0x0700);
+			bcm430x_phy_write(bcm, 0x04A2,
+			                  (bcm430x_phy_read(bcm, 0x04A2) & 0xFFF0) | 0x000D);
+			bcm430x_phy_write(bcm, 0x04A8,
+			                  (bcm430x_phy_read(bcm, 0x04A8) & 0xCFFF) | 0x1000);
+			bcm430x_phy_write(bcm, 0x04A8,
+			                  (bcm430x_phy_read(bcm, 0x04A8) & 0xF0FF) | 0x0A00);
+			bcm430x_phy_write(bcm, 0x04AB,
+			                  (bcm430x_phy_read(bcm, 0x04AB) & 0xCFFF) | 0x1000);
+			bcm430x_phy_write(bcm, 0x04AB,
+			                  (bcm430x_phy_read(bcm, 0x04AB) & 0xF0FF) | 0x0800);
+			bcm430x_phy_write(bcm, 0x04AB,
+			                  (bcm430x_phy_read(bcm, 0x04AB) & 0xFFCF) | 0x0010);
+			bcm430x_phy_write(bcm, 0x04AB,
+			                  (bcm430x_phy_read(bcm, 0x04AB) & 0xFFF0) | 0x0006);
+			//FIXME: FuncPlaceholder (2050 NRSSI Slope Cal)
+
+		} else { /* DISABLE */
+			if (bcm430x_phy_read(bcm, 0x0033) != 0x0800)
+				return;
+			//FIXME: (16c?)
+			bcm430x_phy_write(bcm, 0x0401, stack[--i]);
+			bcm430x_phy_write(bcm, 0x0429, stack[--i]);
+			if (bcm->current_core->rev < 5)
+				bcm430x_phy_write(bcm, 0x0406, stack[--i]);
+			else {
+				bcm430x_phy_write(bcm, 0x04C0, stack[--i]);
+				bcm430x_phy_write(bcm, 0x04C1, stack[--i]);
+			}
+			bcm430x_phy_write(bcm, 0x0033, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A7, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A3, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A9, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04AA, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04AC, stack[--i]);
+			bcm430x_phy_write(bcm, 0x0493, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A1, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A0, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A2, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04A8, stack[--i]);
+			bcm430x_phy_write(bcm, 0x04AB, stack[--i]);
+			//FIXME: FuncPlaceholder (2050 NRSSI Slope Cal)
+		}
+		break;
+	case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
+		//FIXME:
+		//if (!disable) {
+		//} else { /* DISABLE */
+		//}
+		break;
+	default:
+		printk(KERN_WARNING PFX "calc_interference(): Illegal mode %d\n", mode);
+		break;
+	};
+	if (!disable)
+		bcm->radio_interfsize = i;
+}
+
 static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
 {
 	u16 values[16] = {
