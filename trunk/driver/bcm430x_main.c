@@ -39,7 +39,6 @@
 
 #include "bcm430x.h"
 #include "bcm430x_main.h"
-#include "bcm430x_ucode.h"
 #include "bcm430x_initvals.h"
 #include "bcm430x_debugfs.h"
 #include "bcm430x_radio.h"
