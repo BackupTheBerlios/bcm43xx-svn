@@ -19,7 +19,7 @@ static const struct file {
 {
 	{ 
 		.name        = "bcmwl5.sys",
-		.version     = "3.20.23.0",                            /* bcmwl5.sys  06/13/2003 */ 
+		.version     = "3.20.23.0",                            /* 06/13/2003 */ 
 		.md5         = "1b1cf5e962c15abca83d1ef2b3906e2f",
 		.flags       = BYTE_ORDER_DDCCBBAA | INIT_VAL_08_MISSING,
 		.iv_pos      = 0x2a1d0,
@@ -31,7 +31,7 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
-		.version     = "3.30.15.0",                            /* bcmwl5.sys  07/17/2003 */ 
+		.version     = "3.30.15.0",                            /* 07/17/2003 */ 
 		.md5         = "ebf36d658d0da5b1ea667fa403919c26", 
 		.flags       = BYTE_ORDER_DDCCBBAA | INIT_VAL_08_MISSING,
 		.iv_pos      = 0x2c658,
@@ -43,7 +43,7 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
-		.version     = "3.40.25.3",                            /* bcmwl5.sys  10/28/2003 */ 
+		.version     = "3.40.25.3",                            /* 10/28/2003 */ 
 		.md5         = "5e58a3148b98c9f356cde6049435cb21", 
 		.flags       = BYTE_ORDER_DDCCBBAA,
 		.iv_pos      = 0x30970,
@@ -55,7 +55,7 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
-		.version     = "3.50.x.y",                            /* bcmwl5.sys */
+		.version     = "3.50.21.11",                           /* 02/19/2004 */
 		.md5         = "ae96075a3aed5c40f1ead477ea94acd7", 
 		.flags       = BYTE_ORDER_DDCCBBAA,
 		.iv_pos      = 0x33370,
@@ -67,7 +67,7 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
-		.version     = "3.70.22.0",                            /* bcmwl5.sys  10/20/2004 */
+		.version     = "3.70.22.0",                            /* 10/20/2004 */
 		.md5         = "185a6dc6d655dc31c0b228cc94fb99ac", 
 		.flags       = BYTE_ORDER_DDCCBBAA,
 		.iv_pos      = 0x39a88,
@@ -79,7 +79,7 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
-		.version     = "3.100.46.0",                           /* bcmwl5.sys  12/22/2004 */
+		.version     = "3.100.46.0",                           /* 12/22/2004 */
 		.md5         = "38ca1443660d0f5f06887c6a2e692aeb", 
 		.flags       = BYTE_ORDER_DDCCBBAA,
 		.iv_pos      = 0x3de80,
@@ -91,7 +91,7 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
-		.version     = "3.100.64.0",                           /* bcmwl5.sys  02/11/2005 */
+		.version     = "3.100.64.0",                           /* 02/11/2005 */
 		.md5         = "e7debb46b9ef1f28932e533be4a3d1a9", 
 		.flags       = BYTE_ORDER_DDCCBBAA,
 		.iv_pos      = 0x3e980,
@@ -103,8 +103,8 @@ static const struct file {
 	},
 	{
 		.name        = "bcmwl564.sys",
-		.version     = "3.70.17.5",                             /* BCMWL564.SYS, 11/09/2005 */
-		.md5         = "f5590c8784b91dfd9ee092d3040b6e40",      /* for 64bit machines   */
+		.version     = "3.70.17.5",                            /* 09/21/2004 */
+		.md5         = "f5590c8784b91dfd9ee092d3040b6e40",     /* for 64bit machines   */
 		.flags       = BYTE_ORDER_DDCCBBAA,
 		.iv_pos      = 0x566f0,
 		.uc2_pos     = 0x5a360,  .uc2_length  = 0x3e80,
@@ -115,19 +115,7 @@ static const struct file {
 	},
 	{
 		.name        = "wl.o",
-		.version     = "2004-01-27",
-		.md5         = "191029d5e7097ed7db92cbd6e6131f85",
-		.flags       = BYTE_ORDER_DDCCBBAA,
-		.iv_pos      = 0x3a5d0,
-		.uc2_pos     = 0x3e0b8,  .uc2_length  = 0x3e00,
-		.uc4_pos     = 0x41ebc,  .uc4_length  = 0x4628,
-		.uc5_pos     = 0x464e8,  .uc5_length  = 0x5548,
-		.pcm4_pos    = 0x4ba34,  .pcm4_length = 0x478,
-		.pcm5_pos    = 0x4beb0,  .pcm5_length = 0x478,
-	},
-	{
-		.name        = "wl.o",
-		.version     = "2004-07-02",
+		.version     = "3.50.21.0",                            /* 05/11/2003 */
 		.md5         = "f71be0e1d14f68c98d916465a300d835",
 		.flags       = BYTE_ORDER_DDCCBBAA,
 		.iv_pos      = 0x38990,
@@ -136,6 +124,18 @@ static const struct file {
 		.uc5_pos     = 0x447c0,  .uc5_length  = 0x5050,
 		.pcm4_pos    = 0x49814,  .pcm4_length = 0x478,
 		.pcm5_pos    = 0x49c90,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl.o",
+		.version     = "3.50.21.10",                           /* 01/21/2004 */
+		.md5         = "191029d5e7097ed7db92cbd6e6131f85",
+		.flags       = BYTE_ORDER_DDCCBBAA,
+		.iv_pos      = 0x3a5d0,
+		.uc2_pos     = 0x3e0b8,  .uc2_length  = 0x3e00,
+		.uc4_pos     = 0x41ebc,  .uc4_length  = 0x4628,
+		.uc5_pos     = 0x464e8,  .uc5_length  = 0x5548,
+		.pcm4_pos    = 0x4ba34,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x4beb0,  .pcm5_length = 0x478,
 	},
 };
 

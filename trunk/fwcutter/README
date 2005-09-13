@@ -26,6 +26,7 @@ Where can I find some driver source files?
 
 bcmwl5.sys	Link
 -------------   -------------------------------------------------------
+3.20.23.0	http://nicolas.bonifas.free.fr/inspiron/bcmwl5.sys
 3.100.46.0	ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/80211g.zip
 3.100.64.0	ftp://ftp.compaq.com/pub/softpaq/sp30501-31000/SP30676.exe
 
