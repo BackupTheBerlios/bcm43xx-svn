@@ -52,7 +52,7 @@ void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val)
 
 void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 {
-	bcm430x_read32(bcm, 0x0120); // Dummy read
+	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD); // Dummy read
 	if (bcm->status & BCM430x_STAT_PHYCALIBRATED)
 		return;
 	if (bcm->phy_type == BCM430x_PHYTYPE_A)
@@ -299,7 +299,6 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 
 static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 {
-
 	u16 offset;
 
 	if ( bcm->phy_rev == 1 && (bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
@@ -541,34 +540,47 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 }
 
 
-int bcm430x_phy_init(struct bcm430x_private *bcm) {
+int bcm430x_phy_init(struct bcm430x_private *bcm)
+{
+	int initialized = 0;
+
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
-		if ((bcm->phy_rev == 2) || (bcm->phy_rev == 3))
+		if ((bcm->phy_rev == 2) || (bcm->phy_rev == 3)) {
 			bcm430x_phy_inita(bcm);
+			initialized = 0;
+		}
 		break;
 	case BCM430x_PHYTYPE_B:
 		switch (bcm->phy_rev) {
 		case 2:
 			bcm430x_phy_initb2(bcm);
+			initialized = 0;
 			break;
 		case 4:
 			bcm430x_phy_initb4(bcm);
+			initialized = 0;
 			break;
 		case 5:
 			bcm430x_phy_initb5(bcm);
+			initialized = 0;
 			break;
 		case 6:
 			bcm430x_phy_initb6(bcm);
+			initialized = 0;
 			break;
 		}
 		break;
 	case BCM430x_PHYTYPE_G:
 		bcm430x_phy_initg(bcm);
+		initialized = 0;
 		break;
-	default:
+	}
+
+	if (!initialized) {
 		printk(KERN_WARNING PFX "Unknown PHYTYPE found!\n");
 		return -1;
 	}
+
 	return 0;
 }
