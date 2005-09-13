@@ -67,6 +67,18 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
+		.version     = "3.60.7.0",                             /* 03/22/2004 */
+		.md5         = "c5616736df4e83930780dca5795387ca", 
+		.flags       = BYTE_ORDER_DDCCBBAA,
+		.iv_pos      = 0x3b988,
+		.uc2_pos     = 0x3f580,	 .uc2_length  = 0x3e08,
+		.uc4_pos     = 0x43390,	 .uc4_length  = 0x4e58,
+		.uc5_pos     = 0x481f0,	 .uc5_length  = 0x5608,
+		.pcm4_pos    = 0x4d800,	 .pcm4_length = 0x478,
+		.pcm5_pos    = 0x4dc80,	 .pcm5_length = 0x478,
+	},
+	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.70.22.0",                            /* 10/20/2004 */
 		.md5         = "185a6dc6d655dc31c0b228cc94fb99ac", 
 		.flags       = BYTE_ORDER_DDCCBBAA,
