@@ -163,6 +163,32 @@ void bcm430x_pctl_init(struct bcm430x_private *bcm)
 	assert(err == 0);
 }
 
+u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm)
+{
+	int err;
+	u32 cap, pll_on_delay;
+	struct bcm430x_coreinfo *old_core;
+	int minfreq;
+
+	//FIXME: ensure PCI
+
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+
+	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
+		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
+			minfreq = bcm430x_pctl_get_minslowclk(bcm);
+			bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &pll_on_delay);
+			return (((pll_on_delay+2)*1000000)+(minfreq-1))/minfreq;
+		}
+	}
+
+	err = bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+
+	return 0;
+}
+
 /* set the powercontrol clock
  * as described in http://bcm-specs.sipsolutions.net/PowerControl
  */
@@ -173,10 +199,11 @@ void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 	u16 oldmode;
 	struct bcm430x_coreinfo *old_core;
 
-	old_core = bcm->current_core;
-	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 
 	//FIXME: ensure PCI
+
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 
 	if ( !err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && bcm->current_core->id == BCM430x_COREID_CHIPCOMMON ) {
 		if (!bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &cap) && (cap & BCM430x_CAPABILITIES_PCTLMASK)) {
