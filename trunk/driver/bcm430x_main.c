@@ -836,6 +836,8 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 		}
 		udelay(10);
 	}
+	// dummy read
+	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
 
 	return 0;
 }
@@ -931,35 +933,36 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000404);
 	err = bcm430x_upload_microcode(bcm);
 	if (err)
-		goto err_out;
+		goto out;
 
 	err = bcm430x_initialize_irq(bcm);
 	if (err)
-		goto err_out;
+		goto out;
 
-	bcm430x_read32(bcm, 0x0128);
-	bcm430x_write32(bcm, 0x0120,
-	                bcm430x_read32(bcm, 0x0120) & 0xFFFF3FFF);
-	bcm430x_write16(bcm, 0x049C,
-	                bcm430x_read16(bcm, 0x049C) & 0xFFF0);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & 0xFFFF3FFF);
+	bcm430x_write16(bcm, BCM430x_MMIO_LED_CONTROL,
+	                bcm430x_read16(bcm, BCM430x_MMIO_LED_CONTROL) & 0xFFF0);
+	// FIXME: What is MMIO 0x049e?
 	bcm430x_write16(bcm, 0x049E,
 			bcm430x_read16(bcm, 0x049E) | 0x000F);
+
 	err = bcm430x_gpio_init(bcm);
 	if (err)
-		goto err_irq_out;
+		goto err_free_irq;
 
 	err = bcm430x_write_initvals(bcm);
 	if (err)
-		goto err_gpio_out;
+		goto err_gpio_cleanup;
 
 	err = bcm430x_radio_turn_on(bcm);
 	if (err)
-		goto err_gpio_out;
-	
+		goto err_gpio_cleanup;
+
 	bcm430x_write16(bcm, 0x03E6, 0x0000);
 	err = bcm430x_phy_init(bcm);
 	if (err)
-		goto err_radio_out;
+		goto err_radio_off;
 
 	//FIXME: FuncPlaceholder (Interference);
 	//FIXME: SetAntennaDiversity();
@@ -1027,14 +1030,16 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 
 	assert(err == 0);
 printk(KERN_INFO PFX "Chip initialized\n");
-err_radio_out:
-	bcm430x_radio_turn_off(bcm);
-err_gpio_out:
-	bcm430x_gpio_cleanup(bcm);
-err_irq_out:
-	free_irq(bcm->pci_dev->irq, bcm);
-err_out:
+out:
 	return err;
+
+err_radio_off:
+	bcm430x_radio_turn_off(bcm);
+err_gpio_cleanup:
+	bcm430x_gpio_cleanup(bcm);
+err_free_irq:
+	free_irq(bcm->pci_dev->irq, bcm);
+	goto out;
 }
 
 static void write_initvals_array(struct bcm430x_private *bcm,
