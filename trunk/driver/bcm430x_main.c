@@ -919,8 +919,9 @@ static int bcm430x_gpio_cleanup(struct bcm430x_private *bcm)
 /* This is the opposite of bcm430x_chip_init() */
 static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
 {
-	free_irq(bcm->pci_dev->irq, bcm);
+	bcm430x_radio_turn_off(bcm);
 	bcm430x_gpio_cleanup(bcm);
+	free_irq(bcm->pci_dev->irq, bcm);
 }
 
 /* Initialize the chip
@@ -972,16 +973,16 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		                bcm430x_read16(bcm, 0x005E) & 0x0004);
 	bcm430x_write32(bcm, 0x0100, 0x01000000);
 	bcm430x_write32(bcm, 0x010C, 0x01000000);
-	bcm430x_write32(bcm, 0x0120,
-	                bcm430x_read32(bcm, 0x0120) & 0xFFFBFFFF);
-	bcm430x_write32(bcm, 0x0120,
-	                bcm430x_read32(bcm, 0x0120) | 0x00020000);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & 0xFFFBFFFF);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) | 0x00020000);
 	if ((bcm->work_mode & BCM430x_MODE_ACCESSPOINT) &&
 	    (bcm->work_mode & BCM430x_MODE_PROMISCUOUS))
-		bcm430x_write32(bcm, 0x0120, 0x01000000);
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x01000000);
 	if (mode & BCM430x_MODE_MONITOR)
-		bcm430x_write32(bcm, 0x0120, 0x01400000);
-	bcm430x_write32(bcm, 0x0120, 0x00100000);
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x01400000);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00100000);
 
 #if 0
 	/* FIXME: No PIO mode currently */
