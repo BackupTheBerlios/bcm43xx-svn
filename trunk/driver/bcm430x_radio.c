@@ -35,7 +35,8 @@
 #include "bcm430x_phy.h"
 #include "bcm430x_radio.h"
 
-static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm) {
+static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
+{
 	u16 values[16] = {
 		0x0002, 0x0003, 0x0001, 0x000F,
 		0x0006, 0x0007, 0x0005, 0x000F,
@@ -53,7 +54,8 @@ static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm) {
 	return ret;
 }
 
-u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
+u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
+{
 	u16 stack[20];
 	u16 index = 0, ret;
 
@@ -159,7 +161,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm) {
 	return ret;
 }
 
-u16 bcm430x_radio_init2060(struct bcm430x_private *bcm) {
+u16 bcm430x_radio_init2060(struct bcm430x_private *bcm)
+{
 	bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
 	bcm430x_radio_write16(bcm, 0x0005, 0x0008);
 	bcm430x_phy_write(bcm, 0x0010, bcm430x_phy_read(bcm, 0x0010) & 0xFFF7);
@@ -202,7 +205,8 @@ printk(KERN_WARNING PFX "FIXME: radio_init2060(), what is the 802.11a default ch
 	return 0;
 }
 
-u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset) {
+u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
+{
 	if (bcm->phy_type == BCM430x_PHYTYPE_A)
 		offset |= 0x40;
 	else if (bcm->phy_type == BCM430x_PHYTYPE_B) {
@@ -225,7 +229,8 @@ u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset) {
 }
 
 int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
-                                       u8 channel) {
+				u8 channel)
+{
 	// Frequencies are given as differences to 2.4GHz
 	// starting with channel 1
 	static u16 frequencies_bg[14] = {
