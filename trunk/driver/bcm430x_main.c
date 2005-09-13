@@ -1538,9 +1538,6 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	err = bcm430x_chip_init(bcm);
 	if (err)
 		goto err_iounmap;
-	err = bcm430x_write_initvals(bcm);
-	if (err)
-		goto err_chip_cleanup;
 	err = bcm430x_dma_init(bcm);
 	if (err)
 		goto err_radio_off;
@@ -1552,8 +1549,6 @@ out:
 
 err_radio_off:
 	bcm430x_radio_turn_off(bcm);
-err_chip_cleanup:
-	bcm430x_chip_cleanup(bcm);
 err_iounmap:
 	iounmap(bcm->mmio_addr);
 err_pci_release:
