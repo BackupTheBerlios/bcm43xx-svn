@@ -121,7 +121,7 @@ static const struct file {
 		.iv_pos      = 0x3a5d0,
 		.uc2_pos     = 0x3e0b8,  .uc2_length  = 0x3e00,
 		.uc4_pos     = 0x41ebc,  .uc4_length  = 0x4628,
-		.uc5_pos     = 0x464e0,  .uc5_length  = 0x5550,
+		.uc5_pos     = 0x464e8,  .uc5_length  = 0x5548,
 		.pcm4_pos    = 0x4ba34,  .pcm4_length = 0x478,
 		.pcm5_pos    = 0x4beb0,  .pcm5_length = 0x478,
 	},
