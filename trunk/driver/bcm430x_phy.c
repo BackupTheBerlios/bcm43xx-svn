@@ -654,9 +654,9 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 	}
 
 	if (bcm->antenna_diversity >= 0x0100) {
-		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_ADDR);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
 		ucodeflags = bcm430x_shm_read32(bcm);
-		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_ADDR);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
 		bcm430x_shm_write32(bcm, ucodeflags |  BCM430x_UCODEFLAG_AUTODIV);
 	}
 }
