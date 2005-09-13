@@ -548,32 +548,32 @@ int bcm430x_phy_init(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_A:
 		if ((bcm->phy_rev == 2) || (bcm->phy_rev == 3)) {
 			bcm430x_phy_inita(bcm);
-			initialized = 0;
+			initialized = 1;
 		}
 		break;
 	case BCM430x_PHYTYPE_B:
 		switch (bcm->phy_rev) {
 		case 2:
 			bcm430x_phy_initb2(bcm);
-			initialized = 0;
+			initialized = 1;
 			break;
 		case 4:
 			bcm430x_phy_initb4(bcm);
-			initialized = 0;
+			initialized = 1;
 			break;
 		case 5:
 			bcm430x_phy_initb5(bcm);
-			initialized = 0;
+			initialized = 1;
 			break;
 		case 6:
 			bcm430x_phy_initb6(bcm);
-			initialized = 0;
+			initialized = 1;
 			break;
 		}
 		break;
 	case BCM430x_PHYTYPE_G:
 		bcm430x_phy_initg(bcm);
-		initialized = 0;
+		initialized = 1;
 		break;
 	}
 
