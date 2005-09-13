@@ -195,7 +195,7 @@ u16 bcm430x_radio_init2060(struct bcm430x_private *bcm) {
 	bcm430x_phy_write(bcm, 0x006A, 0x0000);
 	
 	//FIXME: What is the default channel for PHYTYPE_A
-	//bcm430x_radio_selectchannel(bcm, BCM430x_PHYTYPE_A_DEFAULT_CHANNEL);
+	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_A);
 printk(KERN_WARNING PFX "FIXME: radio_init2060(), what is the 802.11a default channel?\n");
 	udelay(1000);
 
@@ -253,6 +253,24 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 	return 0;
 }
 
+void bcm430x_radio_set_txantenna(struct bcm430x_private *bcm, u32 val)
+{
+	u32 tmp;
+
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0022);
+	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0022);
+	bcm430x_shm_write32(bcm, tmp | val);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x03A8);
+	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x03A8);
+	bcm430x_shm_write32(bcm, tmp | val);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0054);
+	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0054);
+	bcm430x_shm_write32(bcm, tmp | val);
+}
+
 void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower)
 {
 	/* TODO */
@@ -290,7 +308,7 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 	}
 	bcm430x_phy_write(bcm, reg, tmp);
 	bcm430x_write16(bcm, 0x0043, attenuation);
-	bcm430x_shm_control(bcm, 0x0064);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0064);
 	bcm430x_shm_write16(bcm, attenuation);
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_radio_write16(bcm, 0x0052,
@@ -319,7 +337,7 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0015, 0x8000);
 		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
 		bcm430x_phy_write(bcm, 0x0015, ((bcm->status & BCM430x_STAT_PHYCONNECTED) ? 0x00C0 : 0x0000));
-		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
 		break;
 	default:
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
@@ -364,22 +382,4 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_DATA, val);
-}
-
-void bcm430x_radio_set_tx_antenna(struct bcm430x_private *bcm, u32 val)
-{
-	u32 tmp;
-
-	bcm430x_shm_control(bcm, 0x0022);
-	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
-	bcm430x_shm_control(bcm, 0x0022);
-	bcm430x_shm_write32(bcm, tmp | val);
-	bcm430x_shm_control(bcm, 0x03A8);
-	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
-	bcm430x_shm_control(bcm, 0x03A8);
-	bcm430x_shm_write32(bcm, tmp | val);
-	bcm430x_shm_control(bcm, 0x0054);
-	tmp = bcm430x_shm_read32(bcm) & 0xFFFFFCFF;
-	bcm430x_shm_control(bcm, 0x0054);
-	bcm430x_shm_write32(bcm, tmp | val);
 }

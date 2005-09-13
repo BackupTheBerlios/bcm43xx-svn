@@ -102,6 +102,12 @@
 #define BCM430x_CHIPCOMMON_CAPABILITIES 0x04
 #define BCM430x_CAPABILITIES_PCTLMASK	0x0040000
 
+/* Workmodes */
+#define BCM430x_MODE_ACCESSPOINT	(1 << 0)
+#define BCM430x_MODE_MONITOR		(1 << 1)
+#define BCM430x_MODE_ADHOC		(1 << 2)
+#define BCM430x_MODE_PROMISCUOUS	(1 << 3)
+
 /* PowerControl */
 #define BCM430x_PCTL_IN			0xB0
 #define BCM430x_PCTL_OUT		0xB4
@@ -138,7 +144,7 @@
 #define BCM430x_SBTMSTATELOW_CLOCK		0x10000
 #define BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK	0x20000
 
-/* sbtmstatelow state flags */
+/* sbtmstatehigh state flags */
 #define BCM430x_SBTMSTATEHIGH_SERROR		0x1
 #define BCM430x_SBTMSTATEHIGH_BUSY		0x4
 
@@ -348,6 +354,8 @@ struct bcm430x_private {
 	/* DMA */
 	struct bcm430x_dmaring *tx_ring;
 	struct bcm430x_dmaring *rx_ring;
+
+	u8 work_mode;
 };
 
 static inline

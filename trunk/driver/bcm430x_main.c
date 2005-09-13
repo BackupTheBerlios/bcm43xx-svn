@@ -114,6 +114,9 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	{ 0, },
 };
 
+/* Static Prototypes */
+static int bcm430x_write_initvals(struct bcm430x_private *bcm);
+
 
 u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 {
@@ -154,7 +157,7 @@ static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 
 void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
 {
-	bcm->shm_addr = control;
+	bcm->shm_addr = (control & 0x0000FFFF);
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_CONTROL, control);
 }
 
@@ -286,25 +289,30 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
 	unsigned int i, max_loop;
 	u16 packet_number;
-	u32 buffer[5] = {
-		0x00000000,
-		cpu_to_le32(0x0000D400),
-		0x00000000,
-		cpu_to_le32(0x00000001),
-		0x00000000,
+	u8 buffer[20] = {
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0xD4, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x01,
+		0x00, 0x00, 0x00, 0x00,
 	};
+	u32 *tmp;
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
 		packet_number = 0;
-		max_loop = 0x1E;				// This is the exit condition for the loop below.
-		buffer[0] = cpu_to_le32(0xCC010200);	// It was better to initialize it here than to
-		break;                                        	// another if(bcm->phy_type...) below.
-	case BCM430x_PHYTYPE_B:					// And it's BEFORE writes, just to not affect timing.
+		max_loop = 0x1E;
+		buffer[0] = 0xCC;
+		buffer[1] = 0x01;
+		buffer[2] = 0x02;
+		break;
+	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
 		packet_number = 1;
 		max_loop = 0xFA;
-		buffer[0] = cpu_to_le32(0x6E840B00);
+		buffer[0] = 0x6E;
+		buffer[1] = 0x84;
+		buffer[2] = 0x0B; 
 		break;
 	default:
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
@@ -313,12 +321,11 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 
 #if BCM430x_DEBUG
 	printk(KERN_WARNING PFX "DummyTransmission():\n");
-	printk(KERN_WARNING PFX "Packet: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-	       buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
 #endif
 
 	for (i = 0; i < 5; i++) {
-		bcm430x_ram_write(bcm, i * 4, buffer[i]);
+		tmp = (u32 *)&buffer[i*4];
+		bcm430x_ram_write(bcm, i * 4, *tmp);
 	}
 	printk(KERN_WARNING PFX "Packet written\n");
 
@@ -924,18 +931,109 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000404);
 	err = bcm430x_upload_microcode(bcm);
 	if (err)
-		goto out;
+		goto err_out;
+
 	err = bcm430x_initialize_irq(bcm);
 	if (err)
-		goto out;
-	/*TODO*/
+		goto err_out;
+
+	bcm430x_read32(bcm, 0x0128);
+	bcm430x_write32(bcm, 0x0120,
+	                bcm430x_read32(bcm, 0x0120) & 0xFFFF3FFF);
+	bcm430x_write16(bcm, 0x049C,
+	                bcm430x_read16(bcm, 0x049C) & 0xFFF0);
+	bcm430x_write16(bcm, 0x049E,
+			bcm430x_read16(bcm, 0x049E) | 0x000F);
 	err = bcm430x_gpio_init(bcm);
 	if (err)
-		goto out;
-	/*TODO*/
+		goto err_irq_out;
+
+	err = bcm430x_write_initvals(bcm);
+	if (err)
+		goto err_gpio_out;
+
+	err = bcm430x_radio_turn_on(bcm);
+	if (err)
+		goto err_gpio_out;
+	
+	bcm430x_write16(bcm, 0x03E6, 0x0000);
+	err = bcm430x_phy_init(bcm);
+	if (err)
+		goto err_radio_out;
+
+	//FIXME: FuncPlaceholder (Interference);
+	//FIXME: SetAntennaDiversity();
+	bcm430x_radio_set_txantenna(bcm, BCM430x_RADIO_DEFAULT_ANTENNA);
+	if (bcm->phy_type == BCM430x_PHYTYPE_B)
+		bcm430x_write16(bcm, 0x005E,
+		                bcm430x_read16(bcm, 0x005E) & 0x0004);
+	bcm430x_write32(bcm, 0x0100, 0x01000000);
+	bcm430x_write32(bcm, 0x010C, 0x01000000);
+	bcm430x_write32(bcm, 0x0120,
+	                bcm430x_read32(bcm, 0x0120) & 0xFFFBFFFF);
+	bcm430x_write32(bcm, 0x0120,
+	                bcm430x_read32(bcm, 0x0120) | 0x00020000);
+	if ((bcm->work_mode & BCM430x_MODE_ACCESSPOINT) &&
+	    (bcm->work_mode & BCM430x_MODE_PROMISCUOUS))
+		bcm430x_write32(bcm, 0x0120, 0x01000000);
+	if (mode & BCM430x_MODE_MONITOR)
+		bcm430x_write32(bcm, 0x0120, 0x01400000);
+	bcm430x_write32(bcm, 0x0120, 0x00100000);
+
+#if 0
+	/* FIXME: No PIO mode currently */
+	if (PIOMODE) {
+		bcm430x_write16(bcm, 0x0210, 0x0100);
+		bcm430x_write16(bcm, 0x0230, 0x0100);
+		bcm430x_write16(bcm, 0x0250, 0x0100);
+		bcm430x_write16(bcm, 0x0270, 0x0100);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0034);
+		bcm430x_shm_write32(bcm, 0x00000000);
+	}
+#endif
+	//FIXME: Probe Response Timeout Value??? (Is 16bit!)
+	//bcm430x_shm_control(bcm, BCM43x_SHM_SHARED + 0x0074);
+	//bcm430x_shm_write16(bcm, PRTV);
+	//XXX: MMIO: 0x0608 is the work_mode register?
+	if (!(bcm->work_mode & BCM430x_MODE_ADHOC) &&
+	    !(bcm->work_mode & BCM430x_MODE_ACCESSPOINT))
+		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
+			bcm430x_write16(bcm, 0x0608, 0x0064);
+		else
+			bcm430x_write16(bcm, 0x0608, 0x0032);
+	else
+		bcm430x_write16(bcm, 0x0608, 0x0002);
+	//FIXME: FuncPlaceholder (Shortslot Enabled);
+	if (bcm->current_core->rev < 3) {
+		bcm430x_write16(bcm, 0x060E, 0x0000);
+		bcm430x_write16(bcm, 0x0610, 0x8000);
+		bcm430x_write16(bcm, 0x0604, 0x0000);
+		bcm430x_write16(bcm, 0x0606, 0x0200);
+	} else {
+		bcm430x_write32(bcm, 0x0188, 0x80000000);
+		bcm430x_write32(bcm, 0x018C, 0x02000000);
+	}
+	bcm430x_write32(bcm, 0x0128, 0x00004000);
+	//XXX: DMA registers?
+	bcm430x_write32(bcm, 0x0024, 0x0001DC00);
+	bcm430x_write32(bcm, 0x002C, 0x0000DC00);
+	bcm430x_write32(bcm, 0x0034, 0x0000DC00);
+	bcm430x_write32(bcm, 0x003C, 0x0001DC00);
+	
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
+	                bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW) | 0x00100000);
+	
+	bcm430x_write16(bcm, 0x06A8, bcm430x_pctl_powerup_delay(bcm));
+
 	assert(err == 0);
 printk(KERN_INFO PFX "Chip initialized\n");
-out:
+err_radio_out:
+	bcm430x_radio_turn_off(bcm);
+err_gpio_out:
+	bcm430x_gpio_cleanup(bcm);
+err_irq_out:
+	free_irq(bcm->pci_dev->irq, bcm);
+err_out:
 	return err;
 }
 
@@ -1432,9 +1530,6 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	err = bcm430x_write_initvals(bcm);
 	if (err)
 		goto err_chip_cleanup;
-	err = bcm430x_radio_turn_on(bcm);
-	if (err)
-		goto err_chip_cleanup;
 	err = bcm430x_dma_init(bcm);
 	if (err)
 		goto err_radio_off;
@@ -1505,8 +1600,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	/*FIXME: Which interrupts do we have to enable? _Really_ all? */
 	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_ALL);
-
-//bcm430x_dummy_transmission(bcm);
+	//bcm430x_dummy_transmission(bcm);
 
 	bcm430x_debugfs_add_device(bcm);
 

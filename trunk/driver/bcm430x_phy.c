@@ -200,7 +200,7 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
 	if ( bcm->curr_channel == 0xFFFF ) {
-		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
 	} else {
 		bcm430x_radio_selectchannel(bcm, bcm->curr_channel);
 	}
@@ -257,7 +257,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
 	if ( bcm->curr_channel == 0xFFFF ) {
-		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
 	} else {
 		bcm430x_radio_selectchannel(bcm, bcm->curr_channel);
 	}
@@ -391,7 +391,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 
 	bcm430x_radio_write16(bcm, 0x007A, bcm430x_radio_read16(bcm, 0x007A) | 0x0007);
 
-	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
+	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
 
 	bcm430x_phy_write(bcm, 0x0014, 0x0080);
 	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
@@ -463,7 +463,7 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 	bcm430x_radio_write16(bcm, 0x005C, 0x00B0);
 	bcm430x_radio_write16(bcm, 0x007A,
 	                      (bcm430x_radio_read16(bcm, 0x007A) & 0x00F8) | 0x0007);
-	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_BG_DEFAULT_CHANNEL);
+	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
 	bcm430x_phy_write(bcm, 0x0014, 0x0200);
 	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	bcm430x_radio_write16(bcm, 0x0052,
@@ -541,7 +541,7 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 }
 
 
-void bcm430x_phy_init(struct bcm430x_private *bcm) {
+int bcm430x_phy_init(struct bcm430x_private *bcm) {
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
 		if ((bcm->phy_rev == 2) || (bcm->phy_rev == 3))
@@ -565,5 +565,10 @@ void bcm430x_phy_init(struct bcm430x_private *bcm) {
 		break;
 	case BCM430x_PHYTYPE_G:
 		bcm430x_phy_initg(bcm);
+		break;
+	default:
+		printk(KERN_WARNING PFX "Unknown PHYTYPE found!\n");
+		return -1;
 	}
+	return 0;
 }
