@@ -36,6 +36,8 @@
 #include <linux/etherdevice.h>
 #include <linux/version.h>
 #include <linux/firmware.h>
+#include <linux/wireless.h>
+#include <net/iw_handler.h>
 
 #include "bcm430x.h"
 #include "bcm430x_main.h"
@@ -45,6 +47,7 @@
 #include "bcm430x_phy.h"
 #include "bcm430x_dma.h"
 #include "bcm430x_power.h"
+#include "bcm430x_wx.h"
 
 #ifdef dprintk
 # undef dprintk
@@ -112,6 +115,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	/* required last entry */
 	{ 0, },
 };
+
 
 /* Static Prototypes */
 static int bcm430x_write_initvals(struct bcm430x_private *bcm);
@@ -274,14 +278,6 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 	bcm->sprom.boardflags = value;
 }
 
-static void bcm430x_clr_target_abort(struct bcm430x_private *bcm)
-{
-	u16 pci_status;
-
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
-	pci_status &= ~ PCI_STATUS_SIG_TARGET_ABORT;
-	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status);
-}
 
 /* DummyTransmission function, as documented on 
  * http://bcm-specs.sipsolutions.net/DummyTransmission
@@ -1199,10 +1195,13 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	u32 sb_id_hi, chip_id_32 = 0;
 	u16 pci_device, chip_id_16;
 
+	/* Do we really have a 'current core' at this point? */
+#if 0
 	/* save current core */
 	err = _get_current_core(bcm, &original_core);
 	if (err)
 		goto out;
+#endif
 
 	/* map core 0 */
 	err = _switch_core(bcm, 0);
@@ -1285,14 +1284,11 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	printk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
 		bcm->chip_id, bcm->chip_rev);
 
-	printk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x\n", core_id,
-	       core_rev, core_vendor);
-
-	for (current_core = 1; current_core < core_count; current_core++) {
+	for (current_core = 0; current_core < core_count; current_core++) {
 		err = _switch_core(bcm, current_core);
 		if (err)
 			goto out;
-
+		/* Gather information */
 		/* fetch sb_id_hi from core information registers */
 		sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_SB_ID_HI);
 
@@ -1305,44 +1301,33 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 		switch (core_id) {
 		case BCM430x_COREID_PCI:
+			bcm->current_core = &bcm->core_pci;
 			if (bcm->core_pci.flags & BCM430x_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
 				break;
 			}
-			bcm->core_pci.flags |= BCM430x_COREFLAG_AVAILABLE;
-			bcm->core_pci.id = core_id;
-			bcm->core_pci.rev = core_rev;
-			bcm->core_pci.index = current_core;
+			
 			break;
 		case BCM430x_COREID_V90:
+			bcm->current_core = &bcm->core_v90;
 			if (bcm->core_v90.flags & BCM430x_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple V90 cores found.\n");
 				break;
 			}
-			bcm->core_v90.flags |= BCM430x_COREFLAG_AVAILABLE;
-			bcm->core_v90.id = core_id;
-			bcm->core_v90.rev = core_rev;
-			bcm->core_v90.index = current_core;
 			break;
 		case BCM430x_COREID_PCMCIA:
+			bcm->current_core = &bcm->core_pcmcia;
 			if (bcm->core_pcmcia.flags & BCM430x_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple PCMCIA cores found.\n");
 				break;
 			}
-			bcm->core_pcmcia.flags |= BCM430x_COREFLAG_AVAILABLE;
-			bcm->core_pcmcia.id = core_id;
-			bcm->core_pcmcia.rev = core_rev;
-			bcm->core_pcmcia.index = current_core;
 			break;
 		case BCM430x_COREID_80211:
+			bcm->current_core = &bcm->core_80211;
 			if (bcm->core_80211.flags & BCM430x_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple 802.11 cores found.\n");
 				break;
 			}
-			bcm->core_80211.flags |= BCM430x_COREFLAG_AVAILABLE;
-			bcm->core_80211.id = core_id;
-			bcm->core_80211.rev = core_rev;
-			bcm->core_80211.index = current_core;
 			break;
 		case BCM430x_COREID_CHIPCOMMON:
 			printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");
@@ -1350,16 +1335,24 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		default:
 			printk(KERN_WARNING PFX "Unknown core found (ID 0x%x)\n", core_id);
 		}
-
 		printk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
 		       current_core, core_id, core_rev, core_vendor,
 		       core_enabled ? "enabled" : "disabled" );
+		
+		if (bcm->current_core) {
+			bcm->current_core->flags |= BCM430x_COREFLAG_AVAILABLE;
+			bcm->current_core->id = core_id;
+			bcm->current_core->rev = core_rev;
+			bcm->current_core->index = current_core;
+		}
 	}
-
+	/* Again, was there a (meaningful) original core mapping? */
+#if 0
 	/* restore original core mapping */
 	err = _switch_core(bcm, original_core);
 	if (err)
 		goto out;
+#endif
 
 	assert(err == 0);
 out:
@@ -1435,6 +1428,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	struct bcm430x_private *bcm;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
 	int err;
+	u16 pci_status;
 
 	net_dev = alloc_ieee80211(sizeof(*bcm));
 	if (!net_dev) {
@@ -1452,6 +1446,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	net_dev->stop = bcm430x_net_stop;
 	net_dev->get_stats = bcm430x_net_get_stats;
 	net_dev->tx_timeout = bcm430x_net_tx_timeout;
+	net_dev->wireless_handlers = &bcm430x_wx_handlers_def;
 	net_dev->irq = pdev->irq;
 
 	/* initialize the bcm430x_private struct */
@@ -1540,16 +1535,23 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID,
 	                           &bcm->board_type);
 
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES, &bcm->chipcommon_capabilities);
+	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES,
+	                           &bcm->chipcommon_capabilities);
 
+	/* DeviceAttach */
 	bcm430x_pctl_set_crystal(bcm, 1);
-	bcm430x_clr_target_abort(bcm);
+	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
+	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+	bcm430x_pctl_init(bcm);
+	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
+	// move to probe_cores(bcm);
+	//err = bcm430x_validate_chip(bcm);
+	if (err)
+		goto err_iounmap;
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_iounmap;
-	err = bcm430x_validate_chip(bcm);
-	if (err)
-		goto err_iounmap;
+	/* End of DeviceAttach */
 	bcm430x_read_sprom(bcm);
 	bcm430x_read_radio_id(bcm);
 	err = bcm430x_chip_init(bcm);
