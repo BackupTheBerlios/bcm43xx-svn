@@ -206,7 +206,12 @@ static void print_supported_files(void)
 		printf("%s\t", files[i].name);
 		if (strlen(files[i].name) < 8)
 			printf("\t");
-		printf(" %s \t md5: %s\n", files[i].version, files[i].md5);
+		printf("%s\t", files[i].version);
+		if (strlen(files[i].version) < 8)
+			printf("\t");
+		if (strlen(files[i].version) < 16)
+			printf("\t");
+		printf("md5: %s\n", files[i].md5);
 	}
 }
 
