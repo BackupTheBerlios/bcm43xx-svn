@@ -35,11 +35,20 @@
 #include "bcm430x_phy.h"
 #include "bcm430x_radio.h"
 
+/* FlipMap */
+static u16 bcm430x_flipmap[16] = {
+	0x0000, 0x0008, 0x0004, 0x000C,
+	0x0002, 0x000A, 0x0006, 0x000E,
+	0x0001, 0x0009, 0x0005, 0x000D,
+	0x0003, 0x000B, 0x0007, 0x000F,
+};
+
 void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 {
 	u16 disable = (mode & BCM430x_RADIO_INTERFMODE_DISABLE);
 	u16 *stack = bcm->radio_interfstack;
 	u16 i = bcm->radio_interfsize;
+	u16 fmapoffset;
 
 	if (!(bcm->phy_type == BCM430x_PHYTYPE_G) || (bcm->phy_rev == 0))
 		return;
@@ -64,7 +73,11 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 				                  bcm430x_phy_read(bcm, 0x0429) & ~0x4000);
 				return;
 			}
-			//FIXME: Flipmap
+			fmapoffset = bcm430x_flipmap[(bcm430x_phy_read(bcm, 0x0078) & 0x001E) >> 1]; 
+			if ( fmapoffset >= 4 )
+				fmapoffset -= 3;
+			bcm430x_phy_write(bcm, 0x0078, 2*bcm430x_flipmap[fmapoffset]);
+
 			//FIXME: FuncPlaceholder (Set NRSSI Threshold)
 			stack[i++] = bcm430x_phy_read(bcm, 0x04AC);
 			stack[i++] = bcm430x_phy_read(bcm, 0x04AA);
@@ -115,7 +128,10 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 				                  bcm430x_phy_read(bcm, 0x0429) & 0x4000);
 				return;
 			}
-			//FIXME: (Flipmap)
+			fmapoffset = bcm430x_flipmap[(bcm430x_phy_read(bcm, 0x0078) & 0x001E) >> 1]; 
+			if ( fmapoffset >= 0x000C )
+				fmapoffset += 3;
+			bcm430x_phy_write(bcm, 0x0078, 2*bcm430x_flipmap[fmapoffset]);
 			//FIXME: FuncPlaceholder(Set NRSSI Threshold)
 			if (bcm->current_core->rev < 5)
 				bcm430x_phy_write(bcm, 0x0406, stack[--i]);
@@ -328,9 +344,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 
 	ret = bcm430x_radio_calibrationvalue(bcm);
 	
-	//FIXME: what is 'flipmap'? Is it the RCC value?
-	//if (bcm->phy_type == BCM430x_PHYTYPE_B)
-	//	bcm430x_radio_write16(bcm, 0x0078, 'flipmap');
+	if (bcm->phy_type == BCM430x_PHYTYPE_B)
+		bcm430x_radio_write16(bcm, 0x0078, 0x0003);
 	
 	bcm430x_radio_write16(bcm, 0x0015, 0xBFAF);
 	bcm430x_radio_write16(bcm, 0x002B, 0x1403);
