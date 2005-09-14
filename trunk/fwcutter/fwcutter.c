@@ -3,6 +3,7 @@
  * 
  * Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
  *               2005 Michael Buesch <mbuesch@freenet.de>
+ *		 2005 Alex Beregszaszi
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +30,7 @@
 
 typedef unsigned char byte;
 
+#define BYTE_ORDER_AABBCCDD    0x04
 #define BYTE_ORDER_DDCCBBAA    0x01  /* 4 bytes swapped in source (DDCCBBAA instead of AABBCCDD) */
 #define INIT_VAL_08_MISSING    0x02  /* initval 8 is missing in older driver files */
 
@@ -60,6 +62,15 @@ static void write_ddccbbaa(FILE *f, byte *buffer, int len)
 	}
 }
 
+static void write_aabbccdd(FILE *f, byte *buffer, int len) 
+{
+	while (len > 0) {
+		fwrite(buffer, 4, 1, f);
+		buffer = buffer + 4;
+		len  = len - 4;
+	}
+}
+
 static void write_fw(const char *infilename, const char *outfilename, uint8_t flags, byte *data, int len)
 {
 	FILE* fw;
@@ -72,6 +83,8 @@ static void write_fw(const char *infilename, const char *outfilename, uint8_t fl
 
 	if (flags & BYTE_ORDER_DDCCBBAA)
 		write_ddccbbaa(fw, data, len);
+	else if (flags & BYTE_ORDER_AABBCCDD)
+		write_aabbccdd(fw, data, len);
 	else
 		printf("unknown byteorder...\n");
 
@@ -114,6 +127,10 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 				fprintf(fw, "%02x%02x%02x%02x%02x%02x%02x%02x\n",
 					data[1], data[0], data[3], data[2], 
 					data[7], data[6], data[5], data[4]);
+			else if (flags & BYTE_ORDER_AABBCCDD)
+				fprintf(fw, "%02x%02x%02x%02x%02x%02x%02x%02x\n",
+					data[0], data[1], data[2], data[3], 
+					data[4], data[5], data[6], data[7]);
 			else {
 				printf("unknown byteorder...\n");
 				exit(1);
