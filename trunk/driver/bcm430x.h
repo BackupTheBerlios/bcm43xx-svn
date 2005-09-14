@@ -259,11 +259,11 @@
 #define assert(expr) do {} while (0)
 #else
 #define assert(expr) \
-	do {								\
-		if (unlikely(!(expr))) {				\
-		printk(KERN_ERR "Assertion failed! %s,%s,%s,line=%d\n",	\
-		#expr,__FILE__,__FUNCTION__,__LINE__);			\
-		}							\
+	do {									\
+		if (unlikely(!(expr))) {					\
+		printk(KERN_ERR PFX "Assertion failed! %s,%s,%s,line=%d\n",	\
+		#expr,__FILE__,__FUNCTION__,__LINE__);				\
+		}								\
 	} while (0)
 #endif
 
