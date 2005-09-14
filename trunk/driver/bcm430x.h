@@ -103,12 +103,6 @@
 #define BCM430x_CHIPCOMMON_CAPABILITIES 0x04
 #define BCM430x_CAPABILITIES_PCTLMASK	0x0040000
 
-/* Workmodes */
-#define BCM430x_MODE_ACCESSPOINT	(1 << 0)
-#define BCM430x_MODE_MONITOR		(1 << 1)
-#define BCM430x_MODE_ADHOC		(1 << 2)
-#define BCM430x_MODE_PROMISCUOUS	(1 << 3)
-
 /* PowerControl */
 #define BCM430x_PCTL_IN			0xB0
 #define BCM430x_PCTL_OUT		0xB4
@@ -172,7 +166,7 @@
 #define BCM430x_SBF_MODE_ADHOC		0x00020000
 #define BCM430x_SBF_MODE_AP		0x00040000
 #define BCM430x_SBF_RADIOREG_LOCK	0x00080000
-#define BCM430x_SBF_MODE_PROMIS		0x00100000
+#define BCM430x_SBF_MODE_PROMISC	0x00100000
 #define BCM430x_SBF_MODE_MONITOR	0x00400000
 
 /* MicrocodeFlagsBitfield (addr + lo-word values?)*/
@@ -382,8 +376,6 @@ struct bcm430x_private {
 	/* DMA */
 	struct bcm430x_dmaring *tx_ring;
 	struct bcm430x_dmaring *rx_ring;
-
-	u8 work_mode;
 };
 
 static inline

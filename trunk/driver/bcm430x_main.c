@@ -750,28 +750,26 @@ static void bcm430x_dma_free(struct bcm430x_private *bcm)
 	bcm430x_free_dmaring(bcm->tx_ring);
 }
 
-static void bcm430x_write_microcode(struct bcm430x_private *bcm,
+static inline void bcm430x_write_microcode(struct bcm430x_private *bcm,
 				    const u32 *data, const unsigned int len)
 {
 	unsigned int i;
 	bcm430x_shm_control(bcm, BCM430x_SHM_UCODE + 0x0000);
 	for (i = 0; i < len; i++) {
-		bcm430x_shm_write32(bcm, data[i]);
+		bcm430x_shm_write32(bcm, be32_to_cpu(data[i]));
 		udelay(10);
 	}
-
 }
 
-static void bcm430x_write_pcm(struct bcm430x_private *bcm,
+static inline void bcm430x_write_pcm(struct bcm430x_private *bcm,
 			      const u32 *data, const unsigned int len)
 {
 	unsigned int i;
-
 	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01ea);
 	bcm430x_shm_write32(bcm, 0x00004000);
 	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01eb);
 	for (i = 0; i < len; i++) {
-		bcm430x_shm_write32(bcm, data[i]);
+		bcm430x_shm_write32(bcm, be32_to_cpu(data[i]));
 		udelay(10);
 	}
 }
@@ -782,7 +780,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	char buf[22] = { 0 };
 
 	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d.fw",
-		 (bcm->core_80211.rev >= 5 ? 5 : bcm->core_80211.rev ));
+		 (bcm->core_80211.rev >= 5 ? 5 : bcm->core_80211.rev));
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX 
 		       "Error: Microcode \"%s\" not available or load failed.\n",
@@ -934,6 +932,7 @@ static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
 static int bcm430x_chip_init(struct bcm430x_private *bcm)
 {
 	int err;
+	int iw_mode = bcm->ieee->iw_mode;
 
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000404);
 	err = bcm430x_upload_microcode(bcm);
@@ -971,7 +970,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 
 	//FIXME: Calling with NONE for the time being...
 	bcm430x_radio_calc_interference(bcm, BCM430x_RADIO_INTERFMODE_NONE);
-	//FIXME: SetAntennaDiversity();
+	bcm430x_phy_set_antenna_diversity(bcm);
 	bcm430x_radio_set_txantenna(bcm, BCM430x_RADIO_DEFAULT_ANTENNA);
 	if (bcm->phy_type == BCM430x_PHYTYPE_B)
 		bcm430x_write16(bcm, 0x005E,
@@ -979,15 +978,25 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, 0x0100, 0x01000000);
 	bcm430x_write32(bcm, 0x010C, 0x01000000);
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & 0xFFFBFFFF);
+	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+			& ~BCM430x_SBF_MODE_AP);
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) | 0x00020000);
-	if ((bcm->work_mode & BCM430x_MODE_ACCESSPOINT) &&
-	    (bcm->work_mode & BCM430x_MODE_PROMISCUOUS))
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x01000000);
-	if (mode & BCM430x_MODE_MONITOR)
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x01400000);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00100000);
+	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+			| BCM430x_SBF_MODE_ADHOC);
+	//XXX: I'm not sure if IW_MODE_MASTER is AP mode...
+	//FIXME: Check for promiscuous mode...
+	if ((iw_mode & IW_MODE_MASTER))
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+				| 0x01000000);
+	if (iw_mode & IW_MODE_MONITOR)
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+				| 0x01000000
+				| BCM430x_SBF_MODE_MONITOR);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+			bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+			| BCM430x_SBF_MODE_PROMISC);
 
 #if 0
 	/* FIXME: No PIO mode currently */
@@ -1005,8 +1014,8 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0074);
 	bcm430x_shm_write16(bcm, 0x0000);
 	//XXX: MMIO: 0x0608 is the work_mode register?
-	if (!(bcm->work_mode & BCM430x_MODE_ADHOC) &&
-	    !(bcm->work_mode & BCM430x_MODE_ACCESSPOINT))
+	//FIXME: Again, IW_MODE_MASTER == AP Mode?
+	if (!(iw_mode & IW_MODE_ADHOC) && !(iw_mode & IW_MODE_MASTER))
 		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
 			bcm430x_write16(bcm, 0x0608, 0x0064);
 		else
