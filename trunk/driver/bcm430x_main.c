@@ -1190,18 +1190,16 @@ out:
 static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 {
 	int err;
-	int original_core, current_core, core_count;
+	int original_core;
+	int current_core;
 	int core_vendor, core_id, core_rev, core_enabled;
 	u32 sb_id_hi, chip_id_32 = 0;
 	u16 pci_device, chip_id_16;
 
-	/* Do we really have a 'current core' at this point? */
-#if 0
 	/* save current core */
 	err = _get_current_core(bcm, &original_core);
 	if (err)
 		goto out;
-#endif
 
 	/* map core 0 */
 	err = _switch_core(bcm, 0);
@@ -1248,33 +1246,33 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	/* ChipCommon with Core Rev >=4 encodes number of cores,
 	 * otherwise consult hardcoded table */
 	if ((core_id == BCM430x_COREID_CHIPCOMMON) && (core_rev >= 4))
-		core_count = (chip_id_32 & 0x0F000000) >> 24;
+		bcm->core_count = (chip_id_32 & 0x0F000000) >> 24;
 	else {
 		switch (chip_id_16) {
 			case 0x4610:
 			case 0x4704:
 			case 0x4710:
-				core_count = 9;
+				bcm->core_count = 9;
 				break;
 			case 0x4310:
-				core_count = 8;
+				bcm->core_count = 8;
 				break;
 			case 0x5365:
-				core_count = 7;
+				bcm->core_count = 7;
 				break;
 			case 0x4306:
-				core_count = 6;
+				bcm->core_count = 6;
 				break;
 			case 0x4301:
 			case 0x4307:
-				core_count = 5;
+				bcm->core_count = 5;
 				break;
 			case 0x4402:
-				core_count = 3;
+				bcm->core_count = 3;
 				break;
 			default:
 				/* SOL if we get here */
-				core_count = 1;
+				bcm->core_count = 1;
 		}
 	}
 
@@ -1284,7 +1282,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	printk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
 		bcm->chip_id, bcm->chip_rev);
 
-	for (current_core = 0; current_core < core_count; current_core++) {
+	for (current_core = 1; current_core < bcm->core_count; current_core++) {
 		err = _switch_core(bcm, current_core);
 		if (err)
 			goto out;
@@ -1347,7 +1345,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		}
 	}
 	/* Again, was there a (meaningful) original core mapping? */
-#if 0
+#if 1
 	/* restore original core mapping */
 	err = _switch_core(bcm, original_core);
 	if (err)
@@ -1427,7 +1425,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	struct net_device *net_dev;
 	struct bcm430x_private *bcm;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
-	int err;
+	int i, err;
 	u16 pci_status;
 
 	net_dev = alloc_ieee80211(sizeof(*bcm));
@@ -1538,20 +1536,35 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES,
 	                           &bcm->chipcommon_capabilities);
 
-	/* DeviceAttach */
 	bcm430x_pctl_set_crystal(bcm, 1);
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
 	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
 	bcm430x_pctl_init(bcm);
 	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
-	// move to probe_cores(bcm);
-	//err = bcm430x_validate_chip(bcm);
-	if (err)
-		goto err_iounmap;
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_iounmap;
-	/* End of DeviceAttach */
+	err = bcm430x_validate_chip(bcm);
+	if (err)
+		goto err_iounmap;
+#if 0
+	for (i = 0; i < bcm->core_count; i++) {
+		//_switch_core(bcm, i);
+		//TODO: Init DMA (for each core?)
+		//FIXME: bcm430x_core_reset(bcm);
+		//err = bcm430x_validate_chip(bcm);
+		//if (err)
+		//	goto err_iounmap;
+		//TODO: Do not attach to PHYA:rev>=4, PHYB:rev!=2,4,6, PHYG:rev>=3
+		//TODO: if (core_has_radio) bcm430x_radio_turn_off(this_core)
+		//TODO: Set the RoamingInitialValues
+		//TODO: ChipCoreDisable
+		//TODO: If we have >= 2 net cores, set to this core.
+	}
+	//TODO: Set up LEDs
+	//TODO: Initialie PIO
+#endif
+
 	bcm430x_read_sprom(bcm);
 	bcm430x_read_radio_id(bcm);
 	err = bcm430x_chip_init(bcm);

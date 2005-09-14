@@ -347,9 +347,9 @@ struct bcm430x_private {
 	u16 ucode_size;
 	u16 pcm_size;
 #endif
-
 	struct bcm430x_sprominfo sprom;
 
+	u8 core_count;
 	/* The currently active core. NULL if not initialized, yet. */
 	struct bcm430x_coreinfo *current_core;
 	/* coreinfo structs for all possible cores follow.
