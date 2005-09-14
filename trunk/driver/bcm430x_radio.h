@@ -54,3 +54,4 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 void bcm430x_radio_set_txantenna(struct bcm430x_private *bcm, u32 val);
 
 void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode);
+void bcm430x_radio_clear_tssi(struct bcm430x_private *bcm);

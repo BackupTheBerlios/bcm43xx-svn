@@ -556,7 +556,7 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_radio_write16(bcm, 0x0052,
 		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F) | txpower);
-	//FIXME: FuncPlaceholder
+	//FIXME: Set GPHY CompLo
 }
 
 
@@ -625,4 +625,27 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_DATA, val);
+}
+
+void bcm430x_radio_clear_tssi(struct bcm430x_private *bcm)
+{
+	switch (bcm->phy_type) {
+	case BCM430x_PHYTYPE_A:
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0068);
+		bcm430x_shm_write32(bcm, 0x7F7F);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x006A);
+		bcm430x_shm_write32(bcm, 0x7F7F);
+		break;
+	case BCM430x_PHYTYPE_B:
+	case BCM430x_PHYTYPE_G:
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0058);
+		bcm430x_shm_write32(bcm, 0x7F7F);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x005A);
+		bcm430x_shm_write32(bcm, 0x7F7F);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0070);
+		bcm430x_shm_write32(bcm, 0x7F7F);
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0072);
+		bcm430x_shm_write32(bcm, 0x7F7F);
+		break;
+	}
 }

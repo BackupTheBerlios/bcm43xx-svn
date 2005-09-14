@@ -125,7 +125,7 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 #endif
 	bcm430x_radio_write16(bcm, 0x0076, bcm430x_radio_read16(bcm, 0x0076) & 0xFF7B);
 
-	//FIXME: FuncPlaceHolder
+	bcm430x_radio_clear_tssi(bcm);
 }
 
 static void bcm430x_phy_inita(struct bcm430x_private *bcm)
@@ -171,10 +171,10 @@ static void bcm430x_phy_inita(struct bcm430x_private *bcm)
 			unk154 = bcm430x_phy_read(bcm, 0x007B);
 
 			/* FIXME: restore 7273 offsett 0x3001 */
-			/* FIXME: FuncPlaceholder, not yet documented */
+			//FIXME: bcm_radio_set_txpower_a(bcm, ???);
 		}
 #endif
-		/* FIXME: FuncPlaceholder, not yet documented */
+		bcm430x_radio_clear_tssi(bcm);
 	}
 	// no radio
 }
@@ -335,8 +335,8 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x005D, (bcm430x_phy_read(bcm, 0x005D) & 0xFF80) | 0x000A);
 	}
 
-	//FIXME: roam_delta not yet documented
-	//if (roam_delta) {
+	//FIXME: roam_delta
+	//if (bcm->roam_delta != 0) {
 	//	bcm430x_phy_write(bcm, 0x0401, (bcm430x_phy_read(bcm, 0x0401) & 0x0000) | 0x1000);
 	//}
 
@@ -396,7 +396,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
 	bcm430x_phy_write(bcm, 0x88A3, 0x88A3);
 
-	/* FIXME: FuncPlaceholder, not yet documented */
+	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 
 	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x005D, 0x000D);
@@ -509,7 +509,7 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 #endif
 
 	if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
-		//FIXME: FuncPlaceholder
+		//FIXME: Set GPHY CompLo
 		bcm430x_phy_write(bcm, 0x080F, 0x8078);
 
 		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL) {
@@ -526,17 +526,18 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	}
 
 	if ((bcm->sprom.boardflags & BCM430x_BFL_RSSI) == 0) {
-		//FIXME: FuncPlaceholder x 2
+		//FIXME: Update NRSSI Table
+		//FIXME: Set NRSSI Threshold
 	} else {
 #if 0
 		if (phy_unkCC && phy_inkD0) {
-			//FIXME: FuncPlaceholder
+			//FIXME: 2050 NRSSI Slope
 		} else {
-			//FIXME: FuncPlaceholder
+			//FIXME: Set NRSSI Threshold
 		}
 #endif
 	}
-	//FIXME: FuncPlaceholder
+	bcm430x_phy_init_pctl(bcm);
 }
 
 
