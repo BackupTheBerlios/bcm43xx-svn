@@ -247,7 +247,11 @@ static void bcm430x_read_radio_id(struct bcm430x_private *bcm)
 	}
 	
 	bcm->radio_id = val;
-	
+	printk(KERN_INFO PFX "Radio ID: %x (Manuf: %x Ver: %x Rev: %x)\n",
+		bcm->radio_id,
+		(bcm->radio_id & 0x00000FFF),
+		(bcm->radio_id & 0x0FFFF000) >> 12,
+		(bcm->radio_id & 0xF0000000) >> 28);
 }	
 
 /* Read SPROM and fill the useful values in the net_device struct */
@@ -1203,8 +1207,6 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	core_rev = (sb_id_hi & 0xF);
 	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
 
-	printk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x\n", core_id,
-	       core_rev, core_vendor);
 
 	/* if present, chipcommon is always core 0; read the chipid from it */
 	if (core_id == BCM430x_COREID_CHIPCOMMON) {
@@ -1270,6 +1272,12 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	bcm->chip_id = chip_id_16;
 	bcm->chip_rev = (chip_id_32 & 0x000f0000) >> 16;
+	
+	printk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
+		bcm->chip_id, bcm->chip_rev);
+
+	printk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x\n", core_id,
+	       core_rev, core_vendor);
 
 	for (current_core = 1; current_core < core_count; current_core++) {
 		err = _switch_core(bcm, current_core);
@@ -1462,6 +1470,7 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 		bcm->ieee->iw_mode = IW_MODE_INFRA;
 		break;
 	}
+
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
