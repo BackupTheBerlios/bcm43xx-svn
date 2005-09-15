@@ -57,7 +57,7 @@ static const struct file {
 		.name        = "AppleAirPort2",
 		.version     = "3.90.34.0.p13",                        /* 07/10/2005 */
 		.md5         = "6ecf38e5ab6997c7ec483c0d637f5c68",
-		.flags       = BYTE_ORDER_AABBCCDD,
+		.flags       = BYTE_ORDER_AABBCCDD | SUPPORT_INCOMPLETE,
 		.uc2_pos     = 0x528bc,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x56804,  .uc4_length  = 0x4df0,
 		.uc5_pos     = 0x5b5f4,  .uc5_length  = 0x57e0,
@@ -66,15 +66,27 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
+		.version     = "3.10.8.0",                             /* 10/04/2002 */ 
+		.md5         = "288923b401e87ef76b7ae2652601ee47",
+		.flags       = SUPPORT_IMPOSSIBLE,                     /* file differs from later ones */
+	},
+	{ 
+		.name        = "bcmwl5.sys",
+		.version     = "3.10.53.6",                            /* 04/28/2003 */ 
+		.md5         = "b43c593fd7c2a47cdc40580fe341f674",
+		.flags       = SUPPORT_IMPOSSIBLE,                     /* file differs from later ones */
+	},
+	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.20.23.0",                            /* 06/13/2003 */ 
-		.md5         = "1b1cf5e962c15abca83d1ef2b3906e2f",
-		.flags       = BYTE_ORDER_DDCCBBAA | INIT_VAL_08_MISSING,
+		.md5         = "1b1cf5e962c15abca83d1ef2b3906e2f",     /* pcm5 not available, driver is too old */
+		.flags       = BYTE_ORDER_DDCCBBAA | INIT_VAL_08_MISSING 
+		               | SUPPORT_INCOMPLETE,
 		.iv_pos      = 0x2a1d0,
 		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3d9f,
 		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4467,
 		.uc5_pos     = 0x35450,  .uc5_length  = 0x4b9f,
 		.pcm4_pos    = 0x39ff8,  .pcm4_length = 0x477,
-		.pcm5_pos    = 0,	 .pcm5_length = 0,	       /* not available, driver is too old */
 	},
 	{ 
 		.name        = "bcmwl5.sys",

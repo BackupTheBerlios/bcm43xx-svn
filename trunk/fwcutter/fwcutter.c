@@ -30,9 +30,11 @@
 
 typedef unsigned char byte;
 
-#define BYTE_ORDER_AABBCCDD    0x04
-#define BYTE_ORDER_DDCCBBAA    0x01  /* 4 bytes swapped in source (DDCCBBAA instead of AABBCCDD) */
-#define INIT_VAL_08_MISSING    0x02  /* initval 8 is missing in older driver files */
+#define BYTE_ORDER_AABBCCDD    0x01
+#define BYTE_ORDER_DDCCBBAA    0x02  /* 4 bytes swapped in source (DDCCBBAA instead of AABBCCDD) */
+#define SUPPORT_INCOMPLETE     0x04  /* not all fw files can be extracted */
+#define SUPPORT_IMPOSSIBLE     0x08  /* no support for this file */
+#define INIT_VAL_08_MISSING    0x10  /* initval 8 is missing in older driver files */
 
 #define fwcutter_stringify_1(x)	#x
 #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
@@ -203,17 +205,30 @@ static void print_supported_files(void)
 {
 	int i;
 
-	printf("fwcutter supports these driver source files:\n");
+	printf("fwcutter " FWCUTTER_VERSION "\n\n");
+	printf("Extracting firmware is possible from these binary driver files:\n\n");
+	printf("   *  fwcutter can't extract all firmware files\n");
+	printf("   -  not supported\n\n");
 	for (i = 0; i < FILES; ++i) {
 		printf("%s\t", files[i].name);
 		if (strlen(files[i].name) < 8)
 			printf("\t");
+
 		printf("%s\t", files[i].version);
 		if (strlen(files[i].version) < 8)
 			printf("\t");
 		if (strlen(files[i].version) < 16)
 			printf("\t");
-		printf("md5: %s\n", files[i].md5);
+
+		printf("md5: %s", files[i].md5);
+
+		if ((files[i].flags & INIT_VAL_08_MISSING) || 
+		    (files[i].flags & SUPPORT_INCOMPLETE))
+			printf(" *");
+		if (files[i].flags & SUPPORT_IMPOSSIBLE)
+			printf(" -");
+
+		printf("\n");
 	}
 }
 
