@@ -14,7 +14,7 @@ The project page is http://bcm43xx.berlios.de/
 Usage
 -----
 
-fwcutter -iFILE 	extracts the firmware from a source FILE.
+./fwcutter FILE		extracts the firmware from a source FILE to .
 fwcutter -l		prints a list of supported driver source files.
 
 After extraction, run make installfw which will copy bcm430x_*.fw to 
@@ -37,3 +37,29 @@ bcmwl5.sys	Link
 bcmwl564.sys	Link
 -------------   -------------------------------------------------------
 3.70.17.5	http://ubuntuforums.org/attachment.php?attachmentid=186
+
+unknown versions 
+----------------
+send version number to bcm43xx-dev@lists.berlios.de
+
+unknown		ftp://ftp.hp.com/pub/softlib/software5/COL3601/ob-31557-1/SP30379.exe
+unknown		http://ftp.us.dell.com/network/R83097.EXE
+		ftp://ftp.us.dell.com/network/R83097.EXE
+unknown		http://download.fujitsu-siemens.com/download/FileDownload/fileDownload.aspx?Soft+wareGUID=75C43B07-2AFC-4C26-99C1-BAF916D132A9&FileFolder=Downloadfiles&FileType+Extension=ZIP&FileNameClient=FSC_1002941.ZIP&FileSize=7125022
+unknown		http://com-download.siemens.com/download.jsp?file=17111
+unknown		http://com-download.siemens.com/download.jsp?file=17118
+unknown		http://com-download.siemens.com/download.jsp?file=17119
+unknown		http://com-download.siemens.com/download.jsp?file=17120
+unknown		http://com-download.siemens.com/download.jsp?file=17121
+unknown		http://com-download.siemens.com/download.jsp?file=17122
+unknown		http://communications.siemens.com/cds/frontdoor/0,2241,hq_en_0_23016_rArNrNrNrN_+prodId%3A15693,00.html
+unknown		http://broadband.motorola.com/consumers/products/WN825g/downloads/WN-WPCI-Web-Up+date-v1.1.exe
+unknown		http://broadband.motorola.com/consumers/products/WPCI810g/downloads/WN-WPCI-Web-+Update-v1.1.exe
+unknown		http://www.linksys.com/servlet/Satellite?blobcol=urldata&blobheadername1=Content+-Type&blobheadername2=Content-Disposition&blobheadervalue1=application%2Fx-msdo+wnload&blobheadervalue2=inline%3B+filename%3DWMP54Gv4_20050503.exe&blobkey=id&b+lobtable=MungoBlobs&blobwhere=1124126341686&ssbinary=true
+unknown		http://www.linksys.com/servlet/Satellite?blobcol=urldata&blobheadername1=Content+-Type&blobheadername2=Content-Disposition&blobheadervalue1=application%2Fx-msdo+wnload&blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&blobkey=i+d&blobtable=MungoBlobs&blobwhere=1124848568427&ssbinary=true
+unknown		http://files.codykrieger.com/mn720drivers/bcmwl5.sys
+
+
+
+
+
