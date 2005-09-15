@@ -53,6 +53,17 @@ static const struct file {
 		.pcm4_pos    = 392500,   .pcm4_length = 1312,
 		.pcm5_pos    = 393812,   .pcm5_length = 1312,
 	},
+	{
+		.name        = "AppleAirPort2",
+		.version     = "3.90.34.0.p13",                        /* 07/10/2005 */
+		.md5         = "6ecf38e5ab6997c7ec483c0d637f5c68",
+		.flags       = BYTE_ORDER_AABBCCDD,
+		.uc2_pos     = 0x528bc,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x56804,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x5b5f4,  .uc5_length  = 0x57e0,
+		.pcm4_pos    = 0x60dd4,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x612f4,  .pcm5_length = 0x520,
+	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.20.23.0",                            /* 06/13/2003 */ 

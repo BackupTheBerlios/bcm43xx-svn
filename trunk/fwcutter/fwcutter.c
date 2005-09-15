@@ -192,9 +192,11 @@ static void extract_iv(const char *infile, uint8_t flags, uint32_t pos)
 {
 	byte* filedata;
 
-	filedata = read_file(infile);
-	write_iv(infile, flags, filedata + pos);
-	free(filedata);
+	if (pos > 0) {
+		filedata = read_file(infile);
+		write_iv(infile, flags, filedata + pos);
+		free(filedata);
+	}
 }
 
 static void print_supported_files(void)
