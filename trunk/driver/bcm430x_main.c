@@ -1389,155 +1389,68 @@ out:
 	return err;
 }
 
-/* Do the Hardware IO operations to send the txb */
-static inline void bcm430x_tx(struct bcm430x_private *bcm,
-			      struct ieee80211_txb *txb)
-{/*TODO*/
-printkl(KERN_INFO PFX "bcm430x_tx()\n");
-
-}
-
-/* set_security() callback in struct ieee80211_device */
-static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
-					   struct ieee80211_security *sec)
-{/*TODO*/
-}
-
-/* hard_start_xmit() callback in struct ieee80211_device */
-static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
-					     struct net_device *net_dev,
-					     int pri)
+/* This is the opposite of bcm430x_init_board() */
+static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	unsigned long flags;
+	struct pci_dev *pci_dev = bcm->pci_dev;
 
-	spin_lock_irqsave(&bcm->lock, flags);
-	bcm430x_tx(bcm, txb);
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm430x_dma_free(bcm);
+	bcm430x_radio_turn_off(bcm);
+	bcm430x_chip_cleanup(bcm);
 
-	return 0;
+	bcm430x_pctl_set_crystal(bcm, 0);
+	iounmap(bcm->mmio_addr);
+	bcm->mmio_addr = 0;
+
+	bcm->current_core = 0;
+	memset(&bcm->core_chipcommon, 0, sizeof(struct bcm430x_coreinfo));
+	memset(&bcm->core_pci, 0, sizeof(struct bcm430x_coreinfo));
+	memset(&bcm->core_v90, 0, sizeof(struct bcm430x_coreinfo));
+	memset(&bcm->core_pcmcia, 0, sizeof(struct bcm430x_coreinfo));
+	memset(&bcm->core_80211, 0, sizeof(struct bcm430x_coreinfo));
+
+	pci_release_regions(pci_dev);
+	pci_disable_device(pci_dev);
 }
 
-/* reset_port() callback in struct ieee80211_device */
-static int bcm430x_ieee80211_reset_port(struct net_device *net_dev)
-{/*TODO*/
-	return 0;
-}
-
-/* handle_management_frame() callback in struct ieee80211_device */
-static int bcm430x_ieee80211_handle_management_frame(struct net_device *net_dev,
-						     struct ieee80211_network *network,
-						     u16 type)
-{/*TODO*/
-	return 0;
-}
-
-static struct net_device_stats * bcm430x_net_get_stats(struct net_device *dev)
+static int bcm430x_init_board(struct bcm430x_private *bcm)
 {
-	return &(bcm430x_priv(dev)->ieee->stats);
-}
-
-static void bcm430x_net_tx_timeout(struct net_device *dev)
-{/*TODO*/
-}
-
-static int bcm430x_net_open(struct net_device *dev)
-{/*TODO*/
-	return 0;
-}
-
-static int bcm430x_net_stop(struct net_device *dev)
-{/*TODO*/
-	return 0;
-}
-
-static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm_out)
-{
+	struct net_device *net_dev = bcm->net_dev;
+	struct pci_dev *pci_dev = bcm->pci_dev;
 	void *ioaddr;
-	struct net_device *net_dev;
-	struct bcm430x_private *bcm;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
 	int i, err;
 	u16 pci_status;
 
-	net_dev = alloc_ieee80211(sizeof(*bcm));
-	if (!net_dev) {
-		printk(KERN_ERR PFX
-		       "could not allocate ieee80211 device %s\n",
-		       pci_name(pdev));
-		err = -ENOMEM;
-		goto out;
-	}
-	/* initialize the net_device struct */
-	SET_MODULE_OWNER(net_dev);
-	SET_NETDEV_DEV(net_dev, &pdev->dev);
-
-	net_dev->open = bcm430x_net_open;
-	net_dev->stop = bcm430x_net_stop;
-	net_dev->get_stats = bcm430x_net_get_stats;
-	net_dev->tx_timeout = bcm430x_net_tx_timeout;
-	net_dev->wireless_handlers = &bcm430x_wx_handlers_def;
-	net_dev->irq = pdev->irq;
-
-	/* initialize the bcm430x_private struct */
-	bcm = bcm430x_priv(net_dev);
-	bcm->ieee = netdev_priv(net_dev);
-	bcm->pci_dev = pdev;
-	bcm->net_dev = net_dev;
-	spin_lock_init(&bcm->lock);
-	tasklet_init(&bcm->isr_tasklet,
-		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
-		     (unsigned long)bcm);
-
-	bcm->curr_channel = 0xFFFF;
-	bcm->antenna_diversity = 0xFFFF;
-
-	switch (mode) {
-	case 1:
-		bcm->ieee->iw_mode = IW_MODE_ADHOC;
-		break;
-	case 2:
-		bcm->ieee->iw_mode = IW_MODE_MONITOR;
-		break;
-	default:
-	case 0:
-		bcm->ieee->iw_mode = IW_MODE_INFRA;
-		break;
-	}
-
-	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
-	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
-	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
-	bcm->ieee->handle_management_frame = bcm430x_ieee80211_handle_management_frame;
-
-	err = pci_enable_device(pdev);
+	err = pci_enable_device(pci_dev);
 	if (err) {
 		printk(KERN_ERR PFX "unable to wake up pci device (%i)\n", err);
-		goto err_free_ieee;
+		err = -ENODEV;
+		goto out;
 	}
 
-	mmio_start = pci_resource_start(pdev, 0);
-	mmio_end = pci_resource_end(pdev, 0);
-	mmio_flags = pci_resource_flags(pdev, 0);
-	mmio_len = pci_resource_len(pdev, 0);
+	mmio_start = pci_resource_start(pci_dev, 0);
+	mmio_end = pci_resource_end(pci_dev, 0);
+	mmio_flags = pci_resource_flags(pci_dev, 0);
+	mmio_len = pci_resource_len(pci_dev, 0);
 
 	/* make sure PCI base addr is MMIO */
 	if (!(mmio_flags & IORESOURCE_MEM)) {
 		printk(KERN_ERR PFX
 		       "%s, region #0 not an MMIO resource, aborting\n",
-		       pci_name(pdev));
+		       pci_name(pci_dev));
 		err = -ENODEV;
 		goto err_pci_disable;
 	}
 	if (mmio_len != BCM430x_IO_SIZE) {
 		printk(KERN_ERR PFX
 		       "%s: invalid PCI mem region size(s), aborting\n",
-		       pci_name(pdev));
+		       pci_name(pci_dev));
 		err = -ENODEV;
 		goto err_pci_disable;
 	}
 
-	err = pci_request_regions(pdev, DRV_NAME);
+	err = pci_request_regions(pci_dev, DRV_NAME);
 	if (err) {
 		printk(KERN_ERR PFX
 		       "could not access PCI resources (%i)\n", err);
@@ -1545,13 +1458,13 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	}
 
 	/* enable PCI bus-mastering */
-	pci_set_master(pdev);
+	pci_set_master(pci_dev);
 
 	/* ioremap MMIO region */
 	ioaddr = ioremap(mmio_start, mmio_len);
 	if (!ioaddr) {
 		printk(KERN_ERR PFX "%s: cannot remap MMIO, aborting\n",
-		       pci_name(pdev));
+		       pci_name(pci_dev));
 		err = -EIO;
 		goto err_pci_release;
 	}
@@ -1606,7 +1519,8 @@ static int bcm430x_init_board(struct pci_dev *pdev, struct bcm430x_private **bcm
 	if (err)
 		goto err_radio_off;
 
-	*bcm_out = bcm;
+	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
+
 	assert(err == 0);
 out:
 	return err;
@@ -1616,59 +1530,167 @@ err_radio_off:
 err_iounmap:
 	iounmap(bcm->mmio_addr);
 err_pci_release:
-	pci_release_regions(pdev);
+	pci_release_regions(pci_dev);
 err_pci_disable:
-	pci_disable_device(pdev);
-err_free_ieee:
-	free_netdev(net_dev);
+	pci_disable_device(pci_dev);
 	goto out;
 }
 
-/* This is the opposite of bcm430x_init_board() */
-static void bcm430x_free_board(struct bcm430x_private *bcm)
+/* Do the Hardware IO operations to send the txb */
+static inline int bcm430x_tx(struct bcm430x_private *bcm,
+			     struct ieee80211_txb *txb)
+{/*TODO*/
+	int err;
+
+	bcm->txb = txb;
+//	err = bcm430x_dma_tx(bcm->tx_ring, txb);
+err = 0;
+
+	return err;
+}
+
+/* set_security() callback in struct ieee80211_device */
+static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
+					   struct ieee80211_security *sec)
+{/*TODO*/
+}
+
+/* hard_start_xmit() callback in struct ieee80211_device */
+static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
+					     struct net_device *net_dev,
+					     int pri)
 {
-	struct pci_dev *pci_dev = bcm->pci_dev;
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	int err;
+	unsigned long flags;
 
-	bcm430x_dma_free(bcm);
-	bcm430x_radio_turn_off(bcm);
-	bcm430x_chip_cleanup(bcm);
+	spin_lock_irqsave(&bcm->lock, flags);
+	err = bcm430x_tx(bcm, txb);
+	spin_unlock_irqrestore(&bcm->lock, flags);
 
-	bcm430x_pctl_set_crystal(bcm, 0);
-	iounmap(bcm->mmio_addr);
-	pci_release_regions(pci_dev);
-	pci_set_drvdata(pci_dev, NULL);
-	pci_disable_device(pci_dev);
+	return err;
+}
+
+/* reset_port() callback in struct ieee80211_device */
+static int bcm430x_ieee80211_reset_port(struct net_device *net_dev)
+{/*TODO*/
+	return 0;
+}
+
+/* handle_management_frame() callback in struct ieee80211_device */
+static int bcm430x_ieee80211_handle_management_frame(struct net_device *net_dev,
+						     struct ieee80211_network *network,
+						     u16 type)
+{/*TODO*/
+	return 0;
+}
+
+static struct net_device_stats * bcm430x_net_get_stats(struct net_device *net_dev)
+{
+	return &(bcm430x_priv(net_dev)->ieee->stats);
+}
+
+static void bcm430x_net_tx_timeout(struct net_device *dev)
+{/*TODO*/
+}
+
+static int bcm430x_net_open(struct net_device *net_dev)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	int err;
+
+	err = bcm430x_init_board(bcm);
+
+	return err;
+}
+
+static int bcm430x_net_stop(struct net_device *net_dev)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
+	/* make sure we don't receive more data from the device. */
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	tasklet_disable(&bcm->isr_tasklet);
+
+	bcm430x_free_board(bcm);
+
+	return 0;
 }
 
 static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 				      const struct pci_device_id *ent)
 {
-	struct net_device *net_dev = NULL;
-	struct bcm430x_private *bcm = NULL;
+	struct net_device *net_dev;
+	struct bcm430x_private *bcm;
 	int err;
 
 #ifdef DEBUG_SINGLE_DEVICE_ONLY
 	if (strcmp(pci_name(pdev), DEBUG_SINGLE_DEVICE_ONLY))
 		return -ENODEV;
 #endif
-	/* TODO: Almost everything here (except net_device registration)
-	 *       should be done at bcm430x_net_open() time.
-	 *       For now we do it here for easier development.
-	 */
 
-	err = bcm430x_init_board(pdev, &bcm);
-	if (err)
+	net_dev = alloc_ieee80211(sizeof(*bcm));
+	if (!net_dev) {
+		printk(KERN_ERR PFX
+		       "could not allocate ieee80211 device %s\n",
+		       pci_name(pdev));
+		err = -ENOMEM;
 		goto out;
-	net_dev = bcm->net_dev;
+	}
+	/* initialize the net_device struct */
+	SET_MODULE_OWNER(net_dev);
+	SET_NETDEV_DEV(net_dev, &pdev->dev);
+
+	net_dev->open = bcm430x_net_open;
+	net_dev->stop = bcm430x_net_stop;
+	net_dev->get_stats = bcm430x_net_get_stats;
+	net_dev->tx_timeout = bcm430x_net_tx_timeout;
+	net_dev->wireless_handlers = &bcm430x_wx_handlers_def;
+	net_dev->irq = pdev->irq;
+
+	/* initialize the bcm430x_private struct */
+	bcm = bcm430x_priv(net_dev);
+	bcm->ieee = netdev_priv(net_dev);
+	bcm->pci_dev = pdev;
+	bcm->net_dev = net_dev;
+	spin_lock_init(&bcm->lock);
+	tasklet_init(&bcm->isr_tasklet,
+		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
+		     (unsigned long)bcm);
+
+	bcm->curr_channel = 0xFFFF;
+	bcm->antenna_diversity = 0xFFFF;
+
+	switch (mode) {
+	case 1:
+		bcm->ieee->iw_mode = IW_MODE_ADHOC;
+		break;
+	case 2:
+		bcm->ieee->iw_mode = IW_MODE_MONITOR;
+		break;
+	default:
+	case 0:
+		bcm->ieee->iw_mode = IW_MODE_INFRA;
+		break;
+	}
+
+	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
+	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
+	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
+	bcm->ieee->handle_management_frame = bcm430x_ieee80211_handle_management_frame;
+
+	pci_set_drvdata(pdev, net_dev);
+
 	err = register_netdev(net_dev);
 	if (err) {
 		printk(KERN_ERR PFX "Cannot register net device, "
 		       "aborting.\n");
-		goto err_freeboard;
+		err = -ENOMEM;
+		goto err_free_netdev;
 	}
-	pci_set_drvdata(pdev, net_dev);
-
-	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 
 	bcm430x_debugfs_add_device(bcm);
 
@@ -1676,8 +1698,8 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 out:
 	return err;
 
-err_freeboard:
-	bcm430x_free_board(bcm);
+err_free_netdev:
+	free_netdev(net_dev);
 	goto out;
 }
 
@@ -1687,13 +1709,8 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
 	bcm430x_debugfs_remove_device(bcm);
-
-	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-	bcm430x_free_board(bcm);
-	if (net_dev) {
-		unregister_netdev(net_dev);
-		free_netdev(net_dev);
-	}
+	unregister_netdev(net_dev);
+	free_netdev(net_dev);
 }
 
 #ifdef CONFIG_PM
