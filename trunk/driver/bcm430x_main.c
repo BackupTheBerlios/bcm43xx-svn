@@ -119,7 +119,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 
 
 /* Static Prototypes */
-static int bcm430x_write_initvals(struct bcm430x_private *bcm);
+//static void bcm430x_write_initvals(struct bcm430x_private *bcm, const u16 *data, const unsigned int len);
 
 
 u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
@@ -839,6 +839,102 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	return 0;
 }
 
+static void bcm430x_write_initvals(struct bcm430x_private *bcm,
+				    const u16 *data, const unsigned int len)
+{
+	unsigned int i;
+	
+	for (i = 0; i < len; i += 4) {
+		if (data[i+1] == 0x0002)
+			bcm430x_write16(bcm, data[i], be16_to_cpu(data[i+3]));
+		else if (data[i+1] == 0x0004)
+			bcm430x_write32(bcm, data[i], be32_to_cpu((u32)data[i+3] | data[i+2] << 16));
+	}
+}
+
+static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
+{
+	const struct firmware *fw;
+	char buf[21] = { 0 };
+	
+	if ((bcm->core_80211.rev == 2) || (bcm->core_80211.rev == 4)) {
+		switch (bcm->phy_type) {
+			case BCM430x_PHYTYPE_A:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 3);
+				break;
+			case BCM430x_PHYTYPE_B:
+			case BCM430x_PHYTYPE_G:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 1);
+				break;
+			default:
+				goto out_noinitval;
+		}
+	
+	} else if (bcm->core_80211.rev >= 5) {
+		switch (bcm->phy_type) {
+			case BCM430x_PHYTYPE_A:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 7);
+				break;
+			case BCM430x_PHYTYPE_B:
+			case BCM430x_PHYTYPE_G:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 5);
+				break;
+			default:
+				goto out_noinitval;
+		}
+	} else
+		goto out_noinitval;
+
+	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
+		printk(KERN_ERR PFX 
+		       "Error: InitVals \"%s\" not available or load failed.\n",
+		        buf);
+		return -ENODEV;
+	}
+	
+	bcm430x_write_initvals(bcm, (u16 *)fw->data, fw->size / sizeof(u16));
+
+	release_firmware(fw);
+
+	if (bcm->core_80211.rev >= 5) {
+		switch (bcm->phy_type) {
+			case BCM430x_PHYTYPE_A:
+				bcm->sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
+				if (bcm->sbtmstatehigh & 0x00010000)
+					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 9);
+				else
+					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 10);
+				break;
+			case BCM430x_PHYTYPE_B:
+			case BCM430x_PHYTYPE_G:
+					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 6);
+				break;
+			default:
+				goto out_noinitval;
+		}
+	
+		if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
+			printk(KERN_ERR PFX 
+			       "Error: InitVals \"%s\" not available or load failed.\n",
+		        	buf);
+			return -ENODEV;
+		}
+
+		bcm430x_write_initvals(bcm, (u16 *)fw->data, fw->size / sizeof(u16));
+	
+		release_firmware(fw);
+		
+	}
+
+printk(KERN_INFO PFX "InitVals written\n");
+	return 0;
+
+out_noinitval:
+	printk(KERN_ERR PFX "Error: No InitVals available!\n");
+	return -ENODEV;
+
+}
+
 static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 {
 	int res;
@@ -984,7 +1080,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto err_free_irq;
 
-	err = bcm430x_write_initvals(bcm);
+	err = bcm430x_upload_initvals(bcm);
 	if (err)
 		goto err_gpio_cleanup;
 
@@ -1086,73 +1182,7 @@ err_free_irq:
 	free_irq(bcm->pci_dev->irq, bcm);
 	goto out;
 }
-
-static void write_initvals_array(struct bcm430x_private *bcm,
-				 const struct bcm430x_initval *data)
-{
-	unsigned int i = 0;
-
-	while (data[i].size != 0) {
-		if (data[i].size == 4) {
-			bcm430x_write32(bcm, data[i].offset, data[i].value);
-		} else {
-			assert(data[i].size == 2);
-			bcm430x_write16(bcm, data[i].offset, (u16)(data[i].value));
-		}
-		i++;
-	}
-}
-
-/* Write the initial values
- * http://bcm-specs.sipsolutions.net/InitialValues
- */
-static int bcm430x_write_initvals(struct bcm430x_private *bcm)
-{
-	if ((bcm->core_80211.rev == 2) || (bcm->core_80211.rev == 4)) {
-		switch (bcm->phy_type) {
-		case BCM430x_PHYTYPE_A:
-			write_initvals_array(bcm, bcm430x_initvals_core24_aphy);
-			break;
-		case BCM430x_PHYTYPE_B:
-		case BCM430x_PHYTYPE_G:
-			write_initvals_array(bcm, bcm430x_initvals_core24_bgphy);
-			break;
-		default:
-			goto out_noinitval;
-		}
-	} else if (bcm->core_80211.rev >= 5) {
-		switch (bcm->phy_type) {
-		case BCM430x_PHYTYPE_A:
-			write_initvals_array(bcm, bcm430x_initvals_core5_aphy);
-			/* FIXME: The expression in the following if statement is pseudo code,
-			 *        as I don't know what SB_CoreFlagsHI is.
-			 *        See http://bcm-specs.sipsolutions.net/APHYBSInitVal5
-			 */
-			/* XXX: Might be bcm->current_core.flags ? */
-			if (bcm->current_core->flags & 0x00010000)
-				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_2);
-			else
-				write_initvals_array(bcm, bcm430x_bsinitvals_core5_aphy_1);
-			break;
-		case BCM430x_PHYTYPE_B:
-		case BCM430x_PHYTYPE_G:
-			write_initvals_array(bcm, bcm430x_initvals_core5_bgphy);
-			write_initvals_array(bcm, bcm430x_bsinitvals_core5_bgphy);
-			break;
-		default:
-			goto out_noinitval;
-		}
-	} else
-		goto out_noinitval;
-
-printk(KERN_INFO PFX "InitVals written\n");
-	return 0;
-
-out_noinitval:
-	printk(KERN_ERR PFX "Error: No InitVals available!\n");
-	return -ENODEV;
-}
-
+	
 /* Validate chip access
  * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
 static int bcm430x_validate_chip(struct bcm430x_private *bcm)
