@@ -189,7 +189,9 @@
 #define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
 #define BCM430x_IRQ_BGNOISE		(1 << 18)
 #define BCM430x_IRQ_XMIT_STATUS		(1 << 29)
+
 #define BCM430x_IRQ_ALL			0xffffffff
+#define BCM430x_IRQ_INITIAL		0x20058864
 
 /* DMA-Interrupt reasons. */
 /*TODO: add the missing ones. */

@@ -1636,9 +1636,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	}
 	pci_set_drvdata(pdev, net_dev);
 
-	/*FIXME: Which interrupts do we have to enable? _Really_ all? */
-	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_ALL);
-	//bcm430x_dummy_transmission(bcm);
+	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 
 	bcm430x_debugfs_add_device(bcm);
 
