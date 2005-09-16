@@ -369,6 +369,7 @@ struct bcm430x_private {
 
 	/* Reason code of the last interrupt. */
 	u32 irq_reason;
+	u32 dma_reason[4];
 	/* saved irq enable/disable state bitfield. */
 	u32 irq_savedstate;
 

@@ -674,7 +674,7 @@ printkl(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
 static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
 {
 	struct bcm430x_private *bcm = dev_id;
-	u32 reason;
+	u32 reason, mask;
 
 	if (!bcm)
 		return IRQ_NONE;
@@ -682,15 +682,51 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	spin_lock(&bcm->lock);
 
 	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
-	if (reason == 0xffffffff)
-		goto err_none_unlock; // irq not for us (shared irq)
+	if (reason == 0xffffffff) {
+		/* irq not for us (shared irq) */
+		spin_unlock(&bcm->lock);
+		return IRQ_NONE;
+	}
+	mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	if (!(reason & mask)) {
+		spin_unlock(&bcm->lock);
+		return IRQ_HANDLED;
+	}
+
+	bcm->dma_reason[0] = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_REASON)
+			     & 0x0001dc00;
+	bcm->dma_reason[1] = bcm430x_read32(bcm, BCM430x_MMIO_DMA2_REASON)
+			     & 0x0000dc00;
+	bcm->dma_reason[2] = bcm430x_read32(bcm, BCM430x_MMIO_DMA3_REASON)
+			     & 0x0000dc00;
+	bcm->dma_reason[3] = bcm430x_read32(bcm, BCM430x_MMIO_DMA4_REASON)
+			     & 0x0001dc00;
+
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON,
+			reason & mask);
+
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_REASON,
+			bcm->dma_reason[0]);
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA2_REASON,
+			bcm->dma_reason[1]);
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA3_REASON,
+			bcm->dma_reason[2]);
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_REASON,
+			bcm->dma_reason[3]);
+
+	/*TODO*/
+#if 0
+	if (PIOMODE && bcm->core_80211.rev < 3) {
+		/*TODO*/
+	}
+#endif
 
 	/* disable all IRQs. They are enabled again in the bottom half. */
 	bcm->irq_savedstate = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
 
 	/* ACK the IRQ */
 	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON,
-			reason | BCM430x_IRQ_ACK);
+			reason | BCM430x_IRQ_ACK);//FIXME: correct?
 
 	/* save the reason code and call our bottom half. */
 	bcm->irq_reason = reason;
@@ -699,10 +735,6 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	spin_unlock(&bcm->lock);
 
 	return IRQ_HANDLED;
-
-err_none_unlock:
-	spin_unlock(&bcm->lock);
-	return IRQ_NONE;
 }
 
 static int bcm430x_dma_init(struct bcm430x_private *bcm)
