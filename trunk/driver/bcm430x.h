@@ -379,6 +379,8 @@ struct bcm430x_private {
 	/* DMA */
 	struct bcm430x_dmaring *tx_ring;
 	struct bcm430x_dmaring *rx_ring;
+
+	struct ieee80211_txb *txb;
 };
 
 static inline
