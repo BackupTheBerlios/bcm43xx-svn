@@ -263,13 +263,13 @@
 #define assert(expr) \
 	do {									\
 		if (unlikely(!(expr))) {					\
-		printk(KERN_ERR PFX "Assertion failed! %s,%s,%s,line=%d\n",	\
+		printkl(KERN_ERR PFX "Assertion failed! %s,%s,%s,line=%d\n",	\
 		#expr,__FILE__,__FUNCTION__,__LINE__);				\
 		}								\
 	} while (0)
 #endif
 
-/* rate limited printk(). Just a debug helper. */
+/* rate limited printk(). */
 #ifdef printkl
 # undef printkl
 #endif
