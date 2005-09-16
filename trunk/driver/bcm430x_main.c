@@ -287,31 +287,27 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
 	unsigned int i, max_loop;
-	u16 packet_number;
-	u8 buffer[20] = {
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0xD4, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x01,
-		0x00, 0x00, 0x00, 0x00,
+	u16 packet_number, value;
+	u32 buffer[5] = {
+		0x00000000,
+		cpu_to_be32(0x0000D400),
+		0x00000000,
+		cpu_to_be32(0x00000001),
+		0x00000000,
 	};
-	u32 *tmp;
+	u8 *tmp;
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
 		packet_number = 0;
 		max_loop = 0x1E;
-		buffer[0] = 0xCC;
-		buffer[1] = 0x01;
-		buffer[2] = 0x02;
+		buffer[0] = cpu_to_be32(0xCC010200);
 		break;
 	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
 		packet_number = 1;
 		max_loop = 0xFA;
-		buffer[0] = 0x6E;
-		buffer[1] = 0x84;
-		buffer[2] = 0x0B; 
+		buffer[0] = cpu_to_be32(0x6E840B00); 
 		break;
 	default:
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
@@ -320,11 +316,15 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 
 #if BCM430x_DEBUG
 	printk(KERN_WARNING PFX "DummyTransmission():\n");
-#endif
-
+	printk(KERN_WARNING PFX "Packet:\n");
 	for (i = 0; i < 5; i++) {
-		tmp = (u32 *)&buffer[i*4];
-		bcm430x_ram_write(bcm, i * 4, *tmp);
+		tmp = (u8 *)&buffer[i];
+		printk(KERN_WARNING PFX "%02x %02x %02x %02x\n", tmp[0], tmp[1], tmp[2], tmp[3]);
+	}
+#endif
+#if 1
+	for (i = 0; i < 5; i++) {
+		bcm430x_ram_write(bcm, i * 4, buffer[i]);
 	}
 	printk(KERN_WARNING PFX "Packet written\n");
 
@@ -342,27 +342,27 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	bcm430x_write16(bcm, 0x0502, 0x0030);
 
 	for (i = 0x00; i < max_loop; i++) {
-		if ((bcm430x_read16(bcm, 0x050E) & 0x0080) != 0) {
-			printk(KERN_WARNING PFX "Loop1 broken\n");
+		if ((value = bcm430x_read16(bcm, 0x050E) & 0x0080) != 0) {
+			printk(KERN_WARNING PFX "Loop1 broken in iteration %d, value is 0x%04x\n", i, value);
 			break;
 		}
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
 		if ((bcm430x_read16(bcm, 0x050E) & 0x0400) != 0) {
-			printk(KERN_WARNING PFX "Loop2 broken\n");
+			printk(KERN_WARNING PFX "Loop2 broken in iteration %d\n", i);
 			break;
 		}
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
 		if ((bcm430x_read16(bcm, 0x0690) & 0x0100) != 0) {
-			printk(KERN_WARNING PFX "Loop3 broken\n");
+			printk(KERN_WARNING PFX "Loop3 broken in iteration %d\n", i);
 			break;
 		}
 		udelay(10);
 	}
-
+#endif
 	return 0;
 }
 
