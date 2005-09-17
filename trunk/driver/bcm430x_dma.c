@@ -276,7 +276,7 @@ int bcm430x_post_dmaring(struct bcm430x_dmaring *ring)
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
 				ring->dmabase);
 	} else {
-		/* Set Transmit Descriptor ring address. */
+		/* Set Receive Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
 				ring->dmabase);
@@ -296,11 +296,11 @@ void bcm430x_unpost_dmaring(struct bcm430x_dmaring *ring)
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
 				0x00000000);
 	} else {
-		/* Zero out Transmit Control register. */
+		/* Zero out Receive Control register. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
 				0x00000000);
-		/* Zero out Transmit Descriptor ring address. */
+		/* Zero out Receive Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
 				0x00000000);
