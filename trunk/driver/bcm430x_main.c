@@ -620,8 +620,6 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 printkl(KERN_INFO PFX "We got an interrupt! 0x%08x, DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
 	reason, bcm->dma_reason[0], bcm->dma_reason[1], bcm->dma_reason[2], bcm->dma_reason[3]);
 
-	assert(!(reason & BCM430x_IRQ_ACK));
-
 	if (reason & BCM430x_IRQ_BEACON) {
 		/*TODO*/
 		//bcmirq_handled();
@@ -640,6 +638,13 @@ printkl(KERN_INFO PFX "We got an interrupt! 0x%08x, DMA: 0x%08x, 0x%08x, 0x%08x,
 	if (reason & BCM430x_IRQ_PMQ) {
 		/*TODO*/
 		//bcmirq_handled();
+	}
+
+	if (reason & BCM430x_IRQ_TXFIFO_ERROR) {
+		printkl(KERN_ERR PFX "TX FIFO error. DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+			bcm->dma_reason[0], bcm->dma_reason[1],
+			bcm->dma_reason[2], bcm->dma_reason[3]);
+		bcmirq_handled();
 	}
 
 	if (reason & BCM430x_IRQ_SCAN) {
@@ -720,10 +725,6 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 
 	/* disable all IRQs. They are enabled again in the bottom half. */
 	bcm->irq_savedstate = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-
-	/* ACK the IRQ */
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON,
-			reason | BCM430x_IRQ_ACK);//FIXME: correct?
 
 	/* save the reason code and call our bottom half. */
 	bcm->irq_reason = reason;

@@ -185,7 +185,7 @@
 #define BCM430x_IRQ_TBTT		(1 << 2) /*FIXME: purpose? */
 #define BCM430x_IRQ_REG124		(1 << 5) /*FIXME: purpose? */
 #define BCM430x_IRQ_PMQ			(1 << 6) /*FIXME: purpose? */
-#define BCM430x_IRQ_ACK			(1 << 15) /*FIXME: Is this correct? I guessed this, but it seems to work (Michael). */
+#define BCM430x_IRQ_TXFIFO_ERROR	(1 << 15)
 #define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
 #define BCM430x_IRQ_BGNOISE		(1 << 18)
 #define BCM430x_IRQ_XMIT_STATUS		(1 << 29)
