@@ -41,7 +41,6 @@
 
 #include "bcm430x.h"
 #include "bcm430x_main.h"
-#include "bcm430x_initvals.h"
 #include "bcm430x_debugfs.h"
 #include "bcm430x_radio.h"
 #include "bcm430x_phy.h"
@@ -116,10 +115,6 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	/* required last entry */
 	{ 0, },
 };
-
-
-/* Static Prototypes */
-//static void bcm430x_write_initvals(struct bcm430x_private *bcm, const u16 *data, const unsigned int len);
 
 
 u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
@@ -840,15 +835,24 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 }
 
 static void bcm430x_write_initvals(struct bcm430x_private *bcm,
-				    const u16 *data, const unsigned int len)
+				   const struct bcm430x_initval *data,
+				   const unsigned int len)
 {
+	u16 offset, size;
+	u32 value;
 	unsigned int i;
-	
-	for (i = 0; i < len; i += 4) {
-		if (data[i+1] == 0x0002)
-			bcm430x_write16(bcm, data[i], be16_to_cpu(data[i+3]));
-		else if (data[i+1] == 0x0004)
-			bcm430x_write32(bcm, data[i], be32_to_cpu((u32)data[i+3] | data[i+2] << 16));
+
+	for (i = 0; i < len; i++) {
+		offset = be16_to_cpu(data[i].offset);
+		size = be16_to_cpu(data[i].size);
+		value = be32_to_cpu(data[i].value);
+
+		if (size == 2)
+			bcm430x_write16(bcm, offset, value);
+		else if (size == 4)
+			bcm430x_write32(bcm, offset, value);
+		else
+			printk(KERN_ERR PFX "InitVals fileformat error.\n");
 	}
 }
 
@@ -891,8 +895,14 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 		        buf);
 		return -ENODEV;
 	}
-	
-	bcm430x_write_initvals(bcm, (u16 *)fw->data, fw->size / sizeof(u16));
+	if (fw->size % sizeof(struct bcm430x_initval)) {
+		printk(KERN_ERR PFX "InitVals fileformat error.\n");
+		release_firmware(fw);
+		return -ENODEV;
+	}
+
+	bcm430x_write_initvals(bcm, (struct bcm430x_initval *)fw->data,
+			       fw->size / sizeof(struct bcm430x_initval));
 
 	release_firmware(fw);
 
@@ -919,8 +929,14 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 		        	buf);
 			return -ENODEV;
 		}
+		if (fw->size % sizeof(struct bcm430x_initval)) {
+			printk(KERN_ERR PFX "InitVals fileformat error.\n");
+			release_firmware(fw);
+			return -ENODEV;
+		}
 
-		bcm430x_write_initvals(bcm, (u16 *)fw->data, fw->size / sizeof(u16));
+		bcm430x_write_initvals(bcm, (struct bcm430x_initval *)fw->data,
+				       fw->size / sizeof(struct bcm430x_initval));
 	
 		release_firmware(fw);
 		
@@ -932,7 +948,6 @@ printk(KERN_INFO PFX "InitVals written\n");
 out_noinitval:
 	printk(KERN_ERR PFX "Error: No InitVals available!\n");
 	return -ENODEV;
-
 }
 
 static int bcm430x_initialize_irq(struct bcm430x_private *bcm)

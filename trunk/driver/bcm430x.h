@@ -389,6 +389,12 @@ struct bcm430x_private * bcm430x_priv(struct net_device *dev)
 	return ieee80211_priv(dev);
 }
 
+struct bcm430x_initval {
+	u16 offset;
+	u16 size;
+	u32 value;
+} __attribute__((__packed__));
+
 /* 
  * Wrapper for older kernels 
  */
