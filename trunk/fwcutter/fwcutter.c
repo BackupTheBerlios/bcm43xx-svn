@@ -126,11 +126,11 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 			}
 
 			if (flags & BYTE_ORDER_DDCCBBAA)
-				fprintf(fw, "%02x%02x%02x%02x%02x%02x%02x%02x",
+				fprintf(fw, "%c%c%c%c%c%c%c%c",
 					data[1], data[0], data[3], data[2], 
 					data[7], data[6], data[5], data[4]);
 			else if (flags & BYTE_ORDER_AABBCCDD)
-				fprintf(fw, "%02x%02x%02x%02x%02x%02x%02x%02x",
+				fprintf(fw, "%c%c%c%c%c%c%c%c",
 					data[0], data[1], data[2], data[3], 
 					data[4], data[5], data[6], data[7]);
 			else {
