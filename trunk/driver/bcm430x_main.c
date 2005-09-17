@@ -617,7 +617,8 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	spin_lock_irqsave(&bcm->lock, flags);
 	reason = bcm->irq_reason;
 
-printkl(KERN_INFO PFX "We got an interrupt! Reason: 0x%08x\n", reason);
+printkl(KERN_INFO PFX "We got an interrupt! 0x%08x, DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+	reason, bcm->dma_reason[0], bcm->dma_reason[1], bcm->dma_reason[2], bcm->dma_reason[3]);
 
 	assert(!(reason & BCM430x_IRQ_ACK));
 
