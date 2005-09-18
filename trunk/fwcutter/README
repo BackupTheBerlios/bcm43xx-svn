@@ -14,7 +14,8 @@ The project page is http://bcm43xx.berlios.de/
 Usage
 -----
 
-./fwcutter FILE		extracts the firmware from a source FILE to .
+fwcutter FILE		extracts the firmware from a source FILE to .
+fwcutter -i FILE        identify the driver file. Print information, but don't extract.
 fwcutter -l		prints a list of supported driver source files.
 
 After extraction, run make installfw which will copy bcm430x_*.fw to 
