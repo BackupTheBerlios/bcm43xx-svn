@@ -8,22 +8,18 @@ LDFLAGS =
 
 OBJECTS = fwcutter.o md5.o
 
-CFLAGS += $(shell if [ -x ./.get_endianess ]; then ./.get_endianess; fi)
 CFLAGS += -DFWCUTTER_VERSION_=$(VERSION)
 
 all: fwcutter
 
-fwcutter: get_endianess $(OBJECTS)
+fwcutter: $(OBJECTS)
 	$(CC) $(CFLAGS) -o fwcutter $(OBJECTS) $(LDFLAGS)
 
 install: all
 	-install -o 0 -g 0 -m 755 fwcutter $(PREFIX)/bin/
 
 clean:
-	-rm -f *~ *.o *.orig *.rej .get_endianess *.fw fwcutter
-
-get_endianess: get_endianess.o
-	$(CC) $(CFLAGS) -o .get_endianess get_endianess.o
+	-rm -f *~ *.o *.orig *.rej *.fw fwcutter
 
 installfw:
 	-if ! [ -d /lib/firmware ]; then mkdir /lib/firmware; fi

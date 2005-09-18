@@ -49,6 +49,7 @@ struct cmdline_args {
 };
 
 static struct cmdline_args cmdargs;
+int big_endian_cpu;
 
 
 static void write_ddccbbaa(FILE *f, byte *buffer, int len) 
@@ -276,6 +277,15 @@ static void identify_file(const char *file)
 	fclose(fd);
 }
 
+static void get_endianess(void)
+{
+	const unsigned char x[] = { 0xde, 0xad, 0xbe, 0xef, };
+	const uint32_t *p = (uint32_t *)x;
+
+	if (*p == 0xdeadbeef)
+		big_endian_cpu = 1;
+}
+
 static void print_banner(void)
 {
 	printf("fwcutter " FWCUTTER_VERSION "\n");
@@ -373,6 +383,7 @@ int main(int argc, char *argv[])
 	const struct file *file;
 	int err;
 
+	get_endianess();
 	err = parse_args(argc, argv);
 	if (err == 1)
 		return 0;
