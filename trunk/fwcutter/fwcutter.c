@@ -162,7 +162,7 @@ static byte* read_file(const char* filename)
 	}
 	len = ftell(file);
 	fseek(file, 0, SEEK_SET);
-	data = (byte*)malloc(len);
+	data = malloc(len);
 	if (!data) {
 		fputs("out of memory\n", stderr);
 		exit(1);
