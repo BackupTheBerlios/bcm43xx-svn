@@ -232,6 +232,50 @@ static void print_supported_files(void)
 	}
 }
 
+static const struct file * find_file(FILE *fd)
+{
+	unsigned char buffer[16384], signature[16];
+	struct MD5Context md5c;
+	char md5sig[33];
+	int i;
+
+	MD5Init(&md5c);
+	while ((i = (int) fread(buffer, 1, sizeof(buffer), fd)) > 0)
+		MD5Update(&md5c, buffer, (unsigned) i);
+	MD5Final(signature, &md5c);
+
+	snprintf(md5sig, sizeof(md5sig),
+		 "%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x",
+		 signature[0], signature[1], signature[2], signature[3],
+		 signature[4], signature[5], signature[6], signature[7],
+		 signature[8], signature[9], signature[10], signature[11],
+		 signature[12], signature[13], signature[14], signature[15]);
+
+	for (i = 0; i < FILES; ++i) {
+		if (strcasecmp(md5sig, files[i].md5) == 0) {
+			printf("Your driver file is known. It's version %s (MD5: %s)\n",
+			       files[i].version, files[i].md5);
+			return &(files[i]);
+		}
+	}
+	fputs("Driver version unknown or wrong input file.\n", stderr);
+
+	return 0;
+}
+
+static void identify_file(const char *file)
+{
+	FILE *fd;
+
+	fd = fopen(file, "rb");
+	if (!fd) {
+		fprintf(stderr, "Cannot open input file %s\n", file);
+		return;
+	}
+	find_file(fd);
+	fclose(fd);
+}
+
 static void print_banner(void)
 {
 	printf("fwcutter " FWCUTTER_VERSION "\n");
@@ -241,9 +285,10 @@ static void print_usage(int argc, char *argv[])
 {
 	print_banner();
 	printf("\nUsage: %s [OPTION] [driver.sys]\n", argv[0]);
-	printf("  -l             list supported driver versions\n");
-	printf("  -v             print fwcutter version\n");
-	printf("  -h|--help      print this help\n");
+	printf("  -l             List supported driver versions\n");
+	printf("  -i DRIVER.SYS  Identify a driver file (don't extract)\n");
+	printf("  -v             Print fwcutter version\n");
+	printf("  -h|--help      Print this help\n");
 	printf("\nExample: %s bcmwl5.sys\n"
 	       "         to extract the firmware blobs from bcmwl5.sys\n", argv[0]);
 }
@@ -305,7 +350,8 @@ static int parse_args(int argc, char *argv[])
 				printf("-i needs a parameter\n");
 				return -1;
 			}
-			cmdargs.infile = next_arg;
+			identify_file(next_arg);
+			return 1;
 		} else {
 			cmdargs.infile = arg;
 			break;
@@ -323,58 +369,42 @@ out_usage:
 
 int main(int argc, char *argv[])
 {
-	unsigned char buffer[16384], signature[16];
-	char md5sig[33];
-	FILE *in = stdin;
-	int i, count = 0;
-	struct MD5Context md5c;
+	FILE *fd;
+	const struct file *file;
+	int err;
 
-	i = parse_args(argc, argv);
-	if (i == 1)
+	err = parse_args(argc, argv);
+	if (err == 1)
 		return 0;
-	else if (i != 0)
-		return i;
+	else if (err != 0)
+		return err;
 
-	if ((in = fopen(cmdargs.infile, "rb")) == NULL) {
+	fd = fopen(cmdargs.infile, "rb");
+	if (!fd) {
 		fprintf(stderr, "Cannot open input file %s\n", cmdargs.infile);
 		return 2;
 	}
 
-	MD5Init(&md5c);
-	while ((i = (int) fread(buffer, 1, sizeof buffer, in)) > 0)
-		MD5Update(&md5c, buffer, (unsigned) i);
-	MD5Final(signature, &md5c);
+	err = -1;
+	file = find_file(fd);
+	if (!file)
+		goto out_close;
 
-	snprintf(md5sig, sizeof md5sig,
-		 "%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x",
-		 signature[0], signature[1], signature[2], signature[3],
-		 signature[4], signature[5], signature[6], signature[7],
-		 signature[8], signature[9], signature[10], signature[11],
-		 signature[12], signature[13], signature[14], signature[15]);
+	extract_fw(cmdargs.infile, "bcm430x_microcode2.fw",
+		   file->flags, file->uc2_pos, file->uc2_length);
+	extract_fw(cmdargs.infile, "bcm430x_microcode4.fw",
+		   file->flags, file->uc4_pos, file->uc4_length);
+	extract_fw(cmdargs.infile, "bcm430x_microcode5.fw",
+		   file->flags, file->uc5_pos, file->uc5_length);
+	extract_fw(cmdargs.infile, "bcm430x_pcm4.fw",
+		   file->flags, file->pcm4_pos, file->pcm4_length);
+	extract_fw(cmdargs.infile, "bcm430x_pcm5.fw",
+		   file->flags, file->pcm5_pos, file->pcm5_length);
+	extract_iv(cmdargs.infile, file->flags, file->iv_pos);
 
-	for (i = 0; i < FILES; ++i) {
-		if (strcasecmp(md5sig, files[i].md5) == 0) {
-			printf("Your firmware file is known. It's version %s.\n", files[i].version);
-			extract_fw(cmdargs.infile, "bcm430x_microcode2.fw",
-				   files[i].flags, files[i].uc2_pos, files[i].uc2_length);
-			extract_fw(cmdargs.infile, "bcm430x_microcode4.fw",
-				   files[i].flags, files[i].uc4_pos, files[i].uc4_length);
-			extract_fw(cmdargs.infile, "bcm430x_microcode5.fw",
-				   files[i].flags, files[i].uc5_pos, files[i].uc5_length);
-			extract_fw(cmdargs.infile, "bcm430x_pcm4.fw",
-				   files[i].flags, files[i].pcm4_pos, files[i].pcm4_length);
-			extract_fw(cmdargs.infile, "bcm430x_pcm5.fw",
-				   files[i].flags, files[i].pcm5_pos, files[i].pcm5_length);
-			extract_iv(cmdargs.infile, files[i].flags, files[i].iv_pos);
-			++count;
-			break;
-		}
-	}
+	err = 0;
+out_close:
+	fclose(fd);
 
-	if (count == 0) {
-		fputs("driver version unknown or wrong input file.\n", stderr);
-		return 1;
-	}
-
-	return 0;
+	return err;
 }
