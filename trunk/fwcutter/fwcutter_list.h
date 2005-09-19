@@ -1,4 +1,5 @@
 
+
 static const struct file {
 	const char *name;
 	const char *version;
@@ -136,6 +137,18 @@ static const struct file {
 		.uc5_pos     = 0x37970,  .uc5_length  = 0x4ebf,
 		.pcm4_pos    = 0x3c838,  .pcm4_length = 0x477,
 		.pcm5_pos    = 0x3ccb8,  .pcm5_length = 0x477,
+	},
+	{ 
+		.name        = "bcmwl5.sys",
+		.version     = "3.40.20.0",                            /* 09/24/2003 */ 
+		.md5         = "0c3fc803184f6f85e665dd012611225b", 
+		.flags       = BYTE_ORDER_DDCCBBAA,
+		.iv_pos      = 0x302f0,
+		.uc2_pos     = 0x33d88,  .uc2_length  = 0x3db8,
+		.uc4_pos     = 0x37b48,  .uc4_length  = 0x45d8,
+		.uc5_pos     = 0x3c128,  .uc5_length  = 0x5050,
+		.pcm4_pos    = 0x41180,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x41600,  .pcm5_length = 0x478,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
