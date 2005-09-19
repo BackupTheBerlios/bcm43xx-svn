@@ -1405,6 +1405,21 @@ out:
 	return err;
 }
 
+static int bcm430x_80211_init(struct bcm430x_private *bcm)
+{
+	/*TODO: people, work to be done ;) http://bcm-specs.sipsolutions.net/80211Init */
+
+	if (1 /* not in PIO mode */) {
+		/* I'll look into this (Michael) */
+		//TODO: init 4 TX DMA channels
+		//TODO: init first RX channel
+		//TODO: if corerev < 5, init 4th RX channel
+		//TODO: allocate RX buffers
+	}
+
+	return 0;
+}
+
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
@@ -1524,7 +1539,9 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 
 		//TODO: If this is != core#0, make it inactive?
 
-		//TODO: do a 80211_init
+		err = bcm430x_80211_init(bcm);
+		if (err)
+			goto err_iounmap;
 
 		bcm430x_read_radio_id(bcm);
 		err = bcm430x_validate_chip(bcm);
