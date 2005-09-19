@@ -34,14 +34,38 @@
 
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
+					       int nr_descriptor_slots,
 					       int tx)
 {
 	struct bcm430x_dmaring *ring;
 
 	ring = kmalloc(sizeof(*ring), GFP_KERNEL);
-	/*TODO*/
+	if (!ring)
+		goto out;
+	memset(ring, 0, sizeof(*ring));
 
+	ring->meta = kmalloc(sizeof(*ring->meta) * nr_descriptor_slots,
+			     GFP_KERNEL);
+	if (!ring->meta)
+		goto err_kfree_ring;
+	memset(ring->meta, 0, sizeof(*ring->meta) * nr_descriptor_slots);
+
+	spin_lock_init(&ring->lock);
+	ring->bcm = bcm;
+	ring->nr_slots = nr_descriptor_slots;
+//	ring->suspend_mark = nr_slots;
+//	ring->resume_mark = nr_slots / 2;
+	ring->mmio_base = dma_controller_base;
+	if (tx)
+		ring->flags |= BCM430x_RINGFLAG_TX;
+
+out:
 	return ring;
+
+err_kfree_ring:
+	kfree(ring);
+	ring = 0;
+	goto out;
 }
 
 void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
@@ -51,6 +75,7 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 
 	/*TODO*/
 
+	kfree(ring->meta);
 	kfree(ring);
 }
 

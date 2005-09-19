@@ -4,6 +4,10 @@
 #include <linux/spinlock.h>
 
 
+#define BCM430x_TXRING_SLOTS	256
+#define BCM430x_RXRING_SLOTS	256
+
+
 struct bcm430x_private;
 
 struct bcm430x_dmadesc {
@@ -47,6 +51,7 @@ struct bcm430x_dmaring {
 
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
+					       int nr_descriptor_slots,
 					       int tx);
 
 void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring);

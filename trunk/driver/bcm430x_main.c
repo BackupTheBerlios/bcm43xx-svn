@@ -1426,25 +1426,31 @@ static int bcm430x_dma_init(struct bcm430x_private *bcm)
 	int err = -ENOMEM;
 
 	/* setup TX DMA channels. */
-	bcm->tx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE, 1);
+	bcm->tx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
+					      BCM430x_TXRING_SLOTS, 1);
 	if (!bcm->tx_ring0)
 		goto out;
-	bcm->tx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA2_BASE, 1);
+	bcm->tx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA2_BASE,
+					      BCM430x_TXRING_SLOTS, 1);
 	if (!bcm->tx_ring1)
 		goto err_destroy_tx0;
-	bcm->tx_ring2 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA3_BASE, 1);
+	bcm->tx_ring2 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA3_BASE,
+					      BCM430x_TXRING_SLOTS, 1);
 	if (!bcm->tx_ring2)
 		goto err_destroy_tx1;
-	bcm->tx_ring3 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE, 1);
+	bcm->tx_ring3 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
+					      BCM430x_TXRING_SLOTS, 1);
 	if (!bcm->tx_ring3)
 		goto err_destroy_tx2;
 
 	/* setup RX DMA channels. */
-	bcm->rx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE, 0);
+	bcm->rx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
+					      BCM430x_RXRING_SLOTS, 0);
 	if (!bcm->rx_ring0)
 		goto err_destroy_tx3;
 	if (bcm->current_core->rev < 5) {
-		bcm->rx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE, 0);
+		bcm->rx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
+						      BCM430x_RXRING_SLOTS, 0);
 		if (!bcm->rx_ring1)
 			goto err_destroy_rx0;
 	}

@@ -253,9 +253,6 @@
 #define BCM430x_DMADTOR_FRAMEEND		(1 << 30)
 #define BCM430x_DMADTOR_FRAMESTART		(1 << 31)
 
-#define BCM430x_TXRING_SLOTS			256
-#define BCM430x_RXRING_SLOTS			256
-
 
 #ifdef assert
 # undef assert
