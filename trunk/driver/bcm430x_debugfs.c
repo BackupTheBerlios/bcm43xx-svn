@@ -83,6 +83,10 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	down(&big_buffer_sem);
 
 	spin_lock_irqsave(&bcm->lock, flags);
+	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+		fappend("Board not initialized.\n");
+		goto out;
+	}
 	net_dev = bcm->net_dev;
 	pci_dev = bcm->pci_dev;
 
@@ -119,6 +123,7 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend_core("second 80211", bcm->core_80211[1]);
 #undef fappend_core
 
+out:
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
@@ -158,10 +163,15 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
+	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+		fappend("Board not initialized.\n");
+		goto out;
+	}
 
 	/* This is where the information is written to the "sprom_dump" file */
 	fappend("boardflags: 0x%04x\n", bcm->sprom.boardflags);
 
+out:
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
@@ -181,6 +191,10 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
+	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+		fappend("Board not initialized.\n");
+		goto out;
+	}
 
 	/* This is where the information is written to the "shm_dump" file */
 	/*TODO: dump shared_memory, hw_mac, init_ucode, 0x0002 and maybe others */
@@ -196,6 +210,7 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	fappend_ioblock32(bcm->ucode_size / sizeof(u32), BCM430x_MMIO_SHM_DATA);
 	fappend("\nMicrocode end\n\n");
 
+out:
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
 	up(&big_buffer_sem);
