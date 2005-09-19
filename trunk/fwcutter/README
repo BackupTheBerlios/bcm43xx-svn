@@ -32,6 +32,7 @@ bcmwl5.sys	Link
 		http://files.codykrieger.com/mn720drivers/bcmwl5.sys
 3.30.15.0	ftp://ftp.asus.com.tw/pub/ASUS/wireless/WL-100g-03/Driver_330150.zip
 		http://web.belkin.com/support/download/files/F5D7010-v2.4.4.exe
+		http://communications.siemens.com/repository/1135/113557/pccard54_V11200_eng.exe
 3.40.20.0	http://broadband.motorola.com/consumers/products/WN825g/downloads/WN-WPCI-Web-Update-v1.1.exe
 		http://broadband.motorola.com/consumers/products/WPCI810g/downloads/WN-WPCI-Web-Update-v1.1.exe
 3.40.73.0	http://ftp.us.dell.com/network/R83097.EXE
@@ -49,17 +50,3 @@ bcmwl564.sys	Link
 bcmwl5a.sys	Link
 -------------   -------------------------------------------------------
 3.90.16.0	http://www.linksys.com/servlet/Satellite?blobcol=urldata&blobheadername1=Content-Type&blobheadername2=Content-Disposition&blobheadervalue1=application%2Fx-msdownload&blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&blobkey=id&blobtable=MungoBlobs&blobwhere=1124848568427&ssbinary=true
-
-
-unknown versions 
-----------------
-send version number to bcm43xx-dev@lists.berlios.de
-
-unknown		http://download.fujitsu-siemens.com/download/FileDownload/fileDownload.aspx?SoftwareGUID=75C43B07-2AFC-4C26-99C1-BAF916D132A9&FileFolder=Downloadfiles&FileTypeExtension=ZIP&FileNameClient=FSC_1002941.ZIP&FileSize=7125022
-unknown		http://com-download.siemens.com/download.jsp?file=17111
-unknown		http://com-download.siemens.com/download.jsp?file=17118
-unknown		http://com-download.siemens.com/download.jsp?file=17119
-unknown		http://com-download.siemens.com/download.jsp?file=17120
-unknown		http://com-download.siemens.com/download.jsp?file=17121
-unknown		http://com-download.siemens.com/download.jsp?file=17122
-unknown		http://communications.siemens.com/cds/frontdoor/0,2241,hq_en_0_23016_rArNrNrNrN_prodId%3A15693,00.html
