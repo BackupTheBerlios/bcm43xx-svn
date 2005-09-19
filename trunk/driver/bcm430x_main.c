@@ -1483,11 +1483,64 @@ err_destroy_tx0:
 	goto out;
 }
 
+/* http://bcm-specs.sipsolutions.net/80211Init */
 static int bcm430x_80211_init(struct bcm430x_private *bcm)
 {
+	u32 ucodeflags;
 	int err = 0;
 
-	/*TODO: people, work to be done ;) http://bcm-specs.sipsolutions.net/80211Init */
+	//FIXME: FuncPlaceholder (SB CORE Fixup)
+	bcm430x_phy_calibrate(bcm);
+	bcm430x_chip_init(bcm);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0016);
+
+	//XXX: Using first 802.11 core for now
+	bcm430x_shm_write16(bcm, bcm->core_80211[0].rev);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
+	ucodeflags = bcm430x_shm_read32(bcm);
+
+#if 0
+	if ( 1 == 0)
+		ucodeflags |= 0x00000010; //FIXME: Unknown ucode flag.
+#endif
+	if (bcm->phy_type == BCM430x_PHYTYPE_G) {
+		ucodeflags |= BCM430x_UCODEFLAG_UNKBGPHY;
+		if (bcm->phy_rev == 1)
+			ucodeflags |= BCM430x_UCODEFLAG_UNKGPHY;
+		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
+			ucodeflags |= BCM430x_UCODEFLAG_UNKPACTRL;
+	} else if (bcm->phy_type == BCM430x_PHYTYPE_G) {
+		ucodeflags |= BCM430x_UCODEFLAG_UNKBGPHY;
+		if ((bcm->phy_rev >= 2) && ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000))
+				ucodeflags &= ~BCM430x_UCODEFLAG_UNKGPHY;
+	}
+
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
+	if (ucodeflags != bcm430x_shm_read32(bcm)) {
+		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
+		bcm430x_shm_write32(bcm, ucodeflags);
+	}
+	
+	/* XXX: Using defaults as of http://bcm-specs.sipsolutions.net/SHM: 0x0002 */
+	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0006);
+	bcm430x_shm_write32(bcm, 7);
+	bcm430x_shm_write32(bcm, 4);
+
+	/* FIXME:
+	SHM: 0x44, 0x46
+	 */
+
+	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0003);
+	bcm430x_shm_write32(bcm, ((bcm->phy_type == BCM430x_PHYTYPE_B) ? 0x001F : 0x000F));
+	bcm430x_shm_write32(bcm, 0x03FF);
+
+	//TODO: Write MAC to template ram
+	//TODO: Write BSSID to template ram
+	
+	//XXX: Using first 802.11 Core for now
+	if (bcm->core_80211[0].rev >= 5)
+		//XXX: Is this really 16bit wide? (No specs)
+		bcm430x_write16(bcm, 0x043C, 0x000C);
 
 	if (1 /* not in PIO mode (TODO)*/)
 		err = bcm430x_dma_init(bcm);
