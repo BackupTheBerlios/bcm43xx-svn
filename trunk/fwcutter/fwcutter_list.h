@@ -81,8 +81,8 @@ static const struct file {
 		.name        = "AppleAirPort2",
 		.version     = "3.90.34.0.p11",
 		.md5         = "dc3a69aac95c68fe8edc760e39bbb2c9",
-		.flags       = BYTE_ORDER_AABBCCDD,
-		.iv_pos      = 0x50efc,
+		.flags       = BYTE_ORDER_AABBCCDD | SUPPORT_INCOMPLETE,
+		.iv_pos      = 0x50efc,                                /* A-PHY init vals empty */
 		.uc2_pos     = 0x527ec,   .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x56734,   .uc4_length  = 0x4df0,
 		.uc5_pos     = 0x5b524,   .uc5_length  = 0x57e0,
@@ -148,6 +148,18 @@ static const struct file {
 		.uc5_pos     = 0x3c798,  .uc5_length  = 0x504f,
 		.pcm4_pos    = 0x417f0,  .pcm4_length = 0x477,
 		.pcm5_pos    = 0x41c70,  .pcm5_length = 0x477,
+	},
+	{ 
+		.name        = "bcmwl5.sys",
+		.version     = "3.40.73.0",                            /* 06/25/2004 */ 
+		.md5         = "52d67c5465c01913b03b7daca0cc4077", 
+		.flags       = BYTE_ORDER_DDCCBBAA,
+		.iv_pos      = 0x37398,
+		.uc2_pos     = 0x3ae30,  .uc2_length  = 0x3ff0,
+		.uc4_pos     = 0x3ee28,  .uc4_length  = 0x47f0,
+		.uc5_pos     = 0x43620,  .uc5_length  = 0x5260,
+		.pcm4_pos    = 0x48888,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x48d08,  .pcm5_length = 0x478,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
