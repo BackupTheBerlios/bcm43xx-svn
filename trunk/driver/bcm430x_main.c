@@ -1530,8 +1530,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		if (err)
 			goto err_iounmap;
 
-		//TODO: Init DMA
-
 		/* Enable the selected wireless core.
 		 * Connect PHY only on the first core.
 		 */
