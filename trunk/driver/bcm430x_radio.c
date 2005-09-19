@@ -268,7 +268,7 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 	
 #ifdef BCM430x_DEBUG
 	// make sure i only 0 when we disable!
-	assert( ( (disable == 0) ^ (i == 0) ) );
+	assert( ~((disable == 0) ^ (i == 0)) );
 #endif
 	bcm->radio_interfsize = i;
 	bcm->radio_interfmode = mode;

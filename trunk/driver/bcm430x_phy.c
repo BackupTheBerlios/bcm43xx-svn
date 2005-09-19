@@ -111,7 +111,7 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 		bcm430x_radio_set_txpower_b(bcm, 0x000B, 0x0009, 0x0000);
 	}
 
-	bcm430x_dummy_transmission(bcm);
+	//bcm430x_dummy_transmission(bcm);
 
 	phy29 = bcm430x_phy_read(bcm, 0x0029);
 

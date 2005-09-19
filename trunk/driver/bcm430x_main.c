@@ -422,6 +422,7 @@ int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *ne
 
 	if (!new_core)
 		return 0;
+
 	if (!(new_core->flags & BCM430x_COREFLAG_AVAILABLE))
 		return -ENODEV;
 	if (bcm->current_core == new_core)
@@ -547,33 +548,44 @@ out:
 	return err;
 }
 
-#if 0
-static void bcm430x_core_reset(struct bcm430x_private *bcm)
+/* http://bcm-specs.sipsolutions.net/80211CoreReset */
+static void bcm430x_wireless_core_reset(struct bcm430x_private *bcm)
 {
 	u32 flags = 0x00040000;
 
-	if (bcm430x_core_enabled(bcm)) {
-		//FIXME: bcm430x_reset_tx_dma(bcm, ALL);
-		//FIXME: bcm430x_reset_rx_dma(bcm, FIRST);
+	if ((bcm430x_core_enabled(bcm)) /*XXX: && DMA? */) {
+		/*XXX: Michael, your mission, if you choose to accept... :-D
+		bcm430x_reset_tx_dma(bcm, ALL_INTERRUPTS);
+		bcm430x_reset_rx_dma(bcm, FIRST_INTERRUPT);
 		if (bcm->current_core.rev < 5)
-			//FIXME: bcm430x_reset_rx_dma(bcm, FOURTH);
+			bcm430x_reset_rx_dma(bcm, FOURTH_INTERRUPT);
+		*/
 	}
-	if (Corereset_unk778)
+	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN)
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-				& 0xFFFFFFFC);
+				& ~(BCM430x_SBF_MAC_ENABLED | 0x00000002));
 	else {
-		if (bcm->status & BCM430x_PHYCONNECTED)
+		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
 			flags |= 0x20000000;
 		bcm430x_core_enable(bcm, flags);
 		bcm430x_write16(bcm, 0x03E6, 0x0000);
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000400);
-		//XXX: Is this correct?
-		bcm430x_interrupt_disable(bcm, 0x00000000);
+		//XXX: bcm->dma_savestatus[0--3] = { 0, 0, 0, 0 };
 	}
 }
-#endif /*0*/
 
+static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
+{
+	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN) {
+		bcm430x_radio_turn_off(bcm);
+		bcm430x_write16(bcm, 0x03E6, 0x00F4);
+		bcm430x_core_disable(bcm, bcm->current_core->flags);
+	} else {
+		//XXX: No checks for hardware disabled radio yet
+		bcm430x_radio_turn_off(bcm);
+	}
+}
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.
@@ -1203,7 +1215,7 @@ err_free_irq:
  * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
 static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 {
-	int err;
+	int err = 0;
 	u32 status;
 	u32 shm_backup;
 	u16 phy_version;
@@ -1526,22 +1538,31 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_iounmap;
+	
 #if 0
+	// Loop over all 80211 cores...
 	for (i = 0; i < bcm->core_count; i++) {
 #endif
-		/* select and enable 80211 core */
+		/* select one of the 80211 core for now */
 		err = bcm430x_switch_core(bcm, &bcm->core_80211);
 		if (err)
-			goto out;
+			goto err_iounmap;
+
+#if 0
+printk(KERN_INFO PFX "Enabling wireless core\n");
+	
 		err = bcm430x_core_enable(bcm, 0x20040000);
 		if (err)
-			goto out;
-#if 0
-		//_switch_core(bcm, i);
-		//TODO: Init DMA (for each core?)
-		//FIXME: bcm430x_core_reset(bcm);
-#endif
+			goto err_iounmap;
 
+printk(KERN_INFO PFX "Wireless core enabled\n");
+		//TODO: Init DMA (for each core?)
+#endif
+		/* Enable the selected wireless core */
+		//XXX: Hack to make reading phy_version and radio_id work. :-/
+		bcm->status |= BCM430x_STAT_PHYCONNECTED;
+		bcm430x_wireless_core_reset(bcm);
+		bcm430x_read_radio_id(bcm);
 		err = bcm430x_validate_chip(bcm);
 		if (err)
 			goto err_iounmap;
@@ -1565,9 +1586,8 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 			goto err_iounmap;
 
 		bcm430x_radio_turn_off(bcm);
+		bcm430x_wireless_core_disable(bcm);
 #if 0
-		//TODO: Set the RoamingInitialValues
-		//TODO: ChipCoreDisable
 		//TODO: If we have >= 2 net cores, set to this core.
 	}
 	//TODO: Set up LEDs
@@ -1575,7 +1595,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 #endif
 
 	bcm430x_read_sprom(bcm);
-	bcm430x_read_radio_id(bcm);
+//	bcm430x_read_radio_id(bcm);
 	err = bcm430x_chip_init(bcm);
 	if (err)
 		goto err_iounmap;
@@ -1585,6 +1605,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 
 	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 
+	bcm->status |= BCM430x_STAT_BOARDINITDONE;
 	assert(err == 0);
 out:
 	return err;
@@ -1661,10 +1682,16 @@ static void bcm430x_net_tx_timeout(struct net_device *dev)
 static int bcm430x_net_open(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	int err;
+	int err = 0;
 
-	err = bcm430x_init_board(bcm);
-
+	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+		err = bcm430x_init_board(bcm);
+		if (err)
+			goto out;
+	}
+	
+	assert(err == 0);
+out:
 	return err;
 }
 

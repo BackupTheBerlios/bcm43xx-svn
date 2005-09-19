@@ -302,8 +302,10 @@ struct bcm430x_coreinfo {
 };
 
 /* Driver STATUS values */
-#define BCM430x_STAT_PHYCALIBRATED		(1 << 0)
-#define BCM430x_STAT_PHYCONNECTED		(1 << 1)
+#define BCM430x_STAT_BOARDINITDONE		(1 << 0)
+#define BCM430x_STAT_PHYCALIBRATED		(1 << 1)
+#define BCM430x_STAT_PHYCONNECTED		(1 << 2)
+#define BCM430x_STAT_DEVSHUTDOWN		(1 << 3)	// Are we shutting down?
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
