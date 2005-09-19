@@ -33,14 +33,14 @@ struct bcm430x_dmaring {
 	/* Meta data about the allocated descriptors. */
 	struct bcm430x_dmadesc_meta *meta;
 	/* Number of descriptor slots in the ring. */
-	unsigned int nr_slots;
+	int nr_slots;
 	/* last used slot in the ring. */
-	unsigned int last_used;
+	int last_used;
 	/* number of used slots in the ring. */
-	unsigned int nr_used;
+	int nr_used;
 	/* Marks to suspend/resume the queue. */
-	unsigned int suspend_mark;
-	unsigned int resume_mark;
+	int suspend_mark;
+	int resume_mark;
 	/* The MMIO base register of the DMA controller, this
 	 * ring is posted to.
 	 */

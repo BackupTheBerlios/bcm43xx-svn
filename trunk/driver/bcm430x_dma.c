@@ -32,12 +32,91 @@
 #include <asm/semaphore.h>
 
 
+static struct bcm430x_ringallocator {
+	struct dma_pool *pool;
+	int refcnt;
+} ringallocator;
+static DECLARE_MUTEX(ringallocator_sem);
+
+
+static inline int free_slots(struct bcm430x_dmaring *ring)
+{
+	int slots;
+
+	slots = ring->nr_slots - ring->nr_used;
+	assert(slots >= 0);
+
+	return slots;
+}
+
+static int alloc_ringmemory(struct bcm430x_dmaring *ring)
+{
+	const size_t ring_memsize = 4096;
+	const size_t ring_memalign = 4096;
+
+	int err = -ENOMEM;
+	struct pci_dev *pci_dev = ring->bcm->pci_dev;
+	struct device *dev = &pci_dev->dev;
+
+	assert(ring->nr_slots * sizeof(struct bcm430x_dmadesc) < ring_memsize);
+
+	down(&ringallocator_sem);
+
+	if (ringallocator.refcnt == 0) {
+		ringallocator.pool = dma_pool_create(DRV_NAME "_dmarings",
+						     dev, ring_memsize,
+						     ring_memalign, ring_memalign);
+		if (!ringallocator.pool) {
+			printk(KERN_ERR PFX "Could not create DMA-ring pool.\n");
+			goto out_up;
+		}
+	}
+
+	ring->vbase = dma_pool_alloc(ringallocator.pool, GFP_KERNEL, /*FIXME: | GFP_DMA? */
+				     &ring->dmabase);
+	if (!ring->vbase) {
+		printk(KERN_ERR PFX "Could not allocate DMA ring.\n");
+		err = -ENOMEM;
+		goto err_destroy_pool;
+	}
+	memset(ring->vbase, 0, 4096);
+
+	ringallocator.refcnt++;
+	err = 0;
+out_up:
+	up(&ringallocator_sem);
+
+	return err;
+
+err_destroy_pool:
+	if (ringallocator.refcnt == 0) {
+		dma_pool_destroy(ringallocator.pool);
+		ringallocator.pool = 0;
+	}
+	goto out_up;
+}
+
+static void free_ringmemory(struct bcm430x_dmaring *ring)
+{
+	down(&ringallocator_sem);
+
+	dma_pool_free(ringallocator.pool, ring->vbase, ring->dmabase);
+	ringallocator.refcnt--;
+	if (ringallocator.refcnt == 0) {
+		dma_pool_destroy(ringallocator.pool);
+		ringallocator.pool = 0;
+	}
+
+	up(&ringallocator_sem);
+}
+
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
 					       int nr_descriptor_slots,
 					       int tx)
 {
 	struct bcm430x_dmaring *ring;
+	int err;
 
 	ring = kmalloc(sizeof(*ring), GFP_KERNEL);
 	if (!ring)
@@ -53,15 +132,22 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	spin_lock_init(&ring->lock);
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
+	ring->last_used = -1;
 //	ring->suspend_mark = nr_slots;
 //	ring->resume_mark = nr_slots / 2;
 	ring->mmio_base = dma_controller_base;
 	if (tx)
 		ring->flags |= BCM430x_RINGFLAG_TX;
 
+	err = alloc_ringmemory(ring);
+	if (err)
+		goto err_kfree_meta;
+
 out:
 	return ring;
 
+err_kfree_meta:
+	kfree(ring->meta);
 err_kfree_ring:
 	kfree(ring);
 	ring = 0;
@@ -73,26 +159,15 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	if (!ring)
 		return;
 
-	/*TODO*/
+	/*TODO: free buffers, if any. */
+
+	free_ringmemory(ring);
 
 	kfree(ring->meta);
 	kfree(ring);
 }
 
 #if 0
-struct bcm430x_ringallocator {
-	struct dma_pool *pool;
-	int refcnt;
-};
-
-static struct bcm430x_ringallocator ringallocator;
-static DECLARE_MUTEX(ringallocator_sem);
-
-
-static inline unsigned int bcm430x_free_slots(struct bcm430x_dmaring *ring)
-{
-	return (ring->nr_slots - ring->nr_used);
-}
 
 static int bcm430x_alloc_desc(struct bcm430x_dmaring *ring,
 			      struct bcm430x_dmadesc *desc,
@@ -195,121 +270,6 @@ static void bcm430x_free_descs(struct bcm430x_dmaring *ring)
 		meta = ring->meta + i;
 		bcm430x_free_desc(ring, desc, meta);
 	}
-}
-
-static int bcm430x_alloc_ringmemory(struct bcm430x_dmaring *ring)
-{
-	int err = 0;
-	struct pci_dev *pci_dev = ring->bcm->pci_dev;
-	struct device *dev = &pci_dev->dev;
-
-	assert((ring->nr_slots + 1) * sizeof(struct bcm430x_dmadesc) < 4096);
-
-	down(&ringallocator_sem);
-
-	if (ringallocator.refcnt == 0) {
-		ringallocator.pool = dma_pool_create(DRV_NAME "_dmarings",
-						     dev, 4096, 4096, 4096);
-		if (!ringallocator.pool) {
-			printk(KERN_ERR PFX "Could not allocate DMA-ring pool.\n");
-			err = -ENOMEM;
-			goto out_up;
-		}
-	}
-
-	ring->vbase = dma_pool_alloc(ringallocator.pool, GFP_KERNEL,
-				     &ring->dmabase);
-	if (!ring->vbase) {
-		printk(KERN_ERR PFX "Could not allocate DMA ring.\n");
-		err = -ENOMEM;
-		goto err_free_ring;
-	}
-	memset(ring->vbase, 0, 4096);
-
-	ringallocator.refcnt++;
-out_up:
-	up(&ringallocator_sem);
-
-	return err;
-
-err_free_ring:
-	if (ringallocator.refcnt == 0) {
-		dma_pool_destroy(ringallocator.pool);
-		ringallocator.pool = 0;
-	}
-	goto out_up;
-}
-
-static void bcm430x_free_ringmemory(struct bcm430x_dmaring *ring)
-{
-	down(&ringallocator_sem);
-
-	dma_pool_free(ringallocator.pool, ring->vbase, ring->dmabase);
-	ringallocator.refcnt--;
-	if (ringallocator.refcnt == 0) {
-		dma_pool_destroy(ringallocator.pool);
-		ringallocator.pool = 0;
-	}
-
-	up(&ringallocator_sem);
-}
-
-struct bcm430x_dmaring * bcm430x_alloc_dmaring(struct bcm430x_private *bcm,
-					       unsigned int nr_slots,
-					       u16 mmio,
-					       int tx)
-{
-	unsigned int initial_descs;
-	struct bcm430x_dmaring *ring;
-
-	ring = kmalloc(sizeof(*ring), GFP_KERNEL);
-	if (!ring)
-		goto out;
-	memset(ring, 0, sizeof(*ring));
-
-	ring->meta = kmalloc(sizeof(*ring->meta), GFP_KERNEL);
-	if (!ring->meta)
-		goto err_kfree_ring;
-
-	spin_lock_init(&ring->lock);
-	ring->bcm = bcm;
-	ring->nr_slots = nr_slots;
-	ring->suspend_mark = nr_slots;
-	ring->resume_mark = nr_slots / 2;
-	ring->mmio_base = mmio;
-	if (tx)
-		ring->flags |= BCM430x_RINGFLAG_TX;
-
-	if (bcm430x_alloc_ringmemory(ring))
-		goto err_kfree_meta;
-
-	if (tx)
-		initial_descs = 0;
-	else
-		initial_descs = 16;
-
-	if (bcm430x_append_descs(ring, initial_descs))
-		goto err_free_ring;
-
-out:
-	return ring;
-
-err_free_ring:
-	bcm430x_free_ringmemory(ring);
-err_kfree_meta:
-	kfree(ring->meta);
-err_kfree_ring:
-	kfree(ring);
-	ring = 0;
-	goto out;
-}
-
-void bcm430x_free_dmaring(struct bcm430x_dmaring *ring)
-{
-	bcm430x_free_descs(ring);
-	bcm430x_free_ringmemory(ring);
-	kfree(ring->meta);
-	kfree(ring);
 }
 
 int bcm430x_post_dmaring(struct bcm430x_dmaring *ring)
