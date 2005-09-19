@@ -1175,11 +1175,10 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		bcm430x_write32(bcm, 0x018C, 0x02000000);
 	}
 	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, 0x00004000);
-	//XXX: DMA irq mask registers?
-	bcm430x_write32(bcm, 0x0024, 0x0001DC00);
-	bcm430x_write32(bcm, 0x002C, 0x0000DC00);
-	bcm430x_write32(bcm, 0x0034, 0x0000DC00);
-	bcm430x_write32(bcm, 0x003C, 0x0001DC00);
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_IRQ_MASK, 0x0001DC00);
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA2_IRQ_MASK, 0x0000DC00);
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA3_IRQ_MASK, 0x0000DC00);
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_IRQ_MASK, 0x0001DC00);
 	
 	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
 	                bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW) | 0x00100000);
@@ -1208,16 +1207,6 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	u32 status;
 	u32 shm_backup;
 	u16 phy_version;
-
-	/* some magic from http://bcm-specs.sipsolutions.net/DeviceInitialization */
-
-	/* select and enable 80211 core */
-	err = bcm430x_switch_core(bcm, &bcm->core_80211);
-	if (err)
-		goto out;
-	err = bcm430x_core_enable(bcm, 0x20040000);
-	if (err)
-		goto out;
 
 	status = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 	status |= 0x400; /* FIXME: Unknown SBF flag */
@@ -1537,19 +1526,46 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_iounmap;
-	err = bcm430x_validate_chip(bcm);
-	if (err)
-		goto err_iounmap;
 #if 0
 	for (i = 0; i < bcm->core_count; i++) {
+#endif
+		/* select and enable 80211 core */
+		err = bcm430x_switch_core(bcm, &bcm->core_80211);
+		if (err)
+			goto out;
+		err = bcm430x_core_enable(bcm, 0x20040000);
+		if (err)
+			goto out;
+#if 0
 		//_switch_core(bcm, i);
 		//TODO: Init DMA (for each core?)
 		//FIXME: bcm430x_core_reset(bcm);
-		//err = bcm430x_validate_chip(bcm);
-		//if (err)
-		//	goto err_iounmap;
-		//TODO: Do not attach to PHYA:rev>=4, PHYB:rev!=2,4,6, PHYG:rev>=3
-		//TODO: if (core_has_radio) bcm430x_radio_turn_off(this_core)
+#endif
+
+		err = bcm430x_validate_chip(bcm);
+		if (err)
+			goto err_iounmap;
+
+		switch (bcm->phy_type) {
+		case BCM430x_PHYTYPE_A:
+			err = ((bcm->phy_rev >= 4) ? -ENODEV : 0);
+			break;
+		case BCM430x_PHYTYPE_B:
+			//XXX: What about rev == 5 ?
+			if ((bcm->phy_rev != 2) && (bcm->phy_rev != 4) && (bcm->phy_rev != 6))
+				err = -ENODEV;
+			break;
+		case BCM430x_PHYTYPE_G:
+			err = ((bcm->phy_rev >= 3) ? -ENODEV : 0);
+			break;
+		default:
+			err = -ENODEV;
+		};
+		if (err)
+			goto err_iounmap;
+
+		bcm430x_radio_turn_off(bcm);
+#if 0
 		//TODO: Set the RoamingInitialValues
 		//TODO: ChipCoreDisable
 		//TODO: If we have >= 2 net cores, set to this core.
