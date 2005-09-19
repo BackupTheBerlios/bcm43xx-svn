@@ -79,9 +79,10 @@ static const struct file {
 	},
 	{
 		.name        = "AppleAirPort2",
-		.version     = "3.90.34.0.p13",                        /* 07/10/2005 */
+		.version     = "3.90.34.0.p13 (401.2)",                /* 07/10/2005 */
 		.md5         = "6ecf38e5ab6997c7ec483c0d637f5c68",
-		.flags       = BYTE_ORDER_AABBCCDD | SUPPORT_INCOMPLETE,
+		.flags       = BYTE_ORDER_AABBCCDD | INIT_VAL_08_MISSING,
+		.iv_pos      = 0x50fcc,
 		.uc2_pos     = 0x528bc,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x56804,  .uc4_length  = 0x4df0,
 		.uc5_pos     = 0x5b5f4,  .uc5_length  = 0x57e0,
