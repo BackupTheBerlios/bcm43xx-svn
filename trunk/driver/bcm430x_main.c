@@ -1535,7 +1535,9 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		 */
 		bcm430x_wireless_core_reset(bcm, (i == 0));
 
-		//TODO: If this is != core#0, make it inactive?
+		if (i != 0) {
+			//TODO: make this 80211 core inavtive.
+		}
 
 		err = bcm430x_80211_init(bcm);
 		if (err)
