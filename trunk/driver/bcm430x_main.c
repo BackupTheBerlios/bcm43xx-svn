@@ -549,7 +549,7 @@ out:
 }
 
 /* http://bcm-specs.sipsolutions.net/80211CoreReset */
-static void bcm430x_wireless_core_reset(struct bcm430x_private *bcm)
+static void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 {
 	u32 flags = 0x00040000;
 
@@ -566,7 +566,7 @@ static void bcm430x_wireless_core_reset(struct bcm430x_private *bcm)
 		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 				& ~(BCM430x_SBF_MAC_ENABLED | 0x00000002));
 	else {
-		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+		if (connect_phy)
 			flags |= 0x20000000;
 		bcm430x_core_enable(bcm, flags);
 		bcm430x_write16(bcm, 0x03E6, 0x0000);
@@ -745,47 +745,6 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	spin_unlock(&bcm->lock);
 
 	return IRQ_HANDLED;
-}
-
-static int bcm430x_dma_init(struct bcm430x_private *bcm)
-{
-	int err = -ENOMEM;
-
-	bcm->tx_ring = bcm430x_alloc_dmaring(bcm, BCM430x_TXRING_SLOTS,
-					     BCM430x_MMIO_DMA2_BASE, 1);
-	if (!bcm->tx_ring)
-		goto out;
-	bcm->rx_ring = bcm430x_alloc_dmaring(bcm, BCM430x_RXRING_SLOTS,
-					     BCM430x_MMIO_DMA1_BASE, 0);
-	if (!bcm->rx_ring)
-		goto err_free_tx;
-
-	err = bcm430x_post_dmaring(bcm->tx_ring);
-	if (err)
-		goto err_free_rx;
-	err = bcm430x_post_dmaring(bcm->rx_ring);
-	if (err)
-		goto err_unpost_tx;
-
-printk(KERN_INFO PFX "DMA initialized.\n");
-out:
-	return err;
-
-err_unpost_tx:
-	bcm430x_unpost_dmaring(bcm->tx_ring);
-err_free_rx:
-	bcm430x_free_dmaring(bcm->rx_ring);
-err_free_tx:
-	bcm430x_free_dmaring(bcm->tx_ring);
-	goto out;
-}
-
-static void bcm430x_dma_free(struct bcm430x_private *bcm)
-{
-	bcm430x_unpost_dmaring(bcm->rx_ring);
-	bcm430x_unpost_dmaring(bcm->tx_ring);
-	bcm430x_free_dmaring(bcm->rx_ring);
-	bcm430x_free_dmaring(bcm->tx_ring);
 }
 
 static inline void bcm430x_write_microcode(struct bcm430x_private *bcm,
@@ -1452,7 +1411,6 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	struct pci_dev *pci_dev = bcm->pci_dev;
 	int i;
 
-	bcm430x_dma_free(bcm);
 	bcm430x_radio_turn_off(bcm);
 	bcm430x_chip_cleanup(bcm);
 
@@ -1480,6 +1438,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
 	int i, err;
 	u16 pci_status;
+	int num_80211_cores;
 
 	err = pci_enable_device(pci_dev);
 	if (err) {
@@ -1548,30 +1507,25 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_iounmap;
-	
-#if 0
-	// Loop over all 80211 cores...
-	for (i = 0; i < bcm->core_count; i++) {
-#endif
-		/* select one of the 80211 core for now */
-		err = bcm430x_switch_core(bcm, &bcm->core_80211[0]);
+
+	num_80211_cores = bcm430x_num_80211_cores(bcm);
+	for (i = 0; i < num_80211_cores; i++) {
+		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
+		assert(err != -ENODEV);
 		if (err)
 			goto err_iounmap;
 
-#if 0
-printk(KERN_INFO PFX "Enabling wireless core\n");
-	
-		err = bcm430x_core_enable(bcm, 0x20040000);
-		if (err)
-			goto err_iounmap;
+		//TODO: Init DMA
 
-printk(KERN_INFO PFX "Wireless core enabled\n");
-		//TODO: Init DMA (for each core?)
-#endif
-		/* Enable the selected wireless core */
-		//XXX: Hack to make reading phy_version and radio_id work. :-/
-		bcm->status |= BCM430x_STAT_PHYCONNECTED;
-		bcm430x_wireless_core_reset(bcm);
+		/* Enable the selected wireless core.
+		 * Connect PHY only on the first core.
+		 */
+		bcm430x_wireless_core_reset(bcm, (i == 0));
+
+		//TODO: If this is != core#0, make it inactive?
+
+		//TODO: do a 80211_init
+
 		bcm430x_read_radio_id(bcm);
 		err = bcm430x_validate_chip(bcm);
 		if (err)
@@ -1595,23 +1549,24 @@ printk(KERN_INFO PFX "Wireless core enabled\n");
 		if (err)
 			goto err_iounmap;
 
-		bcm430x_radio_turn_off(bcm);
-		bcm430x_wireless_core_disable(bcm);
-#if 0
-		//TODO: If we have >= 2 net cores, set to this core.
+		if (num_80211_cores >= 2) {
+			//TODO: suspendMAC
+			//      turn irqs off
+			//      turn radio off
+		}
 	}
+	if (num_80211_cores >= 2) {
+		bcm430x_switch_core(bcm, &bcm->core_80211[0]);
+		//TODO: enableMAC
+	}
+printk(KERN_INFO PFX "80211 cores initialized\n");
 	//TODO: Set up LEDs
-	//TODO: Initialie PIO
-#endif
+	//TODO: Initialize PIO (really here?)
 
 	bcm430x_read_sprom(bcm);
-//	bcm430x_read_radio_id(bcm);
 	err = bcm430x_chip_init(bcm);
 	if (err)
 		goto err_iounmap;
-	err = bcm430x_dma_init(bcm);
-	if (err)
-		goto err_radio_off;
 
 	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 

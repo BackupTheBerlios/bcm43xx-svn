@@ -395,6 +395,19 @@ struct bcm430x_private * bcm430x_priv(struct net_device *dev)
 	return ieee80211_priv(dev);
 }
 
+static inline
+int bcm430x_num_80211_cores(struct bcm430x_private *bcm)
+{
+	int i, cnt = 0;
+
+	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+		if (bcm->core_80211[i].flags & BCM430x_COREFLAG_AVAILABLE)
+			cnt++;
+	}
+
+	return cnt;
+}
+
 struct bcm430x_initval {
 	u16 offset;
 	u16 size;
