@@ -115,7 +115,8 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend_core("PCI", bcm->core_pci);
 	fappend_core("V90", bcm->core_v90);
 	fappend_core("PCMCIA", bcm->core_pcmcia);
-	fappend_core("80211", bcm->core_80211);
+	fappend_core("first 80211", bcm->core_80211[0]);
+	fappend_core("second 80211", bcm->core_80211[1]);
 #undef fappend_core
 
 	spin_unlock_irqrestore(&bcm->lock, flags);

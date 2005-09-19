@@ -287,6 +287,8 @@ struct bcm430x_sprominfo {
 	u16 boardflags;
 };
 
+#define BCM430x_MAX_80211_CORES		2
+
 #define BCM430x_COREFLAG_AVAILABLE	(1 << 0)
 #define BCM430x_COREFLAG_ENABLED	(1 << 1)
 
@@ -367,8 +369,7 @@ struct bcm430x_private {
 	struct bcm430x_coreinfo core_pci;
 	struct bcm430x_coreinfo core_v90;
 	struct bcm430x_coreinfo core_pcmcia;
-	struct bcm430x_coreinfo core_80211;
-	/*TODO: add the remaining coreinfo structs. */
+	struct bcm430x_coreinfo core_80211[ BCM430x_MAX_80211_CORES ];
 
 	u32 chipcommon_capabilities;
 

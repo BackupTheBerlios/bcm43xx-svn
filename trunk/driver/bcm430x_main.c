@@ -818,7 +818,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	char buf[22] = { 0 };
 
 	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d.fw",
-		 (bcm->core_80211.rev >= 5 ? 5 : bcm->core_80211.rev));
+		 (bcm->core_80211[0].rev >= 5 ? 5 : bcm->core_80211[0].rev));
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX 
 		       "Error: Microcode \"%s\" not available or load failed.\n",
@@ -832,7 +832,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	release_firmware(fw);
 
 	snprintf(buf, ARRAY_SIZE(buf),
-		 "bcm430x_pcm%d.fw", (bcm->core_80211.rev < 5 ? 4 : 5));
+		 "bcm430x_pcm%d.fw", (bcm->core_80211[0].rev < 5 ? 4 : 5));
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX
 		       "Error: PCM \"%s\" not available or load failed.\n",
@@ -875,7 +875,7 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	const struct firmware *fw;
 	char buf[21] = { 0 };
 	
-	if ((bcm->core_80211.rev == 2) || (bcm->core_80211.rev == 4)) {
+	if ((bcm->core_80211[0].rev == 2) || (bcm->core_80211[0].rev == 4)) {
 		switch (bcm->phy_type) {
 			case BCM430x_PHYTYPE_A:
 				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 3);
@@ -888,7 +888,7 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 				goto out_noinitval;
 		}
 	
-	} else if (bcm->core_80211.rev >= 5) {
+	} else if (bcm->core_80211[0].rev >= 5) {
 		switch (bcm->phy_type) {
 			case BCM430x_PHYTYPE_A:
 				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 7);
@@ -920,7 +920,7 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 
 	release_firmware(fw);
 
-	if (bcm->core_80211.rev >= 5) {
+	if (bcm->core_80211[0].rev >= 5) {
 		switch (bcm->phy_type) {
 			case BCM430x_PHYTYPE_A:
 				bcm->sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
@@ -1039,7 +1039,7 @@ static int bcm430x_gpio_init(struct bcm430x_private *bcm)
 	if (err)
 		return err;
 
-	if (bcm->core_80211.rev <= 2)
+	if (bcm->core_80211[0].rev <= 2)
 		value |= 0x10;
 	/*FIXME: Need to set up some LED flags here? */
 	if (bcm->chip_id == 0x4301)
@@ -1270,7 +1270,7 @@ out:
 
 static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 {
-	int err;
+	int err, i;
 	int original_core;
 	int current_core;
 	int core_vendor, core_id, core_rev, core_enabled;
@@ -1364,6 +1364,8 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		bcm->chip_id, bcm->chip_rev);
 
 	for (current_core = 1; current_core < bcm->core_count; current_core++) {
+		struct bcm430x_coreinfo *core;
+
 		err = _switch_core(bcm, current_core);
 		if (err)
 			goto out;
@@ -1378,34 +1380,44 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		
 		core_enabled = bcm430x_core_enabled(bcm);
 
+		printk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
+		       current_core, core_id, core_rev, core_vendor,
+		       core_enabled ? "enabled" : "disabled" );
+
+		core = 0;
 		switch (core_id) {
 		case BCM430x_COREID_PCI:
-			bcm->current_core = &bcm->core_pci;
-			if (bcm->core_pci.flags & BCM430x_COREFLAG_AVAILABLE) {
+			core = &bcm->core_pci;
+			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
-				break;
+				continue;
 			}
-			
 			break;
 		case BCM430x_COREID_V90:
-			bcm->current_core = &bcm->core_v90;
-			if (bcm->core_v90.flags & BCM430x_COREFLAG_AVAILABLE) {
+			core = &bcm->core_v90;
+			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple V90 cores found.\n");
-				break;
+				continue;
 			}
 			break;
 		case BCM430x_COREID_PCMCIA:
-			bcm->current_core = &bcm->core_pcmcia;
-			if (bcm->core_pcmcia.flags & BCM430x_COREFLAG_AVAILABLE) {
+			core = &bcm->core_pcmcia;
+			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple PCMCIA cores found.\n");
-				break;
+				continue;
 			}
 			break;
 		case BCM430x_COREID_80211:
-			bcm->current_core = &bcm->core_80211;
-			if (bcm->core_80211.flags & BCM430x_COREFLAG_AVAILABLE) {
-				printk(KERN_WARNING PFX "Multiple 802.11 cores found.\n");
-				break;
+			for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+				core = &(bcm->core_80211[i]);
+				if (!(core->flags & BCM430x_COREFLAG_AVAILABLE))
+					break;
+				core = 0;
+			}
+			if (!core) {
+				printk(KERN_WARNING PFX "More than %d cores of type 802.11 found.\n",
+				       BCM430x_MAX_80211_CORES);
+				continue;
 			}
 			break;
 		case BCM430x_COREID_CHIPCOMMON:
@@ -1414,15 +1426,11 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		default:
 			printk(KERN_WARNING PFX "Unknown core found (ID 0x%x)\n", core_id);
 		}
-		printk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
-		       current_core, core_id, core_rev, core_vendor,
-		       core_enabled ? "enabled" : "disabled" );
-		
-		if (bcm->current_core) {
-			bcm->current_core->flags |= BCM430x_COREFLAG_AVAILABLE;
-			bcm->current_core->id = core_id;
-			bcm->current_core->rev = core_rev;
-			bcm->current_core->index = current_core;
+		if (core) {
+			core->flags |= BCM430x_COREFLAG_AVAILABLE;
+			core->id = core_id;
+			core->rev = core_rev;
+			core->index = current_core;
 		}
 	}
 	/* Again, was there a (meaningful) original core mapping? */
@@ -1442,6 +1450,7 @@ out:
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
 	struct pci_dev *pci_dev = bcm->pci_dev;
+	int i;
 
 	bcm430x_dma_free(bcm);
 	bcm430x_radio_turn_off(bcm);
@@ -1456,7 +1465,8 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	memset(&bcm->core_pci, 0, sizeof(struct bcm430x_coreinfo));
 	memset(&bcm->core_v90, 0, sizeof(struct bcm430x_coreinfo));
 	memset(&bcm->core_pcmcia, 0, sizeof(struct bcm430x_coreinfo));
-	memset(&bcm->core_80211, 0, sizeof(struct bcm430x_coreinfo));
+	for (i = 0; i < BCM430x_MAX_80211_CORES; i++)
+		memset(&bcm->core_80211[i], 0, sizeof(struct bcm430x_coreinfo));
 
 	pci_release_regions(pci_dev);
 	pci_disable_device(pci_dev);
@@ -1544,7 +1554,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	for (i = 0; i < bcm->core_count; i++) {
 #endif
 		/* select one of the 80211 core for now */
-		err = bcm430x_switch_core(bcm, &bcm->core_80211);
+		err = bcm430x_switch_core(bcm, &bcm->core_80211[0]);
 		if (err)
 			goto err_iounmap;
 
