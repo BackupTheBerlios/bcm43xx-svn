@@ -32,6 +32,29 @@
 #include <asm/semaphore.h>
 
 
+struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
+					       u16 dma_controller_base,
+					       int tx)
+{
+	struct bcm430x_dmaring *ring;
+
+	ring = kmalloc(sizeof(*ring), GFP_KERNEL);
+	/*TODO*/
+
+	return ring;
+}
+
+void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
+{
+	if (!ring)
+		return;
+
+	/*TODO*/
+
+	kfree(ring);
+}
+
+#if 0
 struct bcm430x_ringallocator {
 	struct dma_pool *pool;
 	int refcnt;
@@ -306,5 +329,6 @@ void bcm430x_unpost_dmaring(struct bcm430x_dmaring *ring)
 				0x00000000);
 	}
 }
+#endif
 
 /* vim: set ts=8 sw=8 sts=8: */

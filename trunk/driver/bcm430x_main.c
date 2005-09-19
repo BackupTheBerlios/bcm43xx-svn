@@ -1405,19 +1405,88 @@ out:
 	return err;
 }
 
-static int bcm430x_80211_init(struct bcm430x_private *bcm)
+static void bcm430x_dma_free(struct bcm430x_private *bcm)
 {
-	/*TODO: people, work to be done ;) http://bcm-specs.sipsolutions.net/80211Init */
+	bcm430x_destroy_dmaring(bcm->rx_ring1);
+	bcm->rx_ring1 = 0;
+	bcm430x_destroy_dmaring(bcm->rx_ring0);
+	bcm->rx_ring0 = 0;
+	bcm430x_destroy_dmaring(bcm->tx_ring3);
+	bcm->tx_ring3 = 0;
+	bcm430x_destroy_dmaring(bcm->tx_ring2);
+	bcm->tx_ring2 = 0;
+	bcm430x_destroy_dmaring(bcm->tx_ring1);
+	bcm->tx_ring1 = 0;
+	bcm430x_destroy_dmaring(bcm->tx_ring0);
+	bcm->tx_ring0 = 0;
+}
 
-	if (1 /* not in PIO mode */) {
-		/* I'll look into this (Michael) */
-		//TODO: init 4 TX DMA channels
-		//TODO: init first RX channel
-		//TODO: if corerev < 5, init 4th RX channel
-		//TODO: allocate RX buffers
+static int bcm430x_dma_init(struct bcm430x_private *bcm)
+{
+	int err = -ENOMEM;
+
+	/* setup TX DMA channels. */
+	bcm->tx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE, 1);
+	if (!bcm->tx_ring0)
+		goto out;
+	bcm->tx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA2_BASE, 1);
+	if (!bcm->tx_ring1)
+		goto err_destroy_tx0;
+	bcm->tx_ring2 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA3_BASE, 1);
+	if (!bcm->tx_ring2)
+		goto err_destroy_tx1;
+	bcm->tx_ring3 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE, 1);
+	if (!bcm->tx_ring3)
+		goto err_destroy_tx2;
+
+	/* setup RX DMA channels. */
+	bcm->rx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE, 0);
+	if (!bcm->rx_ring0)
+		goto err_destroy_tx3;
+	if (bcm->current_core->rev < 5) {
+		bcm->rx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE, 0);
+		if (!bcm->rx_ring1)
+			goto err_destroy_rx0;
 	}
 
-	return 0;
+	//TODO: allocate RX buffers
+
+printk(KERN_INFO PFX "DMA initialized.\n");
+	err = 0;
+out:
+	return err;
+
+err_destroy_rx1:
+	bcm430x_destroy_dmaring(bcm->rx_ring1);
+	bcm->rx_ring1 = 0;
+err_destroy_rx0:
+	bcm430x_destroy_dmaring(bcm->rx_ring0);
+	bcm->rx_ring0 = 0;
+err_destroy_tx3:
+	bcm430x_destroy_dmaring(bcm->tx_ring3);
+	bcm->tx_ring3 = 0;
+err_destroy_tx2:
+	bcm430x_destroy_dmaring(bcm->tx_ring2);
+	bcm->tx_ring2 = 0;
+err_destroy_tx1:
+	bcm430x_destroy_dmaring(bcm->tx_ring1);
+	bcm->tx_ring1 = 0;
+err_destroy_tx0:
+	bcm430x_destroy_dmaring(bcm->tx_ring0);
+	bcm->tx_ring0 = 0;
+	goto out;
+}
+
+static int bcm430x_80211_init(struct bcm430x_private *bcm)
+{
+	int err = 0;
+
+	/*TODO: people, work to be done ;) http://bcm-specs.sipsolutions.net/80211Init */
+
+	if (1 /* not in PIO mode (TODO)*/)
+		err = bcm430x_dma_init(bcm);
+
+	return err;
 }
 
 /* This is the opposite of bcm430x_init_board() */
@@ -1427,6 +1496,7 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	int i;
 
 	bcm430x_radio_turn_off(bcm);
+	bcm430x_dma_free(bcm);
 	bcm430x_chip_cleanup(bcm);
 
 	bcm430x_pctl_set_crystal(bcm, 0);

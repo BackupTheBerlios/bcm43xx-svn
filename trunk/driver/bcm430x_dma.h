@@ -45,14 +45,10 @@ struct bcm430x_dmaring {
 	u32 flags;
 };
 
-
-struct bcm430x_dmaring * bcm430x_alloc_dmaring(struct bcm430x_private *bcm,
-					       unsigned int nr_slots,
-					       u16 mmio,
+struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
+					       u16 dma_controller_base,
 					       int tx);
-void bcm430x_free_dmaring(struct bcm430x_dmaring *ring);
 
-int bcm430x_post_dmaring(struct bcm430x_dmaring *ring);
-void bcm430x_unpost_dmaring(struct bcm430x_dmaring *ring);
+void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring);
 
 #endif /* BCM430x_DMA_H_ */

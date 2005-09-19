@@ -383,8 +383,12 @@ struct bcm430x_private {
 	struct tasklet_struct isr_tasklet;
 
 	/* DMA */
-	struct bcm430x_dmaring *tx_ring;
-	struct bcm430x_dmaring *rx_ring;
+	struct bcm430x_dmaring *tx_ring0;
+	struct bcm430x_dmaring *tx_ring1;
+	struct bcm430x_dmaring *tx_ring2;
+	struct bcm430x_dmaring *tx_ring3;
+	struct bcm430x_dmaring *rx_ring0;
+	struct bcm430x_dmaring *rx_ring1; /* only available on core.rev < 5 */
 
 	struct ieee80211_txb *txb;
 };
