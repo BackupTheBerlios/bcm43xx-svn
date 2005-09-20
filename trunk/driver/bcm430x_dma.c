@@ -178,6 +178,128 @@ static int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
 	return 0;
 }
 
+static int map_descbuffer(struct bcm430x_dmaring *ring,
+			  struct bcm430x_dmadesc *desc,
+			  struct bcm430x_dmadesc_meta *meta)
+{
+	enum dma_data_direction dir;
+
+	assert(!(meta->flags & BCM430x_DESCFLAG_MAPPED));
+
+	if (ring->flags & BCM430x_RINGFLAG_TX)
+		dir = DMA_TO_DEVICE;
+	else
+		dir = DMA_FROM_DEVICE;
+	meta->dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
+				       meta->vaddr, meta->size, dir);
+	if (!meta->dmaaddr) /*FIXME: can this fail? */
+		return -ENOMEM;
+	meta->flags |= BCM430x_DESCFLAG_MAPPED;
+
+	desc->address = meta->dmaaddr;
+	desc->control |= BCM430x_DMADTOR_BYTECNT_MASK & meta->size;
+
+	return 0;
+}
+
+static void unmap_descbuffer(struct bcm430x_dmaring *ring,
+			     struct bcm430x_dmadesc *desc,
+			     struct bcm430x_dmadesc_meta *meta)
+{
+	enum dma_data_direction dir;
+
+	if (!(meta->flags & BCM430x_DESCFLAG_MAPPED))
+		return;
+
+	if (ring->flags & BCM430x_RINGFLAG_TX)
+		dir = DMA_TO_DEVICE;
+	else
+		dir = DMA_FROM_DEVICE;
+
+	desc->control = 0x00000000;
+	desc->address = 0x00000000;
+
+	dma_unmap_single(&ring->bcm->pci_dev->dev,
+			 meta->dmaaddr, meta->size, dir);
+
+	meta->flags &= ~ BCM430x_DESCFLAG_MAPPED;  
+}
+
+static int alloc_descbuffer(struct bcm430x_dmaring *ring,
+			    struct bcm430x_dmadesc *desc,
+			    struct bcm430x_dmadesc_meta *meta,
+			    size_t size, unsigned int gfp_flags)
+{
+	meta->vaddr = kmalloc(size, gfp_flags | GFP_DMA);
+	if (!meta->vaddr)
+		return -ENOMEM;
+	meta->size = size;
+
+	return 0;
+}
+
+static void free_descbuffer(struct bcm430x_dmaring *ring,
+			    struct bcm430x_dmadesc *desc,
+			    struct bcm430x_dmadesc_meta *meta)
+{
+	if (!meta->vaddr)
+		return;
+
+	assert(!(meta->flags & BCM430x_DESCFLAG_MAPPED));
+	kfree(meta->vaddr);
+	memset(meta, 0, sizeof(*meta));
+}
+
+static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
+{
+	size_t buffersize = 0;
+	int i, err = 0, num_buffers = 0;
+	struct bcm430x_dmadesc *desc = 0;
+	struct bcm430x_dmadesc_meta *meta;
+
+	if (!(ring->flags & BCM430x_RINGFLAG_TX)) {
+		num_buffers = BCM430x_NUM_RXBUFFERS;
+		if (ring->mmio_base == BCM430x_MMIO_DMA1_BASE)
+			buffersize = BCM430x_DMA1_RXBUFFERSIZE;
+		else if (ring->mmio_base == BCM430x_MMIO_DMA4_BASE)
+			buffersize = BCM430x_DMA4_RXBUFFERSIZE;
+		else
+			assert(0);
+	} else
+		assert(0);
+
+	for (i = 0; i < num_buffers; i++) {
+		desc = ring->vbase + i;
+		meta = ring->meta + i;
+
+		err = alloc_descbuffer(ring, desc, meta,
+				       buffersize, GFP_KERNEL);
+		if (err)
+			goto err_unwind;
+		err = map_descbuffer(ring, desc, meta);
+		if (err)
+			goto err_unwind;
+
+		ring->nr_used++;
+		assert(ring->nr_used <= ring->nr_slots);
+		ring->last_used++;
+	}
+	desc->control |= BCM430x_DMADTOR_DTABLEEND; /*FIXME: or (desc + 1)->control */
+
+out:
+	return err;
+
+err_unwind:
+	for ( ; i >= 0; i--) {
+		desc = ring->vbase + i;
+		meta = ring->meta + i;
+
+		unmap_descbuffer(ring, desc, meta);
+		free_descbuffer(ring, desc, meta);
+	}
+	goto out;
+}
+
 static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 {
 	int err;
@@ -197,6 +319,9 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 				ring->dmabase);
 	} else {
 		err = dmacontroller_rx_reset(ring);
+		if (err)
+			goto out;
+		err = alloc_initial_descbuffers(ring);
 		if (err)
 			goto out;
 		/* Set Receive Control "receive enable" and frame offset */
@@ -234,25 +359,6 @@ static void dmacontroller_cleanup(struct bcm430x_dmaring *ring)
 	}
 }
 
-static void free_descbuffer(struct bcm430x_dmaring *ring,
-			    struct bcm430x_dmadesc *desc,
-			    struct bcm430x_dmadesc_meta *meta)
-{
-	enum dma_data_direction dir;
-
-	if (meta->flags & BCM430x_DESCFLAG_MAPPED) {
-		if (ring->flags & BCM430x_RINGFLAG_TX)
-			dir = DMA_TO_DEVICE;
-		else
-			dir = DMA_FROM_DEVICE;
-		dma_unmap_single(&ring->bcm->pci_dev->dev,
-				 meta->dmaaddr, meta->size, dir);
-	}
-	kfree(meta->vaddr);
-	memset(meta, 0, sizeof(*meta));
-	memset(desc, 0, sizeof(*desc));
-}
-
 static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 {
 	struct bcm430x_dmadesc *desc;
@@ -262,6 +368,8 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 	for (i = 0; i < ring->nr_used; i++) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
+
+		unmap_descbuffer(ring, desc, meta);
 		free_descbuffer(ring, desc, meta);
 	}
 }
@@ -327,83 +435,5 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	kfree(ring->meta);
 	kfree(ring);
 }
-
-#if 0
-
-static int bcm430x_alloc_desc(struct bcm430x_dmaring *ring,
-			      struct bcm430x_dmadesc *desc,
-			      struct bcm430x_dmadesc_meta *meta)
-{
-	int err = -ENOMEM;
-	void *buf;
-	dma_addr_t dmaaddr;
-	enum dma_data_direction dir;
-
-	meta->size = 2048;
-	buf = kmalloc(meta->size, GFP_KERNEL | GFP_DMA);
-	if (!buf)
-		goto out;
-	if (ring->flags & BCM430x_RINGFLAG_TX)
-		dir = DMA_TO_DEVICE;
-	else
-		dir = DMA_FROM_DEVICE;
-	dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
-				 buf, meta->size, dir);
-	if (!dmaaddr) {
-		printk(KERN_ERR PFX "DMA remap failed.\n");
-		goto err_kfree;
-	}
-
-	meta->vaddr = buf;
-	meta->dmaaddr = dmaaddr;
-
-	desc->control |= BCM430x_DMADTOR_BYTECNT_MASK & meta->size;
-	desc->address = dmaaddr;
-
-out:
-	return err;
-
-err_kfree:
-	kfree(buf);
-	goto out;
-}
-
-static int bcm430x_append_desc(struct bcm430x_dmaring *ring)
-{
-	int err;
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
-	unsigned int i;
-
-	assert(bcm430x_free_slots(ring) >= 1);
-
-	i = ring->last_used + 1;
-
-	desc = ring->vbase + i;
-	meta = ring->meta + i;
-	err = bcm430x_alloc_desc(ring, desc, meta);
-	if (err)
-		return err;
-	ring->last_used++;
-	ring->nr_used++;
-
-	return 0;
-}
-
-static int bcm430x_append_descs(struct bcm430x_dmaring *ring,
-				unsigned int nr)
-{
-	struct bcm430x_dmadesc *desc;
-	unsigned int i;
-
-	for ( ; nr; nr--)
-		bcm430x_append_desc(ring);
-	i = ring->last_used + 1;
-	desc = ring->vbase + i;
-	desc->control = BCM430x_DMADTOR_DTABLEEND;
-
-	return 0;
-}
-#endif
 
 /* vim: set ts=8 sw=8 sts=8: */

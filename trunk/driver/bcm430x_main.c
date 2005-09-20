@@ -1485,8 +1485,6 @@ static int bcm430x_dma_init(struct bcm430x_private *bcm)
 			goto err_destroy_rx0;
 	}
 
-	//TODO: allocate RX buffers
-
 printk(KERN_INFO PFX "DMA initialized.\n");
 	err = 0;
 out:
