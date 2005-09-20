@@ -201,19 +201,13 @@ out:
 static void dmacontroller_cleanup(struct bcm430x_dmaring *ring)
 {
 	if (ring->flags & BCM430x_RINGFLAG_TX) {
-		/* Zero out Transmit Control register. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
-				0x00000000);
+		dmacontroller_tx_reset(ring);
 		/* Zero out Transmit Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
 				0x00000000);
 	} else {
-		/* Zero out Receive Control register. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
-				0x00000000);
+		dmacontroller_rx_reset(ring);
 		/* Zero out Receive Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
