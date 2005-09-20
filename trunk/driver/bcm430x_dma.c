@@ -26,6 +26,7 @@
 #include "bcm430x.h"
 #include "bcm430x_dma.h"
 #include "bcm430x_main.h"
+#include "bcm430x_debugfs.h"
 
 #include <linux/dmapool.h>
 #include <linux/pci.h>
