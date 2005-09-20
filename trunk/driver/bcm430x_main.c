@@ -1072,11 +1072,9 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto err_gpio_cleanup;
 
-/*FIXME: This gives a machine check. Why? It started to give a machine check after we moved chip_init() to 80211_init()
 	err = bcm430x_radio_turn_on(bcm);
 	if (err)
 		goto err_gpio_cleanup;
-*/
 
 	bcm430x_write16(bcm, 0x03E6, 0x0000);
 	err = bcm430x_phy_init(bcm);
@@ -1682,10 +1680,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 			//TODO: make this 80211 core inactive.
 		}
 
-		err = bcm430x_80211_init(bcm);
-		if (err)
-			goto err_iounmap;
-
 		bcm430x_read_radio_id(bcm);
 		err = bcm430x_validate_chip(bcm);
 		if (err)
@@ -1706,6 +1700,10 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		default:
 			err = -ENODEV;
 		};
+		if (err)
+			goto err_iounmap;
+
+		err = bcm430x_80211_init(bcm);
 		if (err)
 			goto err_iounmap;
 
