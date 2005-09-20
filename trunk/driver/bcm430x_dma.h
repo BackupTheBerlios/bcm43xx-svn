@@ -15,12 +15,37 @@ struct bcm430x_dmadesc {
 	u32 address;
 } __attribute__((__packed__));
 
+/* chip specific header prepending TX data fragments. */
+struct bcm430x_txheader {
+	u16 flags;
+	u16 wep_info;
+	u16 frame_ctl;
+	u16 __UNKNOWN_0;
+	u16 __UNKNOWN_1;
+	u64 wep_iv;
+	u32 __UNKNOWN_2;
+	u32 __UNKNOWN_3;
+	char dest_mac[6];
+	u16 __UNKNOWN_4;
+	u32 __UNKNOWN_5;
+	u16 __UNKNOWN_6;
+	u32 fallback_plcp;
+	u16 fallback_dur_id;
+	u16 __UNKNOWN_7;
+	u16 id;
+	u16 __UNKNOWN_8;
+} __attribute__((__packed__));
+
 #define BCM430x_DESCFLAG_MAPPED	(1 << 0)
 
 struct bcm430x_dmadesc_meta {
+	/* Kernel virtual base address of the descriptor buffer. */
 	void *vaddr;
+	/* DMA base bus-address of the descriptor buffer. */
 	dma_addr_t dmaaddr;
+	/* Size of the descriptor buffer. */
 	size_t size;
+	/* Various flags. */
 	u32 flags;
 };
 
