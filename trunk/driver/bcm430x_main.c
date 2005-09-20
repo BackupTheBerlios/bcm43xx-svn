@@ -1072,9 +1072,11 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto err_gpio_cleanup;
 
+/*FIXME: This gives a machine check. Why? It started to give a machine check after we moved chip_init() to 80211_init()
 	err = bcm430x_radio_turn_on(bcm);
 	if (err)
 		goto err_gpio_cleanup;
+*/
 
 	bcm430x_write16(bcm, 0x03E6, 0x0000);
 	err = bcm430x_phy_init(bcm);
@@ -1483,6 +1485,11 @@ err_destroy_tx0:
 	goto out;
 }
 
+static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
+{
+	bcm430x_chip_cleanup(bcm);
+}
+
 /* http://bcm-specs.sipsolutions.net/80211Init */
 static int bcm430x_80211_init(struct bcm430x_private *bcm)
 {
@@ -1540,10 +1547,18 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 		//XXX: Is this really 16bit wide? (No specs)
 		bcm430x_write16(bcm, 0x043C, 0x000C);
 
-	if (1 /* not in PIO mode (TODO)*/)
+	if (1 /* not in PIO mode (TODO)*/) {
 		err = bcm430x_dma_init(bcm);
+		if (err)
+			goto err_chip_cleanup;
+	}
 
+out:
 	return err;
+
+err_chip_cleanup:
+	bcm430x_chip_cleanup(bcm);
+	goto out;
 }
 
 /* This is the opposite of bcm430x_init_board() */
@@ -1554,7 +1569,7 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 
 	bcm430x_radio_turn_off(bcm);
 	bcm430x_dma_free(bcm);
-	bcm430x_chip_cleanup(bcm);
+	bcm430x_80211_cleanup(bcm);
 
 	bcm430x_pctl_set_crystal(bcm, 0);
 	iounmap(bcm->mmio_addr);
@@ -1649,6 +1664,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_iounmap;
+	bcm430x_read_sprom(bcm);
 
 	num_80211_cores = bcm430x_num_80211_cores(bcm);
 	for (i = 0; i < num_80211_cores; i++) {
@@ -1706,11 +1722,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 printk(KERN_INFO PFX "80211 cores initialized\n");
 	//TODO: Set up LEDs
 	//TODO: Initialize PIO (really here?)
-
-	bcm430x_read_sprom(bcm);
-	err = bcm430x_chip_init(bcm);
-	if (err)
-		goto err_iounmap;
 
 	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 
