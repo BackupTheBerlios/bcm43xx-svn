@@ -181,6 +181,7 @@ static int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
 static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 {
 	int err;
+	u32 value;
 
 	if (ring->flags & BCM430x_RINGFLAG_TX) {
 		err = dmacontroller_tx_reset(ring);
@@ -198,6 +199,14 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		err = dmacontroller_rx_reset(ring);
 		if (err)
 			goto out;
+		/* Set Receive Control "receive enable" and frame offset */
+		value = 0x00000000;
+		value |= BCM430x_DMA_RXCTRL_ENABLE;
+		value |= (BCM430x_RX_FRAMEOFFSET << BCM430x_DMA_RXCTRL_FRAMEOFF_SHIFT)
+			 & BCM430x_DMA_RXCTRL_FRAMEOFF_MASK;
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
+				value);
 		/* Set Receive Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,

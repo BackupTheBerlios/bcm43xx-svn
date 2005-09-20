@@ -6,6 +6,7 @@
 
 #define BCM430x_TXRING_SLOTS	256
 #define BCM430x_RXRING_SLOTS	256
+#define BCM430x_RX_FRAMEOFFSET	30
 
 
 struct bcm430x_private;

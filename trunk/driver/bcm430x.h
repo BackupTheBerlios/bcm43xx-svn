@@ -236,6 +236,7 @@
 #define BCM430x_DMA_TXCTRL_FLUSH		(1 << 4)
 #define BCM430x_DMA_RXCTRL_ENABLE		(1 << 0)
 #define BCM430x_DMA_RXCTRL_FRAMEOFF_MASK	0x000000fe
+#define BCM430x_DMA_RXCTRL_FRAMEOFF_SHIFT	1
 #define BCM430x_DMA_RXCTRL_PIO			(1 << 8)
 /* DMA controller channel status word values. */
 #define BCM430x_DMA_TXSTAT_DPTR_MASK		0x00000fff
