@@ -215,8 +215,36 @@ static void dmacontroller_cleanup(struct bcm430x_dmaring *ring)
 	}
 }
 
+static void free_descbuffer(struct bcm430x_dmaring *ring,
+			    struct bcm430x_dmadesc *desc,
+			    struct bcm430x_dmadesc_meta *meta)
+{
+	enum dma_data_direction dir;
+
+	if (meta->flags & BCM430x_DESCFLAG_MAPPED) {
+		if (ring->flags & BCM430x_RINGFLAG_TX)
+			dir = DMA_TO_DEVICE;
+		else
+			dir = DMA_FROM_DEVICE;
+		dma_unmap_single(&ring->bcm->pci_dev->dev,
+				 meta->dmaaddr, meta->size, dir);
+	}
+	kfree(meta->vaddr);
+	memset(meta, 0, sizeof(*meta));
+	memset(desc, 0, sizeof(*desc));
+}
+
 static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 {
+	struct bcm430x_dmadesc *desc;
+	struct bcm430x_dmadesc_meta *meta;
+	unsigned int i;
+
+	for (i = 0; i < ring->nr_used; i++) {
+		desc = ring->vbase + i;
+		meta = ring->meta + i;
+		free_descbuffer(ring, desc, meta);
+	}
 }
 
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
@@ -321,21 +349,6 @@ err_kfree:
 	goto out;
 }
 
-static void bcm430x_free_desc(struct bcm430x_dmaring *ring,
-			      struct bcm430x_dmadesc *desc,
-			      struct bcm430x_dmadesc_meta *meta)
-{
-	enum dma_data_direction dir;
-
-	if (ring->flags & BCM430x_RINGFLAG_TX)
-		dir = DMA_TO_DEVICE;
-	else
-		dir = DMA_FROM_DEVICE;
-	dma_unmap_single(&ring->bcm->pci_dev->dev,
-			 meta->dmaaddr, meta->size, dir);
-	kfree(meta->vaddr);
-}
-
 static int bcm430x_append_desc(struct bcm430x_dmaring *ring)
 {
 	int err;
@@ -371,19 +384,6 @@ static int bcm430x_append_descs(struct bcm430x_dmaring *ring,
 	desc->control = BCM430x_DMADTOR_DTABLEEND;
 
 	return 0;
-}
-
-static void bcm430x_free_descs(struct bcm430x_dmaring *ring)
-{
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
-	unsigned int i;
-
-	for (i = 0; i < ring->nr_used; i++) {
-		desc = ring->vbase + i;
-		meta = ring->meta + i;
-		bcm430x_free_desc(ring, desc, meta);
-	}
 }
 
 int bcm430x_post_dmaring(struct bcm430x_dmaring *ring)

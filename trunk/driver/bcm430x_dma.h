@@ -15,10 +15,13 @@ struct bcm430x_dmadesc {
 	u32 address;
 } __attribute__((__packed__));
 
+#define BCM430x_DESCFLAG_MAPPED	(1 << 0)
+
 struct bcm430x_dmadesc_meta {
 	void *vaddr;
 	dma_addr_t dmaaddr;
 	size_t size;
+	u32 flags;
 };
 
 #define BCM430x_RINGFLAG_TX	(1 << 0)
