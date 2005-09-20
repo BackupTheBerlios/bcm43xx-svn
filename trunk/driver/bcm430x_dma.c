@@ -186,12 +186,22 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		err = dmacontroller_tx_reset(ring);
 		if (err)
 			goto out;
-		/*TODO*/
+		/* Set Transmit Control register to "transmit enable" */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
+				BCM430x_DMA_TXCTRL_ENABLE);
+		/* Set Transmit Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
+				ring->dmabase);
 	} else {
 		err = dmacontroller_rx_reset(ring);
 		if (err)
 			goto out;
-		/*TODO*/
+		/* Set Receive Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
+				ring->dmabase);
 	}
 
 out:
@@ -385,27 +395,6 @@ static int bcm430x_append_descs(struct bcm430x_dmaring *ring,
 
 	return 0;
 }
-
-int bcm430x_post_dmaring(struct bcm430x_dmaring *ring)
-{/*TODO*/
-	if (ring->flags & BCM430x_RINGFLAG_TX) {
-		/* Set Transmit Control register to "transmit enable" */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
-				BCM430x_DMA_TXCTRL_ENABLE);
-		/* Set Transmit Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
-				ring->dmabase);
-	} else {
-		/* Set Receive Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
-				ring->dmabase);
-	}
-	return 0;
-}
-
 #endif
 
 /* vim: set ts=8 sw=8 sts=8: */
