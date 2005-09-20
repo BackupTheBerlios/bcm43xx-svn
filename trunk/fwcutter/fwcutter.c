@@ -50,6 +50,7 @@ struct cmdline_args {
 
 static struct cmdline_args cmdargs;
 int big_endian_cpu;
+char* target_dir;
 
 
 static void write_ddccbbaa(FILE *f, byte *buffer, int len) 
@@ -77,10 +78,13 @@ static void write_aabbccdd(FILE *f, byte *buffer, int len)
 static void write_fw(const char *infilename, const char *outfilename, uint8_t flags, byte *data, int len)
 {
 	FILE* fw;
+	char outfile[40];
 
-	fw = fopen(outfilename, "w");
+	sprintf(outfile, "%s/%s", target_dir, outfilename);
+
+	fw = fopen(outfile, "w");
 	if (!fw) {
-		perror(outfilename);
+		perror(outfile);
 		exit(1);
 	}
 
@@ -98,7 +102,7 @@ static void write_fw(const char *infilename, const char *outfilename, uint8_t fl
 static void write_iv(const char *infilename, uint8_t flags, byte *data)
 {
 	FILE* fw;
-	char ivfilename[21];
+	char ivfilename[35];
 	int i;
 
 	for (i = 1; i <= 10; i++) {
@@ -109,7 +113,7 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 			i++;
 		}
 
-		sprintf(ivfilename, "bcm430x_initval%02d.fw", i);
+		sprintf(ivfilename, "%s/bcm430x_initval%02d.fw", target_dir, i);
 		fw = fopen(ivfilename, "w");
 
 		if (!fw) {
@@ -117,7 +121,7 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 			exit(1);
 		}
 
-		printf("extracting %s ...\n", ivfilename);
+		printf("extracting bcm430x_initval%02d.fw ...\n", i);
 
 		while (1) {
 
@@ -202,11 +206,16 @@ static void extract_iv(const char *infile, uint8_t flags, uint32_t pos)
 	}
 }
 
+static void print_banner(void)
+{
+	printf("fwcutter " FWCUTTER_VERSION "\n");
+}
+
 static void print_supported_files(void)
 {
 	int i;
 
-	printf("fwcutter " FWCUTTER_VERSION "\n\n");
+	print_banner();
 	printf("Extracting firmware is possible from these binary driver files:\n\n");
 	printf("   *  fwcutter can't extract all firmware files\n");
 	printf("   -  not supported\n\n");
@@ -286,17 +295,13 @@ static void get_endianess(void)
 		big_endian_cpu = 1;
 }
 
-static void print_banner(void)
-{
-	printf("fwcutter " FWCUTTER_VERSION "\n");
-}
-
 static void print_usage(int argc, char *argv[])
 {
 	print_banner();
 	printf("\nUsage: %s [OPTION] [driver.sys]\n", argv[0]);
 	printf("  -l             List supported driver versions\n");
 	printf("  -i DRIVER.SYS  Identify a driver file (don't extract)\n");
+	printf("  -w DRIVER.SYS  Extract and write firmware to /lib/firmware\n");
 	printf("  -v             Print fwcutter version\n");
 	printf("  -h|--help      Print this help\n");
 	printf("\nExample: %s bcmwl5.sys\n"
@@ -362,6 +367,18 @@ static int parse_args(int argc, char *argv[])
 			}
 			identify_file(next_arg);
 			return 1;
+		} else if (cmp_arg(arg, "-w", &param) == 0) {
+			if (param)
+				next_arg = param;
+			else
+				i++;
+			if (!next_arg) {
+				printf("-w needs a parameter\n");
+				return -1;
+			}
+			target_dir = "/lib/firmware";
+			cmdargs.infile = next_arg;
+			break;
 		} else {
 			cmdargs.infile = arg;
 			break;
@@ -383,6 +400,7 @@ int main(int argc, char *argv[])
 	const struct file *file;
 	int err;
 
+	target_dir = ".";
 	get_endianess();
 	err = parse_args(argc, argv);
 	if (err == 1)
