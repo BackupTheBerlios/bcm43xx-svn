@@ -312,6 +312,10 @@ struct bcm430x_coreinfo {
 	u8 index;
 };
 
+/* data_xfer_mode values */
+#define BCM430x_DATAXFER_DMA			0x01
+#define BCM430x_DATAXFER_PIO			0x02
+
 /* Driver STATUS values */
 #define BCM430x_STAT_BOARDINITDONE		(1 << 0)
 #define BCM430x_STAT_PHYCALIBRATED		(1 << 1)
@@ -390,6 +394,9 @@ struct bcm430x_private {
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;
+
+	/* How is data transfered from the chip to the CPU? DMA or PIO. */
+	u8 data_xfer_mode;
 
 	/* DMA */
 	struct bcm430x_dmaring *tx_ring0;

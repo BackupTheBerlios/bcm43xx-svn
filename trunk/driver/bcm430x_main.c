@@ -65,6 +65,7 @@ MODULE_LICENSE("GPL");
 
 /* module parameters */
 static int mode = 0;
+static int pio = 0;
 
 /* If you want to debug with just a single device, enable this,
  * where the string is the pci device ID (as given by the kernel's
@@ -728,12 +729,10 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_REASON,
 			bcm->dma_reason[3]);
 
-	/*TODO*/
-#if 0
-	if (PIOMODE && bcm->core_80211.rev < 3) {
-		/*TODO*/
+	if (bcm->data_xfer_mode == BCM430x_DATAXFER_PIO &&
+	    bcm->current_core->rev < 3) {
+		/* TODO */
 	}
-#endif
 
 	/* disable all IRQs. They are enabled again in the bottom half. */
 	bcm->irq_savedstate = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
@@ -1141,9 +1140,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 			bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 			| BCM430x_SBF_MODE_PROMISC);
 
-#if 0
-	/* FIXME: No PIO mode currently */
-	if (PIOMODE) {
+	if (bcm->data_xfer_mode == BCM430x_DATAXFER_PIO) {
 		bcm430x_write16(bcm, 0x0210, 0x0100);
 		bcm430x_write16(bcm, 0x0230, 0x0100);
 		bcm430x_write16(bcm, 0x0250, 0x0100);
@@ -1151,7 +1148,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0034);
 		bcm430x_shm_write32(bcm, 0x00000000);
 	}
-#endif
+
 	//FIXME: Probe Response Timeout Value??? (Is 16bit!)
 	// Default to 0, has to be set by ioctl probably... :-/
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0074);
@@ -1573,7 +1570,7 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 		//XXX: Is this really 16bit wide? (No specs)
 		bcm430x_write16(bcm, 0x043C, 0x000C);
 
-	if (1 /* not in PIO mode (TODO)*/) {
+	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA) {
 		err = bcm430x_dma_init(bcm);
 		if (err)
 			goto err_chip_cleanup;
@@ -1900,6 +1897,11 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	bcm->curr_channel = 0xFFFF;
 	bcm->antenna_diversity = 0xFFFF;
+	if (pio)
+		bcm->data_xfer_mode = BCM430x_DATAXFER_PIO;
+	else
+		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
+assert(bcm->data_xfer_mode == BCM430x_DATAXFER_DMA); /*TODO: Implement complete support for PIO mode. */
 
 	switch (mode) {
 	case 1:
@@ -1987,6 +1989,9 @@ static void __exit bcm430x_exit(void)
 	pci_unregister_driver(&bcm430x_pci_driver);
 	bcm430x_debugfs_exit();
 }
+
+module_param(pio, int, 0444);
+MODULE_PARM_DESC(pio, "enable(1) / disable(0) PIO mode");
 
 module_param(mode, int, 0444);
 MODULE_PARM_DESC(mode, "network mode (0=BSS,1=IBSS,2=Monitor)");
