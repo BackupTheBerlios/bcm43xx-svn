@@ -1031,6 +1031,36 @@ static int bcm430x_gpio_cleanup(struct bcm430x_private *bcm)
 	return 0;
 }
 
+/* http://bcm-specs.sipsolutions.net/EnableMac */
+static void bcm430x_mac_enable(struct bcm430x_private *bcm)
+{
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+			| BCM430x_SBF_MAC_ENABLED);
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, BCM430x_IRQ_READY);
+	// dummy reads
+	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+	//FIXME: FuncPlaceholder (Set PS CTRL)
+}
+
+/* http://bcm-specs.sipsolutions.net/SuspendMAC */
+static void bcm430x_mac_suspend(struct bcm430x_private *bcm)
+{
+	int i = 1000;
+	//FIXME: FuncPlaceholder (Set PS CTRL)
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+			& ~BCM430x_SBF_MAC_ENABLED);
+
+	for ( ; i > 0; i--) {
+		if (bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON) & BCM430x_IRQ_READY)
+			i = -1;
+	}
+	if (!i)
+		printk(KERN_ERR PFX "Failed to suspend mac!\n");
+}
+
 /* This is the opposite of bcm430x_chip_init() */
 static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
 {

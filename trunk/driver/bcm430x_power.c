@@ -246,6 +246,9 @@ void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 	outenable |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
 
 	if (on) {
+		if (in & 0x40)
+			return;
+
 		out |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
 
 		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);

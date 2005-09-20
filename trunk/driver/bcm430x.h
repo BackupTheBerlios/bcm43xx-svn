@@ -184,6 +184,7 @@
 
 /* Generic-Interrupt reasons. */
 /*TODO: add the missing ones. */
+#define BCM430x_IRQ_READY		(1 << 0)
 #define BCM430x_IRQ_BEACON		(1 << 1)
 #define BCM430x_IRQ_TBTT		(1 << 2) /*FIXME: purpose? */
 #define BCM430x_IRQ_REG124		(1 << 5) /*FIXME: purpose? */
