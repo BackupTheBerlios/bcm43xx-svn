@@ -1767,12 +1767,14 @@ err_pci_disable:
 /* Do the Hardware IO operations to send the txb */
 static inline int bcm430x_tx(struct bcm430x_private *bcm,
 			     struct ieee80211_txb *txb)
-{/*TODO*/
-	int err;
+{
+	int err = -ENODEV;
 
 	bcm->txb = txb;
-//	err = bcm430x_dma_tx(bcm->tx_ring, txb);
-err = 0;
+	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)
+		err = bcm430x_dma_transfer_txb(bcm->tx_ring1, txb);
+	else
+		; /* TODO: PIO transfer */
 
 	return err;
 }

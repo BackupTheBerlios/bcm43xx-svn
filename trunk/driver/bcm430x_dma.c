@@ -436,4 +436,11 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	kfree(ring);
 }
 
+int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
+			     struct ieee80211_txb *txb)
+{
+	/*TODO*/
+	return 0;
+}
+
 /* vim: set ts=8 sw=8 sts=8: */

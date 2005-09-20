@@ -88,4 +88,7 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 
 void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring);
 
+int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
+			     struct ieee80211_txb *txb);
+
 #endif /* BCM430x_DMA_H_ */
