@@ -29,6 +29,7 @@
 
 #include <linux/dmapool.h>
 #include <linux/pci.h>
+#include <linux/delay.h>
 #include <asm/semaphore.h>
 
 
@@ -110,6 +111,120 @@ static void free_ringmemory(struct bcm430x_dmaring *ring)
 	up(&ringallocator_sem);
 }
 
+static int dmacontroller_rx_reset(struct bcm430x_dmaring *ring)
+{
+	int i;
+	u32 value;
+
+	assert(!(ring->flags & BCM430x_RINGFLAG_TX));
+
+	bcm430x_write32(ring->bcm,
+			ring->mmio_base + BCM430x_DMA_RX_CONTROL,
+			0x00000000);
+	for (i = 0; i < 1000; i++) {
+		value = bcm430x_read32(ring->bcm,
+				       ring->mmio_base + BCM430x_DMA_RX_STATUS);
+		value &= BCM430x_DMA_RXSTAT_STAT_MASK;
+		if (value == BCM430x_DMA_RXSTAT_STAT_DISABLED) {
+			i = -1;
+			break;
+		}
+	}
+	if (i != -1) {
+		printk(KERN_ERR PFX "Error: Wait on DMA RX status timed out.\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
+{
+	int i;
+	u32 value;
+
+	assert(ring->flags & BCM430x_RINGFLAG_TX);
+
+	for (i = 0; i < 1000; i++) {
+		value = bcm430x_read32(ring->bcm,
+				       ring->mmio_base + BCM430x_DMA_TX_STATUS);
+		value &= BCM430x_DMA_TXSTAT_STAT_MASK;
+		if (value == BCM430x_DMA_TXSTAT_STAT_DISABLED ||
+		    value == BCM430x_DMA_TXSTAT_STAT_IDLEWAIT ||
+		    value == BCM430x_DMA_TXSTAT_STAT_STOPPED)
+			break;
+		udelay(10);
+	}
+	bcm430x_write32(ring->bcm,
+			ring->mmio_base + BCM430x_DMA_TX_CONTROL,
+			0x00000000);
+	for (i = 0; i < 1000; i++) {
+		value = bcm430x_read32(ring->bcm,
+				       ring->mmio_base + BCM430x_DMA_TX_STATUS);
+		value &= BCM430x_DMA_TXSTAT_STAT_MASK;
+		if (value == BCM430x_DMA_TXSTAT_STAT_DISABLED) {
+			i = -1;
+			break;
+		}
+		udelay(10);
+	}
+	if (i != -1) {
+		printk(KERN_ERR PFX "Error: Wait on DMA TX status timed out.\n");
+		return -ENODEV;
+	}
+	/* ensure the reset is completed. */
+	udelay(300);
+
+	return 0;
+}
+
+static int dmacontroller_setup(struct bcm430x_dmaring *ring)
+{
+	int err;
+
+	if (ring->flags & BCM430x_RINGFLAG_TX) {
+		err = dmacontroller_tx_reset(ring);
+		if (err)
+			goto out;
+		/*TODO*/
+	} else {
+		err = dmacontroller_rx_reset(ring);
+		if (err)
+			goto out;
+		/*TODO*/
+	}
+
+out:
+	return err;
+}
+
+static void dmacontroller_cleanup(struct bcm430x_dmaring *ring)
+{
+	if (ring->flags & BCM430x_RINGFLAG_TX) {
+		/* Zero out Transmit Control register. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
+				0x00000000);
+		/* Zero out Transmit Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
+				0x00000000);
+	} else {
+		/* Zero out Receive Control register. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
+				0x00000000);
+		/* Zero out Receive Descriptor ring address. */
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
+				0x00000000);
+	}
+}
+
+static void free_all_descbuffers(struct bcm430x_dmaring *ring)
+{
+}
+
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
 					       int nr_descriptor_slots,
@@ -142,10 +257,15 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	err = alloc_ringmemory(ring);
 	if (err)
 		goto err_kfree_meta;
+	err = dmacontroller_setup(ring);
+	if (err)
+		goto err_free_ringmemory;
 
 out:
 	return ring;
 
+err_free_ringmemory:
+	free_ringmemory(ring);
 err_kfree_meta:
 	kfree(ring->meta);
 err_kfree_ring:
@@ -159,8 +279,8 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	if (!ring)
 		return;
 
-	/*TODO: free buffers, if any. */
-
+	dmacontroller_cleanup(ring);
+	free_all_descbuffers(ring);
 	free_ringmemory(ring);
 
 	kfree(ring->meta);
@@ -292,28 +412,6 @@ int bcm430x_post_dmaring(struct bcm430x_dmaring *ring)
 	return 0;
 }
 
-void bcm430x_unpost_dmaring(struct bcm430x_dmaring *ring)
-{
-	if (ring->flags & BCM430x_RINGFLAG_TX) {
-		/* Zero out Transmit Control register. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
-				0x00000000);
-		/* Zero out Transmit Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
-				0x00000000);
-	} else {
-		/* Zero out Receive Control register. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
-				0x00000000);
-		/* Zero out Receive Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
-				0x00000000);
-	}
-}
 #endif
 
 /* vim: set ts=8 sw=8 sts=8: */
