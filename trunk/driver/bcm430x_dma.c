@@ -30,6 +30,7 @@
 #include <linux/dmapool.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
+#include <linux/skbuff.h>
 #include <asm/semaphore.h>
 
 
@@ -436,11 +437,48 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	kfree(ring);
 }
 
+static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
+				  struct sk_buff *skb,
+				  struct bcm430x_dma_txcontext *ctx)
+{
+	/* TODO: go and allocate a descbuffer. Make it big enough.
+	 * TODO: insert the txheader
+	 * TODO: append the PLCP header
+	 * TODO: append the data from skb
+	 * TODO: poke the device (setup correct desc flags and so on..., write the desc index)
+	 */
+
+bcm430x_printk_dump(skb->data, skb->len, "SKB");
+printk(KERN_INFO PFX "fragment sent\n");
+	return -ENODEV;
+}
+
 int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
 			     struct ieee80211_txb *txb)
 {
-	/*TODO*/
-	return 0;
+	/* We just received a packet from the kernel network subsystem.
+	 * Reformat and write it to some DMA buffers. Poke
+	 * the device to send the stuff.
+	 * Note that this is called from atomic context.
+	 */
+
+	int i, err = -EINVAL;
+	struct sk_buff *skb;
+	struct bcm430x_dma_txcontext ctx;
+
+	assert(ring->flags & BCM430x_RINGFLAG_TX);
+
+	ctx.nr_frags = txb->nr_frags;
+	ctx.cur_frag = 0;
+
+	for (i = 0; i < txb->nr_frags; i++) {
+		skb = txb->fragments[i];
+		err = dma_tx_fragment(ring, skb, &ctx);
+		if (err)
+			break;
+	}
+
+	return err;
 }
 
 /* vim: set ts=8 sw=8 sts=8: */

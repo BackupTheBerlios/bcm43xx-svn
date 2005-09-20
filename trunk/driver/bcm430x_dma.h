@@ -81,6 +81,11 @@ struct bcm430x_dmaring {
 	u32 flags;
 };
 
+struct bcm430x_dma_txcontext {
+	u8 nr_frags;
+	u8 cur_frag;
+};
+
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
 					       int nr_descriptor_slots,
