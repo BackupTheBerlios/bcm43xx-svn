@@ -1494,8 +1494,7 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 	bcm430x_chip_init(bcm);
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0016);
 
-	//XXX: Using first 802.11 core for now
-	bcm430x_shm_write16(bcm, bcm->core_80211[0].rev);
+	bcm430x_shm_write16(bcm, bcm->current_core->rev);
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
 	ucodeflags = bcm430x_shm_read32(bcm);
 
@@ -1537,8 +1536,7 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 	//TODO: Write MAC to template ram
 	//TODO: Write BSSID to template ram
 	
-	//XXX: Using first 802.11 Core for now
-	if (bcm->core_80211[0].rev >= 5)
+	if (bcm->current_core->rev >= 5)
 		//XXX: Is this really 16bit wide? (No specs)
 		bcm430x_write16(bcm, 0x043C, 0x000C);
 
