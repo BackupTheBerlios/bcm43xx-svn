@@ -776,7 +776,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	char buf[22] = { 0 };
 
 	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d.fw",
-		 (bcm->core_80211[0].rev >= 5 ? 5 : bcm->core_80211[0].rev));
+		 (bcm->current_core->rev >= 5 ? 5 : bcm->current_core->rev));
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX 
 		       "Error: Microcode \"%s\" not available or load failed.\n",
@@ -790,7 +790,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	release_firmware(fw);
 
 	snprintf(buf, ARRAY_SIZE(buf),
-		 "bcm430x_pcm%d.fw", (bcm->core_80211[0].rev < 5 ? 4 : 5));
+		 "bcm430x_pcm%d.fw", (bcm->current_core->rev < 5 ? 4 : 5));
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX
 		       "Error: PCM \"%s\" not available or load failed.\n",
@@ -833,7 +833,7 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	const struct firmware *fw;
 	char buf[21] = { 0 };
 	
-	if ((bcm->core_80211[0].rev == 2) || (bcm->core_80211[0].rev == 4)) {
+	if ((bcm->current_core->rev == 2) || (bcm->current_core->rev == 4)) {
 		switch (bcm->phy_type) {
 			case BCM430x_PHYTYPE_A:
 				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 3);
@@ -846,7 +846,7 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 				goto out_noinitval;
 		}
 	
-	} else if (bcm->core_80211[0].rev >= 5) {
+	} else if (bcm->current_core->rev >= 5) {
 		switch (bcm->phy_type) {
 			case BCM430x_PHYTYPE_A:
 				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 7);
@@ -878,7 +878,7 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 
 	release_firmware(fw);
 
-	if (bcm->core_80211[0].rev >= 5) {
+	if (bcm->current_core->rev >= 5) {
 		switch (bcm->phy_type) {
 			case BCM430x_PHYTYPE_A:
 				bcm->sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
@@ -997,7 +997,7 @@ static int bcm430x_gpio_init(struct bcm430x_private *bcm)
 	if (err)
 		return err;
 
-	if (bcm->core_80211[0].rev <= 2)
+	if (bcm->current_core->rev <= 2)
 		value |= 0x10;
 	/*FIXME: Need to set up some LED flags here? */
 	if (bcm->chip_id == 0x4301)
