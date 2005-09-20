@@ -34,6 +34,11 @@ void bcm430x_debugfs_exit(void);
 void bcm430x_debugfs_add_device(struct bcm430x_private *bcm);
 void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm);
 
+/* Debug helper: Dump binary data through printk. */
+void bcm430x_printk_dump(const char *data,
+			 size_t size,
+			 const char *description);
+
 #else /* BCM430x_DEBUG */
 
 static inline
@@ -44,6 +49,13 @@ static inline
 void bcm430x_debugfs_add_device(struct bcm430x_private *bcm) { }
 static inline
 void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm) { }
+
+static inline
+void bcm430x_printk_dump(const char *data,
+			 size_t size,
+			 const char *description)
+{
+}
 
 #endif /* BCM430x_DEBUG */
 

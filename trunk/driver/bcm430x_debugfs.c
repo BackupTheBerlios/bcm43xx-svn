@@ -347,4 +347,23 @@ void bcm430x_debugfs_exit(void)
 	up(&fs.sem);
 }
 
+void bcm430x_printk_dump(const char *data,
+			 size_t size,
+			 const char *description)
+{
+	size_t i;
+	char c;
+
+	printk(KERN_INFO PFX "Data dump (%s, %u bytes):",
+	       description, size);
+	for (i = 0; i < size; i++) {
+		c = data[i];
+		if (i % 6 == 0)
+			printk("\n" KERN_INFO PFX "0x%08x:  0x%02x, ", i, c);
+		else
+			printk("0x%02x, ", c);
+	}
+	printk("\n");
+}
+
 /* vim: set ts=8 sw=8 sts=8: */
