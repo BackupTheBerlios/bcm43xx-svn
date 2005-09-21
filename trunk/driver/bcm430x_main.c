@@ -1155,7 +1155,6 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0074);
 	bcm430x_shm_write16(bcm, 0x0000);
 	//XXX: MMIO: 0x0608 is the work_mode register?
-	//FIXME: Again, IW_MODE_MASTER == AP Mode?
 	if (!(iw_mode & IW_MODE_ADHOC) && !(iw_mode & IW_MODE_MASTER))
 		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
 			bcm430x_write16(bcm, 0x0608, 0x0064);
