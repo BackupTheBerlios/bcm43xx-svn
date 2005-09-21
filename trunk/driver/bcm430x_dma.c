@@ -52,7 +52,7 @@ static inline int free_slots(struct bcm430x_dmaring *ring)
 	return slots;
 }
 
-static inline u32 calc_rx_frameoffset(u32 dmacontroller_mmio_base)
+static inline u32 calc_rx_frameoffset(u16 dmacontroller_mmio_base)
 {
 	u32 offset = 0x00000000;
 
