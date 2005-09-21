@@ -286,7 +286,7 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		assert(ring->nr_used <= ring->nr_slots);
 		ring->last_used++;
 	}
-	desc->control |= BCM430x_DMADTOR_DTABLEEND; /*FIXME: or (desc + 1)->control */
+	desc->control |= BCM430x_DMADTOR_DTABLEEND;
 
 out:
 	return err;
