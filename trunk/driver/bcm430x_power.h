@@ -28,6 +28,10 @@
 
 */
 
+#include <linux/types.h>
+
+
+struct bcm430x_private;
 
 void bcm430x_pctl_init(struct bcm430x_private *bcm);
 void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode);
