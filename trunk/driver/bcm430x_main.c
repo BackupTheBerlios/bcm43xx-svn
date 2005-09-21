@@ -1060,8 +1060,6 @@ static void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 		printk(KERN_ERR PFX "Failed to suspend mac!\n");
 }
 
-static void bcm430x_get_plcp_header(char *b, u8 phy_type, int packet_length, int bitrate)
-
 /* This is the opposite of bcm430x_chip_init() */
 static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
 {
