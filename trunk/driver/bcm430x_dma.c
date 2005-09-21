@@ -98,7 +98,7 @@ static int alloc_ringmemory(struct bcm430x_dmaring *ring)
 		err = -ENOMEM;
 		goto err_destroy_pool;
 	}
-	memset(ring->vbase, 0, 4096);
+	memset(ring->vbase, 0, ring_memsize);
 
 	ringallocator.refcnt++;
 	err = 0;
