@@ -52,6 +52,22 @@ static inline int free_slots(struct bcm430x_dmaring *ring)
 	return slots;
 }
 
+static inline u32 calc_rx_frameoffset(u32 dmacontroller_mmio_base)
+{
+	u32 offset = 0x00000000;
+
+	switch (dmacontroller_mmio_base) {
+	case BCM430x_MMIO_DMA1_BASE:
+		offset = BCM430x_DMA1_RX_FRAMEOFFSET;
+		break;
+	}
+
+	offset = (offset << BCM430x_DMA_RXCTRL_FRAMEOFF_SHIFT);
+	offset &= BCM430x_DMA_RXCTRL_FRAMEOFF_MASK;
+
+	return offset;
+}
+
 static int alloc_ringmemory(struct bcm430x_dmaring *ring)
 {
 	const size_t ring_memsize = 4096;
@@ -327,10 +343,8 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		if (err)
 			goto out;
 		/* Set Receive Control "receive enable" and frame offset */
-		value = 0x00000000;
+		value = calc_rx_frameoffset(ring->mmio_base);
 		value |= BCM430x_DMA_RXCTRL_ENABLE;
-		value |= (BCM430x_RX_FRAMEOFFSET << BCM430x_DMA_RXCTRL_FRAMEOFF_SHIFT)
-			 & BCM430x_DMA_RXCTRL_FRAMEOFF_MASK;
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
 				value);
