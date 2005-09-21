@@ -321,6 +321,7 @@ struct bcm430x_coreinfo {
 #define BCM430x_STAT_PHYCALIBRATED		(1 << 1)
 #define BCM430x_STAT_PHYCONNECTED		(1 << 2)
 #define BCM430x_STAT_DEVSHUTDOWN		(1 << 3)	// Are we shutting down?
+#define BCM430x_STAT_RADIOSWDISABLED		(1 << 4)
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;

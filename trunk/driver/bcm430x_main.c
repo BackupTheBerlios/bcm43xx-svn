@@ -554,7 +554,7 @@ static void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect
 {
 	u32 flags = 0x00040000;
 
-	if ((bcm430x_core_enabled(bcm)) /*XXX: && DMA? */) {
+	if ((bcm430x_core_enabled(bcm)) && (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)) {
 		/*XXX: Michael, your mission, if you choose to accept... :-D
 		bcm430x_reset_tx_dma(bcm, ALL_INTERRUPTS);
 		bcm430x_reset_rx_dma(bcm, FIRST_INTERRUPT);
@@ -583,8 +583,14 @@ static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 		bcm430x_write16(bcm, 0x03E6, 0x00F4);
 		bcm430x_core_disable(bcm, bcm->current_core->flags);
 	} else {
-		//XXX: No checks for hardware disabled radio yet
-		bcm430x_radio_turn_off(bcm);
+		if (bcm->status & BCM430x_STAT_RADIOSWDISABLED)
+		{
+			if ((bcm->current_core->rev >= 3) && (bcm430x_read32(bcm, 0x0158) & (1 << 16)))
+				bcm430x_radio_turn_off(bcm);
+			if ((bcm->current_core->rev < 3) && !(bcm430x_read16(bcm, 0x049A) & (1 << 4)))
+				bcm430x_radio_turn_off(bcm);
+		} else
+			bcm430x_radio_turn_off(bcm);
 	}
 }
 
@@ -1588,6 +1594,8 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	struct pci_dev *pci_dev = bcm->pci_dev;
 	int i;
 
+	bcm->status &= ~BCM430x_STAT_BOARDINITDONE;
+
 	bcm430x_radio_turn_off(bcm);
 	bcm430x_dma_free(bcm);
 	bcm430x_80211_cleanup(bcm);
@@ -1731,14 +1739,14 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 			goto err_iounmap;
 
 		if (num_80211_cores >= 2) {
-			//TODO: suspendMAC
+			bcm430x_mac_suspend(bcm);
 			//      turn irqs off
 			//      turn radio off
 		}
 	}
 	if (num_80211_cores >= 2) {
 		bcm430x_switch_core(bcm, &bcm->core_80211[0]);
-		//TODO: enableMAC
+		bcm430x_mac_enable(bcm);
 	}
 printk(KERN_INFO PFX "80211 cores initialized\n");
 	//TODO: Set up LEDs
