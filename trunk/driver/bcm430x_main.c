@@ -1003,7 +1003,7 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 static void bcm430x_update_leds(struct bcm430x_private *bcm)
 {
 	int id;
-	u16 value = bcm430x_read32(bcm, BCM430x_MMIO_LED_CONTROL);
+	u16 value = bcm430x_read16(bcm, BCM430x_MMIO_GPIO_CONTROL);
 	u16 state;
 
 	for (id = 0; id < BCM430x_LED_COUNT; id++) {
@@ -1035,7 +1035,7 @@ static void bcm430x_update_leds(struct bcm430x_private *bcm)
 		value |= (state << id);
 	}
 
-	bcm430x_write32(bcm, BCM430x_MMIO_LED_CONTROL, value);
+	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_CONTROL, value);
 }
 
 /* Switch to the core used to write the GPIO register.
@@ -1073,6 +1073,11 @@ static int bcm430x_gpio_init(struct bcm430x_private *bcm)
 	struct bcm430x_coreinfo *old_core;
 	int err;
 	u32 mask = 0x0000001F, value = 0x0000000F;
+
+	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_CONTROL,
+			bcm430x_read16(bcm, BCM430x_MMIO_GPIO_CONTROL) & 0xFFF0);
+	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_MASK,
+			bcm430x_read16(bcm, BCM430x_MMIO_GPIO_MASK) | 0x000F);
 
 	old_core = bcm->current_core;
 	
@@ -1184,6 +1189,8 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	err = bcm430x_upload_initvals(bcm);
 	if (err)
 		goto err_gpio_cleanup;
+
+	bcm430x_update_leds(bcm);
 
 	err = bcm430x_radio_turn_on(bcm);
 	if (err)
