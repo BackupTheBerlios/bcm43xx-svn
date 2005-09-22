@@ -92,36 +92,40 @@ static inline int first_free_slot(struct bcm430x_dmaring *ring)
 	return next_slot(ring, ring->last_used);
 }
 
-/* allocate a slot for usage. */
-static inline void alloc_slot(struct bcm430x_dmaring *ring, int slot)
+/* request a slot for usage. */
+static inline void request_slot(struct bcm430x_dmaring *ring, int slot)
 {
-#if 0
 	assert(free_slots(ring));
-	ring->nr_used++;
-	if (ring->last_used == ring->nr_slots - 1)
-		ring->last_used = 0;
-	else {
-		ring->last_used++;
-		if (slot > 0) {
-			ring->vaddr[prev_slot(ring, slot)].control
+	assert(slot == ring->last_used + 1);
+
+	ring->last_used = next_slot(ring, ring->last_used);
+	if (ring->first_used < 0)
+		ring->first_used = slot;
+
+	if (ring->last_used >= ring->first_used) {
+		ring->vbase[ring->last_used].control |= BCM430x_DMADTOR_DTABLEEND;
+		if (ring->last_used - 1 >= 0) {
+			ring->vbase[ring->last_used - 1].control
 				&= ~ BCM430x_DMADTOR_DTABLEEND;
 		}
-		ring->vaddr[slot].control |= BCM430x_DMADTOR_DTABLEEND;
 	}
-#endif
 }
 
 /* return a slot to the free slots. */
-static inline void free_slot(struct bcm430x_dmaring *ring, int slot)
+static inline void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
-#if 0
-	ring->nr_used--;
-	if (ring->last_used == 0)
-		ring->last_used = ring->nr_slots - 1;
-	else
-		ring->last_used--;
-	//TODO: DTABLEEND
-#endif
+	assert(slot == ring->last_used);
+
+	ring->vbase[ring->last_used].control &= ~ BCM430x_DMADTOR_DTABLEEND;
+
+	if (used_slots(ring) > 1) {
+		ring->last_used = prev_slot(ring, ring->last_used);
+		if (ring->last_used >= ring->first_used)
+			ring->vbase[ring->last_used].control |= BCM430x_DMADTOR_DTABLEEND;
+	} else {
+		ring->first_used = -1;
+		ring->last_used = -1;
+	}
 }
 
 static inline u32 calc_rx_frameoffset(u16 dmacontroller_mmio_base)
@@ -564,6 +568,7 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
 
+printk("free slots %d\n", free_slots(ring));
 //TODO: end of dtor table. bytecounts. slot counts.
 	if (unlikely(free_slots(ring) < skb_shinfo(skb)->nr_frags + 1)) {
 		/* The queue should be stopped,
@@ -574,7 +579,7 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	}
 
 	slot = first_free_slot(ring);
-	alloc_slot(ring, slot);
+	request_slot(ring, slot);
 	desc = ring->vbase + slot;
 	assert(desc->control == 0x00000000);
 	meta = ring->meta + slot;
@@ -597,7 +602,7 @@ bcm430x_printk_dump(skb->data, skb->len, "SKB");
 	err = map_descbuffer(ring, desc, meta);
 	if (unlikely(err)) {
 		printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
-		free_slot(ring, slot);
+		return_slot(ring, slot);
 		goto out;
 	}
 #endif
@@ -607,7 +612,7 @@ bcm430x_printk_dump(skb->data, skb->len, "SKB");
 		err = dma_tx_fragment_sg(ring, skb, ctx);
 		if (err) {
 			/*TODO: error handling: unmap, other stuff? */
-			free_slot(ring, slot);
+			return_slot(ring, slot);
 			goto out;
 		}
 		/*TODO: modify desc and meta to point to the last SC buffers */
@@ -626,7 +631,7 @@ printk("Posted desc_index %u on chip\n", ctx->desc_index);
 				ctx->desc_index);
 #endif
 	}
-	/*TODO: free the slots in the interrupt handler? Free skbs (in irq handler)! */
+	/*TODO: return the slots in the interrupt handler. Free skbs (in irq handler)! */
 
 out:
 	return err;
