@@ -201,19 +201,18 @@ static void free_ringmemory(struct bcm430x_dmaring *ring)
 	up(&ringallocator_sem);
 }
 
-static int dmacontroller_rx_reset(struct bcm430x_dmaring *ring)
+int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
+				   u16 mmio_base)
 {
 	int i;
 	u32 value;
 
-	assert(!(ring->flags & BCM430x_RINGFLAG_TX));
-
-	bcm430x_write32(ring->bcm,
-			ring->mmio_base + BCM430x_DMA_RX_CONTROL,
+	bcm430x_write32(bcm,
+			mmio_base + BCM430x_DMA_RX_CONTROL,
 			0x00000000);
 	for (i = 0; i < 1000; i++) {
-		value = bcm430x_read32(ring->bcm,
-				       ring->mmio_base + BCM430x_DMA_RX_STATUS);
+		value = bcm430x_read32(bcm,
+				       mmio_base + BCM430x_DMA_RX_STATUS);
 		value &= BCM430x_DMA_RXSTAT_STAT_MASK;
 		if (value == BCM430x_DMA_RXSTAT_STAT_DISABLED) {
 			i = -1;
@@ -228,16 +227,22 @@ static int dmacontroller_rx_reset(struct bcm430x_dmaring *ring)
 	return 0;
 }
 
-static int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
+static inline int dmacontroller_rx_reset(struct bcm430x_dmaring *ring)
+{
+	assert(!(ring->flags & BCM430x_RINGFLAG_TX));
+
+	return bcm430x_dmacontroller_rx_reset(ring->bcm, ring->mmio_base);
+}
+
+int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
+				   u16 mmio_base)
 {
 	int i;
 	u32 value;
 
-	assert(ring->flags & BCM430x_RINGFLAG_TX);
-
 	for (i = 0; i < 1000; i++) {
-		value = bcm430x_read32(ring->bcm,
-				       ring->mmio_base + BCM430x_DMA_TX_STATUS);
+		value = bcm430x_read32(bcm,
+				       mmio_base + BCM430x_DMA_TX_STATUS);
 		value &= BCM430x_DMA_TXSTAT_STAT_MASK;
 		if (value == BCM430x_DMA_TXSTAT_STAT_DISABLED ||
 		    value == BCM430x_DMA_TXSTAT_STAT_IDLEWAIT ||
@@ -245,12 +250,12 @@ static int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
 			break;
 		udelay(10);
 	}
-	bcm430x_write32(ring->bcm,
-			ring->mmio_base + BCM430x_DMA_TX_CONTROL,
+	bcm430x_write32(bcm,
+			mmio_base + BCM430x_DMA_TX_CONTROL,
 			0x00000000);
 	for (i = 0; i < 1000; i++) {
-		value = bcm430x_read32(ring->bcm,
-				       ring->mmio_base + BCM430x_DMA_TX_STATUS);
+		value = bcm430x_read32(bcm,
+				       mmio_base + BCM430x_DMA_TX_STATUS);
 		value &= BCM430x_DMA_TXSTAT_STAT_MASK;
 		if (value == BCM430x_DMA_TXSTAT_STAT_DISABLED) {
 			i = -1;
@@ -266,6 +271,13 @@ static int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
 	udelay(300);
 
 	return 0;
+}
+
+static inline int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
+{
+	assert(ring->flags & BCM430x_RINGFLAG_TX);
+
+	return bcm430x_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 }
 
 static int map_descbuffer(struct bcm430x_dmaring *ring,

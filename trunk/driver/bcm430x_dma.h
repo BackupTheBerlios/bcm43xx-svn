@@ -97,4 +97,10 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring);
 int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
 			     struct ieee80211_txb *txb);
 
+int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
+				   u16 dmacontroller_mmio_base);
+
+int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
+				   u16 dmacontroller_mmio_base);
+
 #endif /* BCM430x_DMA_H_ */
