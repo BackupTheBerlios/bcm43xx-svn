@@ -320,7 +320,7 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
 	unsigned int i, max_loop;
-	u16 packet_number, value;
+	u16 value = 0;
 	u32 buffer[5] = {
 		0x00000000,
 		cpu_to_be32(0x0000D400),
@@ -332,13 +332,11 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
-		packet_number = 0;
 		max_loop = 0x1E;
 		buffer[0] = cpu_to_be32(0xCC010200);
 		break;
 	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
-		packet_number = 1;
 		max_loop = 0xFA;
 		buffer[0] = cpu_to_be32(0x6E840B00); 
 		break;
@@ -355,17 +353,18 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 		printk(KERN_WARNING PFX "%02x %02x %02x %02x\n", tmp[0], tmp[1], tmp[2], tmp[3]);
 	}
 #endif
-#if 1
 	for (i = 0; i < 5; i++) {
 		bcm430x_ram_write(bcm, i * 4, buffer[i]);
 	}
+#if BCM430x_DEBUG
 	printk(KERN_WARNING PFX "Packet written\n");
+#endif
 
 	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 
 	bcm430x_write16(bcm, 0x0568, 0x0000);
 	bcm430x_write16(bcm, 0x07C0, 0x0000);
-	bcm430x_write16(bcm, 0x050C, packet_number);
+	bcm430x_write16(bcm, 0x050C, ((bcm->phy_type == BCM430x_PHYTYPE_A) ? 1 : 0));
 	bcm430x_write16(bcm, 0x0508, 0x0000);
 	bcm430x_write16(bcm, 0x050A, 0x0000);
 	bcm430x_write16(bcm, 0x054C, 0x0000);
@@ -374,28 +373,35 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	bcm430x_write16(bcm, 0x0500, 0x0000);
 	bcm430x_write16(bcm, 0x0502, 0x0030);
 
+	
 	for (i = 0x00; i < max_loop; i++) {
-		if ((value = bcm430x_read16(bcm, 0x050E) & 0x0080) != 0) {
-			printk(KERN_WARNING PFX "Loop1 broken in iteration %d, value is 0x%04x\n", i, value);
-			break;
-		}
-		udelay(10);
-	}
-	for (i = 0x00; i < 0x0A; i++) {
-		if ((bcm430x_read16(bcm, 0x050E) & 0x0400) != 0) {
-			printk(KERN_WARNING PFX "Loop2 broken in iteration %d\n", i);
-			break;
-		}
-		udelay(10);
-	}
-	for (i = 0x00; i < 0x0A; i++) {
-		if ((bcm430x_read16(bcm, 0x0690) & 0x0100) != 0) {
-			printk(KERN_WARNING PFX "Loop3 broken in iteration %d\n", i);
-			break;
-		}
-		udelay(10);
-	}
+		value = bcm430x_read16(bcm, 0x050E);
+#ifdef BCM430x_DEBUG
+		printk(KERN_INFO PFX "dummy_tx(): loop1, iteration %d, value = %04x\n", i, value);
 #endif
+		if ((value & 0x0080) != 0)
+			break;
+		udelay(10);
+	}
+	for (i = 0x00; i < 0x0A; i++) {
+		value = bcm430x_read16(bcm, 0x050E);
+#ifdef BCM430x_DEBUG
+		printk(KERN_INFO PFX "dummy_tx(): loop2, iteration %d, value = %04x\n", i, value);
+#endif
+		if ((value & 0x0400) != 0)
+			break;
+		udelay(10);
+	}
+	for (i = 0x00; i < 0x0A; i++) {
+		value = bcm430x_read16(bcm, 0x0690);
+#ifdef BCM430x_DEBUG
+		printk(KERN_INFO PFX "dummy_tx(): loop3, iteration %d, value = %04x\n", i, value);
+#endif
+		if ((value & 0x0100) == 0)
+			break;
+		udelay(10);
+	}
+
 	return 0;
 }
 
@@ -592,13 +598,13 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 
 	if ((bcm430x_core_enabled(bcm)) && (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)) {
 		/* reset all used DMA controllers. */
-		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
+		/*bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA2_BASE);
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA3_BASE);
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA4_BASE);
 		bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
 		if (bcm->current_core->rev < 5)
-			bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA4_BASE);
+			bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA4_BASE);*/
 	}
 	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN)
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
