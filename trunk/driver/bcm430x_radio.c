@@ -285,7 +285,7 @@ static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
 	u16 reg, index, ret;
 
 	reg    = bcm430x_radio_read16(bcm, 0x0060);
-	index  = (reg & 0x003E) / 2;
+	index  = (reg & 0x001E) / 2;
 	ret    = values[index] * 2;
 	ret   |= (reg & 0x0001);
 	ret   |= 0x0020;
@@ -296,12 +296,14 @@ static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
 u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 {
 	u16 stack[20];
-	u16 index = 0, ret;
-
-	// Backup data to stack
+	u16 index = 0, reg78, ret;
+	int i, j, tmp1 = 0, tmp2 = 0;
+	
 	if (bcm->phy_type == BCM430x_PHYTYPE_B) {
 		stack[index++] = bcm430x_read16(bcm, 0x03EC);
 		stack[index++] = bcm430x_phy_read(bcm, 0x0030);
+		bcm430x_phy_write(bcm, 0x0030, 0x00FF);
+		bcm430x_write16(bcm, 0x03EC, 0x3F3F);
 	} else {
 		if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
 			stack[index++] = bcm430x_phy_read(bcm, 0x0802);
@@ -358,15 +360,71 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	bcm430x_radio_write16(bcm, 0x0043, 0x0009);
 	bcm430x_radio_write16(bcm, 0x0058, 0x0000);
 	
-	//FIXME: Loop 1
-	
+	for (i = 0; i < 16; i++) {
+		bcm430x_phy_write(bcm, 0x005A, 0x0480);
+		bcm430x_phy_write(bcm, 0x0059, 0x6810);
+		bcm430x_phy_write(bcm, 0x0058, 0x000D);
+		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+		bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
+		udelay(10);
+		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+		bcm430x_phy_write(bcm, 0x0015, 0xEFB0);
+		udelay(10);
+		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+		bcm430x_phy_write(bcm, 0x0015, 0xFFF0);
+		udelay(10);
+		tmp1 += bcm430x_phy_read(bcm, 0x002D);
+		bcm430x_phy_write(bcm, 0x0058, 0x0000);
+		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+		bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
+	}
+
+	tmp1++;
+	tmp1 = (tmp1 >> 9);
 	udelay(10);
 	bcm430x_radio_write16(bcm, 0x0058, 0x0000);
 	
-	//FIXME: Loop 2
+	for (i = 0; i < 16; i++) {
+		bcm430x_phy_write(bcm, 0x0078, bcm430x_flipmap[i] | 0x0020);
+		reg78 = bcm430x_phy_read(bcm, 0x0078);
+		udelay(10);
+		for (j = 0; j < 16; j++) {
+			bcm430x_phy_write(bcm, 0x005A, 0x0D80);
+			bcm430x_phy_write(bcm, 0x0059, 0xC810);
+			bcm430x_phy_write(bcm, 0x0058, 0x000D);
+			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+			bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
+			udelay(10);
+			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+			bcm430x_phy_write(bcm, 0x0015, 0xEFB0);
+			udelay(10);
+			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+			bcm430x_phy_write(bcm, 0x0015, 0xFFF0);
+			udelay(10);
+			tmp2 += bcm430x_phy_read(bcm, 0x002D);
+			bcm430x_phy_write(bcm, 0x0058, 0x0000);
+			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
+			bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
+		}
+		tmp2++;
+		tmp2 = (tmp2 >> 8);
+		if (tmp1 < tmp2) {
+#ifdef BCM430x_DEBUG
+printk(KERN_INFO PFX "Broke loop 2 in radio_init2050: i=%d, j=%d, tmp1=%d, tmp2=%d\n", i, j, tmp1, tmp2);
+#endif
+			break;
+		}
+	}
 	
 	// Restore data from stack
-	// Restoring data that specs says we should not backup (PHY:0x15, radio:0x43)
 	bcm430x_phy_write(bcm, 0x0015, stack[--index]);
 	bcm430x_radio_write16(bcm, 0x0051,
 	                      (bcm430x_radio_read16(bcm, 0x0051) & 0xFFFB));
@@ -392,9 +450,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x0802, stack[--index]);
 		}
 	}
-	//FIXME:
-	//if (Loop 2 was gone through _completely_)
-	//	ret = bcm430x_radio_read16(bcm, 0x0078);
+	if (i >= 15)
+		ret = bcm430x_radio_read16(bcm, 0x0078);
 
 	return ret;
 }
