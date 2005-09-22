@@ -618,14 +618,14 @@ static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 		bcm430x_write16(bcm, 0x03E6, 0x00F4);
 		bcm430x_core_disable(bcm, bcm->current_core->flags);
 	} else {
-		if (!bcm->status & BCM430x_STAT_RADIOENABLED)
-		{
+		if (bcm->status & BCM430x_STAT_RADIOENABLED) {
+			bcm430x_radio_turn_off(bcm);
+		} else {
 			if ((bcm->current_core->rev >= 3) && (bcm430x_read32(bcm, 0x0158) & (1 << 16)))
 				bcm430x_radio_turn_off(bcm);
 			if ((bcm->current_core->rev < 3) && !(bcm430x_read16(bcm, 0x049A) & (1 << 4)))
 				bcm430x_radio_turn_off(bcm);
-		} else
-			bcm430x_radio_turn_off(bcm);
+		}
 	}
 }
 
@@ -1968,6 +1968,14 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	net_dev->tx_timeout = bcm430x_net_tx_timeout;
 	net_dev->wireless_handlers = &bcm430x_wx_handlers_def;
 	net_dev->irq = pdev->irq;
+
+/*FIXME: We disable scatter/gather IO until we figure out
+ *       how to turn hardware checksumming on.
+ */
+#if 0
+	net_dev->features |= NETIF_F_HW_CSUM;	/* hardware packet checksumming */
+	net_dev->features |= NETIF_F_SG;	/* Scatter/gather IO. */
+#endif
 
 	/* initialize the bcm430x_private struct */
 	bcm = bcm430x_priv(net_dev);
