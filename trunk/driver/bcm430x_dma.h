@@ -12,7 +12,9 @@
 #define BCM430x_DMA4_RXBUFFERSIZE	16
 
 
+struct sk_buff;
 struct bcm430x_private;
+
 
 struct bcm430x_dmadesc {
 	u32 control;
@@ -43,12 +45,10 @@ struct bcm430x_txheader {
 #define BCM430x_DESCFLAG_MAPPED	(1 << 0)
 
 struct bcm430x_dmadesc_meta {
-	/* Kernel virtual base address of the descriptor buffer. */
-	void *vaddr;
+	/* The kernel DMA-able buffer. */
+	struct sk_buff *skb;
 	/* DMA base bus-address of the descriptor buffer. */
 	dma_addr_t dmaaddr;
-	/* Size of the descriptor buffer. */
-	size_t size;
 	/* Various flags. */
 	u32 flags;
 };
@@ -66,10 +66,10 @@ struct bcm430x_dmaring {
 	struct bcm430x_dmadesc_meta *meta;
 	/* Number of descriptor slots in the ring. */
 	int nr_slots;
+	/* first used slot in the ring. */
+	int first_used;
 	/* last used slot in the ring. */
 	int last_used;
-	/* number of used slots in the ring. */
-	int nr_used;
 	/* Marks to suspend/resume the queue. */
 	int suspend_mark;
 	int resume_mark;
@@ -84,6 +84,7 @@ struct bcm430x_dmaring {
 struct bcm430x_dma_txcontext {
 	u8 nr_frags;
 	u8 cur_frag;
+	u32 desc_index; /* to poke the device. */
 };
 
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,

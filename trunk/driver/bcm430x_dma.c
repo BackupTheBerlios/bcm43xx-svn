@@ -42,14 +42,86 @@ static struct bcm430x_ringallocator {
 static DECLARE_MUTEX(ringallocator_sem);
 
 
+static inline int used_slots(struct bcm430x_dmaring *ring)
+{
+	if (ring->first_used < 0) {
+		assert(ring->last_used == -1);
+		return 0;
+	}
+	if (ring->last_used >= ring->first_used)
+		return (ring->last_used - ring->first_used + 1);
+	return ((ring->nr_slots - ring->first_used)
+		+ (ring->last_used + 1));
+}
+
 static inline int free_slots(struct bcm430x_dmaring *ring)
 {
-	int slots;
+	assert(ring->nr_slots - used_slots(ring) >= 0);
+	return (ring->nr_slots - used_slots(ring));
+}
 
-	slots = ring->nr_slots - ring->nr_used;
-	assert(slots >= 0);
+static inline int first_used_slot(struct bcm430x_dmaring *ring)
+{
+	return ring->first_used;
+}
 
-	return slots;
+static inline int last_used_slot(struct bcm430x_dmaring *ring)
+{
+	return ring->last_used;
+}
+
+static inline int next_slot(struct bcm430x_dmaring *ring, int slot)
+{
+	assert(slot >= -1 && slot <= ring->nr_slots - 1);
+	if (slot == ring->nr_slots - 1)
+		return 0;
+	return slot + 1;
+}
+
+static inline int prev_slot(struct bcm430x_dmaring *ring, int slot)
+{
+	assert(slot >= 0 && slot <= ring->nr_slots - 1);
+	if (slot == 0)
+		return ring->nr_slots - 1;
+	return slot - 1;
+}
+
+static inline int first_free_slot(struct bcm430x_dmaring *ring)
+{
+	assert(free_slots(ring));
+	return next_slot(ring, ring->last_used);
+}
+
+/* allocate a slot for usage. */
+static inline void alloc_slot(struct bcm430x_dmaring *ring, int slot)
+{
+#if 0
+	assert(free_slots(ring));
+	ring->nr_used++;
+	if (ring->last_used == ring->nr_slots - 1)
+		ring->last_used = 0;
+	else {
+		ring->last_used++;
+		if (slot > 0) {
+			ring->vaddr[prev_slot(ring, slot)].control
+				&= ~ BCM430x_DMADTOR_DTABLEEND;
+		}
+		ring->vaddr[slot].control |= BCM430x_DMADTOR_DTABLEEND;
+	}
+#endif
+}
+
+/* return a slot to the free slots. */
+static inline void free_slot(struct bcm430x_dmaring *ring, int slot)
+{
+#if 0
+	ring->nr_used--;
+	if (ring->last_used == 0)
+		ring->last_used = ring->nr_slots - 1;
+	else
+		ring->last_used--;
+	//TODO: DTABLEEND
+#endif
 }
 
 static inline u32 calc_rx_frameoffset(u16 dmacontroller_mmio_base)
@@ -209,13 +281,13 @@ static int map_descbuffer(struct bcm430x_dmaring *ring,
 	else
 		dir = DMA_FROM_DEVICE;
 	meta->dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
-				       meta->vaddr, meta->size, dir);
+				       meta->skb->data, meta->skb->len, dir);
 	if (!meta->dmaaddr) /*FIXME: can this fail? */
 		return -ENOMEM;
 	meta->flags |= BCM430x_DESCFLAG_MAPPED;
 
 	desc->address = meta->dmaaddr;
-	desc->control |= BCM430x_DMADTOR_BYTECNT_MASK & meta->size;
+	desc->control |= BCM430x_DMADTOR_BYTECNT_MASK & meta->skb->len;
 
 	return 0;
 }
@@ -243,28 +315,30 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 	meta->flags &= ~ BCM430x_DESCFLAG_MAPPED;  
 }
 
-static int alloc_descbuffer(struct bcm430x_dmaring *ring,
-			    struct bcm430x_dmadesc *desc,
-			    struct bcm430x_dmadesc_meta *meta,
-			    size_t size, unsigned int gfp_flags)
+static inline int alloc_descbuffer(struct bcm430x_dmaring *ring,
+				   struct bcm430x_dmadesc *desc,
+				   struct bcm430x_dmadesc_meta *meta,
+				   size_t size, unsigned int gfp_flags)
 {
-	meta->vaddr = kmalloc(size, gfp_flags | GFP_DMA);
-	if (!meta->vaddr)
+	meta->skb = __dev_alloc_skb(size, gfp_flags | GFP_DMA);
+	if (unlikely(!meta->skb))
 		return -ENOMEM;
-	meta->size = size;
-
 	return 0;
 }
 
-static void free_descbuffer(struct bcm430x_dmaring *ring,
-			    struct bcm430x_dmadesc *desc,
-			    struct bcm430x_dmadesc_meta *meta)
+static inline void free_descbuffer(struct bcm430x_dmaring *ring,
+				   struct bcm430x_dmadesc *desc,
+				   struct bcm430x_dmadesc_meta *meta,
+				   int irq)
 {
-	if (!meta->vaddr)
+	if (!meta->skb)
 		return;
 
 	assert(!(meta->flags & BCM430x_DESCFLAG_MAPPED));
-	kfree(meta->vaddr);
+	if (irq)
+		dev_kfree_skb_irq(meta->skb);
+	else
+		dev_kfree_skb(meta->skb);
 	memset(meta, 0, sizeof(*meta));
 }
 
@@ -286,6 +360,8 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 	} else
 		assert(0);
 
+	ring->first_used = 0;
+	ring->last_used = 0;
 	for (i = 0; i < num_buffers; i++) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
@@ -298,8 +374,7 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		if (err)
 			goto err_unwind;
 
-		ring->nr_used++;
-		assert(ring->nr_used <= ring->nr_slots);
+		assert(used_slots(ring) <= ring->nr_slots);
 		ring->last_used++;
 	}
 	desc->control |= BCM430x_DMADTOR_DTABLEEND;
@@ -313,7 +388,7 @@ err_unwind:
 		meta = ring->meta + i;
 
 		unmap_descbuffer(ring, desc, meta);
-		free_descbuffer(ring, desc, meta);
+		free_descbuffer(ring, desc, meta, 0);
 	}
 	goto out;
 }
@@ -379,15 +454,22 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 {
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
-	unsigned int i;
+	int i;
 
-	for (i = 0; i < ring->nr_used; i++) {
+	if (!used_slots(ring))
+		return;
+
+	i = first_used_slot(ring);
+	do {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
 		unmap_descbuffer(ring, desc, meta);
-		free_descbuffer(ring, desc, meta);
-	}
+		free_descbuffer(ring, desc, meta, 0);
+
+		i = next_slot(ring, i);
+	} while (i != last_used_slot(ring));
+	//TODO?
 }
 
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
@@ -412,6 +494,7 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	spin_lock_init(&ring->lock);
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
+	ring->first_used = -1;
 	ring->last_used = -1;
 //	ring->suspend_mark = nr_slots;
 //	ring->resume_mark = nr_slots / 2;
@@ -452,20 +535,89 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	kfree(ring);
 }
 
+static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
+				     struct sk_buff *skb,
+				     struct bcm430x_dma_txcontext *ctx)
+{
+	/*TODO: Scatter/Gather IO */
+	return -EINVAL;
+}
+
 static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 				  struct sk_buff *skb,
 				  struct bcm430x_dma_txcontext *ctx)
 {
-	/* TODO: go and allocate a descbuffer. Make it big enough.
-	 * TODO: insert the txheader
-	 * TODO: append the PLCP header
-	 * TODO: append the data from skb
-	 * TODO: poke the device (setup correct desc flags and so on..., write the desc index)
-	 */
+	int err = -ENODEV;
+	int slot;
+	struct bcm430x_dmadesc *desc;
+	struct bcm430x_dmadesc_meta *meta;
+
+//TODO: end of dtor table. bytecounts. slot counts.
+	if (unlikely(free_slots(ring) < skb_shinfo(skb)->nr_frags + 1)) {
+		/* The queue should be stopped,
+		 * if we are low on free slots.
+		 */
+		printk(KERN_ERR PFX "Out of DMA descriptor slots!\n");
+		return -ENOMEM;
+	}
+
+	slot = first_free_slot(ring);
+	alloc_slot(ring, slot);
+	desc = ring->vbase + slot;
+	assert(desc->control == 0x00000000);
+	meta = ring->meta + slot;
+
+	if (ctx->cur_frag == 0) {
+		/* first fragment.
+		 * TODO: insert the txheader
+		 * TODO: append the PLCP header
+		 */
+		desc->control |= BCM430x_DMADTOR_FRAMESTART;
+		ctx->desc_index = (u32)slot * sizeof(struct bcm430x_dmadesc);
+	}
 
 bcm430x_printk_dump(skb->data, skb->len, "SKB");
-printk(KERN_INFO PFX "fragment sent\n");
-	return -ENODEV;
+
+	/*TODO: map the buffer. */
+//	meta->skb = skb;
+	/*TODO: How about freeing the skb? The skb is freed by the ieee80211 subsys on txb free... */
+#if 0
+	err = map_descbuffer(ring, desc, meta);
+	if (unlikely(err)) {
+		printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
+		free_slot(ring, slot);
+		goto out;
+	}
+#endif
+
+	if (skb_shinfo(skb)->nr_frags != 0) {
+		/* Map the remaining Scatter/Gather fragments */
+		err = dma_tx_fragment_sg(ring, skb, ctx);
+		if (err) {
+			/*TODO: error handling: unmap, other stuff? */
+			free_slot(ring, slot);
+			goto out;
+		}
+		/*TODO: modify desc and meta to point to the last SC buffers */
+	}
+
+	if (ctx->cur_frag == ctx->nr_frags - 1) {
+		desc->control |= BCM430x_DMADTOR_FRAMEEND;
+		desc->control |= BCM430x_DMADTOR_COMPIRQ;
+		assert(ctx->desc_index != 0xffffffff);
+		/* poke the device. */
+printk("Posted desc_index %u on chip\n", ctx->desc_index);
+//TODO: do not poke the device directly, but put the request to a queue and hand off to a workqueue or something.
+#if 0
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
+				ctx->desc_index);
+#endif
+	}
+	/*TODO: free the slots in the interrupt handler? Free skbs (in irq handler)! */
+
+out:
+	return err;
 }
 
 int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
@@ -488,9 +640,11 @@ int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
 
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
+		ctx.desc_index = 0xffffffff;
 		err = dma_tx_fragment(ring, skb, &ctx);
 		if (err)
 			break;
+		ctx.cur_frag++;
 	}
 
 	return err;
