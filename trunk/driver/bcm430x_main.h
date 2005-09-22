@@ -48,6 +48,8 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm);
 
 int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core);
 
+void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy);
+
 int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val);
 int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset, u16 * val);
 int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset, u32 * val);

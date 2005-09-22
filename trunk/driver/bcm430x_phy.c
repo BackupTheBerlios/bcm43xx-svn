@@ -62,13 +62,11 @@ void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 	}
 	if ((bcm->phy_type == BCM430x_PHYTYPE_G) && (bcm->phy_rev == 1))
 	{
-		bcm->status &= ~BCM430x_STAT_PHYCONNECTED;
-		//FIXME: which core to reset?
-		//bcm430x_core_reset(bcm, ???);
+		//XXX: Reseting active wireless core for the moment?
+		bcm430x_wireless_core_reset(bcm, 0);
 		bcm430x_phy_initg(bcm);
-		bcm->status |= BCM430x_STAT_PHYCONNECTED;
-		//FIXME: which core to reset?
-		//bcm430x_core_reset(bcm, ???);
+		//XXX: See above
+		bcm430x_wireless_core_reset(bcm, 1);
 	}
 }
 
@@ -111,7 +109,7 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 		bcm430x_radio_set_txpower_b(bcm, 0x000B, 0x0009, 0x0000);
 	}
 
-	//bcm430x_dummy_transmission(bcm);
+	bcm430x_dummy_transmission(bcm);
 
 	phy29 = bcm430x_phy_read(bcm, 0x0029);
 

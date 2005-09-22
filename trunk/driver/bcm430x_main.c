@@ -586,7 +586,7 @@ out:
 }
 
 /* http://bcm-specs.sipsolutions.net/80211CoreReset */
-static void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
+void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 {
 	u32 flags = 0x00040000;
 
@@ -603,8 +603,11 @@ static void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect
 		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 				& ~(BCM430x_SBF_MAC_ENABLED | 0x00000002));
 	else {
-		if (connect_phy)
+		if (connect_phy) {
 			flags |= 0x20000000;
+			bcm->status |= BCM430x_STAT_PHYCONNECTED;
+		} else
+		  bcm->status &= ~BCM430x_STAT_PHYCONNECTED;
 		bcm430x_core_enable(bcm, flags);
 		bcm430x_write16(bcm, 0x03E6, 0x0000);
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000400);
