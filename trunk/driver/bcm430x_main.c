@@ -258,6 +258,7 @@ static void bcm430x_read_radio_id(struct bcm430x_private *bcm)
 /* Read SPROM and fill the useful values in the net_device struct */
 static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 {
+	int i;
 	u16 value;
 	struct net_device *net_dev = bcm->net_dev;
 
@@ -273,6 +274,40 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 	if (value == 0xffff)
 		value = 0x0000;
 	bcm->sprom.boardflags = value;
+
+	/* read LED infos */
+	value = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_WL0GPIO0));
+	bcm->leds[0] = value & 0x00FF;
+	bcm->leds[1] = (value & 0xFF00) >> 8;
+	value = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_WL0GPIO2));
+	bcm->leds[2] = value & 0x00FF;
+	bcm->leds[3] = (value & 0xFF00) >> 8;
+
+	for (i = 0; i < BCM430x_LED_COUNT; i++) {
+		if ((bcm->leds[i] & ~BCM430x_LED_ACTIVELOW) == BCM430x_LED_INACTIVE) {
+			bcm->leds[i] = 0xFF;
+			continue;
+		};
+		if (bcm->leds[i] == 0xFF) {
+			switch (i) {
+			case 0:
+				//XXX: Who is 0x0E11???
+				bcm->leds[0] = ((bcm->board_vendor == 0x0E11)
+				                ? BCM430x_LED_ACTIVITY
+				                : BCM430x_LED_RADIO_ALL);
+				break;
+			case 1:
+				bcm->leds[1] = BCM430x_LED_RADIO_B;
+				break;
+			case 2:
+				bcm->leds[2] = BCM430x_LED_RADIO_A;
+				break;
+			case 3:
+				bcm->leds[3] = BCM430x_LED_OFF;
+				break;
+			}
+		}
+	}
 }
 
 
@@ -583,7 +618,7 @@ static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 		bcm430x_write16(bcm, 0x03E6, 0x00F4);
 		bcm430x_core_disable(bcm, bcm->current_core->flags);
 	} else {
-		if (bcm->status & BCM430x_STAT_RADIOSWDISABLED)
+		if (!bcm->status & BCM430x_STAT_RADIOENABLED)
 		{
 			if ((bcm->current_core->rev >= 3) && (bcm430x_read32(bcm, 0x0158) & (1 << 16)))
 				bcm430x_radio_turn_off(bcm);
@@ -962,10 +997,49 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 	return 0;
 }
 
+/* Keep this slim, as we're going to call it from within the interrupt tasklet! */
+static void bcm430x_update_leds(struct bcm430x_private *bcm)
+{
+	int id;
+	u16 value = bcm430x_read32(bcm, BCM430x_MMIO_LED_CONTROL);
+	u16 state;
+
+	for (id = 0; id < BCM430x_LED_COUNT; id++) {
+		if (bcm->leds[id] == 0xFF)
+			continue;
+
+		state = 0;
+
+		switch (bcm->leds[id] & ~BCM430x_LED_ACTIVELOW) {
+		case BCM430x_LED_OFF:
+			state = 0;
+			break;
+		case BCM430x_LED_ON:
+			state = 1;
+			break;
+		case BCM430x_LED_RADIO_ALL:
+			state = ((bcm->status & BCM430x_STAT_RADIOENABLED) ? 1 : 0);
+			break;
+		/*
+		 * TODO: LED_ACTIVITY, _RADIO_A, _RADIO_B, MODE_BG, ASSOC
+		 */
+		default:
+			break;
+		};
+
+		if (bcm->leds[id] & BCM430x_LED_ACTIVELOW)
+			state = 0x0001 & (state ^ 0x0001);
+		value &= ~(1 << id);
+		value |= (state << id);
+	}
+
+	bcm430x_write32(bcm, BCM430x_MMIO_LED_CONTROL, value);
+}
+
 /* Switch to the core used to write the GPIO register.
  * This is either the ChipCommon, or the PCI core.
  */
-static int switch_to_gpio_core(struct bcm430x_private *bcm)
+static inline int switch_to_gpio_core(struct bcm430x_private *bcm)
 {
 	int err;
 
@@ -996,22 +1070,29 @@ static int bcm430x_gpio_init(struct bcm430x_private *bcm)
 {
 	struct bcm430x_coreinfo *old_core;
 	int err;
-	u32 value = 0x00000000;
+	u32 mask = 0x0000001F, value = 0x0000000F;
 
 	old_core = bcm->current_core;
+	
 	err = switch_to_gpio_core(bcm);
 	if (err)
 		return err;
 
-	if (bcm->current_core->rev <= 2)
+	if (bcm->current_core->rev >= 2){
+		mask  |= 0x10;
 		value |= 0x10;
-	/*FIXME: Need to set up some LED flags here? */
-	if (bcm->chip_id == 0x4301)
+	}
+	if (bcm->chip_id == 0x4301) {
+		mask  |= 0x60;
 		value |= 0x60;
-	if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
+	}
+	if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL) {
+		mask  |= 0x200;
 		value |= 0x200;
+	}
 
-	bcm430x_write32(bcm, BCM430x_GPIO_CONTROL, value);
+	bcm430x_write32(bcm, BCM430x_GPIO_CONTROL,
+	                (bcm430x_read32(bcm, BCM430x_GPIO_CONTROL) & mask) | value);
 
 	err = bcm430x_switch_core(bcm, old_core);
 	assert(err == 0);
@@ -1093,12 +1174,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & 0xFFFF3FFF);
-	bcm430x_write16(bcm, BCM430x_MMIO_LED_CONTROL,
-	                bcm430x_read16(bcm, BCM430x_MMIO_LED_CONTROL) & 0xFFF0);
-	// FIXME: What is MMIO 0x049e?
-	bcm430x_write16(bcm, 0x049E,
-			bcm430x_read16(bcm, 0x049E) | 0x000F);
-
+	
 	err = bcm430x_gpio_init(bcm);
 	if (err)
 		goto err_free_irq;

@@ -68,7 +68,7 @@
 #define BCM430x_SPROM_PA0B1		(BCM430x_SPROM_BASE + (2 * 0x30))
 #define BCM430x_SPROM_PA0B2		(BCM430x_SPROM_BASE + (2 * 0x31))
 #define BCM430x_SPROM_WL0GPIO0		(BCM430x_SPROM_BASE + (2 * 0x32))
-#define BCM430x_SPROM_WL0GPIO1		(BCM430x_SPROM_BASE + (2 * 0x33))
+#define BCM430x_SPROM_WL0GPIO2		(BCM430x_SPROM_BASE + (2 * 0x33))
 #define BCM430x_SPROM_MAXPWR		(BCM430x_SPROM_BASE + (2 * 0x34))
 #define BCM430x_SPROM_PA1B0		(BCM430x_SPROM_BASE + (2 * 0x35))
 #define BCM430x_SPROM_PA1B1		(BCM430x_SPROM_BASE + (2 * 0x36))
@@ -321,7 +321,19 @@ struct bcm430x_coreinfo {
 #define BCM430x_STAT_PHYCALIBRATED		(1 << 1)
 #define BCM430x_STAT_PHYCONNECTED		(1 << 2)
 #define BCM430x_STAT_DEVSHUTDOWN		(1 << 3)	// Are we shutting down?
-#define BCM430x_STAT_RADIOSWDISABLED		(1 << 4)
+#define BCM430x_STAT_RADIOENABLED		(1 << 4)
+
+#define BCM430x_LED_COUNT			4
+#define BCM430x_LED_OFF				0
+#define BCM430x_LED_ON				1
+#define BCM430x_LED_ACTIVITY			2
+#define BCM430x_LED_RADIO_ALL			3
+#define BCM430x_LED_RADIO_A			4
+#define BCM430x_LED_RADIO_B			5
+#define BCM430x_LED_MODE_BG			6
+#define BCM430x_LED_ASSOC			10
+#define BCM430x_LED_INACTIVE			11
+#define BCM430x_LED_ACTIVELOW			(1 << 7)
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
@@ -371,6 +383,8 @@ struct bcm430x_private {
 	u16 pcm_size;
 #endif
 	struct bcm430x_sprominfo sprom;
+
+	u8 leds[BCM430x_LED_COUNT];
 
 	u8 core_count;
 	/* The currently active core. NULL if not initialized, yet. */

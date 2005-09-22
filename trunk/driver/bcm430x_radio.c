@@ -567,6 +567,9 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		return -ENODEV;
 	}
 
+	if (bcm->status & BCM430x_STAT_RADIOENABLED)
+		return 0;
+
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
 		bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
@@ -587,7 +590,8 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		return -1;
 	}
 printk(KERN_INFO PFX "radio turned on\n");
-
+	
+	bcm->status |= BCM430x_STAT_RADIOENABLED;
 	return 0;
 }
 	
@@ -617,7 +621,8 @@ int bcm430x_radio_turn_off(struct bcm430x_private *bcm)
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
 		return -1;
 	}
-	
+
+	bcm->status &= ~BCM430x_STAT_RADIOENABLED;
 	return 0;
 }
 
