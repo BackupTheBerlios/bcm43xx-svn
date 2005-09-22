@@ -293,10 +293,9 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 		if (bcm->leds[i] == 0xFF) {
 			switch (i) {
 			case 0:
-				//XXX: Who is 0x0E11???
-				bcm->leds[0] = ((bcm->board_vendor == 0x0E11)
-				                ? BCM430x_LED_ACTIVITY
-				                : BCM430x_LED_RADIO_ALL);
+				bcm->leds[0] = ((bcm->board_vendor == PCI_VENDOR_ID_COMPAQ)
+				                ? BCM430x_LED_RADIO_ALL
+				                : BCM430x_LED_ACTIVITY);
 				break;
 			case 1:
 				bcm->leds[1] = BCM430x_LED_RADIO_B;
