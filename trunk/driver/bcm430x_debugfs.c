@@ -25,8 +25,8 @@
 
 
 
-#include <linux/debugfs.h>
 #include <linux/fs.h>
+#include <linux/debugfs.h>
 #include <linux/slab.h>
 #include <linux/netdevice.h>
 #include <linux/pci.h>
