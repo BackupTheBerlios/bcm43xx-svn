@@ -441,7 +441,7 @@ err_unwind:
 
 static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 {
-	int err;
+	int err = 0;
 	u32 value;
 
 	if (ring->flags & BCM430x_RINGFLAG_TX) {
@@ -457,6 +457,7 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
 				ring->dmabase);
 	} else {
+		return err; //XXX: Testing...
 		err = dmacontroller_rx_reset(ring);
 		if (err)
 			goto out;

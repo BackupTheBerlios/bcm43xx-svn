@@ -598,13 +598,13 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 
 	if ((bcm430x_core_enabled(bcm)) && (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)) {
 		/* reset all used DMA controllers. */
-		/*bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
+		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA2_BASE);
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA3_BASE);
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA4_BASE);
 		bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
 		if (bcm->current_core->rev < 5)
-			bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA4_BASE);*/
+			bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA4_BASE);
 	}
 	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN)
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
