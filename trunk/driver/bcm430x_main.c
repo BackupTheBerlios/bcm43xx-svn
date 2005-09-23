@@ -37,6 +37,7 @@
 #include <linux/version.h>
 #include <linux/firmware.h>
 #include <linux/wireless.h>
+#include <linux/workqueue.h>
 #include <net/iw_handler.h>
 
 #include "bcm430x.h"
@@ -2001,7 +2002,11 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
 		     (unsigned long)bcm);
-
+	bcm->workqueue = create_workqueue(DRV_NAME "_wq");
+	if (!bcm->workqueue) {
+		err = -ENOMEM;
+		goto err_free_netdev;
+	}
 	bcm->curr_channel = 0xFFFF;
 	bcm->antenna_diversity = 0xFFFF;
 	if (pio)
@@ -2035,7 +2040,7 @@ assert(bcm->data_xfer_mode == BCM430x_DATAXFER_DMA); /*TODO: Implement complete 
 		printk(KERN_ERR PFX "Cannot register net device, "
 		       "aborting.\n");
 		err = -ENOMEM;
-		goto err_free_netdev;
+		goto err_destroy_wq;
 	}
 
 	bcm430x_debugfs_add_device(bcm);
@@ -2044,6 +2049,8 @@ assert(bcm->data_xfer_mode == BCM430x_DATAXFER_DMA); /*TODO: Implement complete 
 out:
 	return err;
 
+err_destroy_wq:
+	destroy_workqueue(bcm->workqueue);
 err_free_netdev:
 	free_netdev(net_dev);
 	goto out;
@@ -2056,6 +2063,7 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 
 	bcm430x_debugfs_remove_device(bcm);
 	unregister_netdev(net_dev);
+	destroy_workqueue(bcm->workqueue);
 	free_netdev(net_dev);
 }
 

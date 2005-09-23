@@ -291,6 +291,7 @@
 
 struct net_device;
 struct pci_dev;
+struct workqueue_struct;
 struct bcm430x_dmaring;
 
 struct bcm430x_sprominfo {
@@ -410,6 +411,8 @@ struct bcm430x_private {
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;
+	/* Custom driver work queue. */
+	struct workqueue_struct *workqueue;
 
 	/* How is data transfered from the chip to the CPU? DMA or PIO. */
 	u8 data_xfer_mode;
