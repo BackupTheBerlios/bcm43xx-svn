@@ -11,6 +11,11 @@
 #define BCM430x_DMA1_RXBUFFERSIZE	2048
 #define BCM430x_DMA4_RXBUFFERSIZE	16
 
+/* suspend the tx queue, if less than this percent slots are free. */
+#define BCM430x_TXSUSPEND_PERCENT	20
+/* resume the tx queue, if more than this percent slots are free. */
+#define BCM430x_TXRESUME_PERCENT	50
+
 
 struct sk_buff;
 struct bcm430x_private;
@@ -53,7 +58,8 @@ struct bcm430x_dmadesc_meta {
 	u32 flags;
 };
 
-#define BCM430x_RINGFLAG_TX	(1 << 0)
+#define BCM430x_RINGFLAG_TX		(1 << 0)
+#define BCM430x_RINGFLAG_SUSPENDED	(1 << 1)
 
 struct bcm430x_dmaring {
 	spinlock_t lock;

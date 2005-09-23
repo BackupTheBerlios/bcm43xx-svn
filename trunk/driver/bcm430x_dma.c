@@ -128,6 +128,36 @@ static inline void return_slot(struct bcm430x_dmaring *ring, int slot)
 	}
 }
 
+static inline void suspend_txqueue(struct bcm430x_dmaring *ring)
+{
+	assert(ring->flags & BCM430x_RINGFLAG_TX);
+	assert(!(ring->flags & BCM430x_RINGFLAG_SUSPENDED));
+	netif_stop_queue(ring->bcm->net_dev);
+	ring->flags |= BCM430x_RINGFLAG_SUSPENDED;
+}
+
+static inline void try_to_suspend_txqueue(struct bcm430x_dmaring *ring)
+{
+	if (free_slots(ring) < ring->suspend_mark)
+		suspend_txqueue(ring);
+}
+
+static inline void resume_txqueue(struct bcm430x_dmaring *ring)
+{
+	assert(ring->flags & BCM430x_RINGFLAG_TX);
+	assert(ring->flags & BCM430x_RINGFLAG_SUSPENDED);
+	ring->flags &= ~ BCM430x_RINGFLAG_SUSPENDED;
+	netif_wake_queue(ring->bcm->net_dev);
+}
+
+static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
+{
+	if (!(ring->flags & BCM430x_RINGFLAG_SUSPENDED))
+		return;
+	if (free_slots(ring) >= ring->resume_mark)
+		resume_txqueue(ring);
+}
+
 static inline u32 calc_rx_frameoffset(u16 dmacontroller_mmio_base)
 {
 	u32 offset = 0x00000000;
@@ -512,8 +542,9 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	ring->nr_slots = nr_descriptor_slots;
 	ring->first_used = -1;
 	ring->last_used = -1;
-//	ring->suspend_mark = nr_slots;
-//	ring->resume_mark = nr_slots / 2;
+	ring->suspend_mark = ring->nr_slots * BCM430x_TXSUSPEND_PERCENT / 100;
+	ring->resume_mark = ring->nr_slots * BCM430x_TXRESUME_PERCENT / 100;
+	assert(ring->suspend_mark < ring->resume_mark);
 	ring->mmio_base = dma_controller_base;
 	if (tx)
 		ring->flags |= BCM430x_RINGFLAG_TX;
@@ -632,6 +663,8 @@ printk("Posted desc_index %u on chip\n", ctx->desc_index);
 #endif
 	}
 	/*TODO: return the slots in the interrupt handler. Free skbs (in irq handler)! */
+
+	try_to_suspend_txqueue(ring);
 
 out:
 	return err;
