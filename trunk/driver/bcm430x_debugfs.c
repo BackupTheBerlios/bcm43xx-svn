@@ -366,9 +366,9 @@ void bcm430x_printk_dump(const char *data,
 	for (i = 0; i < size; i++) {
 		c = data[i];
 		if (i % 6 == 0)
-			printk("\n" KERN_INFO PFX "0x%08x:  0x%02x, ", i, c);
+			printk("\n" KERN_INFO PFX "0x%08x:  0x%02x, ", i, c & 0xff);
 		else
-			printk("0x%02x, ", c);
+			printk("0x%02x, ", c & 0xff);
 	}
 	printk("\n");
 }
