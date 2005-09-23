@@ -357,7 +357,7 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 	desc->address = 0x00000000;
 
 	dma_unmap_single(&ring->bcm->pci_dev->dev,
-			 meta->dmaaddr, meta->size, dir);
+			 meta->dmaaddr, meta->skb->len, dir);
 
 	meta->flags &= ~ BCM430x_DESCFLAG_MAPPED;  
 }
