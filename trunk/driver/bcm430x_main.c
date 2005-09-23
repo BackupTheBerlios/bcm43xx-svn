@@ -314,8 +314,6 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 
 /* DummyTransmission function, as documented on 
  * http://bcm-specs.sipsolutions.net/DummyTransmission
- * Used 32 bit read/writes.
- * I finished doing it at 2:25 AM, so don't expect it works.
  */
 int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
@@ -611,11 +609,9 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 				& ~(BCM430x_SBF_MAC_ENABLED | 0x00000002));
 	else {
-		if (connect_phy) {
+		if (connect_phy)
 			flags |= 0x20000000;
-			bcm->status |= BCM430x_STAT_PHYCONNECTED;
-		} else
-		  bcm->status &= ~BCM430x_STAT_PHYCONNECTED;
+		bcm430x_phy_connect(bcm, connect_phy);
 		bcm430x_core_enable(bcm, flags);
 		bcm430x_write16(bcm, 0x03E6, 0x0000);
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000400);

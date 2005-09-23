@@ -70,6 +70,40 @@ void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 	}
 }
 
+/* Connect the PHY 
+ * http://bcm-specs.sipsolutions.net/SetPHY
+ */
+int bcm430x_phy_connect(struct bcm430x_private *bcm, int connect)
+{
+	u32 flags = 0;
+
+	flags = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
+	if (connect) {
+		if (!(flags & 0x00010000))
+			return -ENODEV;
+
+		flags = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+		flags |= 0x08000000;
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, flags);
+		bcm->status |= BCM430x_STAT_PHYCONNECTED;
+#ifdef BCM430x_DEBUG
+		printk(KERN_INFO PFX "PHY connected!\n");
+#endif
+	} else {
+		if (!(flags & 0x00020000))
+			return -ENODEV;
+		bcm->status &= ~BCM430x_STAT_PHYCONNECTED;
+		flags = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+		flags &= ~0x08000000;
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, flags);
+#ifdef BCM430x_DEBUG
+		printk(KERN_INFO PFX "PHY disconnected!\n");
+#endif
+	}
+
+	return 0;
+}
+
 /* intialize B PHY power control
  * as described in http://bcm-specs.sipsolutions.net/InitPowerControl
  */
