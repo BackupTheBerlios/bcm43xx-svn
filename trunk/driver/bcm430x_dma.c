@@ -252,6 +252,7 @@ int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 			i = -1;
 			break;
 		}
+		udelay(10);
 	}
 	if (i != -1) {
 		printk(KERN_ERR PFX "Error: Wait on DMA RX status timed out.\n");
