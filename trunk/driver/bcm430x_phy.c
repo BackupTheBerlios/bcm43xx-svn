@@ -83,7 +83,7 @@ int bcm430x_phy_connect(struct bcm430x_private *bcm, int connect)
 			return -ENODEV;
 
 		flags = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
-		flags |= 0x08000000;
+		flags |= 0x20000000;
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, flags);
 		bcm->status |= BCM430x_STAT_PHYCONNECTED;
 #ifdef BCM430x_DEBUG
