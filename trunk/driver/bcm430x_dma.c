@@ -367,6 +367,7 @@ static inline int alloc_descbuffer(struct bcm430x_dmaring *ring,
 				   struct bcm430x_dmadesc_meta *meta,
 				   size_t size, unsigned int gfp_flags)
 {
+	assert(!(meta->flags & BCM430x_DESCFLAG_DONTFREE_SKB));
 	meta->skb = __dev_alloc_skb(size, gfp_flags | GFP_DMA);
 	if (unlikely(!meta->skb))
 		return -ENOMEM;
@@ -382,10 +383,15 @@ static inline void free_descbuffer(struct bcm430x_dmaring *ring,
 		return;
 
 	assert(!(meta->flags & BCM430x_DESCFLAG_MAPPED));
-	if (irq)
-		dev_kfree_skb_irq(meta->skb);
-	else
-		dev_kfree_skb(meta->skb);
+	if (meta->flags & BCM430x_DESCFLAG_DONTFREE_SKB) {
+		assert(meta->txb);
+		ieee80211_txb_free(meta->txb);
+	} else {
+		if (irq)
+			dev_kfree_skb_irq(meta->skb);
+		else
+			dev_kfree_skb(meta->skb);
+	}
 	memset(meta, 0, sizeof(*meta));
 }
 
@@ -594,6 +600,7 @@ static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
 
 static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 				  struct sk_buff *skb,
+				  struct ieee80211_txb *txb,
 				  struct bcm430x_dma_txcontext *ctx)
 {
 	int err = -ENODEV;
@@ -602,7 +609,6 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc_meta *meta;
 
 printk("free slots %d\n", free_slots(ring));
-//TODO: end of dtor table. bytecounts. slot counts.
 	if (unlikely(free_slots(ring) < skb_shinfo(skb)->nr_frags + 1)) {
 		/* The queue should be stopped,
 		 * if we are low on free slots.
@@ -614,7 +620,7 @@ printk("free slots %d\n", free_slots(ring));
 	slot = first_free_slot(ring);
 	request_slot(ring, slot);
 	desc = ring->vbase + slot;
-	assert(desc->control == 0x00000000);
+	assert(desc->address == 0x00000000);
 	meta = ring->meta + slot;
 
 	if (ctx->cur_frag == 0) {
@@ -623,15 +629,16 @@ printk("free slots %d\n", free_slots(ring));
 		 * TODO: append the PLCP header
 		 */
 		desc->control |= BCM430x_DMADTOR_FRAMESTART;
-		ctx->desc_index = (u32)slot * sizeof(struct bcm430x_dmadesc);
+		meta->txb = txb;
+		ctx->desc_index = (u32)(slot * sizeof(struct bcm430x_dmadesc));
 	}
 
 bcm430x_printk_dump(skb->data, skb->len, "SKB");
 
-	/*TODO: map the buffer. */
-//	meta->skb = skb;
-	/*TODO: How about freeing the skb? The skb is freed by the ieee80211 subsys on txb free... */
-#if 0
+	/* write the buffer to the descriptor and map it. */
+	meta->skb = skb;
+	meta->flags |= BCM430x_DESCFLAG_DONTFREE_SKB;
+#if 1
 	err = map_descbuffer(ring, desc, meta);
 	if (unlikely(err)) {
 		printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
@@ -693,7 +700,7 @@ int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
 		ctx.desc_index = 0xffffffff;
-		err = dma_tx_fragment(ring, skb, &ctx);
+		err = dma_tx_fragment(ring, skb, txb, &ctx);
 		if (err)
 			break;
 		ctx.cur_frag++;

@@ -47,7 +47,8 @@ struct bcm430x_txheader {
 	u16 __UNKNOWN_8;
 } __attribute__((__packed__));
 
-#define BCM430x_DESCFLAG_MAPPED	(1 << 0)
+#define BCM430x_DESCFLAG_MAPPED		(1 << 0)
+#define BCM430x_DESCFLAG_DONTFREE_SKB	(1 << 1)
 
 struct bcm430x_dmadesc_meta {
 	/* The kernel DMA-able buffer. */
@@ -56,6 +57,8 @@ struct bcm430x_dmadesc_meta {
 	dma_addr_t dmaaddr;
 	/* Various flags. */
 	u32 flags;
+	/* Pointer to our txb (if any). This should be freed in irq. */
+	struct ieee80211_txb *txb;
 };
 
 #define BCM430x_RINGFLAG_TX		(1 << 0)
