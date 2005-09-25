@@ -477,15 +477,15 @@ int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *ne
 }
 
 /* returns non-zero if the current core is enabled, zero otherwise */
-static int bcm430x_core_enabled(struct bcm430x_private *bcm)
+static inline int bcm430x_core_enabled(struct bcm430x_private *bcm)
 {
-	/* fetch sbtmstatelow from core information registers */
-	bcm->sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	u32 value;
 
-	bcm->sbtmstatelow = bcm->sbtmstatelow & (BCM430x_SBTMSTATELOW_CLOCK |
-			BCM430x_SBTMSTATELOW_RESET | BCM430x_SBTMSTATELOW_REJECT);
+	value = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	value &= BCM430x_SBTMSTATELOW_CLOCK | BCM430x_SBTMSTATELOW_RESET
+		 | BCM430x_SBTMSTATELOW_REJECT;
 
-	return ~ (bcm->sbtmstatelow ^ BCM430x_SBTMSTATELOW_CLOCK);
+	return (value == BCM430x_SBTMSTATELOW_CLOCK);
 }
 
 /* disable current core */
