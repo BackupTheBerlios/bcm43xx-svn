@@ -489,58 +489,63 @@ static inline int bcm430x_core_enabled(struct bcm430x_private *bcm)
 }
 
 /* disable current core */
-static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
+static int bcm430x_core_disable(struct bcm430x_private *bcm, u32 core_flags)
 {
 	u32 sbtmstatelow;
+	u32 sbtmstatehigh;
 	int i;
 
 	/* fetch sbtmstatelow from core information registers */
 	sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
 
 	/* core is already in reset */
-	if (sbtmstatelow | BCM430x_SBTMSTATELOW_RESET)
+	if (sbtmstatelow & BCM430x_SBTMSTATELOW_RESET)
 		goto out;
 
-	if (! (sbtmstatelow | BCM430x_SBTMSTATELOW_CLOCK)) {
-		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
-				BCM430x_SBTMSTATELOW_CLOCK |
-				BCM430x_SBTMSTATELOW_REJECT);
-		
-		i = 0;
-		while (1) {
-			if (bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW) | 
-			    BCM430x_SBTMSTATELOW_REJECT)
+	if (sbtmstatelow & BCM430x_SBTMSTATELOW_CLOCK) {
+		sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK |
+			       BCM430x_SBTMSTATELOW_REJECT;
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+
+		for (i = 0; i < 1000; i++) {
+			sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+			if (sbtmstatelow & BCM430x_SBTMSTATELOW_REJECT) {
+				i = -1;
 				break;
-			if (i++ > 5000)
-				break;
+			}
+			udelay(10);
+		}
+		if (i != -1) {
+			printk(KERN_ERR PFX "Error: core_disable() REJECT timeout!\n");
+			return -EBUSY;
 		}
 
-		printk (KERN_INFO PFX "Disabling core looped %d times.\n", i);
-		i = 0;
-		while (1) {
-			if (bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH) | 
-			    BCM430x_SBTMSTATEHIGH_BUSY)
+		for (i = 0; i < 1000; i++) {
+			sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
+			if (!(sbtmstatehigh & BCM430x_SBTMSTATEHIGH_BUSY)) {
+				i = -1;
 				break;
-			if (i++ > 5000)
-				break;
+			}
+			udelay(10);
 		}
-		printk (KERN_INFO PFX "Disabling core looped %d times.\n", i);
+		if (i != -1) {
+			printk(KERN_ERR PFX "Error: core_disable() BUSY timeout!\n");
+			return -EBUSY;
+		}
 
-		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
-			BCM430x_SBTMSTATELOW_RESET |
-			BCM430x_SBTMSTATELOW_REJECT |
-			BCM430x_SBTMSTATELOW_CLOCK |
-			BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
-			core_flags);
-
+		sbtmstatelow = BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+			       BCM430x_SBTMSTATELOW_REJECT |
+			       BCM430x_SBTMSTATELOW_RESET |
+			       BCM430x_SBTMSTATELOW_CLOCK |
+			       core_flags;
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
 		udelay(10);
-
 	}
 
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
-			BCM430x_SBTMSTATELOW_RESET |
-			BCM430x_SBTMSTATELOW_REJECT |
-			core_flags);
+	sbtmstatelow = BCM430x_SBTMSTATELOW_RESET |
+		       BCM430x_SBTMSTATELOW_REJECT |
+		       core_flags;
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
 
 out:
 	bcm->current_core->flags &= ~ BCM430x_COREFLAG_ENABLED;
