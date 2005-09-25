@@ -35,5 +35,5 @@ struct bcm430x_private;
 
 void bcm430x_pctl_init(struct bcm430x_private *bcm);
 int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode);
-void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on);
+int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on);
 u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm);

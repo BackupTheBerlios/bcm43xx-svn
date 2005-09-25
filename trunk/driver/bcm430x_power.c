@@ -197,7 +197,7 @@ int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 
 	if (mode == BCM430x_PCTL_CLK_SLOW &&
 	    !(bcm->sprom.boardflags & BCM430x_BFL_XTAL)) {
-		printk(KERN_INFO PFX "Slow clock not supported\n");
+		/* Slow clock not supported by chip. */
 		return 0;
 	}
 
@@ -214,8 +214,11 @@ int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 
 	if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
 		if (bcm->current_core->rev < 6) {
-			if (mode == BCM430x_PCTL_CLK_FAST)
-				bcm430x_pctl_set_crystal(bcm, 1);
+			if (mode == BCM430x_PCTL_CLK_FAST) {
+				err = bcm430x_pctl_set_crystal(bcm, 1);
+				if (err)
+					goto out;
+			}
 		} else {
 			switch (mode) {
 			case BCM430x_PCTL_CLK_FAST:
@@ -273,16 +276,20 @@ err_pci:
 	goto out;
 }
 
-void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
+int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 {
+	int err;
 	u32 in, out, outenable;
 
-	/* All the code in this function is derived from
-	 * http://bcm-specs.sipsolutions.net/PowerControl */
-
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &in);
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &outenable);
+	err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &in);
+	if (err)
+		goto err_pci;
+	err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
+	if (err)
+		goto err_pci;
+	err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &outenable);
+	if (err)
+		goto err_pci;
 
 	outenable |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
 
@@ -292,16 +299,39 @@ void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 
 		out |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
 
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, outenable);
+		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
+		if (err)
+			goto err_pci;
+		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, outenable);
+		if (err)
+			goto err_pci;
 		udelay(1000);
 
 		out &= ~BCM430x_PCTL_PLL_POWERDOWN;
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
-
+		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
+		if (err)
+			goto err_pci;
 		udelay(5000);
 	} else {
-		out &= ~BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN;
-		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
+		//TODO: if the radio is hardware-disabled, the core rev is < 5 or BFL_XTAL is set, do nothing.
+		err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_SLOW);
+		if (err)
+			goto out;
+		out &= ~BCM430x_PCTL_XTAL_POWERUP;
+		out |= BCM430x_PCTL_PLL_POWERDOWN;
+		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
+		if (err)
+			goto err_pci;
+		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, outenable);
+		if (err)
+			goto err_pci;
 	}
+
+out:
+	return err;
+
+err_pci:
+	printk(KERN_ERR PFX "Error: pctl_set_clock() could not access PCI config space!\n");
+	err = -EBUSY;
+	goto out;
 }

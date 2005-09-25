@@ -1728,13 +1728,19 @@ err_chip_cleanup:
 	goto out;
 }
 
-static void bcm430x_chipset_attach(struct bcm430x_private *bcm)
+static int bcm430x_chipset_attach(struct bcm430x_private *bcm)
 {
+	int err;
 	u16 pci_status;
 
-	bcm430x_pctl_set_crystal(bcm, 1);
+	err = bcm430x_pctl_set_crystal(bcm, 1);
+	if (err)
+		goto out;
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
 	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+
+out:
+	return err;
 }
 
 static void bcm430x_chipset_detach(struct bcm430x_private *bcm)
@@ -1925,7 +1931,9 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES,
 	                           &bcm->chipcommon_capabilities);
 
-	bcm430x_chipset_attach(bcm);
+	err = bcm430x_chipset_attach(bcm);
+	if (err)
+		goto err_iounmap;
 	bcm430x_pctl_init(bcm);
 	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
 	err = bcm430x_probe_cores(bcm);
@@ -2003,7 +2011,7 @@ err_radio_off:
 	bcm430x_radio_turn_off(bcm);
 err_chipset_detach:
 	bcm430x_chipset_detach(bcm);
-/*err_iounmap:*/
+err_iounmap:
 	iounmap(bcm->mmio_addr);
 err_pci_release:
 	pci_release_regions(pci_dev);
