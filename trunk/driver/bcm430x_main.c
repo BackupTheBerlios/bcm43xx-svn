@@ -233,6 +233,32 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 	return pci_write_config_dword(pdev, offset, val);
 }
 
+/* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
+ * Returns the _previously_ enabled IRQ mask.
+ */
+static inline u32 bcm430x_interrupt_enable(struct bcm430x_private *bcm, u32 mask)
+{
+	u32 old_mask;
+
+	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask | mask);
+
+	return old_mask;
+}
+
+/* Disable a Generic IRQ. "mask" is the mask of which IRQs to disable.
+ * Returns the _previously_ enabled IRQ mask.
+ */
+static inline u32 bcm430x_interrupt_disable(struct bcm430x_private *bcm, u32 mask)
+{
+	u32 old_mask;
+
+	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask & ~mask);
+
+	return old_mask;
+}
+
 static void bcm430x_read_radio_id(struct bcm430x_private *bcm)
 {
 	u32 val;
@@ -646,30 +672,43 @@ static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 	}
 }
 
-/* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
- * Returns the _previously_ enabled IRQ mask.
+/* Mark the current 80211 core inactive.
+ * "active_80211_core" is the other 80211 core, which is used.
  */
-static inline u32 bcm430x_interrupt_enable(struct bcm430x_private *bcm, u32 mask)
+static int bcm430x_wireless_core_mark_inactive(struct bcm430x_private *bcm,
+					       struct bcm430x_coreinfo *active_80211_core)
 {
-	u32 old_mask;
+	u32 sbtmstatelow;
+	struct bcm430x_coreinfo *old_core;
+	int err = 0;
 
-	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask | mask);
+	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	bcm430x_radio_turn_off(bcm);
+	sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	sbtmstatelow &= ~0x200a0000;
+	sbtmstatelow |= 0xa0000;
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	udelay(1);
+	sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	sbtmstatelow &= ~0xa0000;
+	sbtmstatelow |= 0x80000;
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	udelay(1);
 
-	return old_mask;
-}
+	if (bcm->phy_type == BCM430x_PHYTYPE_G) {
+		old_core = bcm->current_core;
+		err = bcm430x_switch_core(bcm, active_80211_core);
+		if (err)
+			goto out;
+		sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+		sbtmstatelow &= ~0x20000000;
+		sbtmstatelow |= 0x20000000;
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+		err = bcm430x_switch_core(bcm, old_core);
+	}
 
-/* Disable a Generic IRQ. "mask" is the mask of which IRQs to disable.
- * Returns the _previously_ enabled IRQ mask.
- */
-static inline u32 bcm430x_interrupt_disable(struct bcm430x_private *bcm, u32 mask)
-{
-	u32 old_mask;
-
-	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask & ~mask);
-
-	return old_mask;
+out:
+	return err;
 }
 
 /* Interrupt handler bottom-half */
@@ -1910,6 +1949,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		bcm430x_wireless_core_reset(bcm, (i == 0));
 
 		if (i != 0) {
+			bcm430x_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
 			//TODO: make this 80211 core inactive.
 		}
 
