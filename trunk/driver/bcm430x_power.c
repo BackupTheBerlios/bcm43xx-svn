@@ -39,42 +39,43 @@
  */
 static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
 {
+	int minslowclk = 0;
 	int err;
 	u32 out, slow_clk_ctl;
 	struct bcm430x_coreinfo *old_core;
 
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	if (err)
+		goto out;
 
-	if (!err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && (bcm->current_core->id == BCM430x_COREID_CHIPCOMMON)) {
-		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
-			if (bcm->current_core->rev < 6) {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
-				if (out & 0x10) {
-					/* PCI */
-					return 25000000/64;
-				} else {
-					/* XTAL */
-					return 19800000/32;
-				}
+	if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
+		if (bcm->current_core->rev < 6) {
+			bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
+			if (out & 0x10) {
+				/* PCI */
+				minslowclk = 25000000 / 64;
 			} else {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
-				switch (slow_clk_ctl & 0x7) {
-				case 0:
-				case 1:
-					/* LPO */
-					return 25000;
-					break;
-				case 2:
-					/* XTAL */
-					return 19800000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				case 3:
-				default:
-					/* PCI */
-					return 25000000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				}
+				/* XTAL */
+				minslowclk = 19800000 / 32;
+			}
+		} else {
+			bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
+			switch (slow_clk_ctl & 0x7) {
+			case 0:
+			case 1:
+				/* LPO */
+				minslowclk = 25000;
+				break;
+			case 2:
+				/* XTAL */
+				minslowclk = 19800000 / (4 * (1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+				break;
+			case 3:
+			default:
+				/* PCI */
+				minslowclk = 25000000 / (4 * (1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+				break;
 			}
 		}
 	}
@@ -82,7 +83,8 @@ static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
 	err = bcm430x_switch_core(bcm, old_core);
 	assert(err == 0);
 
-	return -1;
+out:
+	return minslowclk;
 }
 
 /* get max slowclock frequency
@@ -90,6 +92,7 @@ static int bcm430x_pctl_get_minslowclk(struct bcm430x_private *bcm)
  */
 static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
 {
+	int maxslowclk = 0;
 	int err;
 	u32 out;
 	u32 slow_clk_ctl = 0;
@@ -97,36 +100,36 @@ static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
 
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	if (err)
+		goto out;
 
-	if (!err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && (bcm->current_core->id == BCM430x_COREID_CHIPCOMMON)) {
-		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
-			if (bcm->current_core->rev < 6) {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
-				if (out & 0x10) {
-					/* PCI */
-					return 34000000/64;
-				} else {
-					/* XTAL */
-					return 20200000/32;
-				}
+	if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
+		if (bcm->current_core->rev < 6) {
+			bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &out);
+			if (out & 0x10) {
+				/* PCI */
+				maxslowclk = 34000000 / 64;
 			} else {
-				bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
-				switch (slow_clk_ctl & 0x7) {
-				case 0:
-				case 1:
-					/* LPO */
-					return 43000;
-					break;
-				case 2:
-					/* XTAL */
-					return 20200000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				case 3:
-				default:
-					/* PCI */
-					return 34000000/(4*(1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
-					break;
-				}
+				/* XTAL */
+				maxslowclk = 20200000 / 32;
+			}
+		} else {
+			bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &slow_clk_ctl);
+			switch (slow_clk_ctl & 0x7) {
+			case 0:
+			case 1:
+				/* LPO */
+				maxslowclk = 43000;
+				break;
+			case 2:
+				/* XTAL */
+				maxslowclk = 20200000 / (4 * (1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+				break;
+			case 3:
+			default:
+				/* PCI */
+				maxslowclk = 34000000 / (4 * (1 + ((slow_clk_ctl & 0xFFFF0000) >> 16)));
+				break;
 			}
 		}
 	}
@@ -134,56 +137,66 @@ static int bcm430x_pctl_get_maxslowclk(struct bcm430x_private *bcm)
 	err = bcm430x_switch_core(bcm, old_core);
 	assert(err == 0);
 
-	return -1;
+out:
+	return maxslowclk;
 }
 
 /* init power control
  * as described in http://bcm-specs.sipsolutions.net/PowerControl
  */
-void bcm430x_pctl_init(struct bcm430x_private *bcm)
+int bcm430x_pctl_init(struct bcm430x_private *bcm)
 {
 	int err, maxfreq;
 	struct bcm430x_coreinfo *old_core;
 
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	if (err == -ENODEV)
+		return 0;
+	if (err)
+		goto out;
 
-	if (!err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && (bcm->current_core->id == BCM430x_COREID_CHIPCOMMON)) {
-		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
-			maxfreq = bcm430x_pctl_get_maxslowclk(bcm);
-			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_IN, (maxfreq*250+999999)/1000000);
-			bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, (maxfreq*250+999999)/1000000);
-		}
+	if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
+		maxfreq = bcm430x_pctl_get_maxslowclk(bcm);
+		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_IN,
+					    (maxfreq * 250 + 999999) / 1000000);
+		bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT,
+					    (maxfreq * 250 + 999999) / 1000000);
 	}
 
 	err = bcm430x_switch_core(bcm, old_core);
 	assert(err == 0);
+
+out:
+	return err;
 }
 
 u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm)
 {
+	u16 delay = 0;
 	int err;
-	u32 pll_on_delay;
+	u32 pll_on_delay = 0;
 	struct bcm430x_coreinfo *old_core;
 	int minfreq;
 
-	//FIXME: ensure PCI
-
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	if (err == -ENODEV)
+		goto out;
 
-	if (!err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && (bcm->current_core->id == BCM430x_COREID_CHIPCOMMON)) {
-		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
-			minfreq = bcm430x_pctl_get_minslowclk(bcm);
-			bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &pll_on_delay);
-			return (((pll_on_delay+2)*1000000)+(minfreq-1))/minfreq;
-		}
+	if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
+		minfreq = bcm430x_pctl_get_minslowclk(bcm);
+		err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_IN, &pll_on_delay);
+		if (err)
+			printk(KERN_WARNING PFX "Could not read pll_on_delay\n");
+		delay = (((pll_on_delay + 2) * 1000000) + (minfreq - 1)) / minfreq;
 	}
 
 	err = bcm430x_switch_core(bcm, old_core);
 	assert(err == 0);
 
-	return 0;
+out:
+	return delay;
 }
 
 /* set the powercontrol clock
@@ -295,7 +308,7 @@ int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 
 	if (on) {
 		if (in & 0x40)
-			return;
+			return 0;
 
 		out |= (BCM430x_PCTL_XTAL_POWERUP | BCM430x_PCTL_PLL_POWERDOWN);
 
