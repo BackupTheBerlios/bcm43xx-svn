@@ -476,7 +476,6 @@ int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *ne
 	return err;
 }
 
-/* returns non-zero if the current core is enabled, zero otherwise */
 static inline int bcm430x_core_enabled(struct bcm430x_private *bcm)
 {
 	u32 value;
@@ -552,9 +551,10 @@ out:
 	return 0;
 }
 
-/* enable current core */
+/* enable (reset) current core */
 static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 {
+	u32 sbtmstatelow;
 	u32 sbtmstatehigh;
 	u32 sbimstate;
 	int err;
@@ -563,34 +563,34 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 	if (err)
 		goto out;
 
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
-			BCM430x_SBTMSTATELOW_CLOCK |
-			BCM430x_SBTMSTATELOW_RESET |
-			BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
-			core_flags);
-
+	sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK |
+		       BCM430x_SBTMSTATELOW_RESET |
+		       BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+		       core_flags;
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
 	sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
-	if (sbtmstatehigh | BCM430x_SBTMSTATEHIGH_SERROR)
-		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATEHIGH, 0);
+	if (sbtmstatehigh & BCM430x_SBTMSTATEHIGH_SERROR) {
+		sbtmstatehigh = 0x00000000;
+		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATEHIGH, sbtmstatehigh);
+	}
 
 	sbimstate = bcm430x_read32(bcm, BCM430x_CIR_SBIMSTATE);
-	if (sbimstate | BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT) {
+	if (sbimstate & (BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT)) {
 		sbimstate &= ~(BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT);
 		bcm430x_write32(bcm, BCM430x_CIR_SBIMSTATE, sbimstate);
 	}
 
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
-			BCM430x_SBTMSTATELOW_CLOCK |
-			BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
-			core_flags);
-
+	sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK |
+		       BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+		       core_flags;
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
-			BCM430x_SBTMSTATELOW_CLOCK |
-			core_flags);
+	sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK | core_flags;
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	udelay(1);
 
 	bcm->current_core->flags |= BCM430x_COREFLAG_ENABLED;
 	assert(err == 0);
