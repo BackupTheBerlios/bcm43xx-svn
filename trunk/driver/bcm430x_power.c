@@ -195,6 +195,7 @@ void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 	u16 oldmode;
 	struct bcm430x_coreinfo *old_core;
 
+	//TODO: return early, if we are setting to slow clock and the board does not implement it (boardflags)
 
 	//FIXME: ensure PCI
 

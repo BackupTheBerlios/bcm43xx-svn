@@ -1689,6 +1689,22 @@ err_chip_cleanup:
 	goto out;
 }
 
+static void bcm430x_chipset_attach(struct bcm430x_private *bcm)
+{
+	u16 pci_status;
+
+	bcm430x_pctl_set_crystal(bcm, 1);
+	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
+	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+}
+
+static void bcm430x_chipset_detach(struct bcm430x_private *bcm)
+{
+	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_SLOW);
+	bcm430x_pctl_set_crystal(bcm, 0);
+}
+
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
@@ -1701,7 +1717,8 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	bcm430x_dma_free(bcm);
 	bcm430x_80211_cleanup(bcm);
 
-	bcm430x_pctl_set_crystal(bcm, 0);
+	bcm430x_chipset_detach(bcm);
+	// Do _not_ access the chip, after it is detached.
 	iounmap(bcm->mmio_addr);
 	bcm->mmio_addr = 0;
 
@@ -1724,7 +1741,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	void *ioaddr;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
 	int i, err;
-	u16 pci_status;
 	int num_80211_cores;
 
 	err = pci_enable_device(pci_dev);
@@ -1786,14 +1802,12 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES,
 	                           &bcm->chipcommon_capabilities);
 
-	bcm430x_pctl_set_crystal(bcm, 1);
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
-	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+	bcm430x_chipset_attach(bcm);
 	bcm430x_pctl_init(bcm);
 	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
 	err = bcm430x_probe_cores(bcm);
 	if (err)
-		goto err_iounmap;
+		goto err_chipset_detach;
 	bcm430x_read_sprom(bcm);
 
 	num_80211_cores = bcm430x_num_80211_cores(bcm);
@@ -1801,7 +1815,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
 		if (err)
-			goto err_iounmap;
+			goto err_chipset_detach;
 
 		/* Enable the selected wireless core.
 		 * Connect PHY only on the first core.
@@ -1815,7 +1829,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		bcm430x_read_radio_id(bcm);
 		err = bcm430x_validate_chip(bcm);
 		if (err)
-			goto err_iounmap;
+			goto err_chipset_detach;
 
 		switch (bcm->phy_type) {
 		case BCM430x_PHYTYPE_A:
@@ -1833,11 +1847,11 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 			err = -ENODEV;
 		};
 		if (err)
-			goto err_iounmap;
+			goto err_chipset_detach;
 
 		err = bcm430x_80211_init(bcm);
 		if (err)
-			goto err_iounmap;
+			goto err_chipset_detach;
 
 		if (num_80211_cores >= 2) {
 			bcm430x_mac_suspend(bcm);
@@ -1862,7 +1876,9 @@ out:
 
 err_radio_off:
 	bcm430x_radio_turn_off(bcm);
-err_iounmap:
+err_chipset_detach:
+	bcm430x_chipset_detach(bcm);
+/*err_iounmap:*/
 	iounmap(bcm->mmio_addr);
 err_pci_release:
 	pci_release_regions(pci_dev);
