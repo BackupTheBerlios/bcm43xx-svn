@@ -1948,10 +1948,8 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		 */
 		bcm430x_wireless_core_reset(bcm, (i == 0));
 
-		if (i != 0) {
+		if (i != 0)
 			bcm430x_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
-			//TODO: make this 80211 core inactive.
-		}
 
 		bcm430x_read_radio_id(bcm);
 		err = bcm430x_validate_chip(bcm);
