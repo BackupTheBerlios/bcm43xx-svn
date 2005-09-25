@@ -189,48 +189,88 @@ u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm)
 /* set the powercontrol clock
  * as described in http://bcm-specs.sipsolutions.net/PowerControl
  */
-void bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
+int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 {
 	int err;
 	u16 oldmode;
 	struct bcm430x_coreinfo *old_core;
 
-	//TODO: return early, if we are setting to slow clock and the board does not implement it (boardflags)
+	if (mode == BCM430x_PCTL_CLK_SLOW &&
+	    !(bcm->sprom.boardflags & BCM430x_BFL_XTAL)) {
+		printk(KERN_INFO PFX "Slow clock not supported\n");
+		return 0;
+	}
 
-	//FIXME: ensure PCI
+	//FIXME: ensure PCI, chipcommon, pctl capabilities
 
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	if (err == -ENODEV) {
+		/* No ChipCommon available. */
+		return 0;
+	}
+	if (err)
+		goto out;
 
-	if (!err && (bcm->current_core->flags & BCM430x_COREFLAG_AVAILABLE) && (bcm->current_core->id == BCM430x_COREID_CHIPCOMMON)) {
-		if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
-			if (bcm->current_core->rev < 6) {
-				if (mode == BCM430x_PCTL_CLK_FAST)
-					bcm430x_pctl_set_crystal(bcm, 1);
-			} else {
-				switch (mode) {
-				case BCM430x_PCTL_CLK_FAST:
-					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
-					oldmode = (oldmode & ~BCM430x_PCTL_FORCE_SLOW) | BCM430x_PCTL_FORCE_PLL;
-					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
-					break;
-				case BCM430x_PCTL_CLK_SLOW:
-					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
-					oldmode |= BCM430x_PCTL_FORCE_SLOW;
-					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
-					break;
-				case BCM430x_PCTL_CLK_DYNAMIC:
-					bcm430x_pci_read_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, &oldmode);
-					oldmode = ((oldmode & ~BCM430x_PCTL_FORCE_SLOW) & ~BCM430x_PCTL_FORCE_PLL) | BCM430x_PCTL_DYN_XTAL;
-					bcm430x_pci_write_config_16(bcm->pci_dev, BCM430x_PCTL_OUTENABLE, oldmode);
-					break;
-				}
+	if (bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTLMASK) {
+		if (bcm->current_core->rev < 6) {
+			if (mode == BCM430x_PCTL_CLK_FAST)
+				bcm430x_pctl_set_crystal(bcm, 1);
+		} else {
+			switch (mode) {
+			case BCM430x_PCTL_CLK_FAST:
+				err = bcm430x_pci_read_config_16(bcm->pci_dev,
+								 BCM430x_PCTL_OUTENABLE,
+								 &oldmode);
+				if (err)
+					goto err_pci;
+				oldmode = (oldmode & ~BCM430x_PCTL_FORCE_SLOW) | BCM430x_PCTL_FORCE_PLL;
+				err = bcm430x_pci_write_config_16(bcm->pci_dev,
+								  BCM430x_PCTL_OUTENABLE,
+								  oldmode);
+				if (err)
+					goto err_pci;
+				break;
+			case BCM430x_PCTL_CLK_SLOW:
+				err = bcm430x_pci_read_config_16(bcm->pci_dev,
+								 BCM430x_PCTL_OUTENABLE,
+								 &oldmode);
+				if (err)
+					goto err_pci;
+				oldmode |= BCM430x_PCTL_FORCE_SLOW;
+				err = bcm430x_pci_write_config_16(bcm->pci_dev,
+								  BCM430x_PCTL_OUTENABLE,
+								  oldmode);
+				if (err)
+					goto err_pci;
+				break;
+			case BCM430x_PCTL_CLK_DYNAMIC:
+				err = bcm430x_pci_read_config_16(bcm->pci_dev,
+								 BCM430x_PCTL_OUTENABLE,
+								 &oldmode);
+				if (err)
+					goto err_pci;
+				oldmode = ((oldmode & ~BCM430x_PCTL_FORCE_SLOW) & ~BCM430x_PCTL_FORCE_PLL) | BCM430x_PCTL_DYN_XTAL;
+				err = bcm430x_pci_write_config_16(bcm->pci_dev,
+								  BCM430x_PCTL_OUTENABLE,
+								  oldmode);
+				if (err)
+					goto err_pci;
+				break;
 			}
 		}
 	}
 
 	err = bcm430x_switch_core(bcm, old_core);
 	assert(err == 0);
+
+out:
+	return err;
+
+err_pci:
+	printk(KERN_ERR PFX "Error: pctl_set_clock() could not access PCI config space!\n");
+	err = -EBUSY;
+	goto out;
 }
 
 void bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
