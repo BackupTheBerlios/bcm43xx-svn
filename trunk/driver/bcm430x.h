@@ -368,10 +368,6 @@ struct bcm430x_private {
 	u16 radio_interfsize;
 	u16 radio_interfstack[20];
 
-	u32 sbimstate;
-	u32 sbtmstatelow;
-	u32 sbtmstatehigh;
-
 	u8 phy_version;
 	u8 phy_type;
 	u8 phy_rev;

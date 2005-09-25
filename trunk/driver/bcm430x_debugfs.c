@@ -102,8 +102,6 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("IRQ: %d\n", pci_dev->irq);
 	fappend("mmio_addr: 0x%p   mmio_len: %u\n", bcm->mmio_addr, bcm->mmio_len);
 	fappend("chip_id: 0x%04x   chip_rev: 0x%02x\n", bcm->chip_id, bcm->chip_rev);
-	fappend("sbimstate: 0x%08x   sbtmstatelow: 0x%08x   sbtmstatehigh: 0x%08x\n",
-		bcm->sbimstate, bcm->sbtmstatelow, bcm->sbtmstatehigh);
 	fappend("phy_version: 0x%02x   phy_type: 0x%02x   phy_rev: 0x%02x\n",
 		bcm->phy_version, bcm->phy_type, bcm->phy_rev);
 	fappend("radio_id: 0x%08x\n", bcm->radio_id);

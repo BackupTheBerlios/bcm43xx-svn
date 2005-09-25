@@ -491,16 +491,17 @@ static inline int bcm430x_core_enabled(struct bcm430x_private *bcm)
 /* disable current core */
 static int bcm430x_core_disable(struct bcm430x_private *bcm, int core_flags)
 {
+	u32 sbtmstatelow;
 	int i;
 
 	/* fetch sbtmstatelow from core information registers */
-	bcm->sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
 
 	/* core is already in reset */
-	if (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_RESET)
+	if (sbtmstatelow | BCM430x_SBTMSTATELOW_RESET)
 		goto out;
 
-	if (! (bcm->sbtmstatelow | BCM430x_SBTMSTATELOW_CLOCK)) {
+	if (! (sbtmstatelow | BCM430x_SBTMSTATELOW_CLOCK)) {
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
 				BCM430x_SBTMSTATELOW_CLOCK |
 				BCM430x_SBTMSTATELOW_REJECT);
@@ -549,6 +550,8 @@ out:
 /* enable current core */
 static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 {
+	u32 sbtmstatehigh;
+	u32 sbimstate;
 	int err;
 
 	err = bcm430x_core_disable(bcm, core_flags);
@@ -563,14 +566,14 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 
 	udelay(1);
 
-	bcm->sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
-	if (bcm->sbtmstatehigh | BCM430x_SBTMSTATEHIGH_SERROR)
+	sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
+	if (sbtmstatehigh | BCM430x_SBTMSTATEHIGH_SERROR)
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATEHIGH, 0);
 
-	bcm->sbimstate = bcm430x_read32(bcm, BCM430x_CIR_SBIMSTATE);
-	if (bcm->sbimstate | BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT) {
-		bcm->sbimstate &= ~(BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT);
-		bcm430x_write32(bcm, BCM430x_CIR_SBIMSTATE, bcm->sbimstate);
+	sbimstate = bcm430x_read32(bcm, BCM430x_CIR_SBIMSTATE);
+	if (sbimstate | BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT) {
+		sbimstate &= ~(BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT);
+		bcm430x_write32(bcm, BCM430x_CIR_SBIMSTATE, sbimstate);
 	}
 
 	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
@@ -880,6 +883,7 @@ static void bcm430x_write_initvals(struct bcm430x_private *bcm,
 
 static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 {
+	u32 sbtmstatehigh;
 	const struct firmware *fw;
 	char buf[21] = { 0 };
 	
@@ -931,8 +935,8 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	if (bcm->current_core->rev >= 5) {
 		switch (bcm->phy_type) {
 			case BCM430x_PHYTYPE_A:
-				bcm->sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
-				if (bcm->sbtmstatehigh & 0x00010000)
+				sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
+				if (sbtmstatehigh & 0x00010000)
 					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 9);
 				else
 					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 10);
