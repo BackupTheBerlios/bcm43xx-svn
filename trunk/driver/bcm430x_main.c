@@ -1705,6 +1705,90 @@ static void bcm430x_chipset_detach(struct bcm430x_private *bcm)
 	bcm430x_pctl_set_crystal(bcm, 0);
 }
 
+static inline void bcm430x_pcicore_broadcast_value(struct bcm430x_private *bcm,
+						   u32 address,
+						   u32 data)
+{
+	bcm430x_write32(bcm, BCM430x_CIR_PCI_BCAST_ADDR, address);
+	bcm430x_write32(bcm, BCM430x_CIR_PCI_BCAST_DATA, data);
+}
+
+static int bcm430x_pcicore_commit_settings(struct bcm430x_private *bcm)
+{
+	int err;
+	struct bcm430x_coreinfo *old_core;
+
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_pci);
+	if (err)
+		goto out;
+
+	bcm430x_pcicore_broadcast_value(bcm, 0xfd8, 0x00000000);
+
+	bcm430x_switch_core(bcm, old_core);
+	assert(err == 0);
+out:
+	return err;
+}
+
+/* Make an I/O Core usable. "core_mask" is the bitmask of the cores to enable.
+ * To enable core 0, pass a core_mask of 1<<0
+ */
+static int bcm430x_setup_backplane_pci_connection(struct bcm430x_private *bcm,
+						  u32 core_mask)
+{
+	u32 backplane_flag_nr;
+	u32 value;
+	struct bcm430x_coreinfo *old_core;
+	int err;
+
+	value = bcm430x_read32(bcm, BCM430x_CIR_SBTPSFLAG);
+	backplane_flag_nr = value & BCM430x_BACKPLANE_FLAG_NR_MASK;
+
+	old_core = bcm->current_core;
+	err = bcm430x_switch_core(bcm, &bcm->core_pci);
+	if (err)
+		goto out;
+
+	if (bcm->core_pci.rev < 6) {
+		value = bcm430x_read32(bcm, BCM430x_CIR_SBINTVEC);
+		value |= (1 << backplane_flag_nr);
+		bcm430x_write32(bcm, BCM430x_CIR_SBINTVEC, value);
+	} else {
+		err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCICFG_ICR, &value);
+		if (err) {
+			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
+			goto out_switch_back;
+		}
+		value |= core_mask << 8;
+		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCICFG_ICR, value);
+		if (err) {
+			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
+			goto out_switch_back;
+		}
+	}
+
+	value = bcm430x_read32(bcm, BCM430x_CIR_PCI_SBTOPCI2);
+	value |= BCM430x_SBTOPCI2_PREFETCH | BCM430x_SBTOPCI2_BURST;
+	bcm430x_write32(bcm, BCM430x_CIR_PCI_SBTOPCI2, value);
+
+	if (bcm->core_pci.rev < 5) {
+		value = bcm430x_read32(bcm, BCM430x_CIR_SBIMCONFIGLOW);
+		value |= (2 << BCM430x_SBIMCONFIGLOW_SERVICE_TOUT_SHIFT)
+			 & BCM430x_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+		value |= (3 << BCM430x_SBIMCONFIGLOW_REQUEST_TOUT_SHIFT)
+			 & BCM430x_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+		bcm430x_write32(bcm, BCM430x_CIR_SBIMCONFIGLOW, value);
+		err = bcm430x_pcicore_commit_settings(bcm);
+		assert(err == 0);
+	}
+
+out_switch_back:
+	err = bcm430x_switch_core(bcm, old_core);
+out:
+	return err;
+}
+
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
@@ -1816,6 +1900,9 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		assert(err != -ENODEV);
 		if (err)
 			goto err_chipset_detach;
+
+		/* make the core usable */
+		bcm430x_setup_backplane_pci_connection(bcm, (1 << bcm->current_core->index));
 
 		/* Enable the selected wireless core.
 		 * Connect PHY only on the first core.
