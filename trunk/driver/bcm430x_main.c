@@ -65,7 +65,6 @@ MODULE_AUTHOR("Michael Buesch");
 MODULE_LICENSE("GPL");
 
 /* module parameters */
-static int mode = 0;
 static int pio = 0;
 
 /* If you want to debug with just a single device, enable this,
@@ -2089,14 +2088,15 @@ static int bcm430x_net_open(struct net_device *net_dev)
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err = 0;
 
+	down(&bcm->sem);
 	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
 		err = bcm430x_init_board(bcm);
 		if (err)
-			goto out;
+			goto out_up;
 	}
-	
-	assert(err == 0);
-out:
+out_up:
+	up(&bcm->sem);
+
 	return err;
 }
 
@@ -2105,6 +2105,8 @@ static int bcm430x_net_stop(struct net_device *net_dev)
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	unsigned long flags;
 
+	down(&bcm->sem);
+
 	/* make sure we don't receive more data from the device. */
 	spin_lock_irqsave(&bcm->lock, flags);
 	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
@@ -2112,6 +2114,8 @@ static int bcm430x_net_stop(struct net_device *net_dev)
 	tasklet_disable(&bcm->isr_tasklet);
 
 	bcm430x_free_board(bcm);
+
+	up(&bcm->sem);
 
 	return 0;
 }
@@ -2161,6 +2165,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
 	spin_lock_init(&bcm->lock);
+	init_MUTEX(&bcm->sem);
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
 		     (unsigned long)bcm);
@@ -2177,19 +2182,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
 assert(bcm->data_xfer_mode == BCM430x_DATAXFER_DMA); /*TODO: Implement complete support for PIO mode. */
 
-	switch (mode) {
-	case 1:
-		bcm->ieee->iw_mode = IW_MODE_ADHOC;
-		break;
-	case 2:
-		bcm->ieee->iw_mode = IW_MODE_MONITOR;
-		break;
-	default:
-	case 0:
-		bcm->ieee->iw_mode = IW_MODE_INFRA;
-		break;
-	}
-
+	bcm->ieee->mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
@@ -2269,9 +2262,6 @@ static void __exit bcm430x_exit(void)
 
 module_param(pio, int, 0444);
 MODULE_PARM_DESC(pio, "enable(1) / disable(0) PIO mode");
-
-module_param(mode, int, 0444);
-MODULE_PARM_DESC(mode, "network mode (0=BSS,1=IBSS,2=Monitor)");
 
 module_init(bcm430x_init)
 module_exit(bcm430x_exit)

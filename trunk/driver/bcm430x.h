@@ -7,6 +7,8 @@
 #include <linux/interrupt.h>
 #include <linux/stringify.h>
 #include <net/ieee80211.h>
+#include <asm/semaphore.h>
+
 
 #define DRV_NAME			__stringify(KBUILD_MODNAME)
 #define DRV_VERSION			__stringify(BCM430x_VERSION)
@@ -292,6 +294,8 @@
 #define BCM430x_DMADTOR_FRAMEEND		(1 << 30)
 #define BCM430x_DMADTOR_FRAMESTART		(1 << 31)
 
+/* Initial default iw_mode */
+#define BCM430x_INITIAL_IWMODE			IW_MODE_INFRA
 
 #ifdef assert
 # undef assert
@@ -374,7 +378,11 @@ struct bcm430x_private {
 
 	u32 shm_addr;
 
+	/* Spinlock to protect all data in this structure,
+	 * which is accessed from irq context. */ //TODO: Explicitely state which members are the data.
 	spinlock_t lock;
+	/* Semaphore to protect all other data. */
+	struct semaphore sem;
 
 	/* Driver status flags BCM430x_STAT_XXX */
 	u32 status;
