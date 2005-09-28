@@ -468,7 +468,7 @@ static int _switch_core(struct bcm430x_private *bcm, int core)
 		if (attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES) {
 			err = -ENODEV;
 			printk(KERN_ERR PFX
-			       "unable to switch to core %u, retried %i times",
+			       "unable to switch to core %u, retried %i times\n",
 			       core, attempts);
 			goto out;
 		}
