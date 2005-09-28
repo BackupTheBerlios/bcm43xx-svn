@@ -20,7 +20,7 @@ DEBUGFS_OBJ =
 CFLAGS += -O2 -DBCM430x_NDEBUG
 endif
 
-CFLAGS += -DBCM430x_VERSION=$(VERSION)
+CFLAGS += -DBCM430x_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
