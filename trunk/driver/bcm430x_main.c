@@ -606,6 +606,7 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
+	bcm->current_core->core_specific_flags = core_flags;
 	bcm->current_core->flags |= BCM430x_COREFLAG_ENABLED;
 	assert(err == 0);
 out:
@@ -647,8 +648,7 @@ static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN) {
 		bcm430x_radio_turn_off(bcm);
 		bcm430x_write16(bcm, 0x03E6, 0x00F4);
-//FIXME: passing current_core->flags is WRONG here:
-//		bcm430x_core_disable(bcm, bcm->current_core->flags);
+		bcm430x_core_disable(bcm, bcm->current_core->core_specific_flags);
 	} else {
 		if (bcm->current_core->radio->enabled) {
 			bcm430x_radio_turn_off(bcm);
@@ -1304,10 +1304,11 @@ static void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 			& ~BCM430x_SBF_MAC_ENABLED);
-
+	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON); /* dummy read */
 	for ( ; i > 0; i--) {
 		if (bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON) & BCM430x_IRQ_READY)
 			i = -1;
+		udelay(10);
 	}
 	if (!i)
 		printk(KERN_ERR PFX "Failed to suspend mac!\n");
