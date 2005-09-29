@@ -8,6 +8,8 @@
 #include <linux/stringify.h>
 #include <net/ieee80211.h>
 #include <asm/semaphore.h>
+#include <asm/atomic.h>
+#include <asm/io.h>
 
 
 #define DRV_NAME			__stringify(KBUILD_MODNAME)
@@ -334,6 +336,12 @@ struct pci_dev;
 struct workqueue_struct;
 struct bcm430x_dmaring;
 
+struct bcm430x_initval {
+	u16 offset;
+	u16 size;
+	u32 value;
+} __attribute__((__packed__));
+
 struct bcm430x_sprominfo {
 	u16 boardflags;
 };
@@ -431,10 +439,6 @@ struct bcm430x_private {
 	u16 chip_id;
 	u8 chip_rev;
 
-#ifdef BCM430x_DEBUG
-	u16 ucode_size;
-	u16 pcm_size;
-#endif
 	struct bcm430x_sprominfo sprom;
 
 	u8 leds[BCM430x_LED_COUNT];
@@ -486,6 +490,13 @@ struct bcm430x_private {
 	struct bcm430x_dmaring *rx_ring1; /* only available on core.rev < 5 */
 
 	struct ieee80211_txb *txb;
+
+	/* Debugging stuff follows. */
+#ifdef BCM430x_DEBUG
+	u16 ucode_size;
+	u16 pcm_size;
+	atomic_t mmio_print_cnt;
+#endif
 };
 
 static inline
@@ -507,12 +518,90 @@ int bcm430x_num_80211_cores(struct bcm430x_private *bcm)
 	return cnt;
 }
 
-struct bcm430x_initval {
-	u16 offset;
-	u16 size;
-	u32 value;
-} __attribute__((__packed__));
 
+/* MMIO read/write functions. Debug and non-debug variants. */
+#ifdef BCM430x_DEBUG
+
+static inline
+u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
+{
+	u16 value;
+
+	value = ioread16(bcm->mmio_addr + offset);
+	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+		printk(KERN_INFO PFX "ioread16   offset: 0x%04x, value: 0x%04x\n",
+		       offset, value);
+	}
+
+	return value;
+}
+
+static inline
+void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 value)
+{
+	iowrite16(value, bcm->mmio_addr + offset);
+	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+		printk(KERN_INFO PFX "iowrite16  offset: 0x%04x, value: 0x%04x\n",
+		       offset, value);
+	}
+}
+
+static inline
+u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
+{
+	u32 value;
+
+	value = ioread32(bcm->mmio_addr + offset);
+	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+		printk(KERN_INFO PFX "ioread32   offset: 0x%04x, value: 0x%08x\n",
+		       offset, value);
+	}
+
+	return value;
+}
+
+static inline
+void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 value)
+{
+	iowrite32(value, bcm->mmio_addr + offset);
+	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+		printk(KERN_INFO PFX "iowrite16  offset: 0x%04x, value: 0x%04x\n",
+		       offset, value);
+	}
+}
+
+static inline
+void bcm430x_mmioprint_initial(struct bcm430x_private *bcm, int value)
+{
+	atomic_set(&bcm->mmio_print_cnt, value);
+}
+
+static inline
+void bcm430x_mmioprint_enable(struct bcm430x_private *bcm)
+{
+	atomic_inc(&bcm->mmio_print_cnt);
+}
+
+static inline
+void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
+{
+	atomic_dec(&bcm->mmio_print_cnt);
+}
+
+#else /* BCM430x_DEBUG */
+
+#define bcm430x_read16(bcm, offset)		ioread16((bcm)->mmio_addr + (offset))
+#define bcm430x_write16(bcm, offset, value)	iowrite16((value), (bcm)->mmio_addr + (offset))
+#define bcm430x_read32(bcm, offset)		ioread32((bcm)->mmio_addr + (offset))
+#define bcm430x_write32(bcm, offset, value)	iowrite32((value), (bcm)->mmio_addr + (offset))
+
+#define bcm430x_mmioprint_initial(x, y)	do { /* nothing */ } while (0)
+#define bcm430x_mmioprint_enable(x)	do { /* nothing */ } while (0)
+#define bcm430x_mmioprint_disable(x)	do { /* nothing */ } while (0)
+
+#endif /* BCM430x_DEBUG */
+
+	  
 /* 
  * Wrapper for older kernels 
  */

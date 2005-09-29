@@ -65,6 +65,14 @@ static int pio = 0;
  */
 //#define DEBUG_SINGLE_DEVICE_ONLY	"0001:11:00.0"
 
+/* If you want to enable printing of each MMIO access, enable this. */
+//#define DEBUG_ENABLE_MMIO_PRINT
+
+/* If you want to enable printing of MMIO access within
+ * ucode/pcm upload, initvals write, enable this.
+ */
+//#define DEBUG_ENABLE_UCODE_MMIO_PRINT
+
 
 static struct pci_device_id bcm430x_pci_tbl[] = {
 
@@ -110,37 +118,6 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	/* required last entry */
 	{ 0, },
 };
-
-
-u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
-{
-	u16 val;
-
-	val = ioread16(bcm->mmio_addr + offset);
-//	dprintk(KERN_INFO PFX "read 16  offset: 0x%04x  value: 0x%04x\n", offset, val);
-	return val;
-}
-
-void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
-{
-	iowrite16(val, bcm->mmio_addr + offset);
-//	dprintk(KERN_INFO PFX "write 16  offset: 0x%04x  value: 0x%04x\n", offset, val);
-}
-
-u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
-{
-	u32 val;
-
-	val = ioread32(bcm->mmio_addr + offset);
-//	dprintk(KERN_INFO PFX "read 32  offset: 0x%04x  value: 0x%08x\n", offset, val);
-	return val;
-}
-
-void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
-{
-	iowrite32(val, bcm->mmio_addr + offset);
-//	dprintk(KERN_INFO PFX "write 32  offset: 0x%04x  value: 0x%08x\n", offset, val);
-}
 
 
 static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
@@ -879,8 +856,15 @@ static inline void bcm430x_write_pcm(struct bcm430x_private *bcm,
 
 static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 {
+	int err = -ENODEV;
 	const struct firmware *fw;
 	char buf[22] = { 0 };
+
+#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
+	bcm430x_mmioprint_enable(bcm);
+#else
+	bcm430x_mmioprint_disable(bcm);
+#endif
 
 	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d.fw",
 		 (bcm->current_core->rev >= 5 ? 5 : bcm->current_core->rev));
@@ -888,7 +872,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 		printk(KERN_ERR PFX 
 		       "Error: Microcode \"%s\" not available or load failed.\n",
 		        buf);
-		return -ENODEV;
+		goto out;
 	}
 	bcm430x_write_microcode(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
 #ifdef BCM430x_DEBUG
@@ -902,7 +886,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 		printk(KERN_ERR PFX
 		       "Error: PCM \"%s\" not available or load failed.\n",
 		       buf);
-		return -ENODEV;
+		goto out;
 	}
 	bcm430x_write_pcm(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
 #ifdef BCM430x_DEBUG
@@ -910,7 +894,14 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 #endif
 	release_firmware(fw);
 
-	return 0;
+	err = 0;
+out:
+#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
+	bcm430x_mmioprint_disable(bcm);
+#else
+	bcm430x_mmioprint_enable(bcm);
+#endif
+	return err;
 }
 
 static void bcm430x_write_initvals(struct bcm430x_private *bcm,
@@ -937,10 +928,17 @@ static void bcm430x_write_initvals(struct bcm430x_private *bcm,
 
 static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 {
+	int err = -ENODEV;
 	u32 sbtmstatehigh;
 	const struct firmware *fw;
 	char buf[21] = { 0 };
-	
+
+#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
+	bcm430x_mmioprint_enable(bcm);
+#else
+	bcm430x_mmioprint_disable(bcm);
+#endif
+
 	if ((bcm->current_core->rev == 2) || (bcm->current_core->rev == 4)) {
 		switch (bcm->current_core->phy->type) {
 			case BCM430x_PHYTYPE_A:
@@ -973,12 +971,12 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 		printk(KERN_ERR PFX 
 		       "Error: InitVals \"%s\" not available or load failed.\n",
 		        buf);
-		return -ENODEV;
+		goto out;
 	}
 	if (fw->size % sizeof(struct bcm430x_initval)) {
 		printk(KERN_ERR PFX "InitVals fileformat error.\n");
 		release_firmware(fw);
-		return -ENODEV;
+		goto out;
 	}
 
 	bcm430x_write_initvals(bcm, (struct bcm430x_initval *)fw->data,
@@ -1007,12 +1005,12 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 			printk(KERN_ERR PFX 
 			       "Error: InitVals \"%s\" not available or load failed.\n",
 		        	buf);
-			return -ENODEV;
+			goto out;
 		}
 		if (fw->size % sizeof(struct bcm430x_initval)) {
 			printk(KERN_ERR PFX "InitVals fileformat error.\n");
 			release_firmware(fw);
-			return -ENODEV;
+			goto out;
 		}
 
 		bcm430x_write_initvals(bcm, (struct bcm430x_initval *)fw->data,
@@ -1022,12 +1020,20 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 		
 	}
 
-printk(KERN_INFO PFX "InitVals written\n");
-	return 0;
+	dprintk(KERN_INFO PFX "InitVals written\n");
+	err = 0;
+out:
+#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
+	bcm430x_mmioprint_disable(bcm);
+#else
+	bcm430x_mmioprint_enable(bcm);
+#endif
+
+	return err;
 
 out_noinitval:
 	printk(KERN_ERR PFX "Error: No InitVals available!\n");
-	return -ENODEV;
+	goto out;
 }
 
 static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
@@ -2261,6 +2267,13 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	/* initialize the bcm430x_private struct */
 	bcm = bcm430x_priv(net_dev);
+
+#ifdef DEBUG_ENABLE_MMIO_PRINT
+	bcm430x_mmioprint_initial(bcm, 1);
+#else
+	bcm430x_mmioprint_initial(bcm, 0);
+#endif
+
 	bcm->ieee = netdev_priv(net_dev);
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
