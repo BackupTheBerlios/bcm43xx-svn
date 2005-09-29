@@ -58,6 +58,7 @@ MODULE_LICENSE("GPL");
 
 /* module parameters */
 static int pio = 0;
+static int short_preamble = 0;
 
 /* If you want to debug with just a single device, enable this,
  * where the string is the pci device ID (as given by the kernel's
@@ -1224,8 +1225,14 @@ static int bcm430x_gpio_init(struct bcm430x_private *bcm)
 {
 	struct bcm430x_coreinfo *old_core;
 	int err;
-	u32 mask = 0x0000001F, value = 0x0000000F;
+	u32 mask, value;
 
+	value = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	value &= ~0xc000;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value);
+
+	mask = 0x0000001F;
+	value = 0x0000000F;
 	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_CONTROL,
 			bcm430x_read16(bcm, BCM430x_MMIO_GPIO_CONTROL) & 0xFFF0);
 	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_MASK,
@@ -1306,6 +1313,24 @@ static void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 		printk(KERN_ERR PFX "Failed to suspend mac!\n");
 }
 
+static void bcm430x_short_preamble_enable(struct bcm430x_private *bcm)
+{
+	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
+		return;
+	bcm430x_write16(bcm, 0x684, 0x0207);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0010);
+	bcm430x_shm_write16(bcm, 9);
+}
+
+static void bcm430x_short_preamble_disable(struct bcm430x_private *bcm)
+{
+	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
+		return;
+	bcm430x_write16(bcm, 0x684, 0x0212);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0010);
+	bcm430x_shm_write16(bcm, 20);
+}
+
 /* This is the opposite of bcm430x_chip_init() */
 static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
 {
@@ -1321,8 +1346,13 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 {
 	int err;
 	int iw_mode = bcm->ieee->iw_mode;
+	u32 value32;
+	u16 value16;
 
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000404);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+			BCM430x_SBF_CORE_READY
+			| BCM430x_SBF_400);
+
 	err = bcm430x_upload_microcode(bcm);
 	if (err)
 		goto out;
@@ -1331,9 +1361,6 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto out;
 
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & 0xFFFF3FFF);
-	
 	err = bcm430x_gpio_init(bcm);
 	if (err)
 		goto err_free_irq;
@@ -1353,36 +1380,41 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto err_radio_off;
 
-	//FIXME: Calling with NONE for the time being...
+	//FIXME: Calling with NONE for the time being. Let the user set it (later?)
 	bcm430x_radio_calc_interference(bcm, BCM430x_RADIO_INTERFMODE_NONE);
 	bcm430x_phy_set_antenna_diversity(bcm);
 	bcm430x_radio_set_txantenna(bcm, BCM430x_RADIO_DEFAULT_ANTENNA);
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B)
-		bcm430x_write16(bcm, 0x005E,
-		                bcm430x_read16(bcm, 0x005E) & 0x0004);
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
+		value16 = bcm430x_read16(bcm, 0x005E);
+		value16 |= 0x0004;
+		bcm430x_write16(bcm, 0x005E, value16);
+	}
 	bcm430x_write32(bcm, 0x0100, 0x01000000);
 	bcm430x_write32(bcm, 0x010C, 0x01000000);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-			& ~BCM430x_SBF_MODE_AP);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-			| BCM430x_SBF_MODE_NOTADHOC);
-	//FIXME: Check for promiscuous mode...
-	if ((iw_mode & IW_MODE_MASTER))
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-				| 0x01000000);
-	if (iw_mode & IW_MODE_MONITOR)
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-				| 0x01000000
-				| BCM430x_SBF_MODE_MONITOR);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-			bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-			| BCM430x_SBF_MODE_PROMISC);
+
+	value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	value32 &= ~ BCM430x_SBF_MODE_NOTADHOC;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+	value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	value32 |= BCM430x_SBF_MODE_NOTADHOC;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+
+	if ((iw_mode == IW_MODE_MASTER) && (bcm->net_dev->flags & IFF_PROMISC)) {
+		value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+		value32 |= BCM430x_SBF_MODE_PROMISC;
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+	} else if (iw_mode == IW_MODE_MONITOR) {
+		value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+		value32 |= BCM430x_SBF_MODE_PROMISC;
+		value32 |= BCM430x_SBF_MODE_MONITOR;
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+	}
+	value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	value32 |= 0x100000; //FIXME: What's this? Is this correct?
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
 
 	if (bcm->data_xfer_mode == BCM430x_DATAXFER_PIO) {
+		//FIXME: write16 correct?
 		bcm430x_write16(bcm, 0x0210, 0x0100);
 		bcm430x_write16(bcm, 0x0230, 0x0100);
 		bcm430x_write16(bcm, 0x0250, 0x0100);
@@ -1391,19 +1423,24 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		bcm430x_shm_write32(bcm, 0x00000000);
 	}
 
-	//FIXME: Probe Response Timeout Value??? (Is 16bit!)
-	// Default to 0, has to be set by ioctl probably... :-/
+	/* Probe Response Timeout value */
+	/* FIXME: Default to 0, has to be set by ioctl probably... :-/ */
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0074);
 	bcm430x_shm_write16(bcm, 0x0000);
-	//XXX: MMIO: 0x0608 is the work_mode register?
-	if (!(iw_mode & IW_MODE_ADHOC) && !(iw_mode & IW_MODE_MASTER))
+
+	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
 		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
 			bcm430x_write16(bcm, 0x0608, 0x0064);
 		else
 			bcm430x_write16(bcm, 0x0608, 0x0032);
-	else
+	} else
 		bcm430x_write16(bcm, 0x0608, 0x0002);
-	//FIXME: FuncPlaceholder (Shortslot Enabled);
+
+	if (short_preamble)
+		bcm430x_short_preamble_enable(bcm);
+	else
+		bcm430x_short_preamble_disable(bcm);
+
 	if (bcm->current_core->rev < 3) {
 		bcm430x_write16(bcm, 0x060E, 0x0000);
 		bcm430x_write16(bcm, 0x0610, 0x8000);
@@ -1418,10 +1455,11 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, BCM430x_MMIO_DMA2_IRQ_MASK, 0x0000DC00);
 	bcm430x_write32(bcm, BCM430x_MMIO_DMA3_IRQ_MASK, 0x0000DC00);
 	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_IRQ_MASK, 0x0001DC00);
-	
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW,
-	                bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW) | 0x00100000);
-	
+
+	value32 = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	value32 |= 0x00100000;
+	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, value32);
+
 	bcm430x_write16(bcm, BCM430x_MMIO_POWERUP_DELAY, bcm430x_pctl_powerup_delay(bcm));
 
 	assert(err == 0);
@@ -2459,6 +2497,9 @@ static void __exit bcm430x_exit(void)
 
 module_param(pio, int, 0444);
 MODULE_PARM_DESC(pio, "enable(1) / disable(0) PIO mode");
+
+module_param(short_preamble, int, 0444);
+MODULE_PARM_DESC(short_preamble, "enable(1) / disable(0) the Short Preamble mode");
 
 module_init(bcm430x_init)
 module_exit(bcm430x_exit)
