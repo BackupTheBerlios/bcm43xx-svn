@@ -89,7 +89,7 @@ int bcm430x_phy_connect(struct bcm430x_private *bcm, int connect)
 		flags = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
 		flags |= (0x800 << 18);
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, flags);
-		dprintk(KERN_INFO PFX "PHY connected!\n");
+		dprintk(KERN_INFO PFX "PHY connected\n");
 	} else {
 		if (!(flags & 0x00020000))
 			return -ENODEV;
@@ -98,7 +98,7 @@ int bcm430x_phy_connect(struct bcm430x_private *bcm, int connect)
 		flags = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
 		flags &= ~(0x800 << 18);
 		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, flags);
-		dprintk(KERN_INFO PFX "PHY disconnected!\n");
+		dprintk(KERN_INFO PFX "PHY disconnected\n");
 	}
 
 	return 0;

@@ -647,7 +647,7 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
 		return -1;
 	}
-printk(KERN_INFO PFX "radio turned on\n");
+	dprintk(KERN_INFO PFX "Radio turned on\n");
 
 	bcm->current_core->radio->enabled = 1;
 
@@ -679,6 +679,7 @@ int bcm430x_radio_turn_off(struct bcm430x_private *bcm)
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
 		return -1;
 	}
+	dprintk(KERN_INFO PFX "Radio turned off\n");
 
 	bcm->current_core->radio->enabled = 0;
 

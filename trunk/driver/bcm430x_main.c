@@ -1344,7 +1344,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_write16(bcm, BCM430x_MMIO_POWERUP_DELAY, bcm430x_pctl_powerup_delay(bcm));
 
 	assert(err == 0);
-printk(KERN_INFO PFX "Chip initialized\n");
+	dprintk(KERN_INFO PFX "Chip initialized\n");
 out:
 	return err;
 
@@ -1407,7 +1407,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 {
 	int err, i;
 	int current_core;
-	int core_vendor, core_id, core_rev, core_enabled;
+	u32 core_vendor, core_id, core_rev;
 	u32 sb_id_hi, chip_id_32 = 0;
 	u16 pci_device, chip_id_16;
 
@@ -1488,8 +1488,8 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	bcm->chip_id = chip_id_16;
 	bcm->chip_rev = (chip_id_32 & 0x000f0000) >> 16;
-	
-	printk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
+
+	dprintk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
 		bcm->chip_id, bcm->chip_rev);
 
 	for (current_core = 1; current_core < bcm->core_count; current_core++) {
@@ -1507,11 +1507,9 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		core_rev = (sb_id_hi & 0xF);
 		core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
 		
-		core_enabled = bcm430x_core_enabled(bcm);
-
-		printk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
-		       current_core, core_id, core_rev, core_vendor,
-		       core_enabled ? "enabled" : "disabled" );
+		dprintk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
+			current_core, core_id, core_rev, core_vendor,
+			bcm430x_core_enabled(bcm) ? "enabled" : "disabled" );
 
 		core = 0;
 		switch (core_id) {
@@ -1640,7 +1638,7 @@ static int bcm430x_dma_init(struct bcm430x_private *bcm)
 			goto err_destroy_rx0;
 	}
 
-printk(KERN_INFO PFX "DMA initialized.\n");
+	dprintk(KERN_INFO PFX "DMA initialized\n");
 	err = 0;
 out:
 	return err;
