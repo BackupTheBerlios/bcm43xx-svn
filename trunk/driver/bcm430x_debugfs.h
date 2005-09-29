@@ -15,6 +15,7 @@ struct bcm430x_dfsentry
 	struct dentry *dentry_devinfo;
 	struct dentry *dentry_spromdump;
 	struct dentry *dentry_shmdump;
+	struct dentry *dentry_tsf;
 
 	struct bcm430x_private *bcm;
 	struct list_head list;
