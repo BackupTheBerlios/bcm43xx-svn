@@ -122,7 +122,8 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 
 static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
-	int bigendian = (bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & BCM430x_SBF_TEMPLATE_BIGENDIAN);
+	//FIXME: Is this really correct?
+	int bigendian = (bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & BCM430x_SBF_XFER_REG_BYTESWAP);
 	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
 	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA,
 	                (bigendian) ? cpu_to_be32(val) : cpu_to_le32(val));
@@ -698,6 +699,86 @@ out:
 	return err;
 }
 
+/* Read the Transmit Status from MMIO and build the Transmit Status array. */
+static inline int build_transmit_status_array(struct bcm430x_private *bcm,
+					      unsigned char *status)
+{
+	u32 v170;
+	u32 v174;
+
+	v170 = bcm430x_read32(bcm, 0x170);
+	if (v170 == 0x00000000)
+		return -1;
+	v174 = bcm430x_read32(bcm, 0x174);
+
+	memset(status, 0, BCM430x_XMIT_STAT_ARRAY_SIZE);
+
+	/* Internal Sending ID. */
+	*((u16 *)(status + 4)) = cpu_to_le16( (u16)(v170 >> 16) );
+	/* 2 counters (both 4 bits) in the upper byte and flags in the lower byte. */
+	*((u16 *)(status + 6)) = cpu_to_le16( (u16)((v170 & 0xfff0) | ((v170 & 0xf) >> 1)) );
+	/* XXX: 802.11 sequence number? */
+	*((u16 *)(status + 10)) = cpu_to_le16( (u16)(v174 & 0xffff) );
+	/* XXX: Unknown. */
+	*((u16 *)(status + 12)) = cpu_to_le16( (u16)((v174 >> 16) & 0xff) );
+
+	return 0;
+}
+
+static inline void interpret_transmit_status_array(struct bcm430x_private *bcm,
+						   unsigned char *status)
+{
+	u16 internal_id;
+	u8 flags;
+	u8 counter1, counter2;
+
+	flags = *((u8 *)(status + 6));
+	if (flags & 0x20) {
+printkl(KERN_INFO PFX "Transmit Status ignored\n");
+		return;
+	}
+	/* TODO: What is the meaning of the flags? Tested bits are: 0x01, 0x02, 0x10, 0x40, 0x04, 0x08 */
+	counter1 = ( *((u8 *)(status + 7)) & 0xf0) >> 4;
+	counter2 = ( *((u8 *)(status + 7)) & 0x0f);
+	internal_id = le16_to_cpu( *((u16 *)(status + 4)) );
+
+printkl(KERN_INFO PFX "Transmit Status received:  flags: 0x%02x,  "
+		      "cnt1: 0x%02x,  cnt2: 0x%02x,  ID: 0x%04x\n",
+	flags, counter1, counter2, internal_id);
+	/*TODO*/
+}
+
+static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
+{
+	unsigned char transmit_status[BCM430x_XMIT_STAT_ARRAY_SIZE];
+	int res;
+
+	assert(bcm->current_core->id == BCM430x_COREID_80211);
+
+	//TODO: In AP mode, this also causes sending of powersave responses.
+
+	while (1) {
+		if (bcm->current_core->rev < 5) {
+			printkl(KERN_ERR PFX "TODO in %s at line %d\n", __FILE__, __LINE__);
+			/* TODO: The status is received via the last DMA controller or PIO queue 3. */
+			if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA) {
+				/* XXX */
+			} else {
+				assert(bcm->data_xfer_mode == BCM430x_DATAXFER_PIO);
+				/* XXX */
+			}
+			return;
+		} else {
+			res = build_transmit_status_array(bcm, transmit_status);
+			if (res) {
+printkl(KERN_INFO PFX "handle_irq_transmit_status: No transmit status available\n");
+				return;
+			}
+		}
+		interpret_transmit_status_array(bcm, transmit_status);
+	}
+}
+
 /* Interrupt handler bottom-half */
 static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 {
@@ -755,8 +836,8 @@ printkl(KERN_INFO PFX "We got an interrupt! 0x%08x, DMA: 0x%08x, 0x%08x, 0x%08x,
 	}
 
 	if (reason & BCM430x_IRQ_XMIT_STATUS) {
-		/*TODO*/
-		//bcmirq_handled();
+		handle_irq_transmit_status(bcm);
+		bcmirq_handled();
 	}
 
 #ifdef BCM430x_DEBUG
@@ -1286,7 +1367,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 			& ~BCM430x_SBF_MODE_AP);
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-			| BCM430x_SBF_MODE_ADHOC);
+			| BCM430x_SBF_MODE_NOTADHOC);
 	//FIXME: Check for promiscuous mode...
 	if ((iw_mode & IW_MODE_MASTER))
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
