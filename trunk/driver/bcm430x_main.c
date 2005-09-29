@@ -153,8 +153,10 @@ void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
 
 static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
+	int bigendian = (bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & BCM430x_SBF_TEMPLATE_BIGENDIAN);
 	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
-	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, val);
+	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA,
+	                (bigendian) ? cpu_to_be32(val) : cpu_to_le32(val));
 }
 
 void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
@@ -347,9 +349,9 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	u16 value = 0;
 	u32 buffer[5] = {
 		0x00000000,
-		cpu_to_be32(0x0000D400),
+		0x0000D400,
 		0x00000000,
-		cpu_to_be32(0x00000001),
+		0x00000001,
 		0x00000000,
 	};
 	u8 *tmp;
@@ -357,12 +359,12 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	switch (bcm->phy_type) {
 	case BCM430x_PHYTYPE_A:
 		max_loop = 0x1E;
-		buffer[0] = cpu_to_be32(0xCC010200);
+		buffer[0] = 0xCC010200;
 		break;
 	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
 		max_loop = 0xFA;
-		buffer[0] = cpu_to_be32(0x6E840B00); 
+		buffer[0] = 0x6E840B00; 
 		break;
 	default:
 		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
