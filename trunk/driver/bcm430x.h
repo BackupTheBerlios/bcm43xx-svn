@@ -318,6 +318,16 @@
 #endif
 #define printkl(f, x...)  do { if (printk_ratelimit()) printk(f ,##x); } while (0)
 
+/* debugging printk() */
+#ifdef dprintk
+# undef dprintk
+#endif
+#ifdef BCM430x_DEBUG
+# define dprintk(f, x...)  do { printk(f ,##x); } while (0)
+#else
+# define dprintk(f, x...)  do { /* nothing */ } while (0)
+#endif
+
 
 struct net_device;
 struct pci_dev;
@@ -326,6 +336,33 @@ struct bcm430x_dmaring;
 
 struct bcm430x_sprominfo {
 	u16 boardflags;
+};
+
+struct bcm430x_phyinfo {
+	u8 version;
+	u8 type;
+	u8 rev;
+	u16 antenna_diversity;
+	u8 connected:1,
+	   calibrated:1;
+};
+
+struct bcm430x_radioinfo {
+	/* Radio ID */
+	u32 id;
+	/* 0: baseband attenuation,
+	 * 1: generic attenuation, 
+	 * 2: tx_CTL1 attenuation
+	 */
+	u16 txpower[3];
+	u16 interfmode;
+	u16 interfsize;
+	u16 interfstack[20];
+
+	/* current channel */
+	u16 channel;
+
+	u8 enabled:1;
 };
 
 #define BCM430x_MAX_80211_CORES		2
@@ -342,6 +379,10 @@ struct bcm430x_coreinfo {
 	u8 rev;
 	/** Index number for _switch_core() */
 	u8 index;
+	/* Pointer to the PHYinfo, which belongs to this core (if 80211 core) */
+	struct bcm430x_phyinfo *phy;
+	/* Pointer to the RadioInfo, which belongs to this core (if 80211 core) */
+	struct bcm430x_radioinfo *radio;
 };
 
 /* data_xfer_mode values */
@@ -350,10 +391,7 @@ struct bcm430x_coreinfo {
 
 /* Driver STATUS values */
 #define BCM430x_STAT_BOARDINITDONE		(1 << 0)
-#define BCM430x_STAT_PHYCALIBRATED		(1 << 1)
-#define BCM430x_STAT_PHYCONNECTED		(1 << 2)
-#define BCM430x_STAT_DEVSHUTDOWN		(1 << 3)	// Are we shutting down?
-#define BCM430x_STAT_RADIOENABLED		(1 << 4)
+#define BCM430x_STAT_DEVSHUTDOWN		(1 << 1)	// Are we shutting down?
 
 #define BCM430x_LED_COUNT			4
 #define BCM430x_LED_OFF				0
@@ -392,23 +430,6 @@ struct bcm430x_private {
 
 	u16 chip_id;
 	u8 chip_rev;
-	
-	u32 radio_id;
-	// 0: baseband attenuation,
-	// 1: generic attenuation, 
-	// 2: tx_CTL1 attenuation
-	u16 radio_txpower[3];
-	u16 radio_interfmode;
-	u16 radio_interfsize;
-	u16 radio_interfstack[20];
-
-	u8 phy_version;
-	u8 phy_type;
-	u8 phy_rev;
-
-	u16 curr_channel;
-
-	u16 antenna_diversity;
 
 #ifdef BCM430x_DEBUG
 	u16 ucode_size;
@@ -421,6 +442,11 @@ struct bcm430x_private {
 	u8 core_count;
 	/* The currently active core. NULL if not initialized, yet. */
 	struct bcm430x_coreinfo *current_core;
+	/* Pointer to the preferred 80211 core.
+	 * NOTE: Think twice, before using this.
+	 * Most times you will want current_core.
+	 */
+	struct bcm430x_coreinfo *def_80211_core;
 	/* coreinfo structs for all possible cores follow.
 	 * Note that a core might not exist.
 	 * So check the coreinfo flags before using it.
@@ -430,6 +456,10 @@ struct bcm430x_private {
 	struct bcm430x_coreinfo core_v90;
 	struct bcm430x_coreinfo core_pcmcia;
 	struct bcm430x_coreinfo core_80211[ BCM430x_MAX_80211_CORES ];
+	/* Info about the PHY for each 80211 core. */
+	struct bcm430x_phyinfo phy[ BCM430x_MAX_80211_CORES ];
+	/* Info about the Radio for each 80211 core. */
+	struct bcm430x_radioinfo radio[ BCM430x_MAX_80211_CORES ];
 
 	u32 chipcommon_capabilities;
 

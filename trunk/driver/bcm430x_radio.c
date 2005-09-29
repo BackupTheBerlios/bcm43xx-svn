@@ -46,27 +46,28 @@ static u16 bcm430x_flipmap[16] = {
 void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 {
 	u16 disable = (mode & BCM430x_RADIO_INTERFMODE_DISABLE);
-	u16 *stack = bcm->radio_interfstack;
-	u16 i = bcm->radio_interfsize;
+	u16 *stack = bcm->current_core->radio->interfstack;
+	u16 i = bcm->current_core->radio->interfsize;
 	u16 fmapoffset;
 
-	if (!(bcm->phy_type == BCM430x_PHYTYPE_G) || (bcm->phy_rev == 0))
+	if (!(bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
+	    || (bcm->current_core->phy->rev == 0))
 		return;
-	if (!(bcm->status & BCM430x_STAT_PHYCONNECTED))
+	if (!bcm->current_core->phy->connected)
 		return;
-	
+
 	switch (mode & !BCM430x_RADIO_INTERFMODE_DISABLE) {
 	case BCM430x_RADIO_INTERFMODE_NONE:
-		if (bcm->radio_interfmode & BCM430x_RADIO_INTERFMODE_DISABLE)
+		if (bcm->current_core->radio->interfmode & BCM430x_RADIO_INTERFMODE_DISABLE)
 			return;
-		if (bcm->radio_interfmode != BCM430x_RADIO_INTERFMODE_NONE)
+		if (bcm->current_core->radio->interfmode != BCM430x_RADIO_INTERFMODE_NONE)
 			bcm430x_radio_calc_interference(bcm,
-		                                    bcm->radio_interfmode
+		                                    bcm->current_core->radio->interfmode
 						    | BCM430x_RADIO_INTERFMODE_DISABLE);
 		break;
 	case BCM430x_RADIO_INTERFMODE_NONWLAN:
 		if (!disable) {
-			if (bcm->phy_rev != 1) {
+			if (bcm->current_core->phy->rev != 1) {
 				bcm430x_phy_write(bcm, 0x042B,
 				                  bcm430x_phy_read(bcm, 0x042B) & 0x0800);
 				bcm430x_phy_write(bcm, 0x0429,
@@ -121,7 +122,7 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 			bcm430x_phy_write(bcm, 0x04AA, 0x2027);
 						bcm430x_phy_write(bcm, 0x04AC, 0x32F5);
 		} else { /* DISABLE */
-			if (bcm->phy_rev != 1) {
+			if (bcm->current_core->phy->rev != 1) {
 				bcm430x_phy_write(bcm, 0x042B,
 				                  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
 				bcm430x_phy_write(bcm, 0x0429,
@@ -270,8 +271,8 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 	// make sure i only 0 when we disable!
 	assert( ~((disable == 0) ^ (i == 0)) );
 #endif
-	bcm->radio_interfsize = i;
-	bcm->radio_interfmode = mode;
+	bcm->current_core->radio->interfsize = i;
+	bcm->current_core->radio->interfmode = mode;
 }
 
 static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
@@ -299,13 +300,13 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	u16 index = 0, reg78, ret;
 	int i, j, tmp1 = 0, tmp2 = 0;
 	
-	if (bcm->phy_type == BCM430x_PHYTYPE_B) {
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
 		stack[index++] = bcm430x_read16(bcm, 0x03EC);
 		stack[index++] = bcm430x_phy_read(bcm, 0x0030);
 		bcm430x_phy_write(bcm, 0x0030, 0x00FF);
 		bcm430x_write16(bcm, 0x03EC, 0x3F3F);
 	} else {
-		if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
+		if (bcm->current_core->phy->connected) {
 			stack[index++] = bcm430x_phy_read(bcm, 0x0802);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0429);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0815);
@@ -335,10 +336,10 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	stack[index++] = bcm430x_phy_read(bcm, 0x0015);
 	
 	// Initialization
-	if (bcm->phy_version == 0)
+	if (bcm->current_core->phy->version == 0)
 		bcm430x_write16(bcm, 0x03E6, 0x0122);
 	else {
-		if (bcm->phy_version >= 2)
+		if (bcm->current_core->phy->version >= 2)
 			bcm430x_write16(bcm, 0x03E6, 0x0040);
 		bcm430x_write16(bcm, 0x03F4,
                                 (bcm430x_read16(bcm, 0x03F4) | 0x2000));
@@ -346,12 +347,12 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 
 	ret = bcm430x_radio_calibrationvalue(bcm);
 	
-	if (bcm->phy_type == BCM430x_PHYTYPE_B)
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B)
 		bcm430x_radio_write16(bcm, 0x0078, 0x0003);
 	
 	bcm430x_radio_write16(bcm, 0x0015, 0xBFAF);
 	bcm430x_radio_write16(bcm, 0x002B, 0x1403);
-	if (!(bcm->status & BCM430x_STAT_PHYCONNECTED))
+	if (!bcm->current_core->phy->connected)
 		bcm430x_phy_write(bcm, 0x0812, 0x00B2);
 	bcm430x_phy_write(bcm, 0x0015, 0xBFA0);
 	bcm430x_radio_write16(bcm, 0x0051,
@@ -364,21 +365,21 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x005A, 0x0480);
 		bcm430x_phy_write(bcm, 0x0059, 0x6810);
 		bcm430x_phy_write(bcm, 0x0058, 0x000D);
-		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+		if (bcm->current_core->phy->connected)
 			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 		bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
 		udelay(10);
-		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+		if (bcm->current_core->phy->connected)
 			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 		bcm430x_phy_write(bcm, 0x0015, 0xEFB0);
 		udelay(10);
-		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+		if (bcm->current_core->phy->connected)
 			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 		bcm430x_phy_write(bcm, 0x0015, 0xFFF0);
 		udelay(10);
 		tmp1 += bcm430x_phy_read(bcm, 0x002D);
 		bcm430x_phy_write(bcm, 0x0058, 0x0000);
-		if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+		if (bcm->current_core->phy->connected)
 			bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 		bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
 	}
@@ -396,21 +397,21 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x005A, 0x0D80);
 			bcm430x_phy_write(bcm, 0x0059, 0xC810);
 			bcm430x_phy_write(bcm, 0x0058, 0x000D);
-			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			if (bcm->current_core->phy->connected)
 				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 			bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
 			udelay(10);
-			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			if (bcm->current_core->phy->connected)
 				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 			bcm430x_phy_write(bcm, 0x0015, 0xEFB0);
 			udelay(10);
-			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			if (bcm->current_core->phy->connected)
 				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 			bcm430x_phy_write(bcm, 0x0015, 0xFFF0);
 			udelay(10);
 			tmp2 += bcm430x_phy_read(bcm, 0x002D);
 			bcm430x_phy_write(bcm, 0x0058, 0x0000);
-			if (bcm->status & BCM430x_STAT_PHYCONNECTED)
+			if (bcm->current_core->phy->connected)
 				bcm430x_phy_write(bcm, 0x0812, 0x30B2);
 			bcm430x_phy_write(bcm, 0x0015, 0xAFB0);
 		}
@@ -432,16 +433,16 @@ printk(KERN_INFO PFX "Broke loop 2 in radio_init2050: i=%d, j=%d, tmp1=%d, tmp2=
 	bcm430x_radio_write16(bcm, 0x0043, stack[--index]);
 	bcm430x_write16(bcm, 0x003E6, stack[--index]);
 	--index;
-	if (!bcm->phy_version == 0)
+	if (!bcm->current_core->phy->version == 0)
 		bcm430x_write16(bcm, 0x003E6, stack[index]);
 	bcm430x_phy_write(bcm, 0x0035, stack[--index]);
-	if (bcm->phy_type == BCM430x_PHYTYPE_B) {
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
 		bcm430x_phy_write(bcm, 0x0030, stack[--index]);
 		bcm430x_write16(bcm, 0x03EC, stack[--index]);
 	} else {
 		bcm430x_write16(bcm, BCM430x_MMIO_PHY_RADIO,
 		                (bcm430x_read16(bcm, BCM430x_MMIO_PHY_RADIO) & 0x7FFF));
-		if (bcm->status & BCM430x_STAT_PHYCONNECTED) {
+		if (bcm->current_core->phy->connected) {
 			bcm430x_phy_write(bcm, 0x0811, stack[--index]);
 			bcm430x_phy_write(bcm, 0x0812, stack[--index]);
 			bcm430x_phy_write(bcm, 0x0814, stack[--index]);
@@ -502,10 +503,10 @@ printk(KERN_WARNING PFX "FIXME: radio_init2060(), what is the 802.11a default ch
 
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
 {
-	if (bcm->phy_type == BCM430x_PHYTYPE_A)
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
 		offset |= 0x40;
-	else if (bcm->phy_type == BCM430x_PHYTYPE_B) {
-		switch (bcm->radio_id & 0x0FFFF000) {
+	else if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
+		switch (bcm->current_core->radio->id & 0x0FFFF000) {
 			case 0x02053000:
 				if (offset < 0x70)
 					offset += 0x80;
@@ -516,7 +517,7 @@ u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
 				offset |= 0x80;
 			break;
 		}
-	} else if (bcm->phy_type == BCM430x_PHYTYPE_G)
+	} else if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
 		offset |= 0x80;
 	
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
@@ -535,7 +536,7 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 		72, 84,
 	};
 
-        switch (bcm->phy_type) {
+        switch (bcm->current_core->phy->type) {
         case BCM430x_PHYTYPE_A:
                 //FIXME: Specs incomplete 2005/09/09
 		break;
@@ -584,22 +585,22 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 	u16 reg = 0x0060, tmp;
 
 	if (baseband_attenuation == 0xFFFF)
-		baseband_attenuation = bcm->radio_txpower[0];
+		baseband_attenuation = bcm->current_core->radio->txpower[0];
 	else
-		bcm->radio_txpower[0] = baseband_attenuation;
+		bcm->current_core->radio->txpower[0] = baseband_attenuation;
 	if (attenuation == 0xFFFF)
-		attenuation = bcm->radio_txpower[1];
+		attenuation = bcm->current_core->radio->txpower[1];
 	else
 		baseband_attenuation = attenuation;
 	if (txpower == 0xFFFF)
-		txpower = bcm->radio_txpower[2];
+		txpower = bcm->current_core->radio->txpower[2];
 	else
-		bcm->radio_txpower[2] = txpower;
+		bcm->current_core->radio->txpower[2] = txpower;
 	
-	if (bcm->phy_version == 0) {
+	if (bcm->current_core->phy->version == 0) {
 		reg = 0x03E6;
 		tmp = (bcm430x_phy_read(bcm, reg) & 0xFFF0) | baseband_attenuation;
-	} else if (bcm->phy_version == 1) {
+	} else if (bcm->current_core->phy->version == 1) {
 		tmp  = bcm430x_phy_read(bcm, reg) & ~0x0078;
 		tmp |= (baseband_attenuation << 3) & 0x0078;
 	} else {
@@ -610,7 +611,7 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 	bcm430x_write16(bcm, 0x0043, attenuation);
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0064);
 	bcm430x_shm_write16(bcm, attenuation);
-	if ((bcm->radio_id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
+	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_radio_write16(bcm, 0x0052,
 		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F) | txpower);
 	//FIXME: Set GPHY CompLo
@@ -619,15 +620,15 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 
 int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 {
-	if (bcm->radio_id == BCM430x_RADIO_ID_NORF) {
+	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF) {
 		printk(KERN_ERR PFX "Error: No radio device found on chip!\n");
 		return -ENODEV;
 	}
 
-	if (bcm->status & BCM430x_STAT_RADIOENABLED)
+	if (bcm->current_core->radio->enabled)
 		return 0;
 
-	switch (bcm->phy_type) {
+	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		bcm430x_radio_write16(bcm, 0x0004, 0x00C0);
 		bcm430x_radio_write16(bcm, 0x0005, 0x0008);
@@ -639,7 +640,7 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
         case BCM430x_PHYTYPE_G:
 		bcm430x_phy_write(bcm, 0x0015, 0x8000);
 		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
-		bcm430x_phy_write(bcm, 0x0015, ((bcm->status & BCM430x_STAT_PHYCONNECTED) ? 0x00C0 : 0x0000));
+		bcm430x_phy_write(bcm, 0x0015, ((bcm->current_core->phy->connected) ? 0x00C0 : 0x0000));
 		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
 		break;
 	default:
@@ -647,17 +648,18 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		return -1;
 	}
 printk(KERN_INFO PFX "radio turned on\n");
-	
-	bcm->status |= BCM430x_STAT_RADIOENABLED;
+
+	bcm->current_core->radio->enabled = 1;
+
 	return 0;
 }
 	
 int bcm430x_radio_turn_off(struct bcm430x_private *bcm)
 {
-	if (bcm->radio_id == BCM430x_RADIO_ID_NORF)
+	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF)
 		return -ENODEV;
 
-	switch (bcm->phy_type) {
+	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		bcm430x_radio_write16(bcm, 0x0004, 0x00FF);
 		bcm430x_radio_write16(bcm, 0x0005, 0x00FB);
@@ -678,7 +680,8 @@ int bcm430x_radio_turn_off(struct bcm430x_private *bcm)
 		return -1;
 	}
 
-	bcm->status &= ~BCM430x_STAT_RADIOENABLED;
+	bcm->current_core->radio->enabled = 0;
+
 	return 0;
 }
 
@@ -690,7 +693,7 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 
 void bcm430x_radio_clear_tssi(struct bcm430x_private *bcm)
 {
-	switch (bcm->phy_type) {
+	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0068);
 		bcm430x_shm_write32(bcm, 0x7F7F);

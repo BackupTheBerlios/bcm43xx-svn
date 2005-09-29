@@ -55,7 +55,8 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
 	down(&bcm->sem);
-	switch (bcm->phy_type) {
+	//FIXME: This is broken. We have to iterate through each core and check which PHYs are present.
+	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		snprintf(data->name, IFNAMSIZ, "IEEE 802.11abg");
 		break;
