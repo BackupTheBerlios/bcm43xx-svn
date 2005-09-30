@@ -123,11 +123,13 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 
 static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
-	//FIXME: Is this really correct?
-	int bigendian = (bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) & BCM430x_SBF_XFER_REG_BYTESWAP);
+	int hwswap;
+
+	hwswap = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	hwswap &= BCM430x_SBF_XFER_REG_BYTESWAP;
+
 	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
-	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA,
-	                (bigendian) ? cpu_to_be32(val) : cpu_to_le32(val));
+	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, hwswap ? val : __swab32(val));
 }
 
 void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
