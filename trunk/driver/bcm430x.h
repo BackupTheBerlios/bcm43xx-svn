@@ -388,6 +388,7 @@ struct bcm430x_radioinfo {
 
 #define BCM430x_COREFLAG_AVAILABLE	(1 << 0)
 #define BCM430x_COREFLAG_ENABLED	(1 << 1)
+#define BCM430x_COREFLAG_INITIALIZED	(1 << 2)
 
 struct bcm430x_coreinfo {
 	/** Driver internal flags. See BCM430x_COREFLAG_* */

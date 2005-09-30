@@ -1890,9 +1890,9 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 	}
 
 	bcm430x_mac_enable(bcm);
-
 	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 
+	bcm->current_core->flags |= BCM430x_COREFLAG_INITIALIZED;
 out:
 	return err;
 
@@ -2009,11 +2009,22 @@ out:
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
+	int i, err;
+
 	bcm->status &= ~BCM430x_STAT_BOARDINITDONE;
 	bcm->status |= BCM430x_STAT_DEVSHUTDOWN;
 	mb();
 
-	bcm430x_80211_cleanup(bcm);//FIXME: 80211 cleanup for all 80211 cores. Also in init_board unwind!
+	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+		if (!(bcm->core_80211[i].flags & BCM430x_COREFLAG_AVAILABLE))
+			continue;
+		assert(bcm->core_80211[i].flags & BCM430x_COREFLAG_INITIALIZED);
+
+		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
+		assert(err == 0);
+		bcm430x_80211_cleanup(bcm);
+	}
+
 	bcm430x_pctl_set_crystal(bcm, 0);
 }
 
@@ -2041,7 +2052,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
 		if (err)
-			goto err_crystal_off;
+			goto err_80211_unwind;
 
 		/* Enable the selected wireless core.
 		 * Connect PHY only on the first core.
@@ -2063,12 +2074,12 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 
 		err = bcm430x_80211_init(bcm);
 		if (err)
-			goto err_crystal_off;
+			goto err_80211_unwind;
 
-		if (num_80211_cores >= 2) {
+		if (i != 0) {
 			bcm430x_mac_suspend(bcm);
-			//TODO: turn irqs off  (are already off, no?)
-			//TODO: turn radio off
+			bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+			bcm430x_mac_suspend(bcm);
 		}
 	}
 	if (num_80211_cores >= 2) {
@@ -2088,6 +2099,14 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 out:
 	return err;
 
+err_80211_unwind:
+	/* unwind all 80211 initialization */
+	for (i = 0; i < num_80211_cores; i++) {
+		if (!(bcm->core_80211[i].flags & BCM430x_COREFLAG_INITIALIZED))
+			continue;
+		bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+		bcm430x_80211_cleanup(bcm);
+	}
 err_crystal_off:
 	bcm430x_pctl_set_crystal(bcm, 0);
 	goto out;
