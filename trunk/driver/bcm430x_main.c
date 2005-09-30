@@ -1783,6 +1783,28 @@ err_destroy_tx0:
 	goto out;
 }
 
+static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
+{
+	struct net_device *net_dev = bcm->net_dev;
+	unsigned char *mac = net_dev->dev_addr;
+	unsigned char *bssid;
+	int mac_len = net_dev->addr_len;
+	int i;
+
+	assert(mac_len == 6);
+
+	/* Write our MAC address to template ram */
+	for (i = 0; i < mac_len; i += sizeof(u32))
+		bcm430x_ram_write(bcm, 0x20, *((u32 *)(mac + i)));
+
+	/* Write the BSSID to template ram */
+	//TODO: From where do we get the BSSID
+#if 0
+	for (i = 0; i < mac_len; i += sizeof(u32))
+		bcm430x_ram_write(bcm, 0x26, *((u32 *)(bssid + i)));
+#endif
+}
+
 static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
 {
 	bcm430x_chip_cleanup(bcm);
@@ -1792,28 +1814,40 @@ static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
 static int bcm430x_80211_init(struct bcm430x_private *bcm)
 {
 	u32 ucodeflags;
-	int err = 0;
+	int err;
+	u32 sbimconfiglow;
 
-	//FIXME: FuncPlaceholder (SB CORE Fixup)
+	if (bcm->chip_rev < 5) {
+		sbimconfiglow = bcm430x_read32(bcm, BCM430x_CIR_SBIMCONFIGLOW);
+		sbimconfiglow &= ~ BCM430x_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+		sbimconfiglow &= ~ BCM430x_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+		if (1/*FIXME: this is a PCI bus*/)
+			sbimconfiglow |= 0x32;
+		else if (0/*FIXME: this is a silicone backplane bus*/)
+			sbimconfiglow |= 0x53;
+		bcm430x_write32(bcm, BCM430x_CIR_SBIMCONFIGLOW, sbimconfiglow);
+	}
+
 	bcm430x_phy_calibrate(bcm);
-	bcm430x_chip_init(bcm);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0016);
+	err = bcm430x_chip_init(bcm);
+	if (err)
+		goto out;
 
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0016);
 	bcm430x_shm_write16(bcm, bcm->current_core->rev);
 	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
 	ucodeflags = bcm430x_shm_read32(bcm);
 
-#if 0
-	if ( 1 == 0)
-		ucodeflags |= 0x00000010; //FIXME: Unknown ucode flag.
-#endif
+	if (0 /*FIXME: which condition has to be used here? */)
+		ucodeflags |= 0x00000010;
+
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
 		ucodeflags |= BCM430x_UCODEFLAG_UNKBGPHY;
 		if (bcm->current_core->phy->rev == 1)
 			ucodeflags |= BCM430x_UCODEFLAG_UNKGPHY;
 		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
 			ucodeflags |= BCM430x_UCODEFLAG_UNKPACTRL;
-	} else if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
+	} else if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
 		ucodeflags |= BCM430x_UCODEFLAG_UNKBGPHY;
 		if ((bcm->current_core->phy->rev >= 2)
 		    && ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000))
@@ -1825,25 +1859,28 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
 		bcm430x_shm_write32(bcm, ucodeflags);
 	}
-	
-	/* XXX: Using defaults as of http://bcm-specs.sipsolutions.net/SHM: 0x0002 */
+
+	/* FIXME: Short/Long Retry Limit: Using defaults as of http://bcm-specs.sipsolutions.net/SHM: 0x0002 */
 	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0006);
 	bcm430x_shm_write32(bcm, 7);
+	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0007);
 	bcm430x_shm_write32(bcm, 4);
 
-	/* FIXME:
-	SHM: 0x44, 0x46
-	 */
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x44);
+	bcm430x_shm_write32(bcm, 3);
+	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x46);
+	bcm430x_shm_write32(bcm, 2);
 
+	/* Minimum Contention Window */
 	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0003);
 	bcm430x_shm_write32(bcm, ((bcm->current_core->phy->type == BCM430x_PHYTYPE_B) ? 0x001F : 0x000F));
+	/* Maximum Contention Window */
+	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0004);
 	bcm430x_shm_write32(bcm, 0x03FF);
 
-	//TODO: Write MAC to template ram
-	//TODO: Write BSSID to template ram
-	
+	bcm430x_write_mac_bssid_templates(bcm);
+
 	if (bcm->current_core->rev >= 5)
-		//XXX: Is this really 16bit wide? (No specs)
 		bcm430x_write16(bcm, 0x043C, 0x000C);
 
 	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA) {
@@ -1851,6 +1888,10 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 		if (err)
 			goto err_chip_cleanup;
 	}
+
+	bcm430x_mac_enable(bcm);
+
+	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 
 out:
 	return err;
@@ -2037,8 +2078,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
 	//TODO: Set up LEDs
 	//TODO: Initialize PIO
-
-	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
 
 //FIXME: This seems to crash in the irq handler. Dunno why. Will fix later.
 //	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
