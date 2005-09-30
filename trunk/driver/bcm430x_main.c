@@ -414,7 +414,6 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 		0x00000001,
 		0x00000000,
 	};
-	u8 *tmp;
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
@@ -431,20 +430,19 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 		return -1;
 	}
 
-#if BCM430x_DEBUG
-	printk(KERN_WARNING PFX "DummyTransmission():\n");
-	printk(KERN_WARNING PFX "Packet:\n");
+	dprintk(KERN_WARNING PFX "DummyTransmission():\n");
+	dprintk(KERN_WARNING PFX "Packet:\n");
 	for (i = 0; i < 5; i++) {
-		tmp = (u8 *)&buffer[i];
-		printk(KERN_WARNING PFX "%02x %02x %02x %02x\n", tmp[0], tmp[1], tmp[2], tmp[3]);
+		dprintk(KERN_WARNING PFX "%02x %02x %02x %02x\n",
+			((u8 *)(buffer + i))[0],
+			((u8 *)(buffer + i))[1],
+			((u8 *)(buffer + i))[2],
+			((u8 *)(buffer + i))[3]);
 	}
-#endif
 	for (i = 0; i < 5; i++) {
 		bcm430x_ram_write(bcm, i * 4, buffer[i]);
 	}
-#if BCM430x_DEBUG
-	printk(KERN_WARNING PFX "Packet written\n");
-#endif
+	dprintk(KERN_WARNING PFX "Packet written\n");
 
 	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 
@@ -462,27 +460,21 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	
 	for (i = 0x00; i < max_loop; i++) {
 		value = bcm430x_read16(bcm, 0x050E);
-#ifdef BCM430x_DEBUG
-		printk(KERN_INFO PFX "dummy_tx(): loop1, iteration %d, value = %04x\n", i, value);
-#endif
+		dprintk(KERN_INFO PFX "dummy_tx(): loop1, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0080) != 0)
 			break;
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm430x_read16(bcm, 0x050E);
-#ifdef BCM430x_DEBUG
-		printk(KERN_INFO PFX "dummy_tx(): loop2, iteration %d, value = %04x\n", i, value);
-#endif
+		dprintk(KERN_INFO PFX "dummy_tx(): loop2, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0400) != 0)
 			break;
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm430x_read16(bcm, 0x0690);
-#ifdef BCM430x_DEBUG
-		printk(KERN_INFO PFX "dummy_tx(): loop3, iteration %d, value = %04x\n", i, value);
-#endif
+		dprintk(KERN_INFO PFX "dummy_tx(): loop3, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0100) == 0)
 			break;
 		udelay(10);
