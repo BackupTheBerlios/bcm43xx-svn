@@ -127,9 +127,11 @@ static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 
 	hwswap = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 	hwswap &= BCM430x_SBF_XFER_REG_BYTESWAP;
+	if (!hwswap)
+		val = swab32(val);
 
 	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
-	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, hwswap ? val : __swab32(val));
+	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, val);
 }
 
 void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
@@ -1820,12 +1822,12 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 
 	/* Write our MAC address to template ram */
 	for (i = 0; i < mac_len; i += sizeof(u32))
-		bcm430x_ram_write(bcm, 0x20, *((u32 *)(mac + i)));
+		bcm430x_ram_write(bcm, 0x20 + i * sizeof(u32), *((u32 *)(mac + i)));
 
 	/* Write the BSSID to template ram */
 	bcm430x_gen_bssid(bcm, bssid, mac);
 	for (i = 0; i < ARRAY_SIZE(bssid); i += sizeof(u32))
-		bcm430x_ram_write(bcm, 0x26, *((u32 *)(bssid + i)));
+		bcm430x_ram_write(bcm, 0x26 + i * sizeof(u32), *((u32 *)(bssid + i)));
 }
 
 static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
