@@ -134,30 +134,99 @@ static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, val);
 }
 
-void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control)
+void bcm430x_shm_control_word(struct bcm430x_private *bcm,
+			      u16 routing, u16 offset)
 {
-	bcm->shm_addr = (control & 0x0000FFFF);
+	u32 control;
+
+	control = routing;
+	control <<= 16;
+	control |= offset;
 	bcm430x_write32(bcm, BCM430x_MMIO_SHM_CONTROL, control);
 }
 
-u16 bcm430x_shm_read16(struct bcm430x_private *bcm)
+u32 bcm430x_shm_read32(struct bcm430x_private *bcm,
+		       u16 routing, u16 offset)
 {
-	return bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA + (bcm->shm_addr % 4));
+	u32 ret;
+
+	if (routing == BCM430x_SHM_SHARED) {
+		if (offset & 0x0003) {
+			/* Unaligned access */
+			bcm430x_shm_control_byte(bcm, routing, offset);
+			ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED);
+			ret <<= 16;
+			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 4);
+			ret |= bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA);
+
+			return ret;
+		}
+		offset >>= 2;
+	}
+	bcm430x_shm_control_word(bcm, routing, offset);
+	ret = bcm430x_read32(bcm, BCM430x_MMIO_SHM_DATA);
+
+	return ret;
 }
 
-u32 bcm430x_shm_read32(struct bcm430x_private *bcm)
+u16 bcm430x_shm_read16(struct bcm430x_private *bcm,
+		       u16 routing, u16 offset)
 {
-	return bcm430x_read32(bcm, BCM430x_MMIO_SHM_DATA);
+	u16 ret;
+
+	if (routing == BCM430x_SHM_SHARED) {
+		if (offset & 0x0003) {
+			/* Unaligned access */
+			bcm430x_shm_control_byte(bcm, routing, offset);
+			ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED);
+
+			return ret;
+		}
+		offset >>= 2;
+	}
+	bcm430x_shm_control_word(bcm, routing, offset);
+	ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA);
+
+	return ret;
 }
 
-void bcm430x_shm_write16(struct bcm430x_private *bcm, u16 val)
+void bcm430x_shm_write32(struct bcm430x_private *bcm,
+			 u16 routing, u16 offset,
+			 u32 value)
 {
-	bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA + (bcm->shm_addr % 4), val);
+	if (routing == BCM430x_SHM_SHARED) {
+		if (offset & 0x0003) {
+			/* Unaligned access */
+			bcm430x_shm_control_byte(bcm, routing, offset);
+			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED,
+					(value >> 16) & 0xffff);
+			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 4);
+			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA,
+					value & 0xffff);
+			return;
+		}
+		offset >>= 2;
+	}
+	bcm430x_shm_control_word(bcm, routing, offset);
+	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, value);
 }
 
-void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val)
+void bcm430x_shm_write16(struct bcm430x_private *bcm,
+			 u16 routing, u16 offset,
+			 u16 value)
 {
-	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, val);
+	if (routing == BCM430x_SHM_SHARED) {
+		if (offset & 0x0003) {
+			/* Unaligned access */
+			bcm430x_shm_control_byte(bcm, routing, offset);
+			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED,
+					value);
+			return;
+		}
+		offset >>= 2;
+	}
+	bcm430x_shm_control_word(bcm, routing, offset);
+	bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA, value);
 }
 
 int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
@@ -919,9 +988,10 @@ static inline void bcm430x_write_microcode(struct bcm430x_private *bcm,
 				    const u32 *data, const unsigned int len)
 {
 	unsigned int i;
-	bcm430x_shm_control(bcm, BCM430x_SHM_UCODE + 0x0000);
+	bcm430x_shm_control_word(bcm, BCM430x_SHM_UCODE, 0x0000);
 	for (i = 0; i < len; i++) {
-		bcm430x_shm_write32(bcm, be32_to_cpu(data[i]));
+		bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA,
+				be32_to_cpu(data[i]));
 		udelay(10);
 	}
 }
@@ -930,11 +1000,12 @@ static inline void bcm430x_write_pcm(struct bcm430x_private *bcm,
 			      const u32 *data, const unsigned int len)
 {
 	unsigned int i;
-	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01ea);
-	bcm430x_shm_write32(bcm, 0x00004000);
-	bcm430x_shm_control(bcm, BCM430x_SHM_PCM + 0x01eb);
+	bcm430x_shm_control_word(bcm, BCM430x_SHM_PCM, 0x01ea);
+	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, 0x00004000);
+	bcm430x_shm_control_word(bcm, BCM430x_SHM_PCM, 0x01eb);
 	for (i = 0; i < len; i++) {
-		bcm430x_shm_write32(bcm, be32_to_cpu(data[i]));
+		bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA,
+				be32_to_cpu(data[i]));
 		udelay(10);
 	}
 }
@@ -1322,8 +1393,7 @@ static void bcm430x_short_preamble_enable(struct bcm430x_private *bcm)
 	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
 		return;
 	bcm430x_write16(bcm, 0x684, 0x0207);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0010);
-	bcm430x_shm_write16(bcm, 9);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 9);
 }
 
 static void bcm430x_short_preamble_disable(struct bcm430x_private *bcm)
@@ -1331,8 +1401,7 @@ static void bcm430x_short_preamble_disable(struct bcm430x_private *bcm)
 	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
 		return;
 	bcm430x_write16(bcm, 0x684, 0x0212);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0010);
-	bcm430x_shm_write16(bcm, 20);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
 }
 
 /* This is the opposite of bcm430x_chip_init() */
@@ -1423,14 +1492,12 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		bcm430x_write16(bcm, 0x0230, 0x0100);
 		bcm430x_write16(bcm, 0x0250, 0x0100);
 		bcm430x_write16(bcm, 0x0270, 0x0100);
-		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0034);
-		bcm430x_shm_write32(bcm, 0x00000000);
+		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0034, 0x00000000);
 	}
 
 	/* Probe Response Timeout value */
 	/* FIXME: Default to 0, has to be set by ioctl probably... :-/ */
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0074);
-	bcm430x_shm_write16(bcm, 0x0000);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0074, 0x0000);
 
 	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
 		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
@@ -1488,26 +1555,20 @@ static int bcm430x_validate_chip(struct bcm430x_private *bcm)
 	u32 value;
 	u32 shm_backup;
 
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	shm_backup = bcm430x_shm_read32(bcm);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	bcm430x_shm_write32(bcm, 0xAA5555AA);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	if (bcm430x_shm_read32(bcm) != 0xAA5555AA) {
+	shm_backup = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0000);
+	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0000, 0xAA5555AA);
+	if (bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0000) != 0xAA5555AA) {
 		printk(KERN_ERR PFX "Error: SHM mismatch (1) validating chip\n");
 		goto out;
 	}
 
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	bcm430x_shm_write32(bcm, 0x55AAAA55);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	if (bcm430x_shm_read32(bcm) != 0x55AAAA55) {
+	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0000, 0x55AAAA55);
+	if (bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0000) != 0x55AAAA55) {
 		printk(KERN_ERR PFX "Error: SHM mismatch (2) validating chip\n");
 		goto out;
 	}
 
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED);
-	bcm430x_shm_write32(bcm, shm_backup);
+	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0000, shm_backup);
 
 	value = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 	if ((value | 0x80000000) != 0x80000400) {
@@ -1862,10 +1923,8 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 	if (err)
 		goto out;
 
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x0016);
-	bcm430x_shm_write16(bcm, bcm->current_core->rev);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
-	ucodeflags = bcm430x_shm_read32(bcm);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0016, bcm->current_core->rev);
+	ucodeflags = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, BCM430x_UCODEFLAGS_OFFSET);
 
 	if (0 /*FIXME: which condition has to be used here? */)
 		ucodeflags |= 0x00000010;
@@ -1883,29 +1942,26 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 			ucodeflags &= ~BCM430x_UCODEFLAG_UNKGPHY;
 	}
 
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
-	if (ucodeflags != bcm430x_shm_read32(bcm)) {
-		bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + BCM430x_UCODEFLAGS_OFFSET);
-		bcm430x_shm_write32(bcm, ucodeflags);
+	if (ucodeflags != bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED,
+					     BCM430x_UCODEFLAGS_OFFSET)) {
+		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED,
+				    BCM430x_UCODEFLAGS_OFFSET, ucodeflags);
 	}
 
 	/* FIXME: Short/Long Retry Limit: Using defaults as of http://bcm-specs.sipsolutions.net/SHM: 0x0002 */
-	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0006);
-	bcm430x_shm_write32(bcm, 7);
-	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0007);
-	bcm430x_shm_write32(bcm, 4);
+	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0006, 7);
+	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0007, 4);
 
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x44);
-	bcm430x_shm_write32(bcm, 3);
-	bcm430x_shm_control(bcm, BCM430x_SHM_SHARED + 0x46);
-	bcm430x_shm_write32(bcm, 2);
+	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0044, 3);
+	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0046, 2);
 
 	/* Minimum Contention Window */
-	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0003);
-	bcm430x_shm_write32(bcm, ((bcm->current_core->phy->type == BCM430x_PHYTYPE_B) ? 0x001F : 0x000F));
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B)
+		bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0003, 0x0000001f);
+	else
+		bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0003, 0x0000000f);
 	/* Maximum Contention Window */
-	bcm430x_shm_control(bcm, BCM430x_SHM_WIRELESS + 0x0004);
-	bcm430x_shm_write32(bcm, 0x03FF);
+	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0004, 0x000003ff);
 
 	bcm430x_write_mac_bssid_templates(bcm);
 

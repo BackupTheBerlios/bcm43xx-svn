@@ -28,15 +28,31 @@
 
 */
 
+#include "bcm430x.h"
 
-struct bcm430x_private;
 
+/* write the SHM Control word with a 32bit word offset */
+void bcm430x_shm_control_word(struct bcm430x_private *bcm,
+			      u16 routing, u16 offset);
 
-void bcm430x_shm_control(struct bcm430x_private *bcm, u32 control);
-u16 bcm430x_shm_read16(struct bcm430x_private *bcm);
-void bcm430x_shm_write16(struct bcm430x_private *bcm, u16 val);
-u32 bcm430x_shm_read32(struct bcm430x_private *bcm);
-void bcm430x_shm_write32(struct bcm430x_private *bcm, u32 val);
+/* write the SHM Control word with a byte offset */
+static inline
+void bcm430x_shm_control_byte(struct bcm430x_private *bcm,
+			      u16 routing, u16 offset)
+{
+	bcm430x_shm_control_word(bcm, routing, offset >> 2);
+}
+
+u32 bcm430x_shm_read32(struct bcm430x_private *bcm,
+		       u16 routing, u16 offset);
+u16 bcm430x_shm_read16(struct bcm430x_private *bcm,
+		       u16 routing, u16 offset);
+void bcm430x_shm_write32(struct bcm430x_private *bcm,
+			 u16 routing, u16 offset,
+			 u32 value);
+void bcm430x_shm_write16(struct bcm430x_private *bcm,
+			 u16 routing, u16 offset,
+			 u16 value);
 
 int bcm430x_dummy_transmission(struct bcm430x_private *bcm);
 

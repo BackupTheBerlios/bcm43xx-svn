@@ -43,6 +43,7 @@
 #define BCM430x_MMIO_RAM_DATA		0x134
 #define BCM430x_MMIO_SHM_CONTROL	0x160
 #define BCM430x_MMIO_SHM_DATA		0x164
+#define BCM430x_MMIO_SHM_DATA_UNALIGNED	0x166
 #define BCM430x_MMIO_REV3PLUS_TSF_LOW	0x180
 #define BCM430x_MMIO_REV3PLUS_TSF_HIGH	0x184
 #define BCM430x_MMIO_DMA1_BASE		0x200
@@ -107,12 +108,12 @@
 #define BCM430x_GPIO_CONTROL		0x6c
 
 /* SHM Routing */
-#define BCM430x_SHM_SHARED		0x00010000
-#define BCM430x_SHM_WIRELESS		0x00020000
-#define BCM430x_SHM_PCM			0x00030000
-#define BCM430x_SHM_HWMAC		0x00040000
-#define BCM430x_SHM_UCODE		0x03000000
-/* #define BCM_430x_SHM_????		0x03010000*/
+#define BCM430x_SHM_SHARED		0x0001
+#define BCM430x_SHM_WIRELESS		0x0002
+#define BCM430x_SHM_PCM			0x0003
+#define BCM430x_SHM_HWMAC		0x0004
+#define BCM430x_SHM_UCODE		0x0300
+
 
 #define BCM430x_CHIPCOMMON_CAPABILITIES 0x04
 #define BCM430x_CAPABILITIES_PCTLMASK	0x0040000
@@ -436,8 +437,6 @@ struct bcm430x_private {
 
 	void *mmio_addr;
 	unsigned int mmio_len;
-
-	u32 shm_addr;
 
 	/* Spinlock to protect all data in this structure,
 	 * which is accessed from irq context. */ //TODO: Explicitely state which members are the data.
