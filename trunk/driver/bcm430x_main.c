@@ -1808,6 +1808,8 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
 {
 	bcm430x_chip_cleanup(bcm);
+
+	bcm->current_core->flags &= ~ BCM430x_COREFLAG_INITIALIZED;
 }
 
 /* http://bcm-specs.sipsolutions.net/80211Init */
