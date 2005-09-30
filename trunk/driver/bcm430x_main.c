@@ -1829,9 +1829,6 @@ static int bcm430x_dma_init(struct bcm430x_private *bcm)
 out:
 	return err;
 
-err_destroy_rx1:
-	bcm430x_destroy_dmaring(bcm->rx_ring1);
-	bcm->rx_ring1 = 0;
 err_destroy_rx0:
 	bcm430x_destroy_dmaring(bcm->rx_ring0);
 	bcm->rx_ring0 = 0;
@@ -1896,6 +1893,7 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
 {
 	bcm430x_chip_cleanup(bcm);
+	bcm430x_dma_free(bcm);
 
 	bcm->current_core->flags &= ~ BCM430x_COREFLAG_INITIALIZED;
 }
