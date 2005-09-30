@@ -1783,11 +1783,34 @@ err_destroy_tx0:
 	goto out;
 }
 
+static void bcm430x_gen_bssid(struct bcm430x_private *bcm, 
+			      unsigned char *bssid,
+			      unsigned char *mac)
+{
+	switch (bcm->ieee->iw_mode) {
+	case IW_MODE_MASTER:
+	case IW_MODE_ADHOC:
+	case IW_MODE_INFRA:
+	case IW_MODE_REPEAT:
+	case IW_MODE_SECOND:
+	case IW_MODE_MONITOR:
+		/*FIXME: For now we always return the mac address.
+		 *       I hope this is ok. Wikipedia states something about
+		 *       randomizing the bssid in non-MASTER mode... .
+		 *       I did not find something about this in the IEEE specs, yet.
+		 */
+		memcpy(bssid, mac, 6);
+		break;
+	default:
+		assert(0);
+	}
+}
+
 static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 {
 	struct net_device *net_dev = bcm->net_dev;
 	unsigned char *mac = net_dev->dev_addr;
-	unsigned char *bssid;
+	unsigned char bssid[6];
 	int mac_len = net_dev->addr_len;
 	int i;
 
@@ -1798,11 +1821,9 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 		bcm430x_ram_write(bcm, 0x20, *((u32 *)(mac + i)));
 
 	/* Write the BSSID to template ram */
-	//TODO: From where do we get the BSSID
-#if 0
-	for (i = 0; i < mac_len; i += sizeof(u32))
+	bcm430x_gen_bssid(bcm, bssid, mac);
+	for (i = 0; i < ARRAY_SIZE(bssid); i += sizeof(u32))
 		bcm430x_ram_write(bcm, 0x26, *((u32 *)(bssid + i)));
-#endif
 }
 
 static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
@@ -2470,7 +2491,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
 assert(bcm->data_xfer_mode == BCM430x_DATAXFER_DMA); /*TODO: Implement complete support for PIO mode. */
 
-	bcm->ieee->mode = BCM430x_INITIAL_IWMODE;
+	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
