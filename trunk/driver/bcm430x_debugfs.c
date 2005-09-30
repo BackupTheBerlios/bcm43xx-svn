@@ -199,16 +199,13 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 	}
 
 	/* This is where the information is written to the "shm_dump" file */
-	/*TODO: dump shared_memory, hw_mac, init_ucode, 0x0002 and maybe others */
 	fappend("PCM data (size: %u bytes):", bcm->pcm_size);
-	fappend("\nFIXME: This is all 0x00000000 on my machine. Maybe we cannot read "
-		"PCM data back... (Michael)");
-	iowrite32(BCM430x_SHM_PCM + 0x01eb, bcm->mmio_addr + BCM430x_MMIO_SHM_CONTROL);
+	bcm430x_shm_control_word(bcm, BCM430x_SHM_PCM, 0x01eb);
 	fappend_ioblock32(bcm->pcm_size / sizeof(u32), BCM430x_MMIO_SHM_DATA);
 	fappend("\nPCM data end\n\n");
 
 	fappend("Microcode (size: %u bytes):", bcm->ucode_size);
-	iowrite32(BCM430x_SHM_UCODE + 0x0000, bcm->mmio_addr + BCM430x_MMIO_SHM_CONTROL);
+	bcm430x_shm_control_word(bcm, BCM430x_SHM_UCODE, 0x0000);
 	fappend_ioblock32(bcm->ucode_size / sizeof(u32), BCM430x_MMIO_SHM_DATA);
 	fappend("\nMicrocode end\n\n");
 
