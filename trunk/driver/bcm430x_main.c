@@ -606,7 +606,6 @@ static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
 	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	bcm->current_core->core_specific_flags = core_flags;
 	bcm->current_core->flags |= BCM430x_COREFLAG_ENABLED;
 	assert(err == 0);
 out:
@@ -648,7 +647,7 @@ static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN) {
 		bcm430x_radio_turn_off(bcm);
 		bcm430x_write16(bcm, 0x03E6, 0x00F4);
-		bcm430x_core_disable(bcm, bcm->current_core->core_specific_flags);
+		bcm430x_core_disable(bcm, 0);
 	} else {
 		if (bcm->current_core->radio->enabled) {
 			bcm430x_radio_turn_off(bcm);
