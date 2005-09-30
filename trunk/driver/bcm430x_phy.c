@@ -214,12 +214,6 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 {
 	u16 offset, val = 0x3C3D;
 	
-	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF) {
-		bcm430x_phy_write(bcm, 0x0046, 0x0007);
-		bcm430x_phy_write(bcm, 0x0020, 0x281E);
-		bcm430x_write16(bcm, 0x03EC, 0x3F22);
-		return;
-	}
 	bcm430x_write16(bcm, 0x03EC, 0x3F22);
 	bcm430x_phy_write(bcm, 0x0020, 0x301C);
 	bcm430x_phy_write(bcm, 0x0026, 0x0000);
@@ -272,11 +266,6 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 {
 	u16 offset, val = 0x3C3D;
 
-	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF) {
-		bcm430x_phy_write(bcm, 0x0020, 0x281E);
-		bcm430x_write16(bcm, 0x03F4, 0x0100);
-		return;
-	}
 	bcm430x_write16(bcm, 0x03EC, 0x3F22);
 	bcm430x_phy_write(bcm, 0x0020, 0x301C);
 	bcm430x_phy_write(bcm, 0x0026, 0x0000);
@@ -387,11 +376,6 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 
 	bcm430x_write16(bcm, 0x03EC, 0x3F22);
 
-	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF) {
-		bcm430x_phy_write(bcm, 0x0020, 0x281E);
-		return;
-	}
-
 	if ((bcm->current_core->phy->rev == 1)
 	    && ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)) {
 		bcm430x_phy_write(bcm, 0x0020, 0x3E1C);
@@ -480,13 +464,6 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 		bcm430x_radio_write16(bcm, 0x042B,
 		                      bcm430x_radio_read16(bcm, 0x042B) | 0x2000);
 	}
-	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF) {
-		bcm430x_write16(bcm, 0x03EC, 0x3206);
-		bcm430x_phy_write(bcm, 0x0020, 0x281E);
-		bcm430x_phy_write(bcm, 0x0026,
-		                  bcm430x_phy_read(bcm, 0x0026) | 0x001A);
-		return;
-	}
 	bcm430x_radio_selectchannel(bcm, 7);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0023);
@@ -529,8 +506,6 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x1816, 0x04C2);
 		bcm430x_phy_write(bcm, 0x8606, 0x04C3);
 	}
-	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF)
-		return;
 	//FIXME: Add element to struct bcm430x_private for keeping retval
 	//       of _radio_initXXXX()
 #if 0

@@ -613,11 +613,6 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 
 int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 {
-	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF) {
-		printk(KERN_ERR PFX "Error: No radio device found on chip!\n");
-		return -ENODEV;
-	}
-
 	if (bcm->current_core->radio->enabled)
 		return 0;
 
@@ -649,9 +644,6 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 	
 int bcm430x_radio_turn_off(struct bcm430x_private *bcm)
 {
-	if (bcm->current_core->radio->id == BCM430x_RADIO_ID_NORF)
-		return -ENODEV;
-
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		bcm430x_radio_write16(bcm, 0x0004, 0x00FF);
