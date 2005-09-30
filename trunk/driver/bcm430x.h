@@ -362,6 +362,7 @@ struct bcm430x_phyinfo {
 	u8 type;
 	u8 rev;
 	u16 antenna_diversity;
+	u16 savedpctlreg;
 	u8 connected:1,
 	   calibrated:1;
 };
@@ -380,6 +381,8 @@ struct bcm430x_radioinfo {
 
 	/* current channel */
 	u16 channel;
+
+	u16 lofcal;
 
 	u8 enabled:1;
 };

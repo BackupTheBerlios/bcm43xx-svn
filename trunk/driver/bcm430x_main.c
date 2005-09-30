@@ -1681,8 +1681,10 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			memset(core, 0, sizeof(*core));
 			core->phy = &bcm->phy[i];
 			core->phy->antenna_diversity = 0xffff;
+			core->phy->savedpctlreg = 0xFFFF;
 			core->radio = &bcm->radio[i];
 			core->radio->channel = 0xffff;
+			core->radio->lofcal = 0xffff;
 			break;
 		case BCM430x_COREID_CHIPCOMMON:
 			printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");

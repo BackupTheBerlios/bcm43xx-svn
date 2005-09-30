@@ -112,7 +112,6 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 	u16 t_batt = 0xFFFF;
 	u16 t_ratt = 0xFFFF;
 	u16 t_txatt = 0xFFFF;
-	u16 phy29;
 
 	if ((bcm->board_vendor == PCI_VENDOR_ID_BROADCOM) && (bcm->board_type == 0x0416)) {
 		return;
@@ -128,12 +127,11 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 			return;
 		}
 	}
-#if 0
-	// FIXME: saved variable
-	if (saved variable != 0) {
-			return 0;
+
+	if ( bcm->current_core->phy->savedpctlreg != 0xFFFF ) {
+		return;
 	}
-#endif
+
 	if ((bcm->current_core->phy->type == BCM430x_PHYTYPE_B)
 	    && (bcm->current_core->phy->rev >= 2)
 	    && ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)) {
@@ -147,7 +145,7 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 
 	bcm430x_dummy_transmission(bcm);
 
-	phy29 = bcm430x_phy_read(bcm, 0x0029);
+	bcm->current_core->phy->savedpctlreg = bcm430x_phy_read(bcm, 0x0029);
 
 	if ((bcm->current_core->phy->type != BCM430x_PHYTYPE_B)
 	    || (bcm->current_core->phy->rev < 2)
@@ -155,10 +153,6 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 		bcm430x_radio_set_txpower_b(bcm, t_batt, t_ratt, t_txatt);
 	}
 
-#if 0
-	//FIXME: saved variable
-	saved variable = phy29;
-#endif
 	bcm430x_radio_write16(bcm, 0x0076, bcm430x_radio_read16(bcm, 0x0076) & 0xFF7B);
 
 	bcm430x_radio_clear_tssi(bcm);
@@ -166,6 +160,7 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 
 static void bcm430x_phy_inita(struct bcm430x_private *bcm)
 {
+	u16 tval;
 	//FIXME: APHYSetup
 	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_A) {
 		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
@@ -174,45 +169,45 @@ static void bcm430x_phy_inita(struct bcm430x_private *bcm)
 	}
 	bcm430x_phy_write(bcm, 0x0029,
 	                  (bcm430x_phy_read(bcm, 0x0029) & 0xF83C) | 0x340);
-	//FIXME: FuncPlaceHolder x 3
-	if (bcm->current_core->radio->id != BCM430x_RADIO_ID_NORF) {
-		bcm430x_radio_init2060(bcm);
+	bcm430x_phy_write(bcm, 0x0034, 0x0001);
 
-		if ((bcm->board_vendor == PCI_VENDOR_ID_BROADCOM)
-		    && ((bcm->board_type == 0x0416) || (bcm->board_type == 0x040A))) {
-#if 0
-			//FIXME: unk31A
-			if (unk31A == -1) {
-				//FIXME: FuncPlaceholder x 2
-			} else {
-				bcm430x_radio_write16(bcm, 0x001E, unk31A);
-			}
-#endif
+	//FIXME: RSSI AGC
+	bcm430x_phy_write(bcm, 0x0029,
+	                  bcm430x_phy_read(bcm, 0x0029) | (0x1 << 14));
+	bcm430x_radio_init2060(bcm);
+
+	if ((bcm->board_vendor == PCI_VENDOR_ID_BROADCOM)
+	    && ((bcm->board_type == 0x0416) || (bcm->board_type == 0x040A))) {
+		if (bcm->current_core->radio->lofcal == 0xFFFF) {
+			//FIXME: LOF Cal
+			//FIXME: Set TX IQ based on VOS
+		} else {
+			bcm430x_radio_write16(bcm, 0x001E, bcm->current_core->radio->lofcal);
 		}
-		bcm430x_phy_write(bcm, 0x007A, 0xF111);
-#if 0
-		//FIXME: unk154
-		if (!unk154) {
-			bcm430x_radio_write16(bcm, 0x0019, 0x0000);
-			bcm430x_radio_write16(bcm, 0x0017, 0x0020);
-
-			/* FIXME: Read 7273 offset 0x3001 into tmp */
-			if (bcm->phy_rev == 1) {
-				/* FIXME: MaskSet 7273 offset 0x3001, mask 0xFF87, set 0x58 */
-			} else {
-				/* FIXME: MaskSet 7273 offset 0x3001, mask 0xFFC3, set 0x2C */
-			}
-
-			bcm430x_dummy_transmission(bcm);
-			unk154 = bcm430x_phy_read(bcm, 0x007B);
-
-			/* FIXME: restore 7273 offsett 0x3001 */
-			//FIXME: bcm_radio_set_txpower_a(bcm, ???);
-		}
-#endif
-		bcm430x_radio_clear_tssi(bcm);
 	}
-	// no radio
+
+	bcm430x_phy_write(bcm, 0x007A, 0xF111);
+
+	if (bcm->current_core->phy->savedpctlreg == 0xFFFF) {
+		bcm430x_radio_write16(bcm, 0x0019, 0x0000);
+		bcm430x_radio_write16(bcm, 0x0017, 0x0020);
+
+		bcm430x_phy_write(bcm, 0x0072, 0x3001);
+		tval = bcm430x_phy_read(bcm, 0x0073);
+		if (bcm->current_core->phy->rev == 1) {
+			bcm430x_phy_write(bcm, 0x0073, (bcm430x_phy_read(bcm, 0x0073) & 0xFF87) | 0x0058);
+		} else {
+			bcm430x_phy_write(bcm, 0x0073, (bcm430x_phy_read(bcm, 0x0073) & 0xFFC3) | 0x002C);
+		}
+
+		bcm430x_dummy_transmission(bcm);
+		bcm->current_core->phy->savedpctlreg = bcm430x_phy_read(bcm, 0x007B);
+
+		bcm430x_phy_write(bcm, 0x0072, 0x3001);
+		bcm430x_phy_write(bcm, 0x0073, tval);
+		bcm430x_radio_set_txpower_a(bcm, 0x0018);
+	}
+	bcm430x_radio_clear_tssi(bcm);
 }
 
 static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
