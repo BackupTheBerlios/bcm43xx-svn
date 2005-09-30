@@ -257,30 +257,31 @@ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
 	unsigned long flags;
 	u64 tsf;
 
+	buf_size = min(count, sizeof (really_big_buffer) - 1);
 	down(&big_buffer_sem);
+	if (copy_from_user(buf, user_buf, buf_size)) {
+	        res = -EFAULT;
+		goto out_up;
+	}
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
 		printk(KERN_INFO PFX "debugfs: Board not initialized.\n");
 		res = -EFAULT;
-		goto out;
-	}
-	buf_size = min(count, sizeof (buf) - 1);
-	if (copy_from_user(buf, user_buf, buf_size)) {
-	        res = -EFAULT;
-		goto out;
+		goto out_unlock;
 	}
 	if (sscanf(buf, "%lli", &tsf) == 1) {
 		iowrite32(tsf & 0xFFFFFFFF, bcm->mmio_addr + BCM430x_MMIO_REV3PLUS_TSF_LOW);
 		iowrite32((tsf >> 32), bcm->mmio_addr + BCM430x_MMIO_REV3PLUS_TSF_HIGH);
 	} else {
-		printk(KERN_INFO PFX "debugfs: illegal values for \"tsf\"\n");
-		res = -EFAULT;
-		goto out;
+		printk(KERN_INFO PFX "debugfs: invalid values for \"tsf\"\n");
+		res = -EINVAL;
+		goto out_unlock;
 	}
 	res = buf_size;
 	
-out:
+out_unlock:
 	spin_unlock_irqrestore(&bcm->lock, flags);
+out_up:
 	up(&big_buffer_sem);
 	return res;
 }
