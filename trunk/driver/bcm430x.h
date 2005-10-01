@@ -461,6 +461,7 @@ struct bcm430x_private {
 
 	u16 board_vendor;
 	u16 board_type;
+	u16 board_revision;
 
 	u16 chip_id;
 	u8 chip_rev;

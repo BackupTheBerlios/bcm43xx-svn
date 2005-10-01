@@ -2320,6 +2320,8 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	                           &bcm->board_vendor);
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID,
 	                           &bcm->board_type);
+	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_REVISION_ID,
+	                           &bcm->board_revision);
 
 	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES,
 	                           &bcm->chipcommon_capabilities);
