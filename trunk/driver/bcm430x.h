@@ -136,10 +136,23 @@
 
 /* COREIDs */
 #define BCM430x_COREID_CHIPCOMMON	0x800
+#define BCM430x_COREID_ILINE20          0x801
+#define BCM430x_COREID_SDRAM            0x803
 #define BCM430x_COREID_PCI		0x804
+#define BCM430x_COREID_MIPS             0x805
+#define BCM430x_COREID_ETHERNET         0x806
 #define BCM430x_COREID_V90		0x807
+#define BCM430x_COREID_USB11_HOSTDEV    0x80a
+#define BCM430x_COREID_IPSEC            0x80b
 #define BCM430x_COREID_PCMCIA		0x80d
+#define BCM430x_COREID_EXT_IF           0x80f
 #define BCM430x_COREID_80211		0x812
+#define BCM430x_COREID_MIPS_3302        0x816
+#define BCM430x_COREID_USB11_HOST       0x817
+#define BCM430x_COREID_USB11_DEV        0x818
+#define BCM430x_COREID_USB20_HOST       0x819
+#define BCM430x_COREID_USB20_DEV        0x81a
+#define BCM430x_COREID_SDIO_HOST        0x81b
 
 /* Core Information Registers */
 #define BCM430x_CIR_BASE		0xf00
@@ -472,6 +485,7 @@ struct bcm430x_private {
 	struct bcm430x_coreinfo core_pci;
 	struct bcm430x_coreinfo core_v90;
 	struct bcm430x_coreinfo core_pcmcia;
+	struct bcm430x_coreinfo core_ethernet;
 	struct bcm430x_coreinfo core_80211[ BCM430x_MAX_80211_CORES ];
 	/* Info about the PHY for each 80211 core. */
 	struct bcm430x_phyinfo phy[ BCM430x_MAX_80211_CORES ];

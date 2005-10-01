@@ -1714,6 +1714,14 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			}
 			memset(core, 0, sizeof(*core));
 			break;
+		case BCM430x_COREID_ETHERNET:
+			core = &bcm->core_ethernet;
+			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
+				printk(KERN_WARNING PFX "Multiple Ethernet cores found.\n");
+				continue;
+			}
+			memset(core, 0, sizeof(*core));
+			break;
 		case BCM430x_COREID_80211:
 			for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
 				core = &(bcm->core_80211[i]);
