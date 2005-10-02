@@ -70,8 +70,8 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 			if (bcm->current_core->phy->rev != 1) {
 				bcm430x_phy_write(bcm, 0x042B,
 				                  bcm430x_phy_read(bcm, 0x042B) & 0x0800);
-				bcm430x_phy_write(bcm, 0x0429,
-				                  bcm430x_phy_read(bcm, 0x0429) & ~0x4000);
+				bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
+				                  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & ~0x4000);
 				return;
 			}
 			fmapoffset = bcm430x_flipmap[(bcm430x_phy_read(bcm, 0x0078) & 0x001E) >> 1]; 
@@ -102,8 +102,8 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 			}
 			bcm430x_phy_write(bcm, 0x042B,
 			                  bcm430x_phy_read(bcm, 0x042B) | 0x0800);
-			bcm430x_phy_write(bcm, 0x0401,
-			                  bcm430x_phy_read(bcm, 0x0401) | 0x1000);
+			bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD,
+			                  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) | 0x1000);
 
 			bcm430x_phy_write(bcm, 0x04A0,
 			                  (bcm430x_phy_read(bcm, 0x04A0) & 0xC0C0) | 0x0008);
@@ -125,8 +125,8 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 			if (bcm->current_core->phy->rev != 1) {
 				bcm430x_phy_write(bcm, 0x042B,
 				                  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
-				bcm430x_phy_write(bcm, 0x0429,
-				                  bcm430x_phy_read(bcm, 0x0429) & 0x4000);
+				bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
+				                  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & 0x4000);
 				return;
 			}
 			fmapoffset = bcm430x_flipmap[(bcm430x_phy_read(bcm, 0x0078) & 0x001E) >> 1]; 
@@ -144,11 +144,11 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 			                  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
 			/*FIXME:
 			if (Bad frame preempt?)
-				bcm430x_phy_write(bcm, 0x0401,
-			                          bcm430x_phy_read(bcm, 0x0401) & 0x1000);
+				bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD,
+			                          bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) & 0x1000);
 			*/
-			bcm430x_phy_write(bcm, 0x0429,
-				          bcm430x_phy_read(bcm, 0x0429) & 0x4000);
+			bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
+				          bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & 0x4000);
 			bcm430x_phy_write(bcm, 0x04A0, stack[--i]);
 			bcm430x_phy_write(bcm, 0x04A1, stack[--i]);
 			bcm430x_phy_write(bcm, 0x04A2, stack[--i]);
@@ -185,12 +185,12 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 				stack[i++] = bcm430x_phy_read(bcm, 0x04C1);
 				stack[i++] = bcm430x_phy_read(bcm, 0x04C0);
 			}
-			stack[i++] = bcm430x_phy_read(bcm, 0x0429);
-			stack[i++] = bcm430x_phy_read(bcm, 0x0401);
-			bcm430x_phy_write(bcm, 0x0401,
-			                  bcm430x_phy_read(bcm, 0x0401) & 0xEFFF);
-			bcm430x_phy_write(bcm, 0x0429,
-			                  (bcm430x_phy_read(bcm, 0x0429) & 0xEFFF) | 0x0002);
+			stack[i++] = bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS);
+			stack[i++] = bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD);
+			bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD,
+			                  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) & 0xEFFF);
+			bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
+			                  (bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & 0xEFFF) | 0x0002);
 			bcm430x_phy_write(bcm, 0x04A7, 0x0800);
 			bcm430x_phy_write(bcm, 0x04A3, 0x287A);
 			bcm430x_phy_write(bcm, 0x04A9, 0x2027);
@@ -233,8 +233,8 @@ void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode)
 			if (bcm430x_phy_read(bcm, 0x0033) != 0x0800)
 				return;
 			//FIXME: (16c?)
-			bcm430x_phy_write(bcm, 0x0401, stack[--i]);
-			bcm430x_phy_write(bcm, 0x0429, stack[--i]);
+			bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD, stack[--i]);
+			bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS, stack[--i]);
 			if (bcm->current_core->rev < 5)
 				bcm430x_phy_write(bcm, 0x0406, stack[--i]);
 			else {
@@ -308,7 +308,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	} else {
 		if (bcm->current_core->phy->connected) {
 			stack[index++] = bcm430x_phy_read(bcm, 0x0802);
-			stack[index++] = bcm430x_phy_read(bcm, 0x0429);
+			stack[index++] = bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0815);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0814);
 			stack[index++] = bcm430x_phy_read(bcm, 0x0812);
@@ -317,8 +317,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
                                           (bcm430x_phy_read(bcm, 0x0814) | 0x0003));
 			bcm430x_phy_write(bcm, 0x0815,
                                           (bcm430x_phy_read(bcm, 0x0815) & 0xFFFC));	
-			bcm430x_phy_write(bcm, 0x0429,
-			                  (bcm430x_phy_read(bcm, 0x0429) & 0x7FFC));
+			bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
+			                  (bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & 0x7FFC));
 			bcm430x_phy_write(bcm, 0x0802,
 			                  (bcm430x_phy_read(bcm, 0x0802) & 0xFFFC));
 			bcm430x_phy_write(bcm, 0x0811, 0x01B3);
@@ -447,7 +447,7 @@ printk(KERN_INFO PFX "Broke loop 2 in radio_init2050: i=%d, j=%d, tmp1=%d, tmp2=
 			bcm430x_phy_write(bcm, 0x0812, stack[--index]);
 			bcm430x_phy_write(bcm, 0x0814, stack[--index]);
 			bcm430x_phy_write(bcm, 0x0815, stack[--index]);
-			bcm430x_phy_write(bcm, 0x0429, stack[--index]);
+			bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS, stack[--index]);
 			bcm430x_phy_write(bcm, 0x0802, stack[--index]);
 		}
 	}

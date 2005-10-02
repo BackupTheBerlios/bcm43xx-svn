@@ -1744,6 +1744,10 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			core->phy = &bcm->phy[i];
 			core->phy->antenna_diversity = 0xffff;
 			core->phy->savedpctlreg = 0xFFFF;
+			core->phy->minlowsig1 = 0xFFFF;
+			core->phy->minlowsig2 = 0xFFFF;
+			core->phy->minlowsigpos1 = 0;
+			core->phy->minlowsigpos2 = 0;
 			core->radio = &bcm->radio[i];
 			core->radio->channel = 0xffff;
 			core->radio->lofcal = 0xffff;

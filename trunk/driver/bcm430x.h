@@ -203,6 +203,21 @@
 #define BCM430x_PHYTYPE_B		0x01
 #define BCM430x_PHYTYPE_G		0x02
 
+/* PHYRegisters */
+#define BCM430x_PHY_ILLT_A_CTRL		0x0072
+#define BCM430x_PHY_ILLT_A_DATA1	0x0073
+#define BCM430x_PHY_ILLT_A_DATA2	0x0074
+#define BCM430x_PHY_ILLT_G_CTRL		0x0472
+#define BCM430x_PHY_ILLT_G_DATA1	0x0473
+#define BCM430x_PHY_ILLT_G_DATA2	0x0474
+#define BCM430x_PHY_A_PCTL		0x007B
+#define BCM430x_PHY_G_PCTL		0x0029
+#define BCM430x_PHY_A_CRS		0x0029
+#define BCM430x_PHY_RADIO_BITFIELD	0x0401
+#define BCM430x_PHY_G_CRS		0x0429
+#define BCM430x_PHY_NRSSILT_CTRL	0x0803
+#define BCM430x_PHY_NRSSILT_DATA	0x0804
+
 /* RadioRegisters */
 #define BCM430x_RADIO_ID		0x01
 #define BCM430x_RADIO_ID_REVISIONMASK	0xF0000000
@@ -376,6 +391,10 @@ struct bcm430x_phyinfo {
 	u8 rev;
 	u16 antenna_diversity;
 	u16 savedpctlreg;
+	u16 minlowsig1;
+	u16 minlowsig2;
+	u16 minlowsigpos1;
+	u16 minlowsigpos2;
 	u8 connected:1,
 	   calibrated:1;
 };
