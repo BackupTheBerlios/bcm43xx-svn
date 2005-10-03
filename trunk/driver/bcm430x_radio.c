@@ -54,21 +54,21 @@ static const u16 rcc_table[16] = {
 	0x000E, 0x000F, 0x000D, 0x000F,
 };
 
-static const u8 flipmap_4bit[16] = {
-	0x00, 0x08, 0x04, 0x0C,
-	0x02, 0x0A, 0x06, 0x0E,
-	0x01, 0x09, 0x05, 0x0D,
-	0x03, 0x0B, 0x07, 0x0F,
-};
-
-/* Reverse the bits of a 4bit value. */
+/* Reverse the bits of a 4bit value.
+ * Example:  1101 is flipped 1011
+ */
 static u16 flip_4bit(u16 value)
 {
-	if (unlikely(value & ~0x000f)) {
-		printk(KERN_WARNING PFX "flip_4bit(): Not a 4bit value!\n");
-		value &= 0x000f;
-	}
-	return flipmap_4bit[value];
+	u16 flipped = 0x0000;
+
+	assert((value & ~0x000F) == 0x0000);
+
+	flipped |= (value & 0x0001) << 3;
+	flipped |= (value & 0x0002) << 1;
+	flipped |= (value & 0x0004) >> 1;
+	flipped |= (value & 0x0008) >> 3;
+
+	return flipped;
 }
 
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
@@ -818,7 +818,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x0015, 0xEFB0);
 			udelay(10);
 			if (bcm->current_core->phy->connected)
-				bcm430x_phy_write(bcm, 0x0812, 0x30B3); //FIXME: 0x20B3 correct here? specs say yes.
+				bcm430x_phy_write(bcm, 0x0812, 0x30B3); /* 0x30B3 is not a typo */
 			bcm430x_phy_write(bcm, 0x0015, 0xFFF0);
 			udelay(10);
 			tmp2 += bcm430x_phy_read(bcm, 0x002D);
@@ -858,9 +858,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x0802, backup[9]);
 		}
 	}
-	if (i >= 15) {
+	if (i >= 15)
 		ret = bcm430x_radio_read16(bcm, 0x0078);
-	}
 
 	return ret;
 }
