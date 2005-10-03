@@ -2116,7 +2116,7 @@ static void bcm430x_periodic_work0_handler(void *d)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	bcm430x_phy_recalc_xmitpower(bcm);
+	bcm430x_phy_xmitpower(bcm);
 	//TODO for APHY (temperature?)
 
 	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {

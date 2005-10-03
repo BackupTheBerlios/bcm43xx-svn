@@ -1360,6 +1360,46 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	bcm430x_phy_init_pctl(bcm);
 }
 
+/* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
+void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
+{
+	u16 saved[2] = { 0 };
+
+	if (bcm->current_core->phy->savedpctlreg == 0xFFFF)
+		return;
+
+	switch (bcm->current_core->phy->type) {
+	case BCM430x_PHYTYPE_A:
+		if (((bcm->board_type == 0x0416) || (bcm->board_type == 0x040A))
+		    && (bcm->board_vendor == PCI_VENDOR_ID_BROADCOM))
+			return;
+
+		FIXME(); //FIXME: Nothing for A PHYs yet :-/
+		break;
+
+	case BCM430x_PHYTYPE_B:
+	case BCM430x_PHYTYPE_G:
+		//XXX: What is board_type 0x0416?
+		if ((bcm->board_type == 0x0416) && (bcm->board_vendor == PCI_VENDOR_ID_BROADCOM))
+			return;
+
+		saved[0] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x00F8);
+		saved[1] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x005A);
+		if ((saved[0] == 0x7F7F) || (saved[1] == 0x7F7F)) {
+			saved[0] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0070);
+			saved[1] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0072);
+			if ((saved[0] == 0x7F7F) || (saved[1] == 0x7F7F))
+				return;
+
+			saved[0] = (saved[0] + 0x2020) & 0x3F3F;
+			saved[1] = (saved[1] + 0x2020) & 0x3F3F;
+		}
+		bcm430x_radio_clear_tssi(bcm);
+
+		TODO(); //TODO: 'Continues'
+		break;
+	}
+}
 
 int bcm430x_phy_init(struct bcm430x_private *bcm)
 {
@@ -1483,9 +1523,4 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 				    BCM430x_UCODEFLAGS_OFFSET,
 				    ucodeflags |  BCM430x_UCODEFLAG_AUTODIV);
 	}
-}
-
-void bcm430x_phy_recalc_xmitpower(struct bcm430x_private *bcm)
-{
-	/*TODO*/
 }
