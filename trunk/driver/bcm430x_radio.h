@@ -27,29 +27,27 @@
 
 */
 
-#include <linux/types.h>
+#include "bcm430x.h"
 
 
-#define BCM430x_RADIO_DEFAULT_CHANNEL_A		0
+#define BCM430x_RADIO_DEFAULT_CHANNEL_A		0 /*FIXME: What is the APHY default channel? */
 #define BCM430x_RADIO_DEFAULT_CHANNEL_BG	6
 #define BCM430x_RADIO_DEFAULT_ANTENNA		0x0300
 
 #define BCM430x_RADIO_INTERFMODE_NONE		0
-#define BCM430x_RADIO_INTERFMODE_NONWLAN	(1 << 0)
-#define BCM430x_RADIO_INTERFMODE_MANUALWLAN	(1 << 1)
-#define BCM430x_RADIO_INTERFMODE_AUTOWLAN	(1 << 2)
-#define BCM430x_RADIO_INTERFMODE_DISABLE	(1 << 3)
+#define BCM430x_RADIO_INTERFMODE_NONWLAN	1
+#define BCM430x_RADIO_INTERFMODE_MANUALWLAN	2
+#define BCM430x_RADIO_INTERFMODE_AUTOWLAN	3
 
-struct bcm430x_private;
 
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
 
+u16 bcm430x_radio_init2050(struct bcm430x_private *bcm);
+void bcm430x_radio_init2060(struct bcm430x_private *bcm);
+
 int bcm430x_radio_turn_on(struct bcm430x_private *bcm);
 int bcm430x_radio_turn_off(struct bcm430x_private *bcm);
-
-u16 bcm430x_radio_init2050(struct bcm430x_private *bcm);
-u16 bcm430x_radio_init2060(struct bcm430x_private *bcm);
 
 int bcm430x_radio_selectchannel(struct bcm430x_private *bcm, u8 channel);
 void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower);
@@ -58,5 +56,12 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 			       u16 txpower);
 void bcm430x_radio_set_txantenna(struct bcm430x_private *bcm, u32 val);
 
-void bcm430x_radio_calc_interference(struct bcm430x_private *bcm, u16 mode);
 void bcm430x_radio_clear_tssi(struct bcm430x_private *bcm);
+
+int bcm430x_radio_set_interference_mitigation(struct bcm430x_private *bcm, int mode);
+
+static inline
+int bcm430x_radio_get_interference_mitigation(struct bcm430x_private *bcm)
+{
+	return bcm->current_core->radio->interfmode;
+}

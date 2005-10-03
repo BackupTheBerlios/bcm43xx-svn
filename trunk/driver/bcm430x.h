@@ -11,6 +11,8 @@
 #include <asm/atomic.h>
 #include <asm/io.h>
 
+#include "bcm430x_debugfs.h"
+
 
 #define DRV_NAME			__stringify(KBUILD_MODNAME)
 #define DRV_VERSION			__stringify(BCM430x_VERSION)
@@ -56,7 +58,7 @@
 /* #define BCM430x_MMIO_???		0x3Ec*/
 #define BCM430x_MMIO_CHANNEL		0x3F0
 #define BCM430x_MMIO_RADIO_CONTROL	0x3F6
-#define BCM430x_MMIO_RADIO_DATA		0x3F8
+#define BCM430x_MMIO_RADIO_DATA_HIGH	0x3F8
 #define BCM430x_MMIO_RADIO_DATA_LOW	0x3FA
 #define BCM430x_MMIO_PHY_CONTROL	0x3FC
 #define BCM430x_MMIO_PHY_DATA		0x3FE
@@ -407,9 +409,12 @@ struct bcm430x_radioinfo {
 	 * 2: tx_CTL1 attenuation
 	 */
 	u16 txpower[3];
-	u16 interfmode;
-	u16 interfsize;
+	/* Current Interference Mitigation mode */
+	int interfmode;
+	/* Stack of saved values from the Interference Mitigation code */
 	u16 interfstack[20];
+	/* Saved values from the NRSSI Slope calculation */
+	s16 nrssi[2];
 
 	/* current channel */
 	u16 channel;
@@ -648,7 +653,23 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
 
 #endif /* BCM430x_DEBUG */
 
-	  
+
+/** Limit a value between two limits */
+#ifdef limit_value
+# undef limit_value
+#endif
+#define limit_value(value, min, max)  \
+	({					\
+		typeof(value) __value;		\
+	 	if ((value) < (min))		\
+	 		__value = (min);	\
+	 	else if ((value) > (max))	\
+	 		__value = (max);	\
+	 	else				\
+	 		__value = (value);	\
+	 	__value;			\
+	})
+
 /* 
  * Wrapper for older kernels 
  */

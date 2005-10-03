@@ -318,8 +318,9 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 			radio_id = 0x5205017F;
 	} else {
 		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIO_ID);
-		radio_id = bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA);
+		radio_id = bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA_HIGH);
 		radio_id <<= 16;
+		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIO_ID);
 		radio_id |= bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA_LOW);
 	}
 
@@ -1447,7 +1448,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		goto err_radio_off;
 
 	//FIXME: Calling with NONE for the time being. Let the user set it (later?)
-	bcm430x_radio_calc_interference(bcm, BCM430x_RADIO_INTERFMODE_NONE);
+	bcm430x_radio_set_interference_mitigation(bcm, BCM430x_RADIO_INTERFMODE_NONE);
 	bcm430x_phy_set_antenna_diversity(bcm);
 	bcm430x_radio_set_txantenna(bcm, BCM430x_RADIO_DEFAULT_ANTENNA);
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
