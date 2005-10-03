@@ -2471,24 +2471,23 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		bcm430x_wireless_core_reset(bcm, (i == 0));
 
 		err = bcm430x_read_phyinfo(bcm);
-		if (err)
+		if (err && (i == 0))
 			goto err_chipset_detach;
 
 		err = bcm430x_read_radioinfo(bcm);
-		if (err)
+		if (err && (i == 0))
 			goto err_chipset_detach;
 
 		err = bcm430x_validate_chip(bcm);
-		if (err)
+		if (err && (i == 0))
 			goto err_chipset_detach;
 
 		bcm430x_radio_turn_off(bcm);
 		bcm430x_wireless_core_disable(bcm);
-
-		/* Use the last 80211 core as default. */
-		bcm->def_80211_core = &bcm->core_80211[i];
 	}
 
+	/* Use the last 80211 core as default. */
+	bcm->def_80211_core = &bcm->core_80211[0];
 	bcm430x_pctl_set_crystal(bcm, 0);
 
 out:
