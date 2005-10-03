@@ -854,63 +854,66 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	unsigned long flags;
 
 #ifdef BCM430x_DEBUG
-	int _handled = 0;
-# define bcmirq_handled()	do { _handled = 1; } while (0)
+	u32 _handled = 0x00000000;
+# define bcmirq_handled(irq)	do { _handled |= (irq); } while (0)
 #else
-# define bcmirq_handled()	do { /* nothing */ } while (0)
+# define bcmirq_handled(irq)	do { /* nothing */ } while (0)
 #endif /* BCM430x_DEBUG */
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	reason = bcm->irq_reason;
 
-printkl(KERN_INFO PFX "We got an interrupt! 0x%08x, DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-	reason, bcm->dma_reason[0], bcm->dma_reason[1], bcm->dma_reason[2], bcm->dma_reason[3]);
-
 	if (reason & BCM430x_IRQ_BEACON) {
 		/*TODO*/
-		//bcmirq_handled();
+		//bcmirq_handled(BCM430x_IRQ_BEACON);
 	}
 
 	if (reason & BCM430x_IRQ_TBTT) {
 		/*TODO*/
-		//bcmirq_handled();
+		//bcmirq_handled(BCM430x_IRQ_TBTT);
 	}
 
 	if (reason & BCM430x_IRQ_REG124) {
 		/*TODO*/
-		//bcmirq_handled();
+		//bcmirq_handled(BCM430x_IRQ_REG124);
 	}
 
 	if (reason & BCM430x_IRQ_PMQ) {
 		/*TODO*/
-		//bcmirq_handled();
+		//bcmirq_handled(BCM430x_IRQ_PMQ);
 	}
 
 	if (reason & BCM430x_IRQ_TXFIFO_ERROR) {
 		printkl(KERN_ERR PFX "TX FIFO error. DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
 			bcm->dma_reason[0], bcm->dma_reason[1],
 			bcm->dma_reason[2], bcm->dma_reason[3]);
-		bcmirq_handled();
+		bcmirq_handled(BCM430x_IRQ_TXFIFO_ERROR);
 	}
 
 	if (reason & BCM430x_IRQ_SCAN) {
 		/*TODO*/
-		//bcmirq_handled();
+		//bcmirq_handled(BCM430x_IRQ_SCAN);
 	}
 
 	if (reason & BCM430x_IRQ_BGNOISE) {
 		/*TODO*/
-		//bcmirq_handled();
+		//bcmirq_handled(BCM430x_IRQ_BGNOISE);
 	}
 
 	if (reason & BCM430x_IRQ_XMIT_STATUS) {
 		handle_irq_transmit_status(bcm);
-		bcmirq_handled();
+		bcmirq_handled(BCM430x_IRQ_XMIT_STATUS);
 	}
 
 #ifdef BCM430x_DEBUG
-	if (!_handled)
-		printkl(KERN_WARNING PFX "Unhandled IRQ! Reason: 0x%08x\n", reason);
+	if (reason & ~_handled) {
+		printkl(KERN_WARNING PFX
+			"Unhandled IRQ! Reason: 0x%08x,  Unhandled: 0x%08x,  "
+			"DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+			reason, (reason & ~_handled),
+			bcm->dma_reason[0], bcm->dma_reason[1],
+			bcm->dma_reason[2], bcm->dma_reason[3]);
+	}
 #endif
 #undef bcmirq_handled
 
