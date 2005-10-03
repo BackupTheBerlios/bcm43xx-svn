@@ -543,6 +543,14 @@ struct bcm430x_private {
 
 	struct ieee80211_txb *txb;
 
+	/* Periodic tasks */
+	struct work_struct periodic_work0;
+#define BCM430x_PERIODIC_0_DELAY		(HZ * 15)
+	struct work_struct periodic_work1;
+#define BCM430x_PERIODIC_1_DELAY		((HZ * 60) + HZ / 2)
+	struct work_struct periodic_work2;
+#define BCM430x_PERIODIC_2_DELAY		((HZ * 120) + HZ)
+
 	/* Debugging stuff follows. */
 #ifdef BCM430x_DEBUG
 	u16 ucode_size;

@@ -2095,6 +2095,95 @@ out:
 	return err;
 }
 
+static void bcm430x_periodic_work0_handler(void *d)
+{
+	struct bcm430x_private *bcm = d;
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	bcm430x_phy_recalc_xmitpower(bcm);
+	//TODO for APHY (temperature?)
+
+	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {
+		queue_delayed_work(bcm->workqueue, &bcm->periodic_work0,
+				   BCM430x_PERIODIC_0_DELAY);
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+}
+
+static void bcm430x_periodic_work1_handler(void *d)
+{
+	struct bcm430x_private *bcm = d;
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	bcm430x_mac_suspend(bcm);
+	bcm430x_calc_nrssi_slope(bcm);
+	bcm430x_mac_enable(bcm);
+
+	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {
+		queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
+				   BCM430x_PERIODIC_1_DELAY);
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+}
+
+static void bcm430x_periodic_work2_handler(void *d)
+{
+	struct bcm430x_private *bcm = d;
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	bcm430x_mac_suspend(bcm);
+	bcm430x_phy_measurelowsig(bcm);
+	bcm430x_mac_enable(bcm);
+
+	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {
+		queue_delayed_work(bcm->workqueue, &bcm->periodic_work2,
+				   BCM430x_PERIODIC_2_DELAY);
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+}
+
+/* Delete all periodic tasks and make
+ * sure they are not running any longer
+ */
+static void bcm430x_periodic_tasks_delete(struct bcm430x_private *bcm)
+{
+	cancel_delayed_work(&bcm->periodic_work0);
+	cancel_delayed_work(&bcm->periodic_work1);
+	cancel_delayed_work(&bcm->periodic_work2);
+	flush_workqueue(bcm->workqueue);
+}
+
+/* Setup all periodic tasks. */
+static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
+{
+	INIT_WORK(&bcm->periodic_work0, bcm430x_periodic_work0_handler, bcm);
+	INIT_WORK(&bcm->periodic_work1, bcm430x_periodic_work1_handler, bcm);
+	INIT_WORK(&bcm->periodic_work2, bcm430x_periodic_work2_handler, bcm);
+
+	/* Periodic task 0: Delay ~15sec */
+	queue_delayed_work(bcm->workqueue, &bcm->periodic_work0,
+			   BCM430x_PERIODIC_0_DELAY);
+
+	/* Periodic task 1: Delay ~60sec */
+	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
+		queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
+				   BCM430x_PERIODIC_1_DELAY);
+	}
+
+	/* Periodic task 2: Delay ~120sec */
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G &&
+	    bcm->current_core->phy->rev >= 2) {
+		queue_delayed_work(bcm->workqueue, &bcm->periodic_work2,
+				   BCM430x_PERIODIC_2_DELAY);
+	}
+}
+
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
@@ -2103,6 +2192,8 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	bcm->status &= ~BCM430x_STAT_BOARDINITDONE;
 	bcm->status |= BCM430x_STAT_DEVSHUTDOWN;
 	mb();
+
+	bcm430x_periodic_tasks_delete(bcm);
 
 	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
 		if (!(bcm->core_80211[i].flags & BCM430x_COREFLAG_AVAILABLE))
@@ -2181,6 +2272,8 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 
 //FIXME: This seems to crash in the irq handler. Dunno why. Will fix later.
 //	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
+
+	bcm430x_periodic_tasks_setup(bcm);
 
 	mb();
 	bcm->status |= BCM430x_STAT_BOARDINITDONE;

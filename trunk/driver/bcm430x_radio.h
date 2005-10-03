@@ -65,3 +65,5 @@ int bcm430x_radio_get_interference_mitigation(struct bcm430x_private *bcm)
 {
 	return bcm->current_core->radio->interfmode;
 }
+
+s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm);

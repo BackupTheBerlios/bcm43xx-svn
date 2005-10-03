@@ -113,7 +113,7 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 
 static void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm);
 
-static s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
+s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 {
 	/*FIXME: We are not completely sure, if the nrssi values are really s16.
 	 *       We have to check by testing, if the values and the u16 to s16 casts are correct.

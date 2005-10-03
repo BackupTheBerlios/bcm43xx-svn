@@ -1484,3 +1484,8 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 				    ucodeflags |  BCM430x_UCODEFLAG_AUTODIV);
 	}
 }
+
+void bcm430x_phy_recalc_xmitpower(struct bcm430x_private *bcm)
+{
+	/*TODO*/
+}
