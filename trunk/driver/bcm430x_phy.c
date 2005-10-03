@@ -428,7 +428,7 @@ void bcm430x_phy_measurelowsig(struct bcm430x_private *bcm)
 			bcm430x_phy_write(bcm, 0x002A, 0x08A3);
 		}
 
-		bcm->current_core->phy->minlowsig1 = 0xFFFF;
+		bcm->current_core->phy->minlowsig[0] = 0xFFFF;
 
 		for (i=0; i<4; i++) {
 			bcm430x_radio_write16(bcm, 0x0052, radio_regs[0] | i);
@@ -437,14 +437,14 @@ void bcm430x_phy_measurelowsig(struct bcm430x_private *bcm)
 		for (i=0; i<10; i++) {
 			bcm430x_radio_write16(bcm, 0x0052, radio_regs[0] | i);
 			mls = bcm430x_phy_mls_r15_loop(bcm)/10;
-			if (mls < bcm->current_core->phy->minlowsig1) {
-				bcm->current_core->phy->minlowsig1 = mls;
-				bcm->current_core->phy->minlowsigpos1 = i;
+			if (mls < bcm->current_core->phy->minlowsig[0]) {
+				bcm->current_core->phy->minlowsig[0] = mls;
+				bcm->current_core->phy->minlowsigpos[0] = i;
 			}
 		}
-		bcm430x_radio_write16(bcm, 0x0052, radio_regs[0] | bcm->current_core->phy->minlowsigpos1);
+		bcm430x_radio_write16(bcm, 0x0052, radio_regs[0] | bcm->current_core->phy->minlowsigpos[0]);
 
-		bcm->current_core->phy->minlowsig2 = 0xFFFF;
+		bcm->current_core->phy->minlowsig[1] = 0xFFFF;
 
 		for (i=-4;i<5;i+=2) {
 			for (j=-4;j<5;j+=2) {
@@ -455,13 +455,13 @@ void bcm430x_phy_measurelowsig(struct bcm430x_private *bcm)
 				}
 				bcm430x_phy_write(bcm, 0x002F, fval);
 				mls = bcm430x_phy_mls_r15_loop(bcm)/10;
-				if (mls < bcm->current_core->phy->minlowsig2) {
-					bcm->current_core->phy->minlowsig2 = mls;
-					bcm->current_core->phy->minlowsigpos2 = fval;
+				if (mls < bcm->current_core->phy->minlowsig[1]) {
+					bcm->current_core->phy->minlowsig[1] = mls;
+					bcm->current_core->phy->minlowsigpos[1] = fval;
 				}
 			}
 		}
-		bcm430x_phy_write(bcm, 0x002F, bcm->current_core->phy->minlowsigpos2+0x0101);
+		bcm430x_phy_write(bcm, 0x002F, bcm->current_core->phy->minlowsigpos[1]+0x0101);
 		if (bcm->current_core->radio->id == 0x2053) {
 			bcm430x_phy_write(bcm, 0x000A, phy_regs[1]);
 			bcm430x_phy_write(bcm, 0x002A, phy_regs[2]);
@@ -1122,8 +1122,8 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x002A, 0x88C2);
 	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
-		//FIXME: FuncPlaceholder
-		//FIXME: FuncPlaceholder
+		bcm430x_calc_nrssi_slope(bcm);
+		bcm430x_calc_nrssi_threshold(bcm);
 	}
 	bcm430x_phy_init_pctl(bcm);
 }
@@ -1317,16 +1317,15 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x04C2, 0x1816);
 		bcm430x_phy_write(bcm, 0x04C3, 0x8606);
 	}
-	//FIXME: Add element to struct bcm430x_private for keeping retval
-	//       of _radio_initXXXX()
-#if 0
-	if (retval == -1) {
-		retval = bcm430x_radio_init2050(bcm);
+	if (bcm->current_core->radio->initval == 0xFFFF) {
+		//FIXME: init2050 gives OOPS
+		//bcm->current_core->radio->initval = bcm430x_radio_init2050(bcm);
 		bcm430x_phy_measurelowsig(bcm);
 	} else {
-		bcm430x_radio_write16(bcm, 0x0078, retval);
+		//bcm430x_radio_write16(bcm, 0x0078, bcm->current_core->radio->initval);
+		//FIXME: take the saved value from measurelowsig for G PHY as mask
+		// bcm430x_radio_write16(bcm, 0x0052, (bcm430x_radio_read16(0x0052) & 0xFFF0) | ???);
 	}
-#endif
 
 	if (bcm->current_core->phy->connected) {
 		//FIXME: Set GPHY CompLo
@@ -1346,16 +1345,16 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	}
 
 	if ((bcm->sprom.boardflags & BCM430x_BFL_RSSI) == 0) {
-		//FIXME: Update NRSSI Table
-		//FIXME: Set NRSSI Threshold
+		//FIXME: Update hardware NRSSI Table
+		bcm430x_calc_nrssi_threshold(bcm);
 	} else {
-#if 0
-		if (phy_unkCC && phy_inkD0) {
-			//FIXME: 2050 NRSSI Slope
-		} else {
-			//FIXME: Set NRSSI Threshold
+		if (bcm->current_core->phy->connected) {
+			if ((bcm->current_core->radio->nrssi[0] == -1000) && (bcm->current_core->radio->nrssi[1] == -1000)) {
+				bcm430x_calc_nrssi_slope(bcm);
+			} else {
+				bcm430x_calc_nrssi_threshold(bcm);
+			}
 		}
-#endif
 	}
 	bcm430x_phy_init_pctl(bcm);
 }

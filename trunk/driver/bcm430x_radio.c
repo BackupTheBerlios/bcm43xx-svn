@@ -111,9 +111,7 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 	/*TODO*/
 }
 
-static void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm);
-
-s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
+void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 {
 	/*FIXME: We are not completely sure, if the nrssi values are really s16.
 	 *       We have to check by testing, if the values and the u16 to s16 casts are correct.
@@ -126,7 +124,6 @@ s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_B:
-//TODO: review
 		backup[0] = bcm430x_radio_read16(bcm, 0x007A);
 		backup[1] = bcm430x_radio_read16(bcm, 0x0052);
 		backup[2] = bcm430x_radio_read16(bcm, 0x0043);
@@ -193,7 +190,7 @@ s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 		slope = nrssi0 - nrssi1;
 		if (slope == 0)
 			slope = 64;
-		slope = 0x400000 / slope;
+		bcm->current_core->radio->nrssislope = 0x400000 / slope;
 
 		if (nrssi0 <= -4) {
 			bcm->current_core->radio->nrssi[0] = nrssi0;
@@ -201,7 +198,6 @@ s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 		}
 		break;
 	case BCM430x_PHYTYPE_G:
-//TODO review
 		backup[0] = bcm430x_radio_read16(bcm, 0x007A);
 		backup[1] = bcm430x_radio_read16(bcm, 0x0052);
 		backup[2] = bcm430x_radio_read16(bcm, 0x0043);
@@ -269,7 +265,7 @@ s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 		slope = nrssi0 - nrssi1;
 		if (slope == 0)
 			slope = 64;
-		slope = 0x400000 / slope;
+		bcm->current_core->radio->nrssislope = 0x400000 / slope;
 
 		if (nrssi0 > -5) {
 			bcm->current_core->radio->nrssi[0] = nrssi1;
@@ -307,11 +303,9 @@ s16 bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 	default:
 		assert(0);
 	}
-
-	return slope;
 }
 
-static void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
+void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 {
 	s16 threshold;
 	s16 a, b;
@@ -714,7 +708,7 @@ static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
 u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 {
 	u16 backup[13];
-	u16 reg78 = 0, ret;
+	u16 ret;
 	u16 i, j;
 	u32 tmp1 = 0, tmp2 = 0;
 
@@ -865,9 +859,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 		}
 	}
 	if (i >= 15) {
-//		ret = bcm430x_radio_read16(bcm, 0x0078);
-		//FIXME: I guess the following is correct, instead of reading the register again:
-		ret = reg78;
+		ret = bcm430x_radio_read16(bcm, 0x0078);
 	}
 
 	return ret;

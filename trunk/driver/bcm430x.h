@@ -394,10 +394,8 @@ struct bcm430x_phyinfo {
 	u8 rev;
 	u16 antenna_diversity;
 	u16 savedpctlreg;
-	u16 minlowsig1;
-	u16 minlowsig2;
-	u16 minlowsigpos1;
-	u16 minlowsigpos2;
+	u16 minlowsig[2];
+	u16 minlowsigpos[2];
 	u8 connected:1,
 	   calibrated:1;
 };
@@ -416,11 +414,14 @@ struct bcm430x_radioinfo {
 	u16 interfstack[20];
 	/* Saved values from the NRSSI Slope calculation */
 	s16 nrssi[2];
+	s16 nrssislope;
 
 	/* current channel */
 	u16 channel;
 
 	u16 lofcal;
+
+	u16 initval;
 
 	u8 enabled:1;
 };
