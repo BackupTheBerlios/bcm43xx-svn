@@ -265,6 +265,9 @@ static const struct file * find_file(FILE *fd)
 		if (strcasecmp(md5sig, files[i].md5) == 0) {
 			printf("Your driver file is known. It's version %s (MD5: %s)\n",
 			       files[i].version, files[i].md5);
+			if(files[i].flags & SUPPORT_INCOMPLETE) {
+				printf("WARNING: your driver file is not fully supported\n");
+			}
 			return &(files[i]);
 		}
 	}
