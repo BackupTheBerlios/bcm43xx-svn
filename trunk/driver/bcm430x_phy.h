@@ -43,4 +43,4 @@ void bcm430x_phy_calibrate(struct bcm430x_private *bcm);
 int bcm430x_phy_connect(struct bcm430x_private *bcm, int connect);
 
 void bcm430x_phy_measurelowsig(struct bcm430x_private *bcm);
-void bcm430x_phy_recalc_xmitpower(struct bcm430x_private *bcm);
+void bcm430x_phy_xmitpower(struct bcm430x_private *bcm);
