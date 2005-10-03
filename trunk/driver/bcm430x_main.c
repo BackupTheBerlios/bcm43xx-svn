@@ -2287,8 +2287,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	//TODO: Set up LEDs
 	//TODO: Initialize PIO
 
-//FIXME: This seems to crash in the irq handler. Dunno why. Will fix later.
-//	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
+	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
 
 	bcm430x_periodic_tasks_setup(bcm);
 
