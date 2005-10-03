@@ -46,6 +46,7 @@
 #include "bcm430x_radio.h"
 #include "bcm430x_phy.h"
 #include "bcm430x_dma.h"
+#include "bcm430x_pio.h"
 #include "bcm430x_power.h"
 #include "bcm430x_wx.h"
 
@@ -1752,6 +1753,8 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			core->radio = &bcm->radio[i];
 			core->radio->channel = 0xffff;
 			core->radio->lofcal = 0xffff;
+			core->dma = &bcm->dma[i];
+			core->pio = &bcm->pio[i];
 			break;
 		case BCM430x_COREID_CHIPCOMMON:
 			printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");
@@ -1782,52 +1785,63 @@ out:
 
 static void bcm430x_dma_free(struct bcm430x_private *bcm)
 {
-	bcm430x_destroy_dmaring(bcm->rx_ring1);
-	bcm->rx_ring1 = 0;
-	bcm430x_destroy_dmaring(bcm->rx_ring0);
-	bcm->rx_ring0 = 0;
-	bcm430x_destroy_dmaring(bcm->tx_ring3);
-	bcm->tx_ring3 = 0;
-	bcm430x_destroy_dmaring(bcm->tx_ring2);
-	bcm->tx_ring2 = 0;
-	bcm430x_destroy_dmaring(bcm->tx_ring1);
-	bcm->tx_ring1 = 0;
-	bcm430x_destroy_dmaring(bcm->tx_ring0);
-	bcm->tx_ring0 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring1);
+	bcm->current_core->dma->rx_ring1 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
+	bcm->current_core->dma->rx_ring0 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
+	bcm->current_core->dma->tx_ring3 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
+	bcm->current_core->dma->tx_ring2 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
+	bcm->current_core->dma->tx_ring1 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
+	bcm->current_core->dma->tx_ring0 = 0;
 }
 
 static int bcm430x_dma_init(struct bcm430x_private *bcm)
 {
+	struct bcm430x_dmaring *ring;
 	int err = -ENOMEM;
 
 	/* setup TX DMA channels. */
-	bcm->tx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
-					      BCM430x_TXRING_SLOTS, 1);
-	if (!bcm->tx_ring0)
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
 		goto out;
-	bcm->tx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA2_BASE,
-					      BCM430x_TXRING_SLOTS, 1);
-	if (!bcm->tx_ring1)
+	bcm->current_core->dma->tx_ring0 = ring;
+
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA2_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
 		goto err_destroy_tx0;
-	bcm->tx_ring2 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA3_BASE,
-					      BCM430x_TXRING_SLOTS, 1);
-	if (!bcm->tx_ring2)
+	bcm->current_core->dma->tx_ring1 = ring;
+
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA3_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
 		goto err_destroy_tx1;
-	bcm->tx_ring3 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
-					      BCM430x_TXRING_SLOTS, 1);
-	if (!bcm->tx_ring3)
+	bcm->current_core->dma->tx_ring2 = ring;
+
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
 		goto err_destroy_tx2;
+	bcm->current_core->dma->tx_ring3 = ring;
 
 	/* setup RX DMA channels. */
-	bcm->rx_ring0 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
-					      BCM430x_RXRING_SLOTS, 0);
-	if (!bcm->rx_ring0)
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
+				     BCM430x_RXRING_SLOTS, 0);
+	if (!ring)
 		goto err_destroy_tx3;
+	bcm->current_core->dma->rx_ring0 = ring;
+
 	if (bcm->current_core->rev < 5) {
-		bcm->rx_ring1 = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
-						      BCM430x_RXRING_SLOTS, 0);
-		if (!bcm->rx_ring1)
+		ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
+					     BCM430x_RXRING_SLOTS, 0);
+		if (!ring)
 			goto err_destroy_rx0;
+		bcm->current_core->dma->rx_ring1 = ring;
 	}
 
 	dprintk(KERN_INFO PFX "DMA initialized\n");
@@ -1836,20 +1850,20 @@ out:
 	return err;
 
 err_destroy_rx0:
-	bcm430x_destroy_dmaring(bcm->rx_ring0);
-	bcm->rx_ring0 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
+	bcm->current_core->dma->rx_ring0 = 0;
 err_destroy_tx3:
-	bcm430x_destroy_dmaring(bcm->tx_ring3);
-	bcm->tx_ring3 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
+	bcm->current_core->dma->tx_ring3 = 0;
 err_destroy_tx2:
-	bcm430x_destroy_dmaring(bcm->tx_ring2);
-	bcm->tx_ring2 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
+	bcm->current_core->dma->tx_ring2 = 0;
 err_destroy_tx1:
-	bcm430x_destroy_dmaring(bcm->tx_ring1);
-	bcm->tx_ring1 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
+	bcm->current_core->dma->tx_ring1 = 0;
 err_destroy_tx0:
-	bcm430x_destroy_dmaring(bcm->tx_ring0);
-	bcm->tx_ring0 = 0;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
+	bcm->current_core->dma->tx_ring0 = 0;
 	goto out;
 }
 
@@ -2494,9 +2508,8 @@ static inline int bcm430x_tx(struct bcm430x_private *bcm,
 {
 	int err = -ENODEV;
 
-	bcm->txb = txb;
 	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)
-		err = bcm430x_dma_transfer_txb(bcm->tx_ring1, txb);
+		err = bcm430x_dma_transfer_txb(bcm->current_core->dma->tx_ring1, txb);
 	else
 		; /* TODO: PIO transfer */
 
@@ -2650,7 +2663,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		bcm->data_xfer_mode = BCM430x_DATAXFER_PIO;
 	else
 		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
-assert(bcm->data_xfer_mode == BCM430x_DATAXFER_DMA); /*TODO: Implement complete support for PIO mode. */
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;

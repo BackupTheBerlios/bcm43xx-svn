@@ -376,6 +376,7 @@ struct net_device;
 struct pci_dev;
 struct workqueue_struct;
 struct bcm430x_dmaring;
+struct bcm430x_pioqueue;
 
 struct bcm430x_initval {
 	u16 offset;
@@ -424,6 +425,24 @@ struct bcm430x_radioinfo {
 	u8 enabled:1;
 };
 
+/* Data structures for DMA transmission, per 80211 core. */
+struct bcm430x_dma {
+	struct bcm430x_dmaring *tx_ring0;
+	struct bcm430x_dmaring *tx_ring1;
+	struct bcm430x_dmaring *tx_ring2;
+	struct bcm430x_dmaring *tx_ring3;
+	struct bcm430x_dmaring *rx_ring0;
+	struct bcm430x_dmaring *rx_ring1; /* only available on core.rev < 5 */
+};
+
+/* Data structures for PIO transmission, per 80211 core. */
+struct bcm430x_pio {
+	struct bcm430x_pioqueue *queue0;
+	struct bcm430x_pioqueue *queue1;
+	struct bcm430x_pioqueue *queue2;
+	struct bcm430x_pioqueue *queue3;
+};
+
 #define BCM430x_MAX_80211_CORES		2
 
 #define BCM430x_COREFLAG_AVAILABLE	(1 << 0)
@@ -443,6 +462,10 @@ struct bcm430x_coreinfo {
 	struct bcm430x_phyinfo *phy;
 	/* Pointer to the RadioInfo, which belongs to this core (if 80211 core) */
 	struct bcm430x_radioinfo *radio;
+	/* Pointer to the DMA rings, which belong to this core (if 80211 core) */
+	struct bcm430x_dma *dma;
+	/* Pointer to the PIO queues, which belong to this core (if 80211 core) */
+	struct bcm430x_pio *pio;
 };
 
 /* data_xfer_mode values */
@@ -516,6 +539,10 @@ struct bcm430x_private {
 	struct bcm430x_phyinfo phy[ BCM430x_MAX_80211_CORES ];
 	/* Info about the Radio for each 80211 core. */
 	struct bcm430x_radioinfo radio[ BCM430x_MAX_80211_CORES ];
+	/* DMA */
+	struct bcm430x_dma dma[ BCM430x_MAX_80211_CORES ];
+	/* PIO */
+	struct bcm430x_pio pio[ BCM430x_MAX_80211_CORES ];
 
 	u32 chipcommon_capabilities;
 
@@ -532,16 +559,6 @@ struct bcm430x_private {
 
 	/* How is data transfered from the chip to the CPU? DMA or PIO. */
 	u8 data_xfer_mode;
-
-	/* DMA */
-	struct bcm430x_dmaring *tx_ring0;
-	struct bcm430x_dmaring *tx_ring1;
-	struct bcm430x_dmaring *tx_ring2;
-	struct bcm430x_dmaring *tx_ring3;
-	struct bcm430x_dmaring *rx_ring0;
-	struct bcm430x_dmaring *rx_ring1; /* only available on core.rev < 5 */
-
-	struct ieee80211_txb *txb;
 
 	/* Periodic tasks */
 	struct work_struct periodic_work0;
