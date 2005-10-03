@@ -60,4 +60,23 @@ void bcm430x_printk_dump(const char *data,
 
 #endif /* BCM430x_DEBUG */
 
+/* Ugly helper macros to make incomplete code more verbose on runtime */
+#ifdef TODO
+# undef TODO
+#endif
+#define TODO()  \
+	do {										\
+		printk(KERN_INFO PFX "TODO: Incomplete code in %s() at %s:%d\n",	\
+		       __FUNCTION__, __FILE__, __LINE__);				\
+	} while (0)
+
+#ifdef FIXME
+# undef FIXME
+#endif
+#define FIXME()  \
+	do {										\
+		printk(KERN_INFO PFX "FIXME: Possibly broken code in %s() at %s:%d\n",	\
+		       __FUNCTION__, __FILE__, __LINE__);				\
+	} while (0)
+
 #endif /* BCM430x_DEBUGFS_H_ */
