@@ -52,6 +52,10 @@
 #define BCM430x_MMIO_DMA2_BASE		0x220
 #define BCM430x_MMIO_DMA3_BASE		0x240
 #define BCM430x_MMIO_DMA4_BASE		0x260
+#define BCM430x_MMIO_PIO1_BASE		0x300
+#define BCM430x_MMIO_PIO2_BASE		0x310
+#define BCM430x_MMIO_PIO3_BASE		0x320
+#define BCM430x_MMIO_PIO4_BASE		0x330
 #define BCM430x_MMIO_PHY_VER		0x3E0
 #define BCM430x_MMIO_PHY_RADIO		0x3E2
 #define BCM430x_MMIO_ANTENNA		0x3E8
@@ -261,6 +265,7 @@
 #define BCM430x_IRQ_TBTT		(1 << 2) /*FIXME: purpose? */
 #define BCM430x_IRQ_REG124		(1 << 5) /*FIXME: purpose? */
 #define BCM430x_IRQ_PMQ			(1 << 6) /*FIXME: purpose? */
+#define BCM430x_IRQ_PIO_INIT		(1 << 12)
 #define BCM430x_IRQ_TXFIFO_ERROR	(1 << 15)
 #define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
 #define BCM430x_IRQ_BGNOISE		(1 << 18)

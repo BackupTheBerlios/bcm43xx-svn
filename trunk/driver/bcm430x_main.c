@@ -1789,6 +1789,64 @@ out:
 	return err;
 }
 
+static void bcm430x_pio_free(struct bcm430x_private *bcm)
+{
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue3);
+	bcm->current_core->pio->queue3 = 0;
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
+	bcm->current_core->pio->queue2 = 0;
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
+	bcm->current_core->pio->queue1 = 0;
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
+	bcm->current_core->pio->queue0 = 0;
+}
+
+static int bcm430x_pio_init(struct bcm430x_private *bcm)
+{
+	u32 mask;
+	struct bcm430x_pioqueue *queue;
+	int err = -ENOMEM;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO1_BASE);
+	if (!queue)
+		goto out;
+	bcm->current_core->pio->queue0 = queue;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO2_BASE);
+	if (!queue)
+		goto err_destroy0;
+	bcm->current_core->pio->queue1 = queue;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO3_BASE);
+	if (!queue)
+		goto err_destroy1;
+	bcm->current_core->pio->queue2 = queue;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO4_BASE);
+	if (!queue)
+		goto err_destroy2;
+	bcm->current_core->pio->queue3 = queue;
+
+	if (bcm->current_core->rev < 3)
+		bcm->irq_savedstate |= BCM430x_IRQ_PIO_INIT;
+
+	dprintk(KERN_INFO PFX "PIO initialized\n");
+	err = 0;
+out:
+	return err;
+
+err_destroy2:
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
+	bcm->current_core->pio->queue2 = 0;
+err_destroy1:
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
+	bcm->current_core->pio->queue1 = 0;
+err_destroy0:
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
+	bcm->current_core->pio->queue0 = 0;
+	goto out;
+}
+
 static void bcm430x_dma_free(struct bcm430x_private *bcm)
 {
 	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring1);
@@ -1919,6 +1977,7 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
 {
 	bcm430x_chip_cleanup(bcm);
+	bcm430x_pio_free(bcm);
 	bcm430x_dma_free(bcm);
 
 	bcm->current_core->flags &= ~ BCM430x_COREFLAG_INITIALIZED;
@@ -1996,10 +2055,15 @@ static int bcm430x_80211_init(struct bcm430x_private *bcm)
 		err = bcm430x_dma_init(bcm);
 		if (err)
 			goto err_chip_cleanup;
+	} else {
+		assert(bcm->data_xfer_mode == BCM430x_DATAXFER_PIO);
+		err = bcm430x_pio_init(bcm);
+		if (err)
+			goto err_chip_cleanup;
 	}
 
 	bcm430x_mac_enable(bcm);
-	bcm430x_interrupt_enable(bcm, BCM430x_IRQ_INITIAL);
+	bcm430x_interrupt_enable(bcm, bcm->irq_savedstate);
 
 	bcm->current_core->flags |= BCM430x_COREFLAG_INITIALIZED;
 out:
@@ -2515,7 +2579,7 @@ static inline int bcm430x_tx(struct bcm430x_private *bcm,
 	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)
 		err = bcm430x_dma_transfer_txb(bcm->current_core->dma->tx_ring1, txb);
 	else
-		; /* TODO: PIO transfer */
+		err = bcm430x_pio_transfer_txb(bcm, txb);
 
 	return err;
 }
@@ -2650,6 +2714,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm430x_mmioprint_initial(bcm, 0);
 #endif
 
+	bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
 	bcm->ieee = netdev_priv(net_dev);
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
