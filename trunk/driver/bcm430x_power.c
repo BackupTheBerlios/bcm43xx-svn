@@ -214,8 +214,10 @@ int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 		return 0;
 	}
 
-	//FIXME: ensure PCI, chipcommon, pctl capabilities
-
+	/* FIXME: Current driver doesn't support anything but PCI, so
+	 * we don't need to 'Ensure PCI' here right now.
+	 */
+	
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 	if (err == -ENODEV) {

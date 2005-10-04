@@ -36,6 +36,11 @@ struct bcm430x_private;
 u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val);
 
+void bcm430x_illt_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
+u16 bcm430x_illt_read16(struct bcm430x_private *bcm, u16 offset);
+void bcm430x_illt_write32(struct bcm430x_private *bcm, u16 offset, u32 val);
+u32 bcm430x_illt_read32(struct bcm430x_private *bcm, u16 offset);
+
 int bcm430x_phy_init(struct bcm430x_private *bcm);
 
 void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm);

@@ -107,8 +107,33 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 				  s16 first, s16 second, s16 third)
 {
-	TODO();
-	/*TODO*/
+	int i;
+	u8 start = 16, end = 32;
+	u16 offset = 0x0400;
+
+	if (bcm->current_core->phy->rev == 1) {
+		offset = 0x5000;
+		start = 8;
+		end = 24;
+	}
+	
+	for (i = 0; i < 4; i++) {
+		bcm430x_illt_write16(bcm, offset + i, first);
+	}
+
+	for (i = start; i < end; i++) {
+		bcm430x_illt_write16(bcm, offset + i, first);
+	}
+
+	if (second == -1)
+		return;
+
+	bcm430x_phy_write(bcm, 0x04A0,
+	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
+	bcm430x_phy_write(bcm, 0x04A1,
+	                  (bcm430x_phy_read(bcm, 0x04A1) & 0xBFBF) | 0x4040);
+	bcm430x_phy_write(bcm, 0x04A2,
+	                  (bcm430x_phy_read(bcm, 0x04A2) & 0xBFBF) | 0x4000);
 }
 
 void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
