@@ -690,15 +690,15 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
 # undef limit_value
 #endif
 #define limit_value(value, min, max)  \
-	({					\
-		typeof(value) __value;		\
-	 	if ((value) < (min))		\
-	 		__value = (min);	\
-	 	else if ((value) > (max))	\
-	 		__value = (max);	\
-	 	else				\
-	 		__value = (value);	\
-	 	__value;			\
+	({						\
+		typeof(value) __value = (value);	\
+	 	typeof(value) __min = (min);		\
+	 	typeof(value) __max = (max);		\
+	 	if (__value < __min)			\
+	 		__value = __min;		\
+	 	else if (__value > __max)		\
+	 		__value = __max;		\
+	 	__value;				\
 	})
 
 /* 

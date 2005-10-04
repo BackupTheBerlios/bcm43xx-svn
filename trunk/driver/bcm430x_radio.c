@@ -937,10 +937,101 @@ void bcm430x_radio_set_txantenna(struct bcm430x_private *bcm, u32 val)
 	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0054, tmp | val);
 }
 
+/* http://bcm-specs.sipsolutions.net/TX_Gain_Base_Band */
+static u16 bcm430x_get_txgain_base_band(u16 txpower)
+{
+	u16 ret;
+
+	assert(txpower <= 63);
+
+	if (txpower >= 54)
+		ret = 2;
+	else if (txpower >= 49)
+		ret = 4;
+	else if (txpower >= 44)
+		ret = 5;
+	else
+		ret = 6;
+
+	return ret;
+}
+
+/* http://bcm-specs.sipsolutions.net/TX_Gain_Radio_Frequency_Power_Amplifier */
+static u16 bcm430x_get_txgain_freq_power_amp(u16 txpower)
+{
+	u16 ret;
+
+	assert(txpower <= 63);
+
+	if (txpower >= 32)
+		ret = 0;
+	else if (txpower >= 25)
+		ret = 1;
+	else if (txpower >= 20)
+		ret = 2;
+	else if (txpower >= 12)
+		ret = 3;
+	else
+		ret = 4;
+
+	return ret;
+}
+
+/* http://bcm-specs.sipsolutions.net/TX_Gain_Digital_Analog_Converter */
+static u16 bcm430x_get_txgain_dac(u16 txpower)
+{
+	u16 ret;
+
+	assert(txpower <= 63);
+
+	if (txpower >= 54)
+		ret = txpower - 53;
+	else if (txpower >= 49)
+		ret = txpower - 42;
+	else if (txpower >= 44)
+		ret = txpower - 37;
+	else if (txpower >= 32)
+		ret = txpower - 32;
+	else if (txpower >= 25)
+		ret = txpower - 20;
+	else if (txpower >= 20)
+		ret = txpower - 13;
+	else if (txpower >= 12)
+		ret = txpower - 8;
+	else
+		ret = txpower;
+
+	return ret;
+}
+
 void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower)
 {
-	/* TODO */
-printk(KERN_WARNING PFX "TODO: set_txpower_a()\n");
+	u16 pamp, base, dac, illt;
+
+	txpower = limit_value(txpower, 0, 63);
+
+	pamp = bcm430x_get_txgain_freq_power_amp(txpower);
+	pamp <<= 5;
+	pamp &= 0x00E0;
+	bcm430x_phy_write(bcm, 0x0019, pamp);
+
+	base = bcm430x_get_txgain_base_band(txpower);
+	base &= 0x0007;
+	bcm430x_phy_write(bcm, 0x0017, base | 0x0020);
+
+	//TODO read illt
+illt = 0;
+
+	dac = bcm430x_get_txgain_dac(txpower);
+	dac <<= 3;
+	dac |= illt;
+
+	//TODO write illt
+
+	bcm->current_core->radio->txpower[0] = txpower;
+
+	TODO();
+	//TODO: FuncPlaceholder (Adjust BB loft cancel)
 }
 
 void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
@@ -961,7 +1052,7 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 		txpower = bcm->current_core->radio->txpower[2];
 	else
 		bcm->current_core->radio->txpower[2] = txpower;
-	
+
 	if (bcm->current_core->phy->version == 0) {
 		reg = 0x03E6;
 		tmp = (bcm430x_phy_read(bcm, reg) & 0xFFF0) | baseband_attenuation;
@@ -973,11 +1064,14 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 		tmp |= (baseband_attenuation << 2) & 0x003C;
 	}
 	bcm430x_phy_write(bcm, reg, tmp);
-	bcm430x_write16(bcm, 0x0043, attenuation);
+	bcm430x_radio_write16(bcm, 0x0043, attenuation);
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0064, attenuation);
-	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
+	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0052,
 		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F) | txpower);
+	}
+
+	TODO();
 	//FIXME: Set GPHY CompLo
 }
 
