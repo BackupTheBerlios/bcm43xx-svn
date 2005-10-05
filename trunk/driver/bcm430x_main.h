@@ -54,7 +54,7 @@ void bcm430x_shm_write16(struct bcm430x_private *bcm,
 			 u16 routing, u16 offset,
 			 u16 value);
 
-int bcm430x_dummy_transmission(struct bcm430x_private *bcm);
+void bcm430x_dummy_transmission(struct bcm430x_private *bcm);
 
 int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core);
 

@@ -406,7 +406,7 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 /* DummyTransmission function, as documented on 
  * http://bcm-specs.sipsolutions.net/DummyTransmission
  */
-int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
+void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 {
 	unsigned int i, max_loop;
 	u16 value = 0;
@@ -429,25 +429,14 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 		buffer[0] = 0x6E840B00; 
 		break;
 	default:
-		printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
-		return -1;
+		assert(0);
+		return;
 	}
 
-	dprintk(KERN_WARNING PFX "DummyTransmission():\n");
-	dprintk(KERN_WARNING PFX "Packet:\n");
-	for (i = 0; i < 5; i++) {
-		dprintk(KERN_WARNING PFX "%02x %02x %02x %02x\n",
-			((u8 *)(buffer + i))[0],
-			((u8 *)(buffer + i))[1],
-			((u8 *)(buffer + i))[2],
-			((u8 *)(buffer + i))[3]);
-	}
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 5; i++)
 		bcm430x_ram_write(bcm, i * 4, buffer[i]);
-	}
-	dprintk(KERN_WARNING PFX "Packet written\n");
 
-	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD); /* dummy read */
 
 	bcm430x_write16(bcm, 0x0568, 0x0000);
 	bcm430x_write16(bcm, 0x07C0, 0x0000);
@@ -460,30 +449,35 @@ int bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	bcm430x_write16(bcm, 0x0500, 0x0000);
 	bcm430x_write16(bcm, 0x0502, 0x0030);
 
-	
 	for (i = 0x00; i < max_loop; i++) {
 		value = bcm430x_read16(bcm, 0x050E);
-		dprintk(KERN_INFO PFX "dummy_tx(): loop1, iteration %d, value = %04x\n", i, value);
+//		dprintk(KERN_INFO PFX "dummy_tx(): loop1, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0080) != 0)
 			break;
 		udelay(10);
 	}
+	if (unlikely(i >= max_loop))
+		printk(KERN_WARNING PFX "dummy_tx() Warning: first loop timed out!\n");
+
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm430x_read16(bcm, 0x050E);
-		dprintk(KERN_INFO PFX "dummy_tx(): loop2, iteration %d, value = %04x\n", i, value);
+//		dprintk(KERN_INFO PFX "dummy_tx(): loop2, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0400) != 0)
 			break;
 		udelay(10);
 	}
+	if (unlikely(i >= 0x0A))
+		printk(KERN_WARNING PFX "dummy_tx() Warning: second loop timed out!\n");
+
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm430x_read16(bcm, 0x0690);
-		dprintk(KERN_INFO PFX "dummy_tx(): loop3, iteration %d, value = %04x\n", i, value);
+//		dprintk(KERN_INFO PFX "dummy_tx(): loop3, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0100) == 0)
 			break;
 		udelay(10);
 	}
-
-	return 0;
+	if (unlikely(i >= 0x0A))
+		printk(KERN_WARNING PFX "dummy_tx() Warning: third loop timed out!\n");
 }
 
 /* Puts the index of the current core into user supplied core variable.
