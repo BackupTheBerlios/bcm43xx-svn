@@ -34,6 +34,7 @@
 #include "bcm430x_main.h"
 #include "bcm430x_phy.h"
 #include "bcm430x_radio.h"
+#include "bcm430x_ilt.h"
 
 
 /* Frequencies are given as frequencies_bg[index] + 2.4GHz
@@ -118,11 +119,11 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 	}
 	
 	for (i = 0; i < 4; i++) {
-		bcm430x_illt_write16(bcm, offset + i, first);
+		bcm430x_ilt_write16(bcm, offset + i, first);
 	}
 
 	for (i = start; i < end; i++) {
-		bcm430x_illt_write16(bcm, offset + i, first);
+		bcm430x_ilt_write16(bcm, offset + i, first);
 	}
 
 	if (second == -1)
@@ -1031,7 +1032,7 @@ static u16 bcm430x_get_txgain_dac(u16 txpower)
 
 void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower)
 {
-	u16 pamp, base, dac, illt;
+	u16 pamp, base, dac, ilt;
 
 	txpower = limit_value(txpower, 0, 63);
 
@@ -1041,17 +1042,17 @@ void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower)
 	bcm430x_phy_write(bcm, 0x0019, pamp);
 
 	base = bcm430x_get_txgain_base_band(txpower);
-	base &= 0x0007;
+	base &= 0x000F;
 	bcm430x_phy_write(bcm, 0x0017, base | 0x0020);
 
-	//TODO read illt
-illt = 0;
+	ilt = bcm430x_ilt_read16(bcm, 0x3001);
+	ilt &= 0x0007;
 
 	dac = bcm430x_get_txgain_dac(txpower);
 	dac <<= 3;
-	dac |= illt;
+	dac |= ilt;
 
-	//TODO write illt
+	bcm430x_ilt_write16(bcm, 0x3001, dac);
 
 	bcm->current_core->radio->txpower[0] = txpower;
 
