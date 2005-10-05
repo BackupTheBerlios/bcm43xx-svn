@@ -402,7 +402,6 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 	}
 }
 
-
 /* DummyTransmission function, as documented on 
  * http://bcm-specs.sipsolutions.net/DummyTransmission
  */
@@ -1797,7 +1796,6 @@ static void bcm430x_pio_free(struct bcm430x_private *bcm)
 
 static int bcm430x_pio_init(struct bcm430x_private *bcm)
 {
-	u32 mask;
 	struct bcm430x_pioqueue *queue;
 	int err = -ENOMEM;
 
