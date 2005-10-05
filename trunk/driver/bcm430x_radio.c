@@ -106,10 +106,10 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 }
 
 static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
-				  s16 first, s16 second, s16 third)
+				  s16 first, s16 second)
 {
-	int i;
-	u8 start = 16, end = 32;
+	u16 i;
+	u16 start = 16, end = 32;
 	u16 offset = 0x0400;
 
 	if (bcm->current_core->phy->rev == 1) {
@@ -118,16 +118,45 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 		end = 24;
 	}
 	
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 4; i++)
 		bcm430x_ilt_write16(bcm, offset + i, first);
-	}
 
-	for (i = start; i < end; i++) {
+	for (i = start; i < end; i++)
 		bcm430x_ilt_write16(bcm, offset + i, first);
-	}
 
 	if (second == -1)
 		return;
+
+	bcm430x_phy_write(bcm, 0x04A0,
+	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
+	bcm430x_phy_write(bcm, 0x04A1,
+	                  (bcm430x_phy_read(bcm, 0x04A1) & 0xBFBF) | 0x4040);
+	bcm430x_phy_write(bcm, 0x04A2,
+	                  (bcm430x_phy_read(bcm, 0x04A2) & 0xBFBF) | 0x4000);
+}
+
+static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
+{
+	u16 i, tmp;
+	u16 offset = 0x0001;
+	u16 start = 0x0008, end = 0x0018;
+
+	if (bcm->current_core->phy->rev == 1) {
+		offset = 0x0014;
+		start = 0x0010;
+		end = 0x0020;
+	}
+
+	for (i = 0; i < 4; i++) {
+		tmp = (i & 0xFFFC);
+		tmp |= (i & 0x0001) << 1;
+		tmp |= (i & 0x0002) >> 2;
+
+		bcm430x_ilt_write16(bcm, (offset | i), tmp);
+	}
+
+	for (i = start; i < end; i++)
+		bcm430x_ilt_write16(bcm, (offset | i), i);
 
 	bcm430x_phy_write(bcm, 0x04A0,
 	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
@@ -243,7 +272,7 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 				  bcm430x_phy_read(bcm, 0x0802) & ~(0x0001 | 0x0002));
 		bcm430x_phy_write(bcm, 0x03E2, 0x8000);
 
-		bcm430x_set_all_gains(bcm, 0, 8, 0);
+		bcm430x_set_all_gains(bcm, 0, 0);
 		bcm430x_dummy_transmission(bcm);
 		bcm430x_radio_write16(bcm, 0x007A,
 				      bcm430x_radio_read16(bcm, 0x007A) & 0x00F7);
@@ -276,7 +305,7 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 					  (bcm430x_phy_read(bcm, 0x0811) & 0xFFCF) | 0x0020);
 		}
 
-		bcm430x_set_all_gains(bcm, 3, 0, 1);
+		bcm430x_set_all_gains(bcm, 3, 1);
 		bcm430x_dummy_transmission(bcm);
 		bcm430x_radio_write16(bcm, 0x0052, 0x0060);
 		bcm430x_radio_write16(bcm, 0x0043, 0x0000);
@@ -317,8 +346,9 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0802,
 				  bcm430x_phy_read(bcm, 0x0802) | (0x0001 | 0x0002));
 
-		TODO();
-		//TODO: FuncPlaceholder: GPHY Original Gains
+		bcm430x_set_original_gains(bcm);
+		bcm430x_dummy_transmission(bcm);
+
 		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
 				  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) | 0x8000);
 
