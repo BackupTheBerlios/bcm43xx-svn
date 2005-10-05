@@ -150,7 +150,7 @@ static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
 	for (i = 0; i < 4; i++) {
 		tmp = (i & 0xFFFC);
 		tmp |= (i & 0x0001) << 1;
-		tmp |= (i & 0x0002) >> 2;
+		tmp |= (i & 0x0002) >> 1;
 
 		bcm430x_ilt_write16(bcm, (offset | i), tmp);
 	}
