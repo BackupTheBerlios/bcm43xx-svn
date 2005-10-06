@@ -2569,7 +2569,7 @@ static inline int bcm430x_tx(struct bcm430x_private *bcm,
 	int err = -ENODEV;
 
 	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)
-		err = bcm430x_dma_transfer_txb(bcm->current_core->dma->tx_ring1, txb);
+		err = bcm430x_dma_transfer_txb(bcm, txb);
 	else
 		err = bcm430x_pio_transfer_txb(bcm, txb);
 

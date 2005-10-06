@@ -1,15 +1,20 @@
 #ifndef BCM430x_DMA_H_
 #define BCM430x_DMA_H_
 
+#include <linux/list.h>
 #include <linux/spinlock.h>
+#include <linux/workqueue.h>
+#include <asm/atomic.h>
 
 
-#define BCM430x_TXRING_SLOTS		256
+#define BCM430x_TXRING_SLOTS		5
 #define BCM430x_RXRING_SLOTS		256
 #define BCM430x_DMA1_RX_FRAMEOFFSET	30
 #define BCM430x_NUM_RXBUFFERS		16
 #define BCM430x_DMA1_RXBUFFERSIZE	2048
 #define BCM430x_DMA4_RXBUFFERSIZE	16
+#define BCM430x_DMA_TXTIMEOUT		(HZ) /* jiffies */
+#define BCM430x_DMA_TXWORK_RETRY_DELAY	(HZ / 100) /* jiffies */
 
 /* suspend the tx queue, if less than this percent slots are free. */
 #define BCM430x_TXSUSPEND_PERCENT	20
@@ -26,43 +31,27 @@ struct bcm430x_dmadesc {
 	u32 address;
 } __attribute__((__packed__));
 
-/* chip specific header prepending TX data fragments. */
-struct bcm430x_txheader {
-	u16 flags;
-	u16 wep_info;
-	u16 frame_ctl;
-	u16 __UNKNOWN_0;
-	u16 __UNKNOWN_1;
-	u64 wep_iv;
-	u32 __UNKNOWN_2;
-	u32 __UNKNOWN_3;
-	char dest_mac[6];
-	u16 __UNKNOWN_4;
-	u32 __UNKNOWN_5;
-	u16 __UNKNOWN_6;
-	u32 fallback_plcp;
-	u16 fallback_dur_id;
-	u16 __UNKNOWN_7;
-	u16 id;
-	u16 __UNKNOWN_8;
-} __attribute__((__packed__));
-
-#define BCM430x_DESCFLAG_MAPPED		(1 << 0)
-#define BCM430x_DESCFLAG_DONTFREE_SKB	(1 << 1)
-
 struct bcm430x_dmadesc_meta {
 	/* The kernel DMA-able buffer. */
 	struct sk_buff *skb;
 	/* DMA base bus-address of the descriptor buffer. */
 	dma_addr_t dmaaddr;
 	/* Various flags. */
-	u32 flags;
+	u8 mapped:1,
+	   nofree_skb:1;
 	/* Pointer to our txb (if any). This should be freed in irq. */
 	struct ieee80211_txb *txb;
 };
 
-#define BCM430x_RINGFLAG_TX		(1 << 0)
-#define BCM430x_RINGFLAG_SUSPENDED	(1 << 1)
+struct bcm430x_dmaring;
+
+struct bcm430x_dma_txitem {
+	struct bcm430x_dmaring *ring;
+	int slot;
+	struct timer_list timeout;
+	struct list_head list;
+	u8 cancelled:1;
+};
 
 struct bcm430x_dmaring {
 	spinlock_t lock;
@@ -87,14 +76,20 @@ struct bcm430x_dmaring {
 	 */
 	u16 mmio_base;
 	/* ring flags. */
-	u32 flags;
+	u8 tx:1,
+	   suspended:1;
+	/* TX stuff. */
+	struct bcm430x_dma_txitem __tx_items_cache[BCM430x_TXRING_SLOTS];
+	/* pending transfers */
+	struct list_head xfers;
 };
 
 struct bcm430x_dma_txcontext {
 	u8 nr_frags;
 	u8 cur_frag;
-	u32 desc_index; /* to poke the device. */
+	int first_slot; /* to poke the device. */
 };
+
 
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
@@ -103,13 +98,16 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 
 void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring);
 
-int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
-			     struct ieee80211_txb *txb);
-
 int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 				   u16 dmacontroller_mmio_base);
 
 int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
 				   u16 dmacontroller_mmio_base);
+
+int bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
+			     struct ieee80211_txb *txb);
+
+void bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
+				int cookie/*TODO: cookie as parameter */);
 
 #endif /* BCM430x_DMA_H_ */

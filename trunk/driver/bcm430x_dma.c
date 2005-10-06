@@ -42,6 +42,11 @@ static struct bcm430x_ringallocator {
 static DECLARE_MUTEX(ringallocator_sem);
 
 
+static void unmap_descbuffer(struct bcm430x_dmaring *ring,
+			     struct bcm430x_dmadesc *desc,
+			     struct bcm430x_dmadesc_meta *meta);
+
+
 static inline int used_slots(struct bcm430x_dmaring *ring)
 {
 	if (ring->first_used < 0) {
@@ -86,54 +91,12 @@ static inline int prev_slot(struct bcm430x_dmaring *ring, int slot)
 	return slot - 1;
 }
 
-static inline int first_free_slot(struct bcm430x_dmaring *ring)
-{
-	assert(free_slots(ring));
-	return next_slot(ring, ring->last_used);
-}
-
-/* request a slot for usage. */
-static inline void request_slot(struct bcm430x_dmaring *ring, int slot)
-{
-	assert(free_slots(ring));
-	assert(slot == ring->last_used + 1);
-
-	ring->last_used = next_slot(ring, ring->last_used);
-	if (ring->first_used < 0)
-		ring->first_used = slot;
-
-	if (ring->last_used >= ring->first_used) {
-		ring->vbase[ring->last_used].control |= BCM430x_DMADTOR_DTABLEEND;
-		if (ring->last_used - 1 >= 0) {
-			ring->vbase[ring->last_used - 1].control
-				&= ~ BCM430x_DMADTOR_DTABLEEND;
-		}
-	}
-}
-
-/* return a slot to the free slots. */
-static inline void return_slot(struct bcm430x_dmaring *ring, int slot)
-{
-	assert(slot == ring->last_used);
-
-	ring->vbase[ring->last_used].control &= ~ BCM430x_DMADTOR_DTABLEEND;
-
-	if (used_slots(ring) > 1) {
-		ring->last_used = prev_slot(ring, ring->last_used);
-		if (ring->last_used >= ring->first_used)
-			ring->vbase[ring->last_used].control |= BCM430x_DMADTOR_DTABLEEND;
-	} else {
-		ring->first_used = -1;
-		ring->last_used = -1;
-	}
-}
-
 static inline void suspend_txqueue(struct bcm430x_dmaring *ring)
 {
-	assert(ring->flags & BCM430x_RINGFLAG_TX);
-	assert(!(ring->flags & BCM430x_RINGFLAG_SUSPENDED));
+	assert(ring->tx);
+	assert(!ring->suspended);
 	netif_stop_queue(ring->bcm->net_dev);
-	ring->flags |= BCM430x_RINGFLAG_SUSPENDED;
+	ring->suspended = 1;
 }
 
 static inline void try_to_suspend_txqueue(struct bcm430x_dmaring *ring)
@@ -144,18 +107,58 @@ static inline void try_to_suspend_txqueue(struct bcm430x_dmaring *ring)
 
 static inline void resume_txqueue(struct bcm430x_dmaring *ring)
 {
-	assert(ring->flags & BCM430x_RINGFLAG_TX);
-	assert(ring->flags & BCM430x_RINGFLAG_SUSPENDED);
-	ring->flags &= ~ BCM430x_RINGFLAG_SUSPENDED;
+	assert(ring->tx);
+	assert(ring->suspended);
+	ring->suspended = 0;
 	netif_wake_queue(ring->bcm->net_dev);
 }
 
 static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
 {
-	if (!(ring->flags & BCM430x_RINGFLAG_SUSPENDED))
+	if (!ring->suspended)
 		return;
 	if (free_slots(ring) >= ring->resume_mark)
 		resume_txqueue(ring);
+}
+
+/* request a slot for usage. */
+static inline int request_slot(struct bcm430x_dmaring *ring)
+{
+	int slot;
+	int prev;
+
+	assert(free_slots(ring));
+
+	prev = ring->last_used;
+	slot = next_slot(ring, ring->last_used);
+	ring->last_used = slot;
+	if (ring->first_used < 0)
+		ring->first_used = slot;
+
+	if (prev < slot)
+		ring->vbase[prev].control &= ~ BCM430x_DMADTOR_DTABLEEND;
+
+	if (ring->tx)
+		try_to_suspend_txqueue(ring);
+
+	return slot;
+}
+
+/* return a slot to the free slots. */
+static inline void return_slot(struct bcm430x_dmaring *ring, int slot)
+{
+	if (used_slots(ring) > 1) {
+		if (ring->first_used == slot)
+			ring->first_used = next_slot(ring, slot);
+		assert(ring->last_used != slot);
+	} else {
+		ring->first_used = -1;
+		ring->last_used = -1;
+	}
+	ring->vbase[slot].control |= BCM430x_DMADTOR_DTABLEEND;
+
+	if (ring->tx)
+		try_to_resume_txqueue(ring);
 }
 
 static inline u32 calc_rx_frameoffset(u16 dmacontroller_mmio_base)
@@ -172,6 +175,48 @@ static inline u32 calc_rx_frameoffset(u16 dmacontroller_mmio_base)
 	offset &= BCM430x_DMA_RXCTRL_FRAMEOFF_MASK;
 
 	return offset;
+}
+
+static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
+					 int slot)
+{
+	bcm430x_write32(ring->bcm,
+			ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
+			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
+}
+
+/* Free all stuff belonging to a complete TX frame.
+ * Begin at slot.
+ * This is to be called on tx_timeout and completion IRQ.
+ */
+static void free_descriptor_frame(struct bcm430x_dmaring *ring,
+				  int slot)
+{
+	struct bcm430x_dmadesc *desc;
+	struct bcm430x_dmadesc_meta *meta;
+	int last_fragment;
+
+	assert(ring->vbase[slot].control & BCM430x_DMADTOR_FRAMESTART);
+
+	while (1) {
+		assert(slot < ring->nr_slots);
+		desc = ring->vbase + slot;
+		meta = ring->meta + slot;
+
+		last_fragment = !!(desc->control & BCM430x_DMADTOR_FRAMEEND);
+		unmap_descbuffer(ring, desc, meta);
+		if (!meta->nofree_skb)
+			kfree_skb(meta->skb);
+		if (meta->txb) {
+			ieee80211_txb_free(meta->txb);
+			meta->txb = 0;
+		}
+		/*TODO?*/
+
+		if (last_fragment)
+			break;
+		slot++;
+	}
 }
 
 static int alloc_ringmemory(struct bcm430x_dmaring *ring)
@@ -235,6 +280,18 @@ static void free_ringmemory(struct bcm430x_dmaring *ring)
 	up(&ringallocator_sem);
 }
 
+static void setup_ringmemory(struct bcm430x_dmaring *ring)
+{
+	int i;
+	struct bcm430x_dmadesc *desc;
+
+	for (i = 0; i < ring->nr_slots; i++) {
+		desc = ring->vbase + i;
+
+		desc->control |= BCM430x_DMADTOR_DTABLEEND;
+	}
+}
+
 int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 				   u16 mmio_base)
 {
@@ -264,7 +321,7 @@ int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 
 static inline int dmacontroller_rx_reset(struct bcm430x_dmaring *ring)
 {
-	assert(!(ring->flags & BCM430x_RINGFLAG_TX));
+	assert(!ring->tx);
 
 	return bcm430x_dmacontroller_rx_reset(ring->bcm, ring->mmio_base);
 }
@@ -310,7 +367,7 @@ int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
 
 static inline int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
 {
-	assert(ring->flags & BCM430x_RINGFLAG_TX);
+	assert(ring->tx);
 
 	return bcm430x_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 }
@@ -321,9 +378,9 @@ static int map_descbuffer(struct bcm430x_dmaring *ring,
 {
 	enum dma_data_direction dir;
 
-	assert(!(meta->flags & BCM430x_DESCFLAG_MAPPED));
+	assert(!meta->mapped);
 
-	if (ring->flags & BCM430x_RINGFLAG_TX)
+	if (ring->tx)
 		dir = DMA_TO_DEVICE;
 	else
 		dir = DMA_FROM_DEVICE;
@@ -331,7 +388,7 @@ static int map_descbuffer(struct bcm430x_dmaring *ring,
 				       meta->skb->data, meta->skb->len, dir);
 	if (!meta->dmaaddr) /*FIXME: can this fail? */
 		return -ENOMEM;
-	meta->flags |= BCM430x_DESCFLAG_MAPPED;
+	meta->mapped = 1;
 
 	desc->address = meta->dmaaddr;
 	desc->control |= BCM430x_DMADTOR_BYTECNT_MASK & meta->skb->len;
@@ -345,10 +402,10 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 {
 	enum dma_data_direction dir;
 
-	if (!(meta->flags & BCM430x_DESCFLAG_MAPPED))
+	if (!meta->mapped)
 		return;
 
-	if (ring->flags & BCM430x_RINGFLAG_TX)
+	if (ring->tx)
 		dir = DMA_TO_DEVICE;
 	else
 		dir = DMA_FROM_DEVICE;
@@ -359,7 +416,7 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 	dma_unmap_single(&ring->bcm->pci_dev->dev,
 			 meta->dmaaddr, meta->skb->len, dir);
 
-	meta->flags &= ~ BCM430x_DESCFLAG_MAPPED;  
+	meta->mapped = 0;  
 }
 
 static inline int alloc_descbuffer(struct bcm430x_dmaring *ring,
@@ -367,7 +424,7 @@ static inline int alloc_descbuffer(struct bcm430x_dmaring *ring,
 				   struct bcm430x_dmadesc_meta *meta,
 				   size_t size, unsigned int gfp_flags)
 {
-	assert(!(meta->flags & BCM430x_DESCFLAG_DONTFREE_SKB));
+	assert(!meta->mapped);
 	meta->skb = __dev_alloc_skb(size, gfp_flags | GFP_DMA);
 	if (unlikely(!meta->skb))
 		return -ENOMEM;
@@ -382,8 +439,8 @@ static inline void free_descbuffer(struct bcm430x_dmaring *ring,
 	if (!meta->skb)
 		return;
 
-	assert(!(meta->flags & BCM430x_DESCFLAG_MAPPED));
-	if (meta->flags & BCM430x_DESCFLAG_DONTFREE_SKB) {
+	assert(!meta->mapped);
+	if (meta->nofree_skb) {
 		assert(meta->txb);
 		ieee80211_txb_free(meta->txb);
 	} else {
@@ -402,7 +459,7 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 	struct bcm430x_dmadesc *desc = 0;
 	struct bcm430x_dmadesc_meta *meta;
 
-	if (!(ring->flags & BCM430x_RINGFLAG_TX)) {
+	if (!ring->tx) {
 		num_buffers = BCM430x_NUM_RXBUFFERS;
 		if (ring->mmio_base == BCM430x_MMIO_DMA1_BASE)
 			buffersize = BCM430x_DMA1_RXBUFFERSIZE;
@@ -451,7 +508,7 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 	int err = 0;
 	u32 value;
 
-	if (ring->flags & BCM430x_RINGFLAG_TX) {
+	if (ring->tx) {
 		err = dmacontroller_tx_reset(ring);
 		if (err)
 			goto out;
@@ -464,7 +521,6 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
 				ring->dmabase);
 	} else {
-		return err; //XXX: Testing...
 		err = dmacontroller_rx_reset(ring);
 		if (err)
 			goto out;
@@ -489,7 +545,7 @@ out:
 
 static void dmacontroller_cleanup(struct bcm430x_dmaring *ring)
 {
-	if (ring->flags & BCM430x_RINGFLAG_TX) {
+	if (ring->tx) {
 		dmacontroller_tx_reset(ring);
 		/* Zero out Transmit Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
@@ -555,11 +611,13 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	assert(ring->suspend_mark < ring->resume_mark);
 	ring->mmio_base = dma_controller_base;
 	if (tx)
-		ring->flags |= BCM430x_RINGFLAG_TX;
+		ring->tx = 1;
+	INIT_LIST_HEAD(&ring->xfers);
 
 	err = alloc_ringmemory(ring);
 	if (err)
 		goto err_kfree_meta;
+	setup_ringmemory(ring);
 	err = dmacontroller_setup(ring);
 	if (err)
 		goto err_free_ringmemory;
@@ -577,17 +635,89 @@ err_kfree_ring:
 	goto out;
 }
 
+static void do_cancel_transfers(struct bcm430x_dmaring *ring)
+{
+	struct bcm430x_dma_txitem *item;
+
+	list_for_each_entry(item, &ring->xfers, list) {
+		dprintk(KERN_INFO PFX "DMA xfer slot %d cancelled\n", item->slot);
+		item->cancelled = 1;
+		free_descriptor_frame(item->ring, item->slot);
+		return_slot(item->ring, item->slot);
+	}
+	INIT_LIST_HEAD(&ring->xfers);
+}
+
+static void cancel_transfers(struct bcm430x_dmaring *ring)
+{
+	unsigned long flags;
+
+	/* Synchronize with possible pending TX timeout timers */
+	spin_lock_irqsave(&ring->lock, flags);
+	do_cancel_transfers(ring);
+	spin_unlock_irqrestore(&ring->lock, flags);
+}
+
 void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 {
 	if (!ring)
 		return;
 
+	/* Device IRQs are disabled prior entering this function,
+	 * so no need to take care of concurrency with rx handler stuff.
+	 */
+	cancel_transfers(ring);
 	dmacontroller_cleanup(ring);
 	free_all_descbuffers(ring);
 	free_ringmemory(ring);
 
 	kfree(ring->meta);
 	kfree(ring);
+}
+
+static void tx_timeout(unsigned long d)
+{
+	struct bcm430x_dma_txitem *item = (struct bcm430x_dma_txitem *)d;
+	unsigned long flags;
+
+	spin_lock_irqsave(&item->ring->lock, flags);
+
+	if (unlikely(item->cancelled))
+		goto out_unlock;
+	/* This txqueue_item timed out.
+	 * Drop it and unmap/free all buffers
+	 */
+	dprintk(KERN_WARNING PFX "DMA TX slot %d timed out!\n", item->slot);
+	free_descriptor_frame(item->ring, item->slot);
+	list_del(&item->list);
+	return_slot(item->ring, item->slot);
+
+out_unlock:
+	spin_unlock_irqrestore(&item->ring->lock, flags);
+}
+
+static inline void tx_xfer(struct bcm430x_dmaring *ring,
+			   int slot)
+{
+	struct bcm430x_dma_txitem *item;
+
+	/* "allocate" a txitem from the cache */
+	assert(slot < ARRAY_SIZE(ring->__tx_items_cache));
+	item = ring->__tx_items_cache + slot;
+
+	item->ring = ring;
+	item->slot = slot;
+	init_timer(&item->timeout);
+
+	INIT_LIST_HEAD(&item->list);
+	list_add_tail(&item->list, &ring->xfers);
+
+	item->timeout.function = tx_timeout;
+	item->timeout.data = (unsigned long)item;
+	item->timeout.expires = jiffies + BCM430x_DMA_TXTIMEOUT;
+	add_timer(&item->timeout);
+
+	dmacontroller_poke_tx(ring, slot);
 }
 
 static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
@@ -608,7 +738,6 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
 
-printk("free slots %d\n", free_slots(ring));
 	if (unlikely(free_slots(ring) < skb_shinfo(skb)->nr_frags + 1)) {
 		/* The queue should be stopped,
 		 * if we are low on free slots.
@@ -617,35 +746,35 @@ printk("free slots %d\n", free_slots(ring));
 		return -ENOMEM;
 	}
 
-	slot = first_free_slot(ring);
-	request_slot(ring, slot);
+	slot = request_slot(ring);
 	desc = ring->vbase + slot;
-	assert(desc->address == 0x00000000);
 	meta = ring->meta + slot;
 
 	if (ctx->cur_frag == 0) {
-		/* first fragment.
-		 * TODO: insert the txheader
-		 * TODO: append the PLCP header
+		/* This is the first fragment. */
+		/* TODO: insert the txheader
+		 * TODO: insert the PLCP header
 		 */
 		desc->control |= BCM430x_DMADTOR_FRAMESTART;
+		/* Save the whole txb for freeing later in 
+		 * completion irq (or timeout work handler)
+		 */
 		meta->txb = txb;
-		ctx->desc_index = (u32)(slot * sizeof(struct bcm430x_dmadesc));
+		ctx->first_slot = slot;
 	}
 
-bcm430x_printk_dump(skb->data, skb->len, "SKB");
+//bcm430x_printk_dump(skb->data, skb->len, "SKB");
 
 	/* write the buffer to the descriptor and map it. */
 	meta->skb = skb;
-	meta->flags |= BCM430x_DESCFLAG_DONTFREE_SKB;
-#if 1
+	meta->nofree_skb = 1;
+printk(KERN_INFO PFX "mapping %d\n", slot);
 	err = map_descbuffer(ring, desc, meta);
 	if (unlikely(err)) {
 		printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
 		return_slot(ring, slot);
 		goto out;
 	}
-#endif
 
 	if (skb_shinfo(skb)->nr_frags != 0) {
 		/* Map the remaining Scatter/Gather fragments */
@@ -655,32 +784,24 @@ bcm430x_printk_dump(skb->data, skb->len, "SKB");
 			return_slot(ring, slot);
 			goto out;
 		}
-		/*TODO: modify desc and meta to point to the last SC buffers */
+		/*TODO: modify desc and meta to point to the last SC buffer */
 	}
 
 	if (ctx->cur_frag == ctx->nr_frags - 1) {
+		/* This is the last fragment */
 		desc->control |= BCM430x_DMADTOR_FRAMEEND;
 		desc->control |= BCM430x_DMADTOR_COMPIRQ;
-		assert(ctx->desc_index != 0xffffffff);
-		/* poke the device. */
-printk("Posted desc_index %u on chip\n", ctx->desc_index);
-//TODO: do not poke the device directly, but put the request to a queue and hand off to a workqueue or something.
-#if 0
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
-				ctx->desc_index);
-#endif
+		assert(ctx->first_slot != -1);
+printk(KERN_INFO PFX "transmitting slot %d\n", ctx->first_slot);
+		/* Now transfer the whole frame. */
+		tx_xfer(ring, ctx->first_slot);
 	}
-	/*TODO: return the slots in the interrupt handler. Free skbs (in irq handler)! */
-
-	try_to_suspend_txqueue(ring);
-
 out:
 	return err;
 }
 
-int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
-			     struct ieee80211_txb *txb)
+static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
+				   struct ieee80211_txb *txb)
 {
 	/* We just received a packet from the kernel network subsystem.
 	 * Reformat and write it to some DMA buffers. Poke
@@ -691,22 +812,44 @@ int bcm430x_dma_transfer_txb(struct bcm430x_dmaring *ring,
 	int i, err = -EINVAL;
 	struct sk_buff *skb;
 	struct bcm430x_dma_txcontext ctx;
+	unsigned long flags;
 
-	assert(ring->flags & BCM430x_RINGFLAG_TX);
+	assert(ring->tx);
 
 	ctx.nr_frags = txb->nr_frags;
 	ctx.cur_frag = 0;
 
+	spin_lock_irqsave(&ring->lock, flags);
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
-		ctx.desc_index = 0xffffffff;
+		ctx.first_slot = -1;
 		err = dma_tx_fragment(ring, skb, txb, &ctx);
 		if (err)
 			break;
 		ctx.cur_frag++;
 	}
+	spin_unlock_irqrestore(&ring->lock, flags);
 
 	return err;
+}
+
+int bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
+			     struct ieee80211_txb *txb)
+{
+	return dma_transfer_txb(bcm->current_core->dma->tx_ring1,
+				txb);
+}
+
+static inline void dma_completion_irq(struct bcm430x_dmaring *ring,
+				      int cookie /*TODO*/)
+{
+}
+
+void bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
+				int cookie/*TODO: cookie */)
+{
+	dma_completion_irq(bcm->current_core->dma->tx_ring1,
+			   cookie);
 }
 
 /* vim: set ts=8 sw=8 sts=8: */
