@@ -254,7 +254,7 @@ int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 
 	err = pci_read_config_dword(pdev, offset, val);
 #ifdef DEBUG_ENABLE_PCILOG
-	dprintk(KERN_INFO PFX "pciread32   offset: 0x%04x, value: 0x%04x\n", offset, *val);
+	dprintk(KERN_INFO PFX "pciread32   offset: 0x%04x, value: 0x%08x\n", offset, *val);
 #endif
 
 	return err;
@@ -280,7 +280,7 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 
 	err = pci_write_config_dword(pdev, offset, val);
 #ifdef DEBUG_ENABLE_PCILOG
-	dprintk(KERN_INFO PFX "pciwrite32  offset: 0x%04x, value: 0x%04x\n", offset, val);
+	dprintk(KERN_INFO PFX "pciwrite32  offset: 0x%04x, value: 0x%08x\n", offset, val);
 #endif
 
 	return err;
