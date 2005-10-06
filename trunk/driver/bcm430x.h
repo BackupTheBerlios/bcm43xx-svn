@@ -648,7 +648,7 @@ void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 value)
 {
 	iowrite32(value, bcm->mmio_addr + offset);
 	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
-		printk(KERN_INFO PFX "iowrite16  offset: 0x%04x, value: 0x%04x\n",
+		printk(KERN_INFO PFX "iowrite32  offset: 0x%04x, value: 0x%08x\n",
 		       offset, value);
 	}
 }

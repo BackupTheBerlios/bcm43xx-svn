@@ -75,6 +75,9 @@ static int short_preamble = 0;
  */
 //#define DEBUG_ENABLE_UCODE_MMIO_PRINT
 
+/* If you want to enable printing of PCI Config Space access, enable this */
+//#define DEBUG_ENABLE_PCILOG
+
 
 static struct pci_device_id bcm430x_pci_tbl[] = {
 
@@ -231,53 +234,56 @@ void bcm430x_shm_write16(struct bcm430x_private *bcm,
 	bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA, value);
 }
 
-int bcm430x_pci_read_config_8(struct pci_dev *pdev, u16 offset, u8 * val)
-{
-	int err;
-
-	err = pci_read_config_byte(pdev, offset, val);
-//	dprintk(KERN_INFO PFX "pci read 8  0x%04x  0x%02x\n", offset, *val);
-	return err;
-}
-
 int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
-				      u16 * val)
+			       u16 *val)
 {
 	int err;
 
 	err = pci_read_config_word(pdev, offset, val);
-//	dprintk(KERN_INFO PFX "pci read 16  0x%04x  0x%04x\n", offset, *val);
+#ifdef DEBUG_ENABLE_PCILOG
+	dprintk(KERN_INFO PFX "pciread16   offset: 0x%04x, value: 0x%04x\n", offset, *val);
+#endif
+
 	return err;
 }
 
 int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
-				      u32 * val)
+			       u32 *val)
 {
 	int err;
 
 	err = pci_read_config_dword(pdev, offset, val);
-//	dprintk(KERN_INFO PFX "pci read 32  0x%04x  0x%08x\n", offset, *val);
+#ifdef DEBUG_ENABLE_PCILOG
+	dprintk(KERN_INFO PFX "pciread32   offset: 0x%04x, value: 0x%04x\n", offset, *val);
+#endif
+
 	return err;
 }
 
-int bcm430x_pci_write_config_8(struct pci_dev *pdev, int offset, u8 val)
-{
-//	dprintk(KERN_INFO PFX "pci write 8  0x%04x  0x%02x\n", offset, val);
-	return pci_write_config_byte(pdev, offset, val);
-}
-
 int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
-				       u16 val)
+				u16 val)
 {
-//	dprintk(KERN_INFO PFX "pci write 16  0x%04x  0x%04x\n", offset, val);
-	return pci_write_config_word(pdev, offset, val);
+	int err;
+
+	err = pci_write_config_word(pdev, offset, val);
+#ifdef DEBUG_ENABLE_PCILOG
+	dprintk(KERN_INFO PFX "pciwrite16  offset: 0x%04x, value: 0x%04x\n", offset, val);
+#endif
+
+	return err;
 }
 
 int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 				       u32 val)
 {
-//	dprintk(KERN_INFO PFX "pci write 32  0x%04x  0x%08x\n", offset, val);
-	return pci_write_config_dword(pdev, offset, val);
+	int err;
+
+	err = pci_write_config_dword(pdev, offset, val);
+#ifdef DEBUG_ENABLE_PCILOG
+	dprintk(KERN_INFO PFX "pciwrite32  offset: 0x%04x, value: 0x%04x\n", offset, val);
+#endif
+
+	return err;
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
