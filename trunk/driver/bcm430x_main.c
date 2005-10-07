@@ -126,6 +126,11 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 };
 
 
+static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, int error);
+static void bcm430x_free_board(struct bcm430x_private *bcm);
+static int bcm430x_init_board(struct bcm430x_private *bcm);
+
+
 static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
 	int hwswap;
@@ -310,6 +315,17 @@ static inline u32 bcm430x_interrupt_disable(struct bcm430x_private *bcm, u32 mas
 	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask & ~mask);
 
 	return old_mask;
+}
+
+/* Make sure we don't receive more data from the device. */
+static void bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	tasklet_disable(&bcm->isr_tasklet);
 }
 
 static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
@@ -882,11 +898,13 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		//bcmirq_handled(BCM430x_IRQ_PMQ);
 	}
 
-	if (reason & BCM430x_IRQ_TXFIFO_ERROR) {
-		printkl(KERN_ERR PFX "TX FIFO error. DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-			bcm->dma_reason[0], bcm->dma_reason[1],
-			bcm->dma_reason[2], bcm->dma_reason[3]);
-		bcmirq_handled(BCM430x_IRQ_TXFIFO_ERROR);
+	if (unlikely(reason & BCM430x_IRQ_TXFIFO_ERROR)) {
+		dprintkl(KERN_ERR PFX "TX FIFO error. DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+			 bcm->dma_reason[0], bcm->dma_reason[1],
+			 bcm->dma_reason[2], bcm->dma_reason[3]);
+		bcm430x_recover_from_fatal(bcm, BCM430x_FATAL_TXFIFO);
+		spin_unlock_irqrestore(&bcm->lock, flags);
+		return;
 	}
 
 	if (reason & BCM430x_IRQ_SCAN) {
@@ -1972,7 +1990,7 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 		bcm430x_ram_write(bcm, 0x26 + i * sizeof(u32), *((u32 *)(bssid + i)));
 }
 
-static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
+static void bcm430x_wireless_core_cleanup(struct bcm430x_private *bcm)
 {
 	bcm430x_chip_cleanup(bcm);
 	bcm430x_pio_free(bcm);
@@ -1982,7 +2000,7 @@ static void bcm430x_80211_cleanup(struct bcm430x_private *bcm)
 }
 
 /* http://bcm-specs.sipsolutions.net/80211Init */
-static int bcm430x_80211_init(struct bcm430x_private *bcm)
+static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 {
 	u32 ucodeflags;
 	int err;
@@ -2070,6 +2088,33 @@ out:
 err_chip_cleanup:
 	bcm430x_chip_cleanup(bcm);
 	goto out;
+}
+
+/* Hard-reset the chip. Do not call this directly.
+ * Use bcm430x_recover_from_fatal()
+ */
+static void bcm430x_chip_reset(void *_bcm)
+{
+	struct bcm430x_private *bcm = _bcm;
+	int err;
+
+	bcm430x_free_board(bcm);
+	err = bcm430x_init_board(bcm);
+	if (err)
+		printk(KERN_ERR PFX "Chip reset failed!\n");
+}
+
+/* Call this function on _really_ fatal error conditions.
+ * It will hard-reset the chip.
+ * This can be called from interrupt or process context.
+ * Make sure to _not_ re-enable device interrupts after this has been called.
+ */
+static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, int error)
+{
+	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	printk(KERN_ERR PFX "FATAL ERROR (%d): Resetting the chip...\n", error);
+	INIT_WORK(&bcm->fatal_work, bcm430x_chip_reset, bcm);
+	queue_work(bcm->workqueue, &bcm->fatal_work);
 }
 
 static int bcm430x_chipset_attach(struct bcm430x_private *bcm)
@@ -2284,7 +2329,7 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 
 		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err == 0);
-		bcm430x_80211_cleanup(bcm);
+		bcm430x_wireless_core_cleanup(bcm);
 	}
 
 	bcm430x_pctl_set_crystal(bcm, 0);
@@ -2334,7 +2379,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		if (i != 0)
 			bcm430x_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
 
-		err = bcm430x_80211_init(bcm);
+		err = bcm430x_wireless_core_init(bcm);
 		if (err)
 			goto err_80211_unwind;
 
@@ -2368,7 +2413,7 @@ err_80211_unwind:
 		if (!(bcm->core_80211[i].flags & BCM430x_COREFLAG_INITIALIZED))
 			continue;
 		bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-		bcm430x_80211_cleanup(bcm);
+		bcm430x_wireless_core_cleanup(bcm);
 	}
 err_crystal_off:
 	bcm430x_pctl_set_crystal(bcm, 0);
@@ -2647,16 +2692,10 @@ out_up:
 static int bcm430x_net_stop(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	unsigned long flags;
 
 	down(&bcm->sem);
 
-	/* make sure we don't receive more data from the device. */
-	spin_lock_irqsave(&bcm->lock, flags);
-	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-	spin_unlock_irqrestore(&bcm->lock, flags);
-	tasklet_disable(&bcm->isr_tasklet);
-
+	bcm430x_disable_interrupts_sync(bcm);
 	bcm430x_free_board(bcm);
 
 	up(&bcm->sem);

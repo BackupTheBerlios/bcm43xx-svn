@@ -345,6 +345,10 @@
 /* Initial default iw_mode */
 #define BCM430x_INITIAL_IWMODE			IW_MODE_INFRA
 
+/* Fatal-error IDs to pass to bcm430x_recover_from_fatal() */
+#define BCM430x_FATAL_TXFIFO			1
+
+
 #ifdef assert
 # undef assert
 #endif
@@ -365,6 +369,15 @@
 # undef printkl
 #endif
 #define printkl(f, x...)  do { if (printk_ratelimit()) printk(f ,##x); } while (0)
+/* rate limited printk() for debugging */
+#ifdef dprintkl
+# undef dprintkl
+#endif
+#ifdef BCM430x_DEBUG
+# define dprintkl		printkl
+#else
+# define dprintkl(f, x...)	do { /* nothing */ } while (0)
+#endif
 
 /* debugging printk() */
 #ifdef dprintk
@@ -573,6 +586,9 @@ struct bcm430x_private {
 #define BCM430x_PERIODIC_1_DELAY		((HZ * 60) + HZ / 2)
 	struct work_struct periodic_work2;
 #define BCM430x_PERIODIC_2_DELAY		((HZ * 120) + HZ)
+
+	/* Fatal error handling */
+	struct work_struct fatal_work;
 
 	/* Debugging stuff follows. */
 #ifdef BCM430x_DEBUG
