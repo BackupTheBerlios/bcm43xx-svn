@@ -47,7 +47,6 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 			     struct bcm430x_dmadesc_meta *meta);
 
 
-//TODO: debugging function to dump the whole ringmemory
 static inline int used_slots(struct bcm430x_dmaring *ring)
 {
 	if (ring->first_used < 0) {
@@ -185,6 +184,39 @@ static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
 			ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
 			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
 }
+
+#ifdef BCM430x_DEBUG
+/* Debugging helper to dump the contents of the ringmemory (slots) */
+static __attribute_used__
+void dump_ringmemory(struct bcm430x_dmaring *ring)
+{
+	int i;
+	struct bcm430x_dmadesc *desc;
+	struct bcm430x_dmadesc_meta *meta;
+
+	printk(KERN_INFO PFX "*** DMA Ringmemory dump (%s) ***\n",
+	       (ring->tx) ? "tx" : "rx");
+	if (ring->first_used >= 0)
+		printk(KERN_INFO PFX "first_used: 0x%04x\n", ring->first_used);
+	else
+		printk(KERN_INFO PFX "first_used: NONE\n");
+	if (ring->last_used >= 0)
+		printk(KERN_INFO PFX "last_used:  0x%04x\n", ring->last_used);
+	else
+		printk(KERN_INFO PFX "last_used:  NONE\n");
+
+	for (i = 0; i < ring->nr_slots; i++) {
+		desc = ring->vbase + i;
+		meta = ring->meta + i;
+
+		printk(KERN_INFO PFX "0x%04x:  ctl: 0x%08x, adr: 0x%08x, "
+				     "txb: 0x%p, skb: 0x%p(%s), bus: 0x%08x(%s)\n",
+		       i, desc->control, desc->address,
+		       meta->txb, meta->skb, (meta->nofree_skb) ? " " : "f",
+		       meta->dmaaddr, (meta->mapped) ? "m" : " ");
+	}
+}
+#endif /* BCM430x_DEBUG */
 
 /* Free all stuff belonging to a complete TX frame.
  * Begin at slot.
@@ -623,6 +655,7 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	if (err)
 		goto err_free_ringmemory;
 
+//dump_ringmemory(ring);
 out:
 	return ring;
 
@@ -825,6 +858,7 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 	}
 	spin_unlock_irqrestore(&ring->lock, flags);
 
+//dump_ringmemory(ring);
 	return err;
 }
 

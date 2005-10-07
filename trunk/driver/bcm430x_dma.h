@@ -7,7 +7,7 @@
 #include <asm/atomic.h>
 
 
-#define BCM430x_TXRING_SLOTS		5
+#define BCM430x_TXRING_SLOTS		20 /*FIXME: set to 256 again */
 #define BCM430x_RXRING_SLOTS		256
 #define BCM430x_DMA1_RX_FRAMEOFFSET	30
 #define BCM430x_NUM_RXBUFFERS		16
