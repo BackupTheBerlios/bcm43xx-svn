@@ -47,6 +47,7 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 			     struct bcm430x_dmadesc_meta *meta);
 
 
+//TODO: debugging function to dump the whole ringmemory
 static inline int used_slots(struct bcm430x_dmaring *ring)
 {
 	if (ring->first_used < 0) {
@@ -635,27 +636,27 @@ err_kfree_ring:
 	goto out;
 }
 
-static void do_cancel_transfers(struct bcm430x_dmaring *ring)
+static void cancel_txitem(struct bcm430x_dma_txitem *item)
 {
-	struct bcm430x_dma_txitem *item;
-
-	list_for_each_entry(item, &ring->xfers, list) {
-		dprintk(KERN_INFO PFX "DMA xfer slot %d cancelled\n", item->slot);
-		item->cancelled = 1;
-		free_descriptor_frame(item->ring, item->slot);
-		return_slot(item->ring, item->slot);
-	}
-	INIT_LIST_HEAD(&ring->xfers);
+	if (item->slot < 0)
+		return;
+	free_descriptor_frame(item->ring, item->slot);
+	list_del(&item->list);
+	return_slot(item->ring, item->slot);
+	item->slot = -1;
 }
 
 static void cancel_transfers(struct bcm430x_dmaring *ring)
 {
-	unsigned long flags;
+	struct bcm430x_dma_txitem *item, *tmp_item;
 
-	/* Synchronize with possible pending TX timeout timers */
-	spin_lock_irqsave(&ring->lock, flags);
-	do_cancel_transfers(ring);
-	spin_unlock_irqrestore(&ring->lock, flags);
+	list_for_each_entry_safe(item, tmp_item, &ring->xfers, list)
+		del_timer_sync(&item->timeout);
+
+	list_for_each_entry_safe(item, tmp_item, &ring->xfers, list)
+		cancel_txitem(item);
+
+	assert(list_empty(&ring->xfers));
 }
 
 void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
@@ -682,17 +683,11 @@ static void tx_timeout(unsigned long d)
 
 	spin_lock_irqsave(&item->ring->lock, flags);
 
-	if (unlikely(item->cancelled))
-		goto out_unlock;
 	/* This txqueue_item timed out.
 	 * Drop it and unmap/free all buffers
 	 */
 	dprintk(KERN_WARNING PFX "DMA TX slot %d timed out!\n", item->slot);
-	free_descriptor_frame(item->ring, item->slot);
-	list_del(&item->list);
-	return_slot(item->ring, item->slot);
-
-out_unlock:
+	cancel_txitem(item);
 	spin_unlock_irqrestore(&item->ring->lock, flags);
 }
 

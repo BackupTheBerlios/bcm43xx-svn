@@ -50,7 +50,6 @@ struct bcm430x_dma_txitem {
 	int slot;
 	struct timer_list timeout;
 	struct list_head list;
-	u8 cancelled:1;
 };
 
 struct bcm430x_dmaring {
