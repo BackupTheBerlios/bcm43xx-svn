@@ -2098,10 +2098,14 @@ static void bcm430x_chip_reset(void *_bcm)
 	struct bcm430x_private *bcm = _bcm;
 	int err;
 
+	netif_tx_disable(bcm->net_dev);
 	bcm430x_free_board(bcm);
 	err = bcm430x_init_board(bcm);
-	if (err)
+	if (err) {
 		printk(KERN_ERR PFX "Chip reset failed!\n");
+		return;
+	}
+	netif_wake_queue(bcm->net_dev);
 }
 
 /* Call this function on _really_ fatal error conditions.
