@@ -724,6 +724,10 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
 # warning "The bcm430x driver is designed to run with the version of the ieee80211 stack"
 # warning "as of linux-2.6.14 or later. Please upgrade to the latest 2.6 kernel."
+#else
+# if !defined(CONFIG_IEEE80211_MODULE) && !defined(CONFIG_IEEE80211)
+#  error "Generic IEEE 802.11 Networking Stack (CONFIG_IEEE80211) not available."
+# endif
 #endif
 
 /* pm_message_t type */
