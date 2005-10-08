@@ -2643,8 +2643,7 @@ static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
 
 /* hard_start_xmit() callback in struct ieee80211_device */
 static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
-					     struct net_device *net_dev,
-					     int pri)
+					     struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err;
@@ -2659,14 +2658,6 @@ static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 
 /* reset_port() callback in struct ieee80211_device */
 static int bcm430x_ieee80211_reset_port(struct net_device *net_dev)
-{/*TODO*/
-	return 0;
-}
-
-/* handle_management_frame() callback in struct ieee80211_device */
-static int bcm430x_ieee80211_handle_management_frame(struct net_device *net_dev,
-						     struct ieee80211_network *network,
-						     u16 type)
 {/*TODO*/
 	return 0;
 }
@@ -2782,7 +2773,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
-	bcm->ieee->handle_management_frame = bcm430x_ieee80211_handle_management_frame;
 
 	pci_set_drvdata(pdev, net_dev);
 
