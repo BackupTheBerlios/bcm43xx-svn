@@ -59,7 +59,7 @@ struct bcm430x_dma_txitem {
 };
 
 /* Get the slot for a txitem */
-#define dma_txitem_getslot(item)  ((int)(item - (item)->ring->__tx_items_cache))
+#define dma_txitem_getslot(item)  ((int)((item) - (item)->ring->__tx_items_cache))
 
 struct bcm430x_dmaring {
 	spinlock_t lock;
