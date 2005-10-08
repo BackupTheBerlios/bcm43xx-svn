@@ -15,14 +15,5 @@ The project page is http://bcm43xx.berlios.de/
 Requirements
 ------------
 
-1)	Linux Kernel 2.6.11(?) or later
+1)	Linux Kernel 2.6.14 or later
 	http://www.kernel.org/
-
-2) 	IEEE80211 subsystem
-	http://ieee80211.sourceforge.net/
-	NOTE: on some systems you may need to:
-		ln -s /usr/include/net/ieee80211.h \
-		/lib/modules/`uname -r`/build/include/net/ieee80211.h; \
-		ln -s /usr/include/net/ieee80211_crypt.h \
-		/lib/modules/`uname -r`/build/include/net/ieee80211_crypt.h
-	      in order to build the driver, after installing the ieee80211 modules.
