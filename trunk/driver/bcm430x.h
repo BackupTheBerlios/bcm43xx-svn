@@ -721,6 +721,11 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
  * Wrapper for older kernels 
  */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
+# warning "The bcm430x driver is designed to run with the version of the ieee80211 stack"
+# warning "as of linux-2.6.14 or later. Please upgrade to the latest 2.6 kernel."
+#endif
+
 /* pm_message_t type */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 11)
 #include <linux/pm.h>
