@@ -28,9 +28,15 @@ struct bcm430x_private;
 
 
 struct bcm430x_dmadesc {
-	u32 control;
-	u32 address;
+	u32 _control;
+	u32 _address;
 } __attribute__((__packed__));
+
+/* macros to access the bcm430x_dmadesc struct */
+#define get_desc_ctl(desc)		le32_to_cpu((desc)->_control)
+#define set_desc_ctl(desc, ctl)		do { (desc)->_control = cpu_to_le32(ctl); } while (0)
+#define get_desc_addr(desc)		le32_to_cpu((desc)->_address)
+#define set_desc_addr(desc, addr)	do { (desc)->_address = cpu_to_le32(addr); } while (0)
 
 struct bcm430x_dmadesc_meta {
 	/* The kernel DMA-able buffer. */

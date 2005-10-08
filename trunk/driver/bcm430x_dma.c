@@ -126,6 +126,7 @@ static inline int request_slot(struct bcm430x_dmaring *ring)
 {
 	int slot;
 	int prev;
+	struct bcm430x_dmadesc *desc;
 
 	assert(free_slots(ring));
 
@@ -135,8 +136,10 @@ static inline int request_slot(struct bcm430x_dmaring *ring)
 	if (ring->first_used < 0)
 		ring->first_used = slot;
 
-	if (prev < slot)
-		ring->vbase[prev].control &= ~ BCM430x_DMADTOR_DTABLEEND;
+	if (prev < slot) {
+		desc = ring->vbase + prev;
+		set_desc_ctl(desc, get_desc_ctl(desc) & ~ BCM430x_DMADTOR_DTABLEEND);
+	}
 
 	if (ring->tx)
 		try_to_suspend_txqueue(ring);
@@ -147,6 +150,8 @@ static inline int request_slot(struct bcm430x_dmaring *ring)
 /* return a slot to the free slots. */
 static inline void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
+	struct bcm430x_dmadesc *desc;
+
 	if (used_slots(ring) > 1) {
 		if (ring->first_used == slot)
 			ring->first_used = next_slot(ring, slot);
@@ -155,7 +160,8 @@ static inline void return_slot(struct bcm430x_dmaring *ring, int slot)
 		ring->first_used = -1;
 		ring->last_used = -1;
 	}
-	ring->vbase[slot].control |= BCM430x_DMADTOR_DTABLEEND;
+	desc = ring->vbase + slot;
+	set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
 
 	if (ring->tx)
 		try_to_resume_txqueue(ring);
@@ -211,7 +217,7 @@ void dump_ringmemory(struct bcm430x_dmaring *ring)
 
 		printk(KERN_INFO PFX "0x%04x:  ctl: 0x%08x, adr: 0x%08x, "
 				     "txb: 0x%p, skb: 0x%p(%s), bus: 0x%08x(%s)\n",
-		       i, desc->control, desc->address,
+		       i, get_desc_ctl(desc), get_desc_addr(desc),
 		       meta->txb, meta->skb, (meta->nofree_skb) ? " " : "f",
 		       meta->dmaaddr, (meta->mapped) ? "m" : " ");
 	}
@@ -229,14 +235,14 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc_meta *meta;
 	int last_fragment;
 
-	assert(ring->vbase[slot].control & BCM430x_DMADTOR_FRAMESTART);
+	assert(get_desc_ctl(ring->vbase + slot) & BCM430x_DMADTOR_FRAMESTART);
 
 	while (1) {
 		assert(slot < ring->nr_slots);
 		desc = ring->vbase + slot;
 		meta = ring->meta + slot;
 
-		last_fragment = !!(desc->control & BCM430x_DMADTOR_FRAMEEND);
+		last_fragment = !!(get_desc_ctl(desc) & BCM430x_DMADTOR_FRAMEEND);
 		unmap_descbuffer(ring, desc, meta);
 		if (!meta->nofree_skb)
 			kfree_skb(meta->skb);
@@ -321,7 +327,7 @@ static void setup_ringmemory(struct bcm430x_dmaring *ring)
 	for (i = 0; i < ring->nr_slots; i++) {
 		desc = ring->vbase + i;
 
-		desc->control |= BCM430x_DMADTOR_DTABLEEND;
+		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
 	}
 }
 
@@ -423,8 +429,8 @@ static int map_descbuffer(struct bcm430x_dmaring *ring,
 		return -ENOMEM;
 	meta->mapped = 1;
 
-	desc->address = meta->dmaaddr;
-	desc->control |= BCM430x_DMADTOR_BYTECNT_MASK & meta->skb->len;
+	set_desc_addr(desc, meta->dmaaddr);
+	set_desc_ctl(desc, get_desc_ctl(desc) | (BCM430x_DMADTOR_BYTECNT_MASK & meta->skb->len));
 
 	return 0;
 }
@@ -443,8 +449,8 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 	else
 		dir = DMA_FROM_DEVICE;
 
-	desc->control = 0x00000000;
-	desc->address = 0x00000000;
+	set_desc_ctl(desc, 0x00000000);
+	set_desc_addr(desc, 0x00000000);
 
 	dma_unmap_single(&ring->bcm->pci_dev->dev,
 			 meta->dmaaddr, meta->skb->len, dir);
@@ -520,7 +526,7 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		assert(used_slots(ring) <= ring->nr_slots);
 		ring->last_used++;
 	}
-	desc->control |= BCM430x_DMADTOR_DTABLEEND;
+	set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
 
 out:
 	return err;
@@ -783,7 +789,7 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		/* TODO: insert the txheader
 		 * TODO: insert the PLCP header
 		 */
-		desc->control |= BCM430x_DMADTOR_FRAMESTART;
+		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMESTART);
 		/* Save the whole txb for freeing later in 
 		 * completion irq (or timeout work handler)
 		 */
@@ -817,8 +823,8 @@ printk(KERN_INFO PFX "mapping %d\n", slot);
 
 	if (ctx->cur_frag == ctx->nr_frags - 1) {
 		/* This is the last fragment */
-		desc->control |= BCM430x_DMADTOR_FRAMEEND;
-		desc->control |= BCM430x_DMADTOR_COMPIRQ;
+		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMEEND);
+		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_COMPIRQ);
 		assert(ctx->first_slot != -1);
 printk(KERN_INFO PFX "transmitting slot %d\n", ctx->first_slot);
 		/* Now transfer the whole frame. */
