@@ -4,6 +4,7 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
+#include <linux/linkage.h>
 #include <asm/atomic.h>
 
 
@@ -103,10 +104,10 @@ int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
 				   u16 dmacontroller_mmio_base);
 
-int bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
-			     struct ieee80211_txb *txb);
+int FASTCALL(bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
+				      struct ieee80211_txb *txb));
 
-void bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
-				int cookie/*TODO: cookie as parameter */);
+void FASTCALL(bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
+					 u16 cookie));
 
 #endif /* BCM430x_DMA_H_ */

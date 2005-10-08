@@ -862,20 +862,22 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 	return err;
 }
 
-int bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
-			     struct ieee80211_txb *txb)
+int fastcall
+bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
+			 struct ieee80211_txb *txb)
 {
 	return dma_transfer_txb(bcm->current_core->dma->tx_ring1,
 				txb);
 }
 
 static inline void dma_completion_irq(struct bcm430x_dmaring *ring,
-				      int cookie /*TODO*/)
+				      u16 cookie)
 {
 }
 
-void bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
-				int cookie/*TODO: cookie */)
+void fastcall
+bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
+			   u16 cookie)
 {
 	dma_completion_irq(bcm->current_core->dma->tx_ring1,
 			   cookie);
