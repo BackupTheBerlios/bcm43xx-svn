@@ -1760,6 +1760,18 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 				       BCM430x_MAX_80211_CORES);
 				continue;
 			}
+			if (i != 0) {
+				/* More than one 80211 core is only supported
+				 * by special chips.
+				 * There are chips with two 80211 cores, but with
+				 * dangling pins on the second core. Be careful
+				 * and ignore these cores here.
+				 */
+				if (bcm->pci_dev->device != 0x4324) {
+					dprintk(KERN_INFO PFX "Ignoring additional 802.11 core.\n");
+					continue;
+				}
+			}
 			if (core_rev != 2 && core_rev != 4 && core_rev != 5 && core_rev != 6) {
 				printk(KERN_ERR PFX "Error: Unsupported 80211 core revision %u\n",
 				       core->rev);
@@ -2603,7 +2615,7 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		bcm430x_wireless_core_disable(bcm);
 	}
 
-	/* Use the last 80211 core as default. */
+	/* Use the first 80211 core as default. */
 	bcm->def_80211_core = &bcm->core_80211[0];
 	bcm430x_pctl_set_crystal(bcm, 0);
 
