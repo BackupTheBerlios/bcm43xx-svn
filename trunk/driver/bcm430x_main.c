@@ -1691,6 +1691,9 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	dprintk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
 		bcm->chip_id, bcm->chip_rev);
+	dprintk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
+		core_id, core_rev, core_vendor,
+		bcm430x_core_enabled(bcm) ? "enabled" : "disabled");
 
 	for (current_core = 1; current_core < bcm->core_count; current_core++) {
 		struct bcm430x_coreinfo *core;
@@ -1706,7 +1709,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		core_id = (sb_id_hi & 0xFFF0) >> 4;
 		core_rev = (sb_id_hi & 0xF);
 		core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
-		
+
 		dprintk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
 			current_core, core_id, core_rev, core_vendor,
 			bcm430x_core_enabled(bcm) ? "enabled" : "disabled" );
