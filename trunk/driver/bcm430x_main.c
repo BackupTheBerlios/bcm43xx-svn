@@ -292,6 +292,12 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 	return err;
 }
 
+void fastcall
+bcm430x_generate_txhdr(struct bcm430x_txhdr *txhdr)
+{
+	/*TODO*/
+}
+
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.
  */

@@ -31,6 +31,55 @@
 #include "bcm430x.h"
 
 
+#define _bcm430x_declare_plcp_hdr(size) \
+	struct bcm430x_plcp_hdr##size {			\
+		union {					\
+			u32 data;			\
+			unsigned char raw[size];	\
+		} __attribute__((__packed__));		\
+	} __attribute__((__packed__))
+
+/* struct bcm430x_plcp_hdr4 */
+_bcm430x_declare_plcp_hdr(4);
+/* struct bcm430c_plcp_hdr6 */
+_bcm430x_declare_plcp_hdr(6);
+
+#undef _bcm430x_declare_plcp_hdr
+
+/* Device specific TX header. To be prepended to TX frames. */
+struct bcm430x_txhdr {
+	union {
+		struct {
+			u16 flags;
+			u16 wsec_rate;
+			u16 frame_control;
+			u16 unknown_zeroed_0;
+			u16 control;
+			unsigned char wep_iv[10];
+			unsigned char unknown_wsec_tkip_data[3]; //FIXME
+			unsigned char dest_mac[6];
+			u16 unknown_zeroed_1;
+			struct bcm430x_plcp_hdr4 rts_cts_fallback_plcp;
+			u16 rts_cts_dur_fallback;
+			struct bcm430x_plcp_hdr4 fallback_plcp;
+			u16 fallback_dur_id;
+			u16 cookie;
+			u16 unknown_scb_stuff; //FIXME
+			struct bcm430x_plcp_hdr6 rts_cts_plcp;
+			u16 rts_cts_frame_type;
+			u16 rts_cts_dur;
+			unsigned char first_mac[6];
+			unsigned char second_mac[6];
+			struct bcm430x_plcp_hdr6 plcp_header;
+		} __attribute__((__packed__));
+
+		unsigned char raw[82];
+	} __attribute__((__packed__));
+} __attribute__((__packed__));
+
+void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_txhdr *txhdr));
+
+
 /* write the SHM Control word with a 32bit word offset */
 void bcm430x_shm_control_word(struct bcm430x_private *bcm,
 			      u16 routing, u16 offset);
