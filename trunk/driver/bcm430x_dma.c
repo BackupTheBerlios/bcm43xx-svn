@@ -331,6 +331,16 @@ static void setup_ringmemory(struct bcm430x_dmaring *ring)
 	}
 }
 
+static void setup_txitems_cache(struct bcm430x_dmaring *ring)
+{
+	int i;
+
+	for (i = 0; i < BCM430x_TXRING_SLOTS; i++) {
+		ring->__tx_items_cache[i].ring = ring;
+		init_timer(&ring->__tx_items_cache[i].timeout);
+	}
+}
+
 int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 				   u16 mmio_base)
 {
@@ -657,6 +667,7 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	if (err)
 		goto err_kfree_meta;
 	setup_ringmemory(ring);
+	setup_txitems_cache(ring);
 	err = dmacontroller_setup(ring);
 	if (err)
 		goto err_free_ringmemory;
@@ -677,12 +688,12 @@ err_kfree_ring:
 
 static void cancel_txitem(struct bcm430x_dma_txitem *item)
 {
-	if (item->slot < 0)
-		return;
-	free_descriptor_frame(item->ring, item->slot);
+	int slot;
+
+	slot = dma_txitem_getslot(item);
+	free_descriptor_frame(item->ring, slot);
 	list_del(&item->list);
-	return_slot(item->ring, item->slot);
-	item->slot = -1;
+	return_slot(item->ring, slot);
 }
 
 static void cancel_transfers(struct bcm430x_dmaring *ring)
@@ -725,7 +736,8 @@ static void tx_timeout(unsigned long d)
 	/* This txqueue_item timed out.
 	 * Drop it and unmap/free all buffers
 	 */
-	dprintk(KERN_WARNING PFX "DMA TX slot %d timed out!\n", item->slot);
+	dprintk(KERN_WARNING PFX "DMA TX slot %d timed out!\n",
+		dma_txitem_getslot(item));
 	cancel_txitem(item);
 	spin_unlock_irqrestore(&item->ring->lock, flags);
 }
@@ -738,10 +750,7 @@ static inline void tx_xfer(struct bcm430x_dmaring *ring,
 	/* "allocate" a txitem from the cache */
 	assert(slot < ARRAY_SIZE(ring->__tx_items_cache));
 	item = ring->__tx_items_cache + slot;
-
-	item->ring = ring;
-	item->slot = slot;
-	init_timer(&item->timeout);
+	assert(item->ring == ring);
 
 	INIT_LIST_HEAD(&item->list);
 	list_add_tail(&item->list, &ring->xfers);

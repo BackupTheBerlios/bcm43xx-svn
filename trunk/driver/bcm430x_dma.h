@@ -54,10 +54,12 @@ struct bcm430x_dmaring;
 
 struct bcm430x_dma_txitem {
 	struct bcm430x_dmaring *ring;
-	int slot;
 	struct timer_list timeout;
 	struct list_head list;
 };
+
+/* Get the slot for a txitem */
+#define dma_txitem_getslot(item)  ((int)(item - (item)->ring->__tx_items_cache))
 
 struct bcm430x_dmaring {
 	spinlock_t lock;
