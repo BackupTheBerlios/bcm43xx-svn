@@ -443,4 +443,27 @@ void bcm430x_printk_dump(const char *data,
 	printk("\n");
 }
 
+void bcm430x_printk_bitdump(const unsigned char *data,
+			    size_t bytes,
+			    const char *description)
+{
+	size_t i;
+	unsigned int j;
+	unsigned char *d;
+
+	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes) ***\n",
+	       description, bytes);
+	for (i = 0; i < bytes; i++) {
+		d = data + i;
+		for (j = 0; j < 8; j++) {
+			if (*d & (1 << j))
+				printk("1");
+			else
+				printk("0");
+		}
+		printk(" ");
+	}
+	printk("\n");
+}
+
 /* vim: set ts=8 sw=8 sts=8: */

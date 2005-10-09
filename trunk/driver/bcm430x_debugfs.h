@@ -39,6 +39,16 @@ void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm);
 void bcm430x_printk_dump(const char *data,
 			 size_t size,
 			 const char *description);
+/* Debug helper: Dump bitwise binary data through printk. */
+void bcm430x_printk_bitdump(const unsigned char *data,
+			    size_t bytes,
+			    const char *description);
+#define bcm430x_printk_bitdumpt(pointer, description) \
+	do {									\
+		bcm430x_printk_bitdump((const unsigned char *)(pointer),	\
+				       sizeof(*(pointer)),			\
+				       (description));				\
+	} while (0)
 
 #else /* BCM430x_DEBUG */
 
