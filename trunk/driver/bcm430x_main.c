@@ -292,10 +292,116 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 	return err;
 }
 
-void fastcall
-bcm430x_generate_txhdr(struct bcm430x_txhdr *txhdr)
+static inline
+void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
+				  u16 packet_octets, u16 bitrate)
 {
+	/* "data" and "raw" address the same memory area,
+	 * but with different data types.
+	 */
+
+	/*TODO: This can be optimized, but first let's get it working. */
+
+	if ((bitrate % 3) == 0) {	/* OFDM modulation */
+		switch (bitrate) {
+		case 6:
+			*data = 0xB;	break;
+		case 9:
+			*data = 0xF;	break;
+		case 12:
+			*data = 0xA;	break;
+		case 18:
+			*data = 0xE;	break;
+		case 24:
+			*data = 0x9;	break;
+		case 36:
+			*data = 0xD;	break;
+		case 48:
+			*data = 0x8;	break;
+		case 54:
+			*data = 0xC;	break;
+		default:
+			assert(0);
+		}
+		assert(!(packet_octets & 0xF000));
+		*data |= (packet_octets << 5);
+		*data = cpu_to_le32(*data);
+	} else {
+		u32 plen;
+
+		plen = packet_octets * 16 / bitrate;
+		if ((packet_octets * 16 % bitrate) > 0) {
+			plen++;
+			if ((bitrate == 22) && ((packet_octets * 8 % 11) < 4))
+				raw[1] = 0x84;
+			else
+				raw[1] = 0x04;
+		} else
+			raw[1] = 0x04;
+		*data |= cpu_to_le32(plen << 16);
+
+		switch (bitrate) {
+		case 2:
+			raw[0] = 0x0A;	break;
+		case 4:
+			raw[0] = 0x14;	break;
+		case 11:
+			raw[0] = 0x37;	break;
+		case 22:
+			raw[0] = 0x6E;	break;
+		default:
+			assert(0);
+		}
+	}
+
+	//TODO: Bitswap each byte here. As the device expects it lsb first, but gets it msb first via pci.
+
+//bcm430x_printk_bitdump(raw, 4, "PLCP");
+}
+
+#define bcm430x_generate_plcp_hdr(plcp, octets, bitrate) \
+	do {									\
+		bcm430x_do_generate_plcp_hdr(&((plcp)->data), (plcp)->raw,	\
+					     (octets), (bitrate));		\
+	} while (0)
+
+void fastcall
+bcm430x_generate_txhdr(struct bcm430x_private *bcm,
+		       struct bcm430x_txhdr *txhdr,
+		       u16 packet_octets, u16 bitrate)
+{
+	u16 fallback_bitrate;
+
+	memset(txhdr, 0, sizeof(*txhdr));
+
+	//TODO
+
+	switch (bitrate) {
+	case 6:
+	case 9:
+	case 12:
+		fallback_bitrate = 6;	break;
+	case 18:
+		fallback_bitrate = 9;	break;
+	case 24:
+		fallback_bitrate = 12;	break;
+	case 36:
+		fallback_bitrate = 18;	break;
+	case 48:
+	case 54:
+		fallback_bitrate = 24;	break;
+	case 2:
+	case 4:
+		fallback_bitrate = 2;	break;
+	case 11:
+		fallback_bitrate = 4;	break;
+	case 22:
+		fallback_bitrate = 11;	break;
+	}
 	/*TODO*/
+
+	bcm430x_generate_plcp_hdr(&txhdr->plcp, packet_octets,
+				  bitrate);
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.

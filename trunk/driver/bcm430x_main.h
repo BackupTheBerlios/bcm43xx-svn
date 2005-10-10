@@ -70,14 +70,16 @@ struct bcm430x_txhdr {
 			u16 rts_cts_dur;
 			unsigned char first_mac[6];
 			unsigned char second_mac[6];
-			struct bcm430x_plcp_hdr6 plcp_header;
+			struct bcm430x_plcp_hdr6 plcp;
 		} __attribute__((__packed__));
 
 		unsigned char raw[82];
 	} __attribute__((__packed__));
 } __attribute__((__packed__));
 
-void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_txhdr *txhdr));
+void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
+				     struct bcm430x_txhdr *txhdr,
+				     u16 packet_octets, u16 bitrate));
 
 
 /* write the SHM Control word with a 32bit word offset */
