@@ -354,8 +354,6 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		}
 	}
 
-	//TODO: Bitswap each byte here. As the device expects it lsb first, but gets it msb first via pci.
-
 //bcm430x_printk_bitdump(raw, 4, "PLCP");
 }
 
