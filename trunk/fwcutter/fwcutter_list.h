@@ -133,10 +133,10 @@ static const struct file {
 		.flags       = BYTE_ORDER_DDCCBBAA | INIT_VAL_08_MISSING 
 		               | SUPPORT_INCOMPLETE,
 		.iv_pos      = 0x2a1d0,
-		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3d9f,
-		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4467,
-		.uc5_pos     = 0x35450,  .uc5_length  = 0x4b9f,
-		.pcm4_pos    = 0x39ff8,  .pcm4_length = 0x477,
+		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3da8,
+		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4470,
+		.uc5_pos     = 0x35450,  .uc5_length  = 0x4ba0,
+		.pcm4_pos    = 0x39ff8,  .pcm4_length = 0x478,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
