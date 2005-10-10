@@ -1263,18 +1263,27 @@ static void bcm430x_update_leds(struct bcm430x_private *bcm)
 
 		switch (bcm->leds[id] & ~BCM430x_LED_ACTIVELOW) {
 		case BCM430x_LED_OFF:
-			state = 0;
 			break;
 		case BCM430x_LED_ON:
 			state = 1;
 			break;
 		case BCM430x_LED_RADIO_ALL:
+			state = ((bcm->radio[0].enabled) || (bcm->radio[1].enabled)) ? 1 : 0;
+			break;
 		case BCM430x_LED_RADIO_A:
+			if ((bcm->phy[0].type == BCM430x_PHYTYPE_A) && (bcm->radio[0].enabled))
+				state = 1;
+			if ((bcm->phy[1].type == BCM430x_PHYTYPE_A) && (bcm->radio[1].enabled))
+				state = 1;
+			break;
 		case BCM430x_LED_RADIO_B:
-			state = bcm->current_core->radio->enabled ? 1 : 0;
+			if ((bcm->phy[0].type == BCM430x_PHYTYPE_B) && (bcm->radio[0].enabled))
+				state = 1;
+			if ((bcm->phy[1].type == BCM430x_PHYTYPE_B) && (bcm->radio[1].enabled))
+				state = 1;
 			break;
 		/*
-		 * TODO: LED_ACTIVITY, _RADIO_A, _RADIO_B, MODE_BG, ASSOC
+		 * TODO: LED_ACTIVITY, MODE_BG, ASSOC
 		 */
 		default:
 			break;
