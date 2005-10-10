@@ -964,8 +964,31 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 {
         switch (bcm->current_core->phy->type) {
         case BCM430x_PHYTYPE_A:
-		/*TODO*/
-		printk(KERN_ERR PFX "TODO %s:%d  specs incomplete\n", __FILE__, __LINE__);
+		if (!(bcm->current_core->radio->id == 0x1206017F))
+			return -ENODEV;
+		if (channel > 200)
+			return -EINVAL;
+
+		TODO(); //FIXME: 1. Workaround here doesn't make sense (Specs)
+		bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL, 5000 + 5 * channel);
+		bcm430x_phy_write(bcm, 0x0008, 0x0000);
+		TODO(); //FIXME: 4.-13.
+		bcm430x_radio_write16(bcm, 0x0029,
+		                      (bcm430x_radio_read16(bcm, 0x0029) & 0xFF0F) | 0x000B);
+		bcm430x_radio_write16(bcm, 0x0035, 0x00AA);
+		bcm430x_radio_write16(bcm, 0x0036, 0x0085);
+		TODO(); //FIXME: 17.
+		bcm430x_radio_write16(bcm, 0x003D,
+		                      bcm430x_radio_read16(bcm, 0x003D) & 0x00FF);
+		bcm430x_radio_write16(bcm, 0x0081,
+		                      (bcm430x_radio_read16(bcm, 0x0081) & 0xFF7F) | 0x0080);
+		bcm430x_radio_write16(bcm, 0x0035,
+		                      bcm430x_radio_read16(bcm, 0x0035) & 0xFFEF);
+		bcm430x_radio_write16(bcm, 0x0035,
+		                      (bcm430x_radio_read16(bcm, 0x0035) & 0xFFEF) | 0x0010 );
+		TODO(); //FIXME: 22.-25.
+		bcm430x_phy_xmitpower(bcm);
+
 		break;
         case BCM430x_PHYTYPE_B:
         case BCM430x_PHYTYPE_G:
@@ -977,6 +1000,10 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
         default:
 		assert(0);
         }
+	
+	//XXX: Using the longer of 2 timeouts (8000 vs 2000 usecs). Specs states
+	//     that 2000 usecs might suffice.
+	udelay(8000);
 
 	return 0;
 }
