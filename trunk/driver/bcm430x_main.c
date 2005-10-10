@@ -489,23 +489,23 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 	struct net_device *net_dev = bcm->net_dev;
 
 	/* read MAC address into dev->dev_addr */
-	value = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 0);
-	*((u16 *)net_dev->dev_addr + 0) = be16_to_cpu(value);
-	value = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 2);
-	*((u16 *)net_dev->dev_addr + 1) = be16_to_cpu(value);
-	value = bcm430x_read16(bcm, BCM430x_SPROM_IL0MACADDR + 4);
-	*((u16 *)net_dev->dev_addr + 2) = be16_to_cpu(value);
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 0);
+	*((u16 *)net_dev->dev_addr + 0) = value;
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 2);
+	*((u16 *)net_dev->dev_addr + 1) = value;
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 4);
+	*((u16 *)net_dev->dev_addr + 2) = value;
 
-	value = bcm430x_read16(bcm, BCM430x_SPROM_BOARDFLAGS);
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_BOARDFLAGS);
 	if (value == 0xffff)
 		value = 0x0000;
 	bcm->sprom.boardflags = value;
 
 	/* read LED infos */
-	value = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_WL0GPIO0));
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_WL0GPIO0);
 	bcm->leds[0] = value & 0x00FF;
 	bcm->leds[1] = (value & 0xFF00) >> 8;
-	value = be16_to_cpu(bcm430x_read16(bcm, BCM430x_SPROM_WL0GPIO2));
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_WL0GPIO2);
 	bcm->leds[2] = value & 0x00FF;
 	bcm->leds[3] = (value & 0xFF00) >> 8;
 

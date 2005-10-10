@@ -105,6 +105,16 @@ void bcm430x_shm_write16(struct bcm430x_private *bcm,
 			 u16 routing, u16 offset,
 			 u16 value);
 
+static inline
+u16 bcm430x_sprom_read(struct bcm430x_private *bcm,
+		       u16 offset)
+{
+	u16 value;
+	value = bcm430x_read16(bcm, BCM430x_SPROM_BASE + (2 * offset));
+	return be16_to_cpu(value);
+}
+
+
 void bcm430x_dummy_transmission(struct bcm430x_private *bcm);
 
 int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core);
