@@ -449,7 +449,7 @@ void bcm430x_printk_bitdump(const unsigned char *data,
 {
 	size_t i;
 	unsigned int j;
-	unsigned char *d;
+	const unsigned char *d;
 
 	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes) ***\n",
 	       description, bytes);
