@@ -1269,6 +1269,8 @@ static void bcm430x_update_leds(struct bcm430x_private *bcm)
 			state = 1;
 			break;
 		case BCM430x_LED_RADIO_ALL:
+		case BCM430x_LED_RADIO_A:
+		case BCM430x_LED_RADIO_B:
 			state = bcm->current_core->radio->enabled ? 1 : 0;
 			break;
 		/*
@@ -1464,11 +1466,11 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto err_gpio_cleanup;
 
-	bcm430x_update_leds(bcm);
-
 	err = bcm430x_radio_turn_on(bcm);
 	if (err)
 		goto err_gpio_cleanup;
+
+	bcm430x_update_leds(bcm);
 
 	bcm430x_write16(bcm, 0x03E6, 0x0000);
 	err = bcm430x_phy_init(bcm);
