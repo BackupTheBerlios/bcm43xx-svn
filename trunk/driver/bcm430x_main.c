@@ -1770,6 +1770,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			/* Presumably devices not listed above are not
 			 * put into the pci device table for this driver,
 			 * so we should never get here */
+			assert(0);
 			chip_id_16 = 0x2BAD;
 		}
 	}
