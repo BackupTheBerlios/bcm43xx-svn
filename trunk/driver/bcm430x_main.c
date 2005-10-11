@@ -2586,6 +2586,7 @@ err_crystal_off:
 static void bcm430x_detach_board(struct bcm430x_private *bcm)
 {
 	struct pci_dev *pci_dev = bcm->pci_dev;
+	int i;
 
 	bcm430x_chipset_detach(bcm);
 	/* Do _not_ access the chip, after it is detached. */
@@ -2593,7 +2594,13 @@ static void bcm430x_detach_board(struct bcm430x_private *bcm)
 
 	pci_release_regions(pci_dev);
 	pci_disable_device(pci_dev);
-}
+
+	/* Free allocated structures/fields */
+	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+		kfree(bcm->phy[i].desired_power);
+		kfree(bcm->phy[i].lo_pairs);
+	}
+}	
 
 static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 {
@@ -2638,7 +2645,19 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	bcm->current_core->phy->version = phy_version;
 	bcm->current_core->phy->type = phy_type;
 	bcm->current_core->phy->rev = phy_rev;
-	bcm->current_core->phy->desired_power[0][0] = -1;
+	if ((phy_type == BCM430x_PHYTYPE_B) || (phy_type == BCM430x_PHYTYPE_G)) {
+		bcm->current_core->phy->desired_power = kmalloc(sizeof(s8) * BCM430x_LO_COUNT, GFP_KERNEL);
+		if (!bcm->current_core->phy->desired_power)
+			return -ENOMEM;
+		memset(bcm->current_core->phy->desired_power, -1, sizeof(s8) * BCM430x_LO_COUNT);
+		bcm->current_core->phy->lo_pairs = kmalloc(sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT,
+		                                          GFP_KERNEL);
+		if (!bcm->current_core->phy->lo_pairs) {
+			kfree(bcm->current_core->phy->desired_power);
+			return -ENOMEM;
+		}
+		memset(bcm->current_core->phy->lo_pairs, 0, sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT);
+	}
 	bcm->current_core->phy->info_unk16 = 0xFFFF;
 
 	return 0;

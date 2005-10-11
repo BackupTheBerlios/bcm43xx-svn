@@ -343,6 +343,8 @@ union bcm430x_lopair {
 	u16 value;
 };
 
+#define BCM430x_LO_COUNT	(14*4)
+
 struct bcm430x_phyinfo {
 	/* Hardware Data */
 	u8 version;
@@ -355,17 +357,17 @@ struct bcm430x_phyinfo {
 	u8 connected:1,
 	   calibrated:1;
 	/* LO Measurement Data */
-	s8 desired_power[14][4];
+	s8 *desired_power;
+	union bcm430x_lopair *lo_pairs;
 	u16 info_unk16;
-	union bcm430x_lopair lo_pairs[14][4];
 };
 
 struct bcm430x_radioinfo {
 	/* Radio ID */
 	u32 id;
 	/* 0: baseband attenuation,
-	 * 1: generic attenuation, 
-	 * 2: tx_CTL1 attenuation
+	 * 1: radio attenuation, 
+	 * 2: tx_CTL1
 	 */
 	u16 txpower[3];
 	/* Current Interference Mitigation mode */

@@ -1063,9 +1063,8 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	bcm430x_phy_init_pctl(bcm);
 }
 
-#if 0
-u16
-static inline bcm430x_phy_lo_singlevalue(bcm, u16 control) {
+static inline
+u16 bcm430x_phy_lo_singlevalue(struct bcm430x_private *bcm, u16 control) {
 	if (bcm->current_core->phy->connected) {
 		bcm430x_phy_write(bcm, 0x15, 0xE300);
 		control = (control << 8);
@@ -1078,19 +1077,19 @@ static inline bcm430x_phy_lo_singlevalue(bcm, u16 control) {
 		bcm430x_phy_write(bcm, 0x0015, 0xF300);
 		udelay(8);
 	} else {
-		bcm430x_phy(bcm, 0x0015, control | 0xEFA0);
+		bcm430x_phy_write(bcm, 0x0015, control | 0xEFA0);
 		udelay(2);
-		bcm430x_phy(bcm, 0x0015, control | 0xEFE0);
+		bcm430x_phy_write(bcm, 0x0015, control | 0xEFE0);
 		udelay(4);
-		bcm430x_phy(bcm, 0x0015, control | 0xEFE0);
+		bcm430x_phy_write(bcm, 0x0015, control | 0xEFE0);
 		udelay(8);
 	}
 
 	return bcm430x_phy_read(bcm, 0x002D);
 }
 
-u16
-static inline bcm430x_phy_lo_singledeviation(bcm, u16 control) {
+static inline
+u16 bcm430x_phy_lo_singledeviation(struct bcm430x_private *bcm, u16 control) {
 	u16 ret = 0;
 	int i;
 
@@ -1101,15 +1100,41 @@ static inline bcm430x_phy_lo_singledeviation(bcm, u16 control) {
 	return ret;
 }
 
-u8
-static inline bcm430x_phy_lo_unk16(bcm) {
+
+static inline
+u16 bcm430x_phy_lo_pair(struct bcm430x_private *bcm, u16 baseband, u16 radio, u16 tx)
+{
+	u8 dict[10] = { 11, 10, 11, 12, 13, 12, 13, 12, 13, 12 };
+
+	baseband /= 2;
+
+	if (tx == 3) {
+		return bcm->current_core->phy->lo_pairs[radio + 14 * baseband].value;
+	if (tx != 3)
+		assert(radio < 10);
+		radio = dict[radio];
+	}
+	return bcm->current_core->phy->lo_pairs[radio + 14 * baseband].value;
+}
+
+static inline
+void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm)
+{
+	struct bcm430x_radioinfo *r = bcm->current_core->radio;
+	bcm430x_phy_write(bcm, 0x0810,
+	                  bcm430x_phy_lo_pair(bcm, r->txpower[0], r->txpower[1], r->txpower[2]));
+}
+
+static inline
+u8 bcm430x_phy_lo_unk16(struct bcm430x_private *bcm)
+{
 	/* phy_info_unk16 */
 	u8 ret = 0, i;
 	u16 deviation = 0, tmp;
 
 	bcm430x_radio_write16(bcm, 0x52, 0x0000);
 	udelay(10);
-	deviation = bcm430x_phy_losingledev(bcm, 0);
+	deviation = bcm430x_phy_lo_singledeviation(bcm, 0);
 	for (i = 0; i < 16; i++) {
 		bcm430x_radio_write16(bcm, 0x52, i);
 		udelay(10);
@@ -1127,14 +1152,17 @@ static inline bcm430x_phy_lo_unk16(bcm) {
 void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 {
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
-	int i, j;
-	union bcm430x_lopair pairs[14][4] = { 0 };
+	int i, oldi, j;
+	union bcm430x_lopair control = { .value = 0 };
 	u8 pairorder[10] = { 3, 1, 5, 7, 9, 2, 0, 4, 6, 8 };
 	u16 tmp;
 	u16 regstack[16] = { 0 };
 
+	//XXX: What are these?
+	u8 r27, r31;
+
 	/* Setup */
-	if (phy->desired_power[0][0] < 0) {
+	if (phy->desired_power[0] < 0) {
 		phy->info_unk16 = 0xFFFF;
 		FIXME();
 	}
@@ -1164,7 +1192,7 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 	if (phy->connected) {
 		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x7FFF);
 		bcm430x_phy_write(bcm, 0x0802, regstack[1] & 0xFFFE);
-		bcm430x_dummy_tx(bcm);
+		bcm430x_dummy_transmission(bcm);
 	}
 	bcm430x_radio_write16(bcm, 0x43, 6);
 	tmp = ((bcm->current_core->radio->txpower[0] & 0x000F) << 2);
@@ -1191,9 +1219,75 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 
 	/* Measure */
 	for (i = 0; i < 10; i++) {
-		//TODO: a.
+		if (phy->info_unk16 != 0xFFFF) {
+			if (i == 3)
+				control.value = 0;
+			else if ((i % 2 == 1) && (oldi % 2 == 1))
+				control = phy->lo_pairs[i] ;
+			else
+				control = phy->lo_pairs[3];
+		}
 		for (j = 0; j < 4; j++) {
-			//TODO: ARGH!
+			if (phy->info_unk16 == 0xFFFF) {
+				control = phy->lo_pairs[i + 14 * j];
+				tmp = i * 2 + j;
+				r27 = 0;
+				if (tmp > 14) {
+					r31 = 1;
+					if (tmp > 17)
+						r27 = 1;
+					if (tmp > 19)
+						r27 = 2;
+				} else {
+					r31 = 0;
+				}
+			} else {
+				if (phy->desired_power[i + 14 * j] == 0)
+					continue;
+				control = phy->lo_pairs[i + 14 * j];
+				r27 = 3;
+				r31 = 1;
+			}
+			bcm430x_phy_write(bcm, 0x43, i);
+			bcm430x_phy_write(bcm, 0x52, phy->info_unk16);
+			TODO(); //TODO: Set the baseband attenuation on chip
+			tmp = (regstack[10] & 0xFFF0);
+			if (r31)
+				tmp |= 0x0008;
+			bcm430x_radio_write16(bcm, 0x7A, tmp);
+			TODO(); //TODO: Run the state machine
+		}
+	}
+	for (i = 10; i < 14; i++) {
+		for (j = 0; j < 4; j++) {
+			if (phy->info_unk16 == 0xFFFF) {
+				control = phy->lo_pairs[i + 14 * j];
+				tmp = i * 2 + j;
+				r27 = 0;
+				if (tmp > 14) {
+					r31 = 1;
+					if (tmp > 17)
+						r27 = 1;
+					if (tmp > 19)
+						r27 = 2;
+				} else {
+					r31 = 0;
+				}
+			} else {
+				if (phy->desired_power[i + 14 * j] == 0)
+					continue;
+				control = phy->lo_pairs[i + 14 * j];
+				r27 = 3;
+				r31 = 1;
+			}
+			bcm430x_phy_write(bcm, 0x43, i);
+			bcm430x_phy_write(bcm, 0x52, phy->info_unk16 + 0x30);
+			TODO(); //TODO: Set the baseband attenuation on chip
+			tmp = (regstack[10] & 0xFFF0);
+			if (r31)
+				tmp |= 0x0008;
+			bcm430x_radio_write16(bcm, 0x7A, tmp);
+			TODO(); //TODO: Run the state machine	
 		}
 	}
 
@@ -1215,17 +1309,16 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 	regstack[11] |= (bcm430x_radio_read16(bcm, 0x52) & 0x0F);
 	bcm430x_radio_write16(bcm, 0x52, regstack[11]);
 	if (phy->connected) {
-		bcm430x_phy_read(bcm, 0x0811, regstack[12]);
-		bcm430x_phy_read(bcm, 0x0812, regstack[13]);
-		bcm430x_phy_read(bcm, 0x0814, regstack[14]);
-		bcm430x_phy_read(bcm, 0x0815, regstack[15]);
-		bcm430x_phy_read(bcm, 0x0429, regstack[0]);
-		bcm430x_phy_read(bcm, 0x0802, regstack[1]);
+		bcm430x_phy_write(bcm, 0x0811, regstack[12]);
+		bcm430x_phy_write(bcm, 0x0812, regstack[13]);
+		bcm430x_phy_write(bcm, 0x0814, regstack[14]);
+		bcm430x_phy_write(bcm, 0x0815, regstack[15]);
+		bcm430x_phy_write(bcm, 0x0429, regstack[0]);
+		bcm430x_phy_write(bcm, 0x0802, regstack[1]);
 	}
 	TODO(); // FuncPlaceholder
 	bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel);
 }
-#endif
 
 /* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
