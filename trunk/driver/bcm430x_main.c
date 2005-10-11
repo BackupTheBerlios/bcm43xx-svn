@@ -616,13 +616,14 @@ void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
  * This function reads the value from the device.
  * Almost always you don't want to call this, but use bcm->current_core
  */
-static int _get_current_core(struct bcm430x_private *bcm, int *core)
+static inline
+int _get_current_core(struct bcm430x_private *bcm, int *core)
 {
 	int err;
 
 	err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE, core);
-	if (err) {
-		printk(KERN_ERR PFX "Error: cannot read ACTIVE_CORE register!\n");
+	if (unlikely(err)) {
+		dprintk(KERN_ERR PFX "BCM430x_REG_ACTIVE_CORE read failed!\n");
 		return -ENODEV;
 	}
 	*core = (*core - 0x18000000) / 0x1000;
@@ -642,22 +643,26 @@ static int _switch_core(struct bcm430x_private *bcm, int core)
 	assert(core >= 0);
 
 	err = _get_current_core(bcm, &current_core);
-	if (err)
+	if (unlikely(err))
 		goto out;
 
 	/* Write the computed value to the register. This doesn't always
 	   succeed so we retry BCM430x_SWITCH_CORE_MAX_RETRIES times */
 	while (current_core != core) {
-		if (attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES) {
+		if (unlikely(attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES)) {
 			err = -ENODEV;
 			printk(KERN_ERR PFX
 			       "unable to switch to core %u, retried %i times\n",
 			       core, attempts);
 			goto out;
 		}
-		bcm430x_pci_write_config_32(bcm->pci_dev,
-					    BCM430x_REG_ACTIVE_CORE,
-					    (core * 0x1000) + 0x18000000);
+		err = bcm430x_pci_write_config_32(bcm->pci_dev,
+						  BCM430x_REG_ACTIVE_CORE,
+						  (core * 0x1000) + 0x18000000);
+		if (unlikely(err)) {
+			dprintk(KERN_ERR PFX "BCM430x_REG_ACTIVE_CORE write failed!\n");
+			continue;
+		}
 		_get_current_core(bcm, &current_core);
 	}
 
@@ -1731,6 +1736,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	u32 core_vendor, core_id, core_rev;
 	u32 sb_id_hi, chip_id_32 = 0;
 	u16 pci_device, chip_id_16;
+	u8 core_count;
 
 	/* map core 0 */
 	err = _switch_core(bcm, 0);
@@ -1777,34 +1783,35 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	/* ChipCommon with Core Rev >=4 encodes number of cores,
 	 * otherwise consult hardcoded table */
-	if ((core_id == BCM430x_COREID_CHIPCOMMON) && (core_rev >= 4))
-		bcm->core_count = (chip_id_32 & 0x0F000000) >> 24;
-	else {
+	if ((core_id == BCM430x_COREID_CHIPCOMMON) && (core_rev >= 4)) {
+		core_count = (chip_id_32 & 0x0F000000) >> 24;
+	} else {
 		switch (chip_id_16) {
 			case 0x4610:
 			case 0x4704:
 			case 0x4710:
-				bcm->core_count = 9;
+				core_count = 9;
 				break;
 			case 0x4310:
-				bcm->core_count = 8;
+				core_count = 8;
 				break;
 			case 0x5365:
-				bcm->core_count = 7;
+				core_count = 7;
 				break;
 			case 0x4306:
-				bcm->core_count = 6;
+				core_count = 6;
 				break;
 			case 0x4301:
 			case 0x4307:
-				bcm->core_count = 5;
+				core_count = 5;
 				break;
 			case 0x4402:
-				bcm->core_count = 3;
+				core_count = 3;
 				break;
 			default:
 				/* SOL if we get here */
-				bcm->core_count = 1;
+				assert(0);
+				core_count = 1;
 		}
 	}
 
@@ -1813,6 +1820,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	dprintk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
 		bcm->chip_id, bcm->chip_rev);
+	dprintk(KERN_INFO PFX "Number of cores: %d\n", core_count);
 	if (bcm->core_chipcommon.flags & BCM430x_COREFLAG_AVAILABLE) {
 		dprintk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
 			core_id, core_rev, core_vendor,
@@ -1823,7 +1831,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		current_core = 1;
 	else
 		current_core = 0;
-	for ( ; current_core < bcm->core_count; current_core++) {
+	for ( ; current_core < core_count; current_core++) {
 		struct bcm430x_coreinfo *core;
 
 		err = _switch_core(bcm, current_core);

@@ -468,7 +468,6 @@ struct bcm430x_private {
 
 	u8 leds[BCM430x_LED_COUNT];
 
-	u8 core_count;
 	/* The currently active core. NULL if not initialized, yet. */
 	struct bcm430x_coreinfo *current_core;
 	/* Pointer to the preferred 80211 core.
