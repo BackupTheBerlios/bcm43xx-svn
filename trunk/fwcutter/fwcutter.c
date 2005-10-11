@@ -30,11 +30,11 @@
 
 typedef unsigned char byte;
 
-#define BYTE_ORDER_AABBCCDD    0x01
-#define BYTE_ORDER_DDCCBBAA    0x02  /* 4 bytes swapped in source (DDCCBBAA instead of AABBCCDD) */
-#define SUPPORT_INCOMPLETE     0x04  /* not all fw files can be extracted */
-#define SUPPORT_IMPOSSIBLE     0x08  /* no support for this file */
-#define INIT_VAL_08_MISSING    0x10  /* initval 8 is missing in older driver files */
+#define BYTE_ORDER_BIG_ENDIAN    0x01  /* ppc driver files */
+#define BYTE_ORDER_LITTLE_ENDIAN 0x02  /* x86, mips driver files */
+#define SUPPORT_INCOMPLETE       0x04  /* not all fw files can be extracted */
+#define SUPPORT_IMPOSSIBLE       0x08  /* no support for this file */
+#define INIT_VAL_08_MISSING      0x10  /* initval 8 is missing in older driver files */
 
 #define fwcutter_stringify_1(x)	#x
 #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
@@ -53,7 +53,7 @@ int big_endian_cpu;
 char* target_dir;
 
 
-static void write_ddccbbaa(FILE *f, byte *buffer, int len) 
+static void write_little_endian(FILE *f, byte *buffer, int len) 
 {
 	byte swapbuf[4];
 
@@ -66,7 +66,7 @@ static void write_ddccbbaa(FILE *f, byte *buffer, int len)
 	}
 }
 
-static void write_aabbccdd(FILE *f, byte *buffer, int len) 
+static void write_big_endian(FILE *f, byte *buffer, int len) 
 {
 	while (len > 0) {
 		fwrite(buffer, 4, 1, f);
@@ -88,10 +88,10 @@ static void write_fw(const char *infilename, const char *outfilename, uint8_t fl
 		exit(1);
 	}
 
-	if (flags & BYTE_ORDER_DDCCBBAA)
-		write_ddccbbaa(fw, data, len);
-	else if (flags & BYTE_ORDER_AABBCCDD)
-		write_aabbccdd(fw, data, len);
+	if (flags & BYTE_ORDER_LITTLE_ENDIAN)
+		write_little_endian(fw, data, len);
+	else if (flags & BYTE_ORDER_BIG_ENDIAN)
+		write_big_endian(fw, data, len);
 	else
 		printf("unknown byteorder...\n");
 
@@ -130,14 +130,16 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 				break;
 			}
 
-			if (flags & BYTE_ORDER_DDCCBBAA)
+			if (flags & BYTE_ORDER_LITTLE_ENDIAN)
 				fprintf(fw, "%c%c%c%c%c%c%c%c",
-					data[1], data[0], data[3], data[2], 
-					data[7], data[6], data[5], data[4]);
-			else if (flags & BYTE_ORDER_AABBCCDD)
+					data[1], data[0],                       /* offset */
+					data[3], data[2],                       /* size */
+					data[7], data[6], data[5], data[4]);    /* value */
+			else if (flags & BYTE_ORDER_BIG_ENDIAN)
 				fprintf(fw, "%c%c%c%c%c%c%c%c",
-					data[0], data[1], data[2], data[3], 
-					data[4], data[5], data[6], data[7]);
+					data[0], data[1],                       /* offset */
+					data[2], data[3],                       /* size */
+					data[4], data[5], data[6], data[7]);    /* value */
 			else {
 				printf("unknown byteorder...\n");
 				exit(1);
