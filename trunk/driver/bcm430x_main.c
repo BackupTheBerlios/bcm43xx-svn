@@ -1908,9 +1908,16 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 					continue;
 				}
 			}
-			if (core_rev != 2 && core_rev != 4 && core_rev != 5 && core_rev != 6) {
+			switch (core_rev) {
+			case 2:
+			case 4:
+			case 5:
+			case 6:
+			case 9:
+				break;
+			default:
 				printk(KERN_ERR PFX "Error: Unsupported 80211 core revision %u\n",
-				       core->rev);
+				       core_rev);
 				err = -ENODEV;
 				goto out;
 			}
