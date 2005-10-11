@@ -351,6 +351,8 @@ struct bcm430x_phyinfo {
 	   calibrated:1;
 	/* LO Measurement Data */
 	s8 desired_power[14][4];
+	u16 info_unk16;
+	union bcm430x_lopairs lo_pairs[14][4];
 };
 
 struct bcm430x_radioinfo {
