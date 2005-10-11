@@ -51,24 +51,25 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 			       char *extra)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	int i = 0;
+	char suffix[6] = { 0 };
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
 	down(&bcm->sem);
-	//FIXME: This is broken. We have to iterate through each core and check which PHYs are present.
-	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
-		snprintf(data->name, IFNAMSIZ, "IEEE 802.11abg");
-		break;
-	case BCM430x_PHYTYPE_B:
-		snprintf(data->name, IFNAMSIZ, "IEEE 802.11b");
-		break;
-	case BCM430x_PHYTYPE_G:
-		snprintf(data->name, IFNAMSIZ, "IEEE 802.11bg");
-		break;
-	default:
-		assert(0);
+
+	if ((bcm->phy[0].type == BCM430x_PHYTYPE_A) || (bcm->phy[0].type == BCM430x_PHYTYPE_A)) {
+		suffix[i++] = 'a';
+		suffix[i++] = '/';
 	}
+	if ((bcm->phy[0].type == BCM430x_PHYTYPE_G) || (bcm->phy[0].type == BCM430x_PHYTYPE_G)) {
+		suffix[i++] = 'b';
+		suffix[i++] = '/';
+		suffix[i++] = 'g';
+	} else {
+		suffix[i++] = 'b';
+	}
+	snprintf(data->name, IFNAMSIZ, "IEEE 802.11%s", suffix);
 	up(&bcm->sem);
 
 	return 0;
@@ -89,8 +90,32 @@ static int bcm430x_wx_get_channelfreq(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	static const u16 frequencies_bg[14] = {
+	        12, 17, 22, 27,
+		32, 37, 42, 47,
+		52, 57, 62, 67,
+		72, 84,
+	};
+
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	/*TODO*/
+
+	down(&bcm->sem);
+
+	//XXX: returning current_core's channel...
+	data->freq.e = 6;
+	switch (bcm->current_core->phy->type) {
+	case BCM430x_PHYTYPE_A:
+		data->freq.m = 5000 + 5 * bcm->current_core->radio->channel;
+		break;
+	case BCM430x_PHYTYPE_B:
+	case BCM430x_PHYTYPE_G:
+		data->freq.m = 2400 + frequencies_bg[bcm->current_core->radio->channel];
+		break;
+	}
+
+	up(&bcm->sem);
+	
 	return 0;
 }
 
@@ -420,7 +445,7 @@ static iw_handler bcm430x_wx_handlers[] = {
 /* 0x8B02 */	NULL, /* set network id (pre-802.11) */
 /* 0x8B03 */	NULL, /* get network id (the cell)  FIXME: Implement? */
 /* 0x8B04 */	NULL,//TODO bcm430x_wx_set_channelfreq,
-/* 0x8B05 */	NULL,//TODO bcm430x_wx_get_channelfreq,
+/* 0x8B05 */	bcm430x_wx_get_channelfreq,
 /* 0x8B06 */	bcm430x_wx_set_mode,
 /* 0x8B07 */	bcm430x_wx_get_mode,
 /* 0x8B08 */	NULL,//TODO bcm430x_wx_set_sensitivity,
