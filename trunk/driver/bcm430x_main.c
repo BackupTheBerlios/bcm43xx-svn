@@ -2638,6 +2638,8 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	bcm->current_core->phy->version = phy_version;
 	bcm->current_core->phy->type = phy_type;
 	bcm->current_core->phy->rev = phy_rev;
+	bcm->current_core->phy->desired_power[0][0] = -1;
+	bcm->current_core->phy->info_unk16 = 0xFFFF;
 
 	return 0;
 }

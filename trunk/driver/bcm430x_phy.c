@@ -1155,10 +1155,10 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 	regstack[10] = bcm430x_radio_read16(bcm, 0x7A);
 	regstack[11] = bcm430x_radio_read16(bcm, 0x52);
 	if (phy->connected) {
-		regstack[12] = bcm430x_phy_read(bcm, 0x811);
-		regstack[13] = bcm430x_phy_read(bcm, 0x812);
-		regstack[14] = bcm430x_phy_read(bcm, 0x814);
-		regstack[15] = bcm430x_phy_read(bcm, 0x815);
+		regstack[12] = bcm430x_phy_read(bcm, 0x0811);
+		regstack[13] = bcm430x_phy_read(bcm, 0x0812);
+		regstack[14] = bcm430x_phy_read(bcm, 0x0814);
+		regstack[15] = bcm430x_phy_read(bcm, 0x0815);
 	}
 	bcm430x_radio_selectchannel(bcm, 6);
 	if (phy->connected) {
@@ -1198,7 +1198,32 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 	}
 
 	/* Restoration */
-
+	TODO(); //TODO: 1. adjust the LO: ...
+	bcm430x_phy_write(bcm, 0x2E, 0x807F);
+	if (phy->connected)
+		bcm430x_phy_write(bcm, 0x2F, 0x0202);
+	else
+		bcm430x_phy_write(bcm, 0x2F, 0x0101);
+	bcm430x_write16(bcm, 0x03F4, regstack[4]);
+	bcm430x_phy_write(bcm, 0x15, regstack[5]);
+	bcm430x_phy_write(bcm, 0x2A, regstack[6]);
+	bcm430x_phy_write(bcm, 0x35, regstack[7]);
+	bcm430x_phy_write(bcm, 0x60, regstack[8]);
+	bcm430x_radio_write16(bcm, 0x43, regstack[9]);
+	bcm430x_radio_write16(bcm, 0x7A, regstack[10]);
+	regstack[11] &= 0xF0;
+	regstack[11] |= (bcm430x_radio_read16(bcm, 0x52) & 0x0F);
+	bcm430x_radio_write16(bcm, 0x52, regstack[11]);
+	if (phy->connected) {
+		bcm430x_phy_read(bcm, 0x0811, regstack[12]);
+		bcm430x_phy_read(bcm, 0x0812, regstack[13]);
+		bcm430x_phy_read(bcm, 0x0814, regstack[14]);
+		bcm430x_phy_read(bcm, 0x0815, regstack[15]);
+		bcm430x_phy_read(bcm, 0x0429, regstack[0]);
+		bcm430x_phy_read(bcm, 0x0802, regstack[1]);
+	}
+	TODO(); // FuncPlaceholder
+	bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel);
 }
 #endif
 
