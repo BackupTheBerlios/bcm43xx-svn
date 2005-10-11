@@ -33,6 +33,11 @@
 
 struct bcm430x_private;
 
+union bcm430x_lopair {
+	s8 items[2];
+	u16 value;
+}
+
 u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val);
 

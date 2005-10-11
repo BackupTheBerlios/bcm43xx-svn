@@ -1063,6 +1063,145 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	bcm430x_phy_init_pctl(bcm);
 }
 
+#if 0
+u16
+static inline bcm430x_phy_lo_singlevalue(bcm, u16 control) {
+	if (bcm->current_core->phy->connected) {
+		bcm430x_phy_write(bcm, 0x15, 0xE300);
+		control = (control << 8);
+		bcm430x_phy_write(bcm, 0x0812, control | 0x00B0);
+		udelay(5);
+		bcm430x_phy_write(bcm, 0x0812, control | 0x00B2);
+		udelay(2);
+		bcm430x_phy_write(bcm, 0x0812, control | 0x00B4);
+		udelay(4);
+		bcm430x_phy_write(bcm, 0x0015, 0xF300);
+		udelay(8);
+	} else {
+		bcm430x_phy(bcm, 0x0015, control | 0xEFA0);
+		udelay(2);
+		bcm430x_phy(bcm, 0x0015, control | 0xEFE0);
+		udelay(4);
+		bcm430x_phy(bcm, 0x0015, control | 0xEFE0);
+		udelay(8);
+	}
+
+	return bcm430x_phy_read(bcm, 0x002D);
+}
+
+u16
+static inline bcm430x_phy_lo_singledeviation(bcm, u16 control) {
+	u16 ret = 0;
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		ret += bcm430x_phy_lo_singlevalue(bcm, control);
+	}
+
+	return ret;
+}
+
+u8
+static inline bcm430x_phy_lo_unk16(bcm) {
+	/* phy_info_unk16 */
+	u8 ret = 0, i;
+	u16 deviation = 0, tmp;
+
+	bcm430x_radio_write16(bcm, 0x52, 0x0000);
+	udelay(10);
+	deviation = bcm430x_phy_losingledev(bcm, 0);
+	for (i = 0; i < 16; i++) {
+		bcm430x_radio_write16(bcm, 0x52, i);
+		udelay(10);
+		tmp = bcm430x_phy_lo_singledeviation(bcm, 0);
+		if (tmp < deviation) {
+			deviation = tmp;
+			ret = i;
+		}
+	}
+
+	return ret;
+}
+
+/* http://bcm-specs.sipsolutions.net/LocalOscillator/Measure */
+void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
+{
+	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
+	int i, j;
+	union bcm430x_lopair pairs[14][4] = { 0 };
+	u8 pairorder[10] = { 3, 1, 5, 7, 9, 2, 0, 4, 6, 8 };
+	u16 tmp;
+	u16 regstack[16] = { 0 };
+
+	/* Setup */
+	if (phy->desired_power[0][0] < 0) {
+		phy->info_unk16 = 0xFFFF;
+		FIXME();
+	}
+	if (phy->connected) {
+		regstack[0] = bcm430x_phy_read(bcm, 0x0429);
+		regstack[1] = bcm430x_phy_read(bcm, 0x0802);
+		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x3FFF);
+		bcm430x_phy_write(bcm, 0x0802, regstack[1] & 0xFFFC);
+	}
+	regstack[3] = bcm430x_read16(bcm, 0x03E2);
+	bcm430x_write16(bcm, 0x03E2, regstack[3] | 0x8000);
+	regstack[4] = bcm430x_read16(bcm, 0x03F4);
+	regstack[5] = bcm430x_phy_read(bcm, 0x15);
+	regstack[6] = bcm430x_phy_read(bcm, 0x2A);
+	regstack[7] = bcm430x_phy_read(bcm, 0x35);
+	regstack[8] = bcm430x_phy_read(bcm, 0x60);
+	regstack[9] = bcm430x_radio_read16(bcm, 0x43);
+	regstack[10] = bcm430x_radio_read16(bcm, 0x7A);
+	regstack[11] = bcm430x_radio_read16(bcm, 0x52);
+	if (phy->connected) {
+		regstack[12] = bcm430x_phy_read(bcm, 0x811);
+		regstack[13] = bcm430x_phy_read(bcm, 0x812);
+		regstack[14] = bcm430x_phy_read(bcm, 0x814);
+		regstack[15] = bcm430x_phy_read(bcm, 0x815);
+	}
+	bcm430x_radio_selectchannel(bcm, 6);
+	if (phy->connected) {
+		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x7FFF);
+		bcm430x_phy_write(bcm, 0x0802, regstack[1] & 0xFFFE);
+		bcm430x_dummy_tx(bcm);
+	}
+	bcm430x_radio_write16(bcm, 0x43, 6);
+	tmp = ((bcm->current_core->radio->txpower[0] & 0x000F) << 2);
+	if (bcm->current_core->phy->rev > 1)
+		tmp <<= 1;
+	tmp |= bcm430x_phy_read(bcm, 0x60);
+	bcm430x_phy_write(bcm, 0x60, tmp);
+	bcm430x_write16(bcm, 0x03F4, 0x0000);
+	bcm430x_phy_write(bcm, 0x2E, 0x007F);
+	bcm430x_phy_write(bcm, 0x080F, 0x0078);
+	bcm430x_phy_write(bcm, 0x35, regstack[7] & 0xFFBF);
+	bcm430x_radio_write16(bcm, 0x7A, regstack[10] & 0xFFF0);
+	bcm430x_phy_write(bcm, 0x2B, 0x0203);
+	bcm430x_phy_write(bcm, 0x2A, 0x08A3);
+	if (bcm->current_core->phy->connected) {
+		bcm430x_phy_write(bcm, 0x0814, regstack[14] | 0x0003);
+		bcm430x_phy_write(bcm, 0x0815, regstack[15] & 0xFFFC);
+		bcm430x_phy_write(bcm, 0x0811, 0x01B3);
+		bcm430x_phy_write(bcm, 0x0812, 0x00B2);
+	}
+	if (phy->info_unk16 == 0xFFFF)
+		phy->info_unk16 = bcm430x_phy_lo_unk16(bcm);
+	bcm430x_phy_write(bcm, 0x8078, 0x080F);
+
+	/* Measure */
+	for (i = 0; i < 10; i++) {
+		//TODO: a.
+		for (j = 0; j < 4; j++) {
+			//TODO: ARGH!
+		}
+	}
+
+	/* Restoration */
+
+}
+#endif
+
 /* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 {

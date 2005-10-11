@@ -339,6 +339,7 @@ struct bcm430x_sprominfo {
 };
 
 struct bcm430x_phyinfo {
+	/* Hardware Data */
 	u8 version;
 	u8 type;
 	u8 rev;
@@ -348,6 +349,8 @@ struct bcm430x_phyinfo {
 	u16 minlowsigpos[2];
 	u8 connected:1,
 	   calibrated:1;
+	/* LO Measurement Data */
+	s8 desired_power[14][4];
 };
 
 struct bcm430x_radioinfo {
