@@ -46,6 +46,13 @@ _bcm430x_declare_plcp_hdr(6);
 
 #undef _bcm430x_declare_plcp_hdr
 
+
+#define P4D_BYT3S(magic, nr_bytes)	u8 __p4dding##magic[nr_bytes]
+#define P4D_BYTES(line, nr_bytes)	P4D_BYT3S(line, nr_bytes)
+/* Magic helper macro to pad structures. Ignore those above. It's magic. */
+#define PAD_BYTES(nr_bytes)		P4D_BYTES( __LINE__ , (nr_bytes))
+
+
 /* Device specific TX header. To be prepended to TX frames. */
 struct bcm430x_txhdr {
 	union {
@@ -57,12 +64,14 @@ struct bcm430x_txhdr {
 			u16 control;
 			unsigned char wep_iv[10];
 			unsigned char unknown_wsec_tkip_data[3]; //FIXME
+			PAD_BYTES(3);
 			unsigned char dest_mac[6];
 			u16 unknown_zeroed_1;
 			struct bcm430x_plcp_hdr4 rts_cts_fallback_plcp;
 			u16 rts_cts_dur_fallback;
 			struct bcm430x_plcp_hdr4 fallback_plcp;
 			u16 fallback_dur_id;
+			PAD_BYTES(2);
 			u16 cookie;
 			u16 unknown_scb_stuff; //FIXME
 			struct bcm430x_plcp_hdr6 rts_cts_plcp;
@@ -70,6 +79,7 @@ struct bcm430x_txhdr {
 			u16 rts_cts_dur;
 			unsigned char first_mac[6];
 			unsigned char second_mac[6];
+			PAD_BYTES(2);
 			struct bcm430x_plcp_hdr6 plcp;
 		} __attribute__((__packed__));
 
