@@ -338,6 +338,11 @@ struct bcm430x_sprominfo {
 	u16 boardflags;
 };
 
+union bcm430x_lopair {
+	s8 items[2];
+	u16 value;
+};
+
 struct bcm430x_phyinfo {
 	/* Hardware Data */
 	u8 version;
@@ -352,7 +357,7 @@ struct bcm430x_phyinfo {
 	/* LO Measurement Data */
 	s8 desired_power[14][4];
 	u16 info_unk16;
-	union bcm430x_lopairs lo_pairs[14][4];
+	union bcm430x_lopair lo_pairs[14][4];
 };
 
 struct bcm430x_radioinfo {
