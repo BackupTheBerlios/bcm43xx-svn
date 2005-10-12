@@ -795,14 +795,29 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	if (ctx->cur_frag == 0) {
 		/* This is the first fragment. */
-		/* TODO: insert the txheader
-		 * TODO: insert the PLCP header
+		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
+			/* This should never trigger, but just for the case
+			 * let's not panic the kernel...
+			 */
+			//FIXME: This currently triggers. We have to tell the 80211 subsys to reserve more memory.
+			printk(KERN_ERR PFX "SKB headroom too small!\n");
+			return -ENOMEM;
+		}
+		/* Reserve space for the device tx header. */
+		__skb_push(skb, sizeof(struct bcm430x_txhdr));
+		/* Now calculate and add the tx header.
+		 * The tx header includes the PLCP header.
 		 */
+		bcm430x_generate_txhdr(ring->bcm,
+				       (struct bcm430x_txhdr *)skb->data,
+				       ctx->packet_size);
+		/* This is the first frame, so set the flag. */
 		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMESTART);
 		/* Save the whole txb for freeing later in 
 		 * completion irq (or timeout work handler)
 		 */
 		meta->txb = txb;
+		/* Save the first slot number for later. */
 		ctx->first_slot = slot;
 	}
 
@@ -861,6 +876,9 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 
 	ctx.nr_frags = txb->nr_frags;
 	ctx.cur_frag = 0;
+	ctx.packet_size = 0;
+	for (i = 0; i < txb->nr_frags; i++)
+		ctx.packet_size += txb->fragments[i]->len;
 
 	spin_lock_irqsave(&ring->lock, flags);
 	for (i = 0; i < txb->nr_frags; i++) {
