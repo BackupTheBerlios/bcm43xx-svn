@@ -40,6 +40,7 @@ bcmwl5.sys	Link
 		ftp://ftp.us.dell.com/network/R83097.EXE
 3.40.100.0	ftp://ftp.wildpackets.com/pub/outgoing/brcmDvr340rc100a~@.zip		
 3.60.7.0	ftp://ftp.asus.com.tw/pub/ASUS/wireless/WL-100g-03/Driver_3607.zip
+3.100.35.1	http://ftp.us.dell.com/network/R94826.EXE
 3.100.46.0	ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/80211g.zip
 		http://www.linksys.com/servlet/Satellite?blobcol=urldata&blobheadername1=Content-Type&blobheadername2=Content-Disposition&blobheadervalue1=application%2Fx-msdownload&blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&blobkey=id&blobtable=MungoBlobs&blobwhere=1124848568427&ssbinary=true
 3.100.64.0	ftp://ftp.compaq.com/pub/softpaq/sp30501-31000/SP30676.exe
