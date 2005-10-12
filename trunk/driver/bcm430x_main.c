@@ -294,7 +294,8 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 
 static inline
 void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
-				  u16 packet_octets, u16 bitrate)
+				  const u16 packet_octets, const u8 bitrate,
+				  const int ofdm_modulation)
 {
 	/* "data" and "raw" address the same memory area,
 	 * but with different data types.
@@ -302,23 +303,23 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 
 	/*TODO: This can be optimized, but first let's get it working. */
 
-	if ((bitrate % 3) == 0) {	/* OFDM modulation */
+	if (ofdm_modulation) {
 		switch (bitrate) {
-		case 6:
+		case IEEE80211_OFDM_RATE_6MB:
 			*data = 0xB;	break;
-		case 9:
+		case IEEE80211_OFDM_RATE_9MB:
 			*data = 0xF;	break;
-		case 12:
+		case IEEE80211_OFDM_RATE_12MB:
 			*data = 0xA;	break;
-		case 18:
+		case IEEE80211_OFDM_RATE_18MB:
 			*data = 0xE;	break;
-		case 24:
+		case IEEE80211_OFDM_RATE_24MB:
 			*data = 0x9;	break;
-		case 36:
+		case IEEE80211_OFDM_RATE_36MB:
 			*data = 0xD;	break;
-		case 48:
+		case IEEE80211_OFDM_RATE_48MB:
 			*data = 0x8;	break;
-		case 54:
+		case IEEE80211_OFDM_RATE_54MB:
 			*data = 0xC;	break;
 		default:
 			assert(0);
@@ -332,22 +333,23 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		plen = packet_octets * 16 / bitrate;
 		if ((packet_octets * 16 % bitrate) > 0) {
 			plen++;
-			if ((bitrate == 22) && ((packet_octets * 8 % 11) < 4))
+			if ((bitrate == IEEE80211_CCK_RATE_11MB)
+			    && ((packet_octets * 8 % 11) < 4)) {
 				raw[1] = 0x84;
-			else
+			} else
 				raw[1] = 0x04;
 		} else
 			raw[1] = 0x04;
 		*data |= cpu_to_le32(plen << 16);
 
 		switch (bitrate) {
-		case 2:
+		case IEEE80211_CCK_RATE_1MB:
 			raw[0] = 0x0A;	break;
-		case 4:
+		case IEEE80211_CCK_RATE_2MB:
 			raw[0] = 0x14;	break;
-		case 11:
+		case IEEE80211_CCK_RATE_5MB:
 			raw[0] = 0x37;	break;
-		case 22:
+		case IEEE80211_CCK_RATE_11MB:
 			raw[0] = 0x6E;	break;
 		default:
 			assert(0);
@@ -357,49 +359,60 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 //bcm430x_printk_bitdump(raw, 4, "PLCP");
 }
 
-#define bcm430x_generate_plcp_hdr(plcp, octets, bitrate) \
+#define bcm430x_generate_plcp_hdr(plcp, octets, bitrate, ofdm_modulation) \
 	do {									\
 		bcm430x_do_generate_plcp_hdr(&((plcp)->data), (plcp)->raw,	\
-					     (octets), (bitrate));		\
+					     (octets), (bitrate),		\
+					     (ofdm_modulation));		\
 	} while (0)
 
 void fastcall
 bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 		       struct bcm430x_txhdr *txhdr,
-		       u16 packet_octets, u16 bitrate)
+		       const u16 packet_octets)
 {
-	u16 fallback_bitrate;
+	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
+	const u8 bitrate = bcm->current_core->phy->default_bitrate;
+	u8 fallback_bitrate;
 
 	memset(txhdr, 0, sizeof(*txhdr));
 
 	//TODO
 
 	switch (bitrate) {
-	case 6:
-	case 9:
-	case 12:
-		fallback_bitrate = 6;	break;
-	case 18:
-		fallback_bitrate = 9;	break;
-	case 24:
-		fallback_bitrate = 12;	break;
-	case 36:
-		fallback_bitrate = 18;	break;
-	case 48:
-	case 54:
-		fallback_bitrate = 24;	break;
-	case 2:
-	case 4:
-		fallback_bitrate = 2;	break;
-	case 11:
-		fallback_bitrate = 4;	break;
-	case 22:
-		fallback_bitrate = 11;	break;
+	case IEEE80211_OFDM_RATE_6MB:
+	case IEEE80211_OFDM_RATE_9MB:
+	case IEEE80211_OFDM_RATE_12MB:
+		fallback_bitrate = IEEE80211_OFDM_RATE_6MB;
+		break;
+	case IEEE80211_OFDM_RATE_18MB:
+		fallback_bitrate = IEEE80211_OFDM_RATE_9MB;
+		break;
+	case IEEE80211_OFDM_RATE_24MB:
+		fallback_bitrate = IEEE80211_OFDM_RATE_12MB;
+		break;
+	case IEEE80211_OFDM_RATE_36MB:
+		fallback_bitrate = IEEE80211_OFDM_RATE_18MB;
+		break;
+	case IEEE80211_OFDM_RATE_48MB:
+	case IEEE80211_OFDM_RATE_54MB:
+		fallback_bitrate = IEEE80211_OFDM_RATE_24MB;
+		break;
+	case IEEE80211_CCK_RATE_1MB:
+	case IEEE80211_CCK_RATE_2MB:
+		fallback_bitrate = IEEE80211_CCK_RATE_1MB;
+		break;
+	case IEEE80211_CCK_RATE_5MB:
+		fallback_bitrate = IEEE80211_CCK_RATE_2MB;
+		break;
+	case IEEE80211_CCK_RATE_11MB:
+		fallback_bitrate = IEEE80211_CCK_RATE_5MB;
+		break;
 	}
 	/*TODO*/
 
 	bcm430x_generate_plcp_hdr(&txhdr->plcp, packet_octets,
-				  bitrate);
+				  bitrate, ofdm_modulation);
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
@@ -2623,14 +2636,31 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_A:
 		if (phy_rev >= 4)
 			phy_rev_ok = 0;
+		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_6MB;
+		/*FIXME: We need to switch the ieee->modulation, etc.. flags,
+		 *       if we switch 80211 cores after init is done.
+		 *       As we do not implement on the fly switching between
+		 *       wireless cores, I will leave this as a future task.
+		 */
+		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION;
+		bcm->ieee->mode = IEEE_A;
+		bcm->ieee->freq_band = IEEE80211_52GHZ_BAND;
 		break;
 	case BCM430x_PHYTYPE_B:
 		if (phy_rev != 2 && phy_rev != 4 && phy_rev != 6 && phy_rev != 7)
 			phy_rev_ok = 0;
+		bcm->current_core->phy->default_bitrate = IEEE80211_CCK_RATE_1MB;
+		bcm->ieee->modulation = IEEE80211_CCK_MODULATION;
+		bcm->ieee->mode = IEEE_B;
+		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
 		break;
 	case BCM430x_PHYTYPE_G:
 		if (phy_rev >= 3)
 			phy_rev_ok = 0;
+		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_6MB;
+		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION;
+		bcm->ieee->mode = IEEE_G;
+		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
 		break;
 	default:
 		printk(KERN_ERR PFX "Error: Unknown PHY Type %x\n",

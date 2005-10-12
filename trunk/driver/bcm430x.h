@@ -356,6 +356,7 @@ struct bcm430x_phyinfo {
 	u16 minlowsigpos[2];
 	u8 connected:1,
 	   calibrated:1;
+	u8 default_bitrate;
 	/* LO Measurement Data */
 	s8 *desired_power;
 	union bcm430x_lopair *lo_pairs;

@@ -286,9 +286,100 @@ static int bcm430x_wx_set_defaultrate(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	s32 in_rate = data->bitrate.value;
+	u8 rate;
+	int is_ofdm = 0;
+	int err = -EINVAL;
+
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	/*TODO*/
-	return 0;
+
+	if (in_rate == -1) {
+		/* automatic detect */
+		switch (bcm->current_core->phy->type) {
+		case BCM430x_PHYTYPE_A:
+		case BCM430x_PHYTYPE_G:
+			in_rate = 54000000;
+			break;
+		case BCM430x_PHYTYPE_B:
+			in_rate = 11000000;
+			break;
+		default:
+			assert(0);
+		}
+	}
+
+	switch (in_rate) {
+	case 1000000:
+		rate = IEEE80211_CCK_RATE_1MB;
+		break;
+	case 2000000:
+		rate = IEEE80211_CCK_RATE_2MB;
+		break;
+	case 5500000:
+		rate = IEEE80211_CCK_RATE_5MB;
+		break;
+	case 11000000:
+		rate = IEEE80211_CCK_RATE_11MB;
+		break;
+	case 6000000:
+		rate = IEEE80211_OFDM_RATE_6MB;
+		is_ofdm = 1;
+		break;
+	case 9000000:
+		rate = IEEE80211_OFDM_RATE_9MB;
+		is_ofdm = 1;
+		break;
+	case 12000000:
+		rate = IEEE80211_OFDM_RATE_12MB;
+		is_ofdm = 1;
+		break;
+	case 18000000:
+		rate = IEEE80211_OFDM_RATE_18MB;
+		is_ofdm = 1;
+		break;
+	case 24000000:
+		rate = IEEE80211_OFDM_RATE_24MB;
+		is_ofdm = 1;
+		break;
+	case 36000000:
+		rate = IEEE80211_OFDM_RATE_36MB;
+		is_ofdm = 1;
+		break;
+	case 48000000:
+		rate = IEEE80211_OFDM_RATE_48MB;
+		is_ofdm = 1;
+		break;
+	case 54000000:
+		rate = IEEE80211_OFDM_RATE_54MB;
+		is_ofdm = 1;
+		break;
+	default:
+		goto out;
+	}
+
+	down(&bcm->sem);
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	if (is_ofdm) {
+		/* Check if correct modulation for this PHY. */
+		if (bcm->current_core->phy->type != BCM430x_PHYTYPE_A &&
+		    bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
+			goto out_unlock;
+		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION;
+	} else {
+		bcm->ieee->modulation = IEEE80211_CCK_MODULATION;
+	}
+	/* finally set the rate to be used by TX code. */
+	bcm->current_core->phy->default_bitrate = rate;
+
+	err = 0;
+out_unlock:	
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	up(&bcm->sem);
+out:
+	return err;
 }
 
 static int bcm430x_wx_get_defaultrate(struct net_device *net_dev,
@@ -296,9 +387,58 @@ static int bcm430x_wx_get_defaultrate(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	int err = -EINVAL;
+
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	/*TODO*/
-	return 0;
+
+	down(&bcm->sem);
+
+	switch (bcm->current_core->phy->default_bitrate) {
+	case IEEE80211_CCK_RATE_1MB:
+		data->bitrate.value = 1000000;
+		break;
+	case IEEE80211_CCK_RATE_2MB:
+		data->bitrate.value = 2000000;
+		break;
+	case IEEE80211_CCK_RATE_5MB:
+		data->bitrate.value = 5500000;
+		break;
+	case IEEE80211_CCK_RATE_11MB:
+		data->bitrate.value = 11000000;
+		break;
+	case IEEE80211_OFDM_RATE_6MB:
+		data->bitrate.value = 6000000;
+		break;
+	case IEEE80211_OFDM_RATE_9MB:
+		data->bitrate.value = 9000000;
+		break;
+	case IEEE80211_OFDM_RATE_12MB:
+		data->bitrate.value = 12000000;
+		break;
+	case IEEE80211_OFDM_RATE_18MB:
+		data->bitrate.value = 18000000;
+		break;
+	case IEEE80211_OFDM_RATE_24MB:
+		data->bitrate.value = 24000000;
+		break;
+	case IEEE80211_OFDM_RATE_36MB:
+		data->bitrate.value = 36000000;
+		break;
+	case IEEE80211_OFDM_RATE_48MB:
+		data->bitrate.value = 48000000;
+		break;
+	case IEEE80211_OFDM_RATE_54MB:
+		data->bitrate.value = 54000000;
+		break;
+	default:
+		assert(0);
+		goto out_up;
+	}
+	err = 0;
+out_up:
+	up(&bcm->sem);
+	return err;
 }
 
 static int bcm430x_wx_set_rts(struct net_device *net_dev,
@@ -487,8 +627,8 @@ static iw_handler bcm430x_wx_handlers[] = {
 /* 0x8B1F */	NULL, /* unused */
 
 		/* Other parameters */
-/* 0x8B20 */	NULL,//TODO bcm430x_wx_set_defaultrate,
-/* 0x8B21 */	NULL,//TODO bcm430x_wx_get_defaultrate,
+/* 0x8B20 */	bcm430x_wx_set_defaultrate,
+/* 0x8B21 */	bcm430x_wx_get_defaultrate,
 /* 0x8B22 */	NULL,//TODO bcm430x_wx_set_rts,
 /* 0x8B23 */	NULL,//TODO bcm430x_wx_get_rts,
 /* 0x8B24 */	NULL,//TODO bcm430x_wx_set_frag,

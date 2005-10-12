@@ -89,7 +89,7 @@ struct bcm430x_txhdr {
 
 void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 				     struct bcm430x_txhdr *txhdr,
-				     u16 packet_octets, u16 bitrate));
+				     const u16 packet_octets));
 
 
 /* write the SHM Control word with a 32bit word offset */
