@@ -80,8 +80,22 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	u8 channel;
+
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	/*TODO*/
+	
+	if ((data->freq.m == 0) && (data->freq.m <= 1000)) {
+		channel = data->freq.m;
+	} else
+                channel = ieee80211_freq_to_channel(bcm->ieee, data->freq.m);
+
+        if (!ieee80211_is_valid_channel(bcm->ieee, channel))
+                return -EINVAL;
+
+	TODO(); //TODO: Actual channel selection, based on current_core, etc.
+	printk_wx(KERN_INFO PFX "Selected channel: %d\n", channel);
+
 	return 0;
 }
 
@@ -102,17 +116,13 @@ static int bcm430x_wx_get_channelfreq(struct net_device *net_dev,
 
 	down(&bcm->sem);
 
-	//XXX: returning current_core's channel...
-	data->freq.e = 6;
-	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
-		data->freq.m = 5000 + 5 * bcm->current_core->radio->channel;
-		break;
-	case BCM430x_PHYTYPE_B:
-	case BCM430x_PHYTYPE_G:
-		data->freq.m = 2400 + frequencies_bg[bcm->current_core->radio->channel];
-		break;
+	if (bcm->current_core->radio->channel == 0xFFFF) {
+		up(&bcm->sem);
+		return -ENODEV;
 	}
+
+	data->freq.e = 0;
+	data->freq.m = bcm->current_core->radio->channel;
 
 	up(&bcm->sem);
 	
@@ -584,7 +594,7 @@ static iw_handler bcm430x_wx_handlers[] = {
 		/* Basic operations */
 /* 0x8B02 */	NULL, /* set network id (pre-802.11) */
 /* 0x8B03 */	NULL, /* get network id (the cell)  FIXME: Implement? */
-/* 0x8B04 */	NULL,//TODO bcm430x_wx_set_channelfreq,
+/* 0x8B04 */	bcm430x_wx_set_channelfreq,
 /* 0x8B05 */	bcm430x_wx_get_channelfreq,
 /* 0x8B06 */	bcm430x_wx_set_mode,
 /* 0x8B07 */	bcm430x_wx_get_mode,

@@ -1000,6 +1000,8 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
         default:
 		assert(0);
         }
+
+	bcm->current_core->radio->channel = channel;
 	
 	//XXX: Using the longer of 2 timeouts (8000 vs 2000 usecs). Specs states
 	//     that 2000 usecs might suffice.
