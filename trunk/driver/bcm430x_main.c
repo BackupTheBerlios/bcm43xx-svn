@@ -369,15 +369,33 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 void fastcall
 bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 		       struct bcm430x_txhdr *txhdr,
-		       const u16 packet_octets)
+		       const u16 packet_octets,
+		       const unsigned char *wireless_header,
+		       u16 cookie)
 {
+	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
-	const u8 bitrate = bcm->current_core->phy->default_bitrate;
+	const u8 bitrate = phy->default_bitrate;
 	u8 fallback_bitrate;
 
+	/* Values from the 80211 header */
+	const u16 *frame_control;
+	const unsigned char *macaddr1;
+	const u16 *duration_id;
+
+	/* First do some black magic to retrieve some
+	 * values from the 80211 header of the packet.
+	 */
+	frame_control = (const u16 *)wireless_header;
+	macaddr1 = wireless_header + 4;
+	duration_id = (const u16 *)(wireless_header + 2);
+
+	/* Now contruct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
 
-	//TODO
+	//TODO: Some RTS/CTS stuff has to be done.
+	//TODO: Encryption stuff.
+	//TODO: others?
 
 	switch (bitrate) {
 	case IEEE80211_OFDM_RATE_6MB:
@@ -408,11 +426,41 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	case IEEE80211_CCK_RATE_11MB:
 		fallback_bitrate = IEEE80211_CCK_RATE_5MB;
 		break;
+	default:
+		assert(0);
+		fallback_bitrate = 0;
 	}
-	/*TODO*/
 
+	/* Set Frame Control from 80211 header. */
+	txhdr->frame_control = *frame_control;
+	/* Copy address1 from 80211 header. */
+	memcpy(txhdr, macaddr1, 6);
+	/* Set the cookie (used as driver internal ID for the frame) */
+	txhdr->cookie = cpu_to_le16(cookie);
+
+	/* Generate the PLCP header and the fallback PLCP header. */
 	bcm430x_generate_plcp_hdr(&txhdr->plcp, packet_octets,
 				  bitrate, ofdm_modulation);
+	bcm430x_generate_plcp_hdr(&txhdr->fallback_plcp, packet_octets,
+				  fallback_bitrate, ofdm_modulation);
+
+	/* Set the CONTROL field */
+	if (ofdm_modulation)
+		txhdr->control |= BCM430x_TXHDRCTL_OFDM;
+	txhdr->control |= (phy->antenna_diversity << BCM430x_TXHDRCTL_ANTENNADIV_SHIFT)
+			   & BCM430x_TXHDRCTL_ANTENNADIV_MASK;
+
+	/* Set the FLAGS field */
+	if (!is_multicast_ether_addr((const u8 *)macaddr1))
+		txhdr->flags |= BCM430x_TXHDRFLAG_NOMCAST;
+	txhdr->flags |= 0x10; // FIXME: unknown meaning.
+	if (ofdm_modulation)
+		txhdr->flags |= BCM430x_TXHDRFLAG_FALLBACKOFDM;
+
+	/* Set WSEC/RATE field */
+	//TODO: rts, wsec
+	txhdr->wsec_rate |= (txhdr->plcp.raw[0] << BCM430x_TXHDR_RATE_SHIFT)
+			    & BCM430x_TXHDR_RATE_MASK;
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.

@@ -810,7 +810,8 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		 */
 		bcm430x_generate_txhdr(ring->bcm,
 				       (struct bcm430x_txhdr *)header_skb->data,
-				       ctx->packet_size);
+				       ctx->packet_size, skb->data,
+				       0xCAFE);//TODO: go and get some cookie for the frame. I think we should take the slotnumber of the first dtor.
 
 		err = map_descbuffer(ring, desc, meta);
 		if (unlikely(err)) {
