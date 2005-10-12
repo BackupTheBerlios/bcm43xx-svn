@@ -552,9 +552,9 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 	/* read MAC address into dev->dev_addr */
 	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 0);
 	*((u16 *)net_dev->dev_addr + 0) = cpu_to_be16(value);
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 2);
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 1);
 	*((u16 *)net_dev->dev_addr + 1) = cpu_to_be16(value);
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 4);
+	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 2);
 	*((u16 *)net_dev->dev_addr + 2) = cpu_to_be16(value);
 
 	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_BOARDFLAGS);
