@@ -58,11 +58,11 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 
 	down(&bcm->sem);
 
-	if ((bcm->phy[0].type == BCM430x_PHYTYPE_A) || (bcm->phy[0].type == BCM430x_PHYTYPE_A)) {
+	if ((bcm->phy[0].type == BCM430x_PHYTYPE_A) || (bcm->phy[1].type == BCM430x_PHYTYPE_A)) {
 		suffix[i++] = 'a';
 		suffix[i++] = '/';
 	}
-	if ((bcm->phy[0].type == BCM430x_PHYTYPE_G) || (bcm->phy[0].type == BCM430x_PHYTYPE_G)) {
+	if ((bcm->phy[0].type == BCM430x_PHYTYPE_G) || (bcm->phy[1].type == BCM430x_PHYTYPE_G)) {
 		suffix[i++] = 'b';
 		suffix[i++] = '/';
 		suffix[i++] = 'g';
