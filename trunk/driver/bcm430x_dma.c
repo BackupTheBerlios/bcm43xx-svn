@@ -245,7 +245,8 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 		last_fragment = !!(get_desc_ctl(desc) & BCM430x_DMADTOR_FRAMEEND);
 		unmap_descbuffer(ring, desc, meta);
 		if (!meta->nofree_skb)
-			kfree_skb(meta->skb);
+			dev_kfree_skb_any(meta->skb);
+		meta->skb = 0;
 		if (meta->txb) {
 			ieee80211_txb_free(meta->txb);
 			meta->txb = 0;
@@ -780,8 +781,9 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	int slot;
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
+	struct sk_buff *header_skb;
 
-	if (unlikely(free_slots(ring) < skb_shinfo(skb)->nr_frags + 1)) {
+	if (unlikely(free_slots(ring) < skb_shinfo(skb)->nr_frags + 2)) {
 		/* The queue should be stopped,
 		 * if we are low on free slots.
 		 */
@@ -794,23 +796,28 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	meta = ring->meta + slot;
 
 	if (ctx->cur_frag == 0) {
-		/* This is the first fragment. */
-		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
-			/* This should never trigger, but just for the case
-			 * let's not panic the kernel...
-			 */
-			//FIXME: This currently triggers. We have to tell the 80211 subsys to reserve more memory.
-			printk(KERN_ERR PFX "SKB headroom too small!\n");
+		/* This is the first fragment.
+		 * Request another descriptor, which will hold
+		 * the device TX header (and PLCP header).
+		 */
+		header_skb = dev_alloc_skb(sizeof(struct bcm430x_txhdr));
+		if (unlikely(!header_skb))
 			return -ENOMEM;
-		}
-		/* Reserve space for the device tx header. */
-		__skb_push(skb, sizeof(struct bcm430x_txhdr));
+		meta->skb = header_skb;
+		meta->nofree_skb = 0;
 		/* Now calculate and add the tx header.
 		 * The tx header includes the PLCP header.
 		 */
 		bcm430x_generate_txhdr(ring->bcm,
-				       (struct bcm430x_txhdr *)skb->data,
+				       (struct bcm430x_txhdr *)header_skb->data,
 				       ctx->packet_size);
+
+		err = map_descbuffer(ring, desc, meta);
+		if (unlikely(err)) {
+			printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
+			return_slot(ring, slot);
+			goto out;
+		}
 		/* This is the first frame, so set the flag. */
 		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMESTART);
 		/* Save the whole txb for freeing later in 
@@ -819,6 +826,11 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		meta->txb = txb;
 		/* Save the first slot number for later. */
 		ctx->first_slot = slot;
+
+		/* Request a new slot for the real data of the first fragment */
+		slot = request_slot(ring);
+		desc = ring->vbase + slot;
+		meta = ring->meta + slot;
 	}
 
 //bcm430x_printk_dump(skb->data, skb->len, "SKB");
@@ -886,7 +898,7 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 		ctx.first_slot = -1;
 		err = dma_tx_fragment(ring, skb, txb, &ctx);
 		if (err)
-			break;
+			break;//TODO: correct error handling.
 		ctx.cur_frag++;
 	}
 	spin_unlock_irqrestore(&ring->lock, flags);
