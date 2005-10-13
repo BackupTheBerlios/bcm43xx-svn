@@ -356,7 +356,7 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		}
 	}
 
-//bcm430x_printk_bitdump(raw, 4, "PLCP");
+//bcm430x_printk_bitdump(raw, 4, 0, "PLCP");
 }
 
 #define bcm430x_generate_plcp_hdr(plcp, octets, bitrate, ofdm_modulation) \
@@ -466,7 +466,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 			    & BCM430x_TXHDR_RATE_MASK;
 
 
-bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), "TX header");
+bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.

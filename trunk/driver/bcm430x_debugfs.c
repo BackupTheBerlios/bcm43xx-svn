@@ -444,24 +444,33 @@ void bcm430x_printk_dump(const char *data,
 }
 
 void bcm430x_printk_bitdump(const unsigned char *data,
-			    size_t bytes,
+			    size_t bytes, int msb_to_lsb,
 			    const char *description)
 {
 	size_t i;
-	unsigned int j;
+	int j;
 	const unsigned char *d;
 
-	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes) ***",
-	       description, bytes);
+	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes, %s) ***",
+	       description, bytes, msb_to_lsb ? "MSB to LSB" : "LSB to MSB");
 	for (i = 0; i < bytes; i++) {
 		d = data + i;
 		if (i % 6 == 0)
 			printk("\n" KERN_INFO PFX "0x%08x:  ", i);
-		for (j = 0; j < 8; j++) {
-			if (*d & (1 << j))
-				printk("1");
-			else
-				printk("0");
+		if (msb_to_lsb) {
+			for (j = 7; j >= 0; j--) {
+				if (*d & (1 << j))
+					printk("1");
+				else
+					printk("0");
+			}
+		} else {
+			for (j = 0; j < 8; j++) {
+				if (*d & (1 << j))
+					printk("1");
+				else
+					printk("0");
+			}
 		}
 		printk(" ");
 	}

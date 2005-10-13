@@ -41,12 +41,13 @@ void bcm430x_printk_dump(const char *data,
 			 const char *description);
 /* Debug helper: Dump bitwise binary data through printk. */
 void bcm430x_printk_bitdump(const unsigned char *data,
-			    size_t bytes,
+			    size_t bytes, int msb_to_lsb,
 			    const char *description);
-#define bcm430x_printk_bitdumpt(pointer, description) \
+#define bcm430x_printk_bitdumpt(pointer, msb_to_lsb, description) \
 	do {									\
 		bcm430x_printk_bitdump((const unsigned char *)(pointer),	\
 				       sizeof(*(pointer)),			\
+				       (msb_to_lsb),				\
 				       (description));				\
 	} while (0)
 
@@ -69,11 +70,11 @@ void bcm430x_printk_dump(const char *data,
 }
 static inline
 void bcm430x_printk_bitdump(const unsigned char *data,
-			    size_t bytes,
+			    size_t bytes, int msb_to_lsb,
 			    const char *description)
 {
 }
-#define bcm430x_printk_bitdumpt(pointer, description)  do { /* nothing */ } while (0)
+#define bcm430x_printk_bitdumpt(pointer, msb_to_lsb, description)  do { /* nothing */ } while (0)
 
 #endif /* BCM430x_DEBUG */
 
