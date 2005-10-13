@@ -377,6 +377,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
 	const u8 bitrate = phy->default_bitrate;
 	u8 fallback_bitrate;
+	u16 tmp;
 
 	/* Values from the 80211 header */
 	const u16 *frame_control;
@@ -432,14 +433,14 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	}
 
 	/* Set Frame Control from 80211 header. */
-	txhdr->frame_control = *frame_control;
+	txhdr->frame_control = cpu_to_le16(*frame_control);
 	/* Copy address1 from 80211 header. */
 	memcpy(txhdr, macaddr1, 6);
 	/* Set the cookie (used as driver internal ID for the frame) */
 	txhdr->cookie = cpu_to_le16(cookie);
 	/* Set the fallback duration ID. */
 	//FIXME: We use the original durid for now.
-	txhdr->fallback_dur_id = *duration_id;
+	txhdr->fallback_dur_id = cpu_to_le16(*duration_id);
 
 	/* Generate the PLCP header and the fallback PLCP header. */
 	bcm430x_generate_plcp_hdr(&txhdr->plcp, packet_octets,
@@ -448,22 +449,27 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 				  fallback_bitrate, ofdm_modulation);
 
 	/* Set the CONTROL field */
+	tmp = 0;
 	if (ofdm_modulation)
-		txhdr->control |= BCM430x_TXHDRCTL_OFDM;
-	txhdr->control |= (phy->antenna_diversity << BCM430x_TXHDRCTL_ANTENNADIV_SHIFT)
-			   & BCM430x_TXHDRCTL_ANTENNADIV_MASK;
+		tmp |= BCM430x_TXHDRCTL_OFDM;
+	tmp |= (phy->antenna_diversity << BCM430x_TXHDRCTL_ANTENNADIV_SHIFT)
+		& BCM430x_TXHDRCTL_ANTENNADIV_MASK;
+	txhdr->control = cpu_to_le16(tmp);
 
 	/* Set the FLAGS field */
+	tmp = 0;
 	if (!is_multicast_ether_addr((const u8 *)macaddr1))
-		txhdr->flags |= BCM430x_TXHDRFLAG_NOMCAST;
-	txhdr->flags |= 0x10; // FIXME: unknown meaning.
+		tmp |= BCM430x_TXHDRFLAG_NOMCAST;
+	tmp |= 0x10; // FIXME: unknown meaning.
 	if (ofdm_modulation)
-		txhdr->flags |= BCM430x_TXHDRFLAG_FALLBACKOFDM;
+		tmp |= BCM430x_TXHDRFLAG_FALLBACKOFDM;
+	txhdr->flags = cpu_to_le16(tmp);
 
 	/* Set WSEC/RATE field */
 	//TODO: rts, wsec
-	txhdr->wsec_rate |= (txhdr->plcp.raw[0] << BCM430x_TXHDR_RATE_SHIFT)
-			    & BCM430x_TXHDR_RATE_MASK;
+	tmp = (txhdr->plcp.raw[0] << BCM430x_TXHDR_RATE_SHIFT)
+	       & BCM430x_TXHDR_RATE_MASK;
+	txhdr->wsec_rate = cpu_to_le16(tmp);
 
 
 bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
