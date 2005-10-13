@@ -216,34 +216,43 @@ static void print_banner(void)
 	printf("fwcutter " FWCUTTER_VERSION "\n");
 }
 
+static void print_file(const struct file *file)
+{
+	printf("%s\t", file->name);
+	if (strlen(file->name) < 8)
+		printf("\t");
+
+	printf("%s\t", file->version);
+	if (strlen(file->version) < 8)
+		printf("\t");
+	if (strlen(file->version) < 16)
+		printf("\t");
+
+	printf("md5: %s", file->md5);
+
+	if ((file->flags & INIT_VAL_08_MISSING) || 
+	    (file->flags & SUPPORT_INCOMPLETE))
+		printf(" *");
+	printf("\n");
+}
+
 static void print_supported_files(void)
 {
 	int i;
 
 	print_banner();
 	printf("Extracting firmware is possible from these binary driver files:\n\n");
-	printf("   *  fwcutter can't extract all firmware files\n");
-	printf("   -  not supported\n\n");
-	for (i = 0; i < FILES; ++i) {
-		printf("%s\t", files[i].name);
-		if (strlen(files[i].name) < 8)
-			printf("\t");
-
-		printf("%s\t", files[i].version);
-		if (strlen(files[i].version) < 8)
-			printf("\t");
-		if (strlen(files[i].version) < 16)
-			printf("\t");
-
-		printf("md5: %s", files[i].md5);
-
-		if ((files[i].flags & INIT_VAL_08_MISSING) || 
-		    (files[i].flags & SUPPORT_INCOMPLETE))
-			printf(" *");
+	for (i = 0; i < FILES; i++) {
 		if (files[i].flags & SUPPORT_IMPOSSIBLE)
-			printf(" -");
-
-		printf("\n");
+			continue;
+		print_file(&files[i]);
+	}
+	printf("   *  fwcutter can't extract all firmware files\n");
+	printf("\nExtracting firmware is IMPOSSIBLE from these binary driver files:\n\n");
+	for (i = 0; i < FILES; i++) {
+		if (!(files[i].flags & SUPPORT_IMPOSSIBLE))
+			continue;
+		print_file(&files[i]);
 	}
 }
 
