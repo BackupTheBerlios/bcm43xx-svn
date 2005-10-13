@@ -67,6 +67,13 @@ void bcm430x_printk_dump(const char *data,
 			 const char *description)
 {
 }
+static inline
+void bcm430x_printk_bitdump(const unsigned char *data,
+			    size_t bytes,
+			    const char *description)
+{
+}
+#define bcm430x_printk_bitdumpt(pointer, description)  do { /* nothing */ } while (0)
 
 #endif /* BCM430x_DEBUG */
 

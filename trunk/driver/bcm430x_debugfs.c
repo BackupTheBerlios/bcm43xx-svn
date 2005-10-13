@@ -451,10 +451,12 @@ void bcm430x_printk_bitdump(const unsigned char *data,
 	unsigned int j;
 	const unsigned char *d;
 
-	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes) ***\n",
+	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes) ***",
 	       description, bytes);
 	for (i = 0; i < bytes; i++) {
 		d = data + i;
+		if (i % 6 == 0)
+			printk("\n" KERN_INFO PFX "0x%08x:  ", i);
 		for (j = 0; j < 8; j++) {
 			if (*d & (1 << j))
 				printk("1");
