@@ -277,11 +277,14 @@ static const struct file * find_file(FILE *fd)
 
 	for (i = 0; i < FILES; ++i) {
 		if (strcasecmp(md5sig, files[i].md5) == 0) {
+			if (files[i].flags & SUPPORT_IMPOSSIBLE) {
+				printf("Extracting firmware from this file is IMPOSSIBLE. (too old)\n");
+				return 0;
+			}
 			printf("Your driver file is known. It's version %s (MD5: %s)\n",
 			       files[i].version, files[i].md5);
-			if(files[i].flags & SUPPORT_INCOMPLETE) {
+			if (files[i].flags & SUPPORT_INCOMPLETE)
 				printf("WARNING: your driver file is not fully supported\n");
-			}
 			return &(files[i]);
 		}
 	}
