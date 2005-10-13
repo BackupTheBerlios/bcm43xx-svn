@@ -2228,6 +2228,8 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 	bcm430x_gen_bssid(bcm, bssid, mac);
 	for (i = 0; i < ARRAY_SIZE(bssid); i += sizeof(u32))
 		bcm430x_ram_write(bcm, 0x26 + i * sizeof(u32), *((u32 *)(bssid + i)));
+	/* Also store it for the 80211 subsystem */
+	memcpy(bcm->ieee->bssid, bssid, ARRAY_SIZE(bssid));
 }
 
 static void bcm430x_wireless_core_cleanup(struct bcm430x_private *bcm)
@@ -3044,6 +3046,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
+	bcm->ieee->ieee802_1x = 1;
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
