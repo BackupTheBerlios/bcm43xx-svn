@@ -1119,7 +1119,7 @@ void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower)
 	//TODO: FuncPlaceholder (Adjust BB loft cancel)
 }
 
-void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
+void bcm430x_radio_set_txpower_bg(struct bcm430x_private *bcm,
                                  u16 baseband_attenuation, u16 attenuation,
 			         u16 txpower)
 {
@@ -1156,8 +1156,8 @@ void bcm430x_radio_set_txpower_b(struct bcm430x_private *bcm,
 		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F) | txpower);
 	}
 
-	TODO();
-	//FIXME: Set GPHY CompLo
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
+		bcm430x_phy_lo_g_adjust(bcm);
 }
 
 
