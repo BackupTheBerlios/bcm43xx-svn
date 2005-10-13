@@ -377,6 +377,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
 	const u8 bitrate = phy->default_bitrate;
+	int fallback_ofdm_modulation = 0;
 	u8 fallback_bitrate;
 	u16 tmp;
 
@@ -404,19 +405,24 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	case IEEE80211_OFDM_RATE_9MB:
 	case IEEE80211_OFDM_RATE_12MB:
 		fallback_bitrate = IEEE80211_OFDM_RATE_6MB;
+		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_18MB:
 		fallback_bitrate = IEEE80211_OFDM_RATE_9MB;
+		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_24MB:
 		fallback_bitrate = IEEE80211_OFDM_RATE_12MB;
+		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_36MB:
 		fallback_bitrate = IEEE80211_OFDM_RATE_18MB;
+		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_48MB:
 	case IEEE80211_OFDM_RATE_54MB:
 		fallback_bitrate = IEEE80211_OFDM_RATE_24MB;
+		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_CCK_RATE_1MB:
 	case IEEE80211_CCK_RATE_2MB:
@@ -447,7 +453,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	bcm430x_generate_plcp_hdr(&txhdr->plcp, fragment_skb->len,
 				  bitrate, ofdm_modulation);
 	bcm430x_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_skb->len,
-				  fallback_bitrate, ofdm_modulation);
+				  fallback_bitrate, fallback_ofdm_modulation);
 
 	/* Set the CONTROL field */
 	tmp = 0;
@@ -462,7 +468,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	if (!is_multicast_ether_addr((const u8 *)macaddr1))
 		tmp |= BCM430x_TXHDRFLAG_NOMCAST;
 	tmp |= 0x10; // FIXME: unknown meaning.
-	if (ofdm_modulation)
+	if (fallback_ofdm_modulation)
 		tmp |= BCM430x_TXHDRFLAG_FALLBACKOFDM;
 	if (is_first_fragment)
 		tmp |= BCM430x_TXHDRFLAG_FIRSTFRAGMENT;
@@ -473,7 +479,6 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	tmp = (txhdr->plcp.raw[0] << BCM430x_TXHDR_RATE_SHIFT)
 	       & BCM430x_TXHDR_RATE_MASK;
 	txhdr->wsec_rate = cpu_to_le16(tmp);
-
 
 bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
