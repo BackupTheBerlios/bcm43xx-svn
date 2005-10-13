@@ -87,11 +87,13 @@ struct bcm430x_txhdr {
 	} __attribute__((__packed__));
 } __attribute__((__packed__));
 
+struct sk_buff;
+
 void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 				     struct bcm430x_txhdr *txhdr,
-				     const u16 packet_octets,
-				     const unsigned char *wireless_header,
-				     u16 cookie));
+				     const struct sk_buff *fragment_skb,
+				     const int is_first_fragment,
+				     const u16 cookie));
 
 
 /* write the SHM Control word with a 32bit word offset */

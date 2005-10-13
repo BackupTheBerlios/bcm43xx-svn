@@ -166,7 +166,6 @@ struct bcm430x_dma_txcontext {
 	u8 nr_frags;
 	u8 cur_frag;
 	/* packet size including all wireless headers. */
-	u16 packet_size;
 	int first_slot; /* to poke the device. */
 };
 

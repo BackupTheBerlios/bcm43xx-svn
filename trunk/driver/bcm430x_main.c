@@ -38,6 +38,7 @@
 #include <linux/firmware.h>
 #include <linux/wireless.h>
 #include <linux/workqueue.h>
+#include <linux/skbuff.h>
 #include <net/iw_handler.h>
 
 #include "bcm430x.h"
@@ -294,7 +295,7 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 
 static inline
 void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
-				  const u16 packet_octets, const u8 bitrate,
+				  const u16 octets, const u8 bitrate,
 				  const int ofdm_modulation)
 {
 	/* "data" and "raw" address the same memory area,
@@ -324,17 +325,17 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		default:
 			assert(0);
 		}
-		assert(!(packet_octets & 0xF000));
-		*data |= (packet_octets << 5);
+		assert(!(octets & 0xF000));
+		*data |= (octets << 5);
 		*data = cpu_to_le32(*data);
 	} else {
 		u32 plen;
 
-		plen = packet_octets * 16 / bitrate;
-		if ((packet_octets * 16 % bitrate) > 0) {
+		plen = octets * 16 / bitrate;
+		if ((octets * 16 % bitrate) > 0) {
 			plen++;
 			if ((bitrate == IEEE80211_CCK_RATE_11MB)
-			    && ((packet_octets * 8 % 11) < 4)) {
+			    && ((octets * 8 % 11) < 4)) {
 				raw[1] = 0x84;
 			} else
 				raw[1] = 0x04;
@@ -369,9 +370,9 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 void fastcall
 bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 		       struct bcm430x_txhdr *txhdr,
-		       const u16 packet_octets,
-		       const unsigned char *wireless_header,
-		       u16 cookie)
+		       const struct sk_buff *fragment_skb,
+		       const int is_first_fragment,
+		       const u16 cookie)
 {
 	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
@@ -387,9 +388,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	/* First do some black magic to retrieve some
 	 * values from the 80211 header of the packet.
 	 */
-	frame_control = (const u16 *)wireless_header;
-	macaddr1 = wireless_header + 4;
-	duration_id = (const u16 *)(wireless_header + 2);
+	frame_control = (const u16 *)fragment_skb->data;
+	macaddr1 = fragment_skb->data + 4;
+	duration_id = (const u16 *)(fragment_skb->data + 2);
 
 	/* Now contruct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
@@ -443,9 +444,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	txhdr->fallback_dur_id = cpu_to_le16(*duration_id);
 
 	/* Generate the PLCP header and the fallback PLCP header. */
-	bcm430x_generate_plcp_hdr(&txhdr->plcp, packet_octets,
+	bcm430x_generate_plcp_hdr(&txhdr->plcp, fragment_skb->len,
 				  bitrate, ofdm_modulation);
-	bcm430x_generate_plcp_hdr(&txhdr->fallback_plcp, packet_octets,
+	bcm430x_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_skb->len,
 				  fallback_bitrate, ofdm_modulation);
 
 	/* Set the CONTROL field */

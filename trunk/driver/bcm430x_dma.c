@@ -796,30 +796,7 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	meta = ring->meta + slot;
 
 	if (ctx->cur_frag == 0) {
-		/* This is the first fragment.
-		 * Request another descriptor, which will hold
-		 * the device TX header (and PLCP header).
-		 */
-		header_skb = dev_alloc_skb(sizeof(struct bcm430x_txhdr));
-		if (unlikely(!header_skb))
-			return -ENOMEM;
-		meta->skb = header_skb;
-		meta->nofree_skb = 0;
-		/* Now calculate and add the tx header.
-		 * The tx header includes the PLCP header.
-		 */
-		bcm430x_generate_txhdr(ring->bcm,
-				       (struct bcm430x_txhdr *)header_skb->data,
-				       ctx->packet_size, skb->data,
-				       (u16)slot);
-
-		err = map_descbuffer(ring, desc, meta);
-		if (unlikely(err)) {
-			printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
-			return_slot(ring, slot);
-			goto out;
-		}
-		/* This is the first frame, so set the flag. */
+		/* This is the first fragment. */
 		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMESTART);
 		/* Save the whole txb for freeing later in 
 		 * completion irq (or timeout work handler)
@@ -827,12 +804,35 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		meta->txb = txb;
 		/* Save the first slot number for later. */
 		ctx->first_slot = slot;
-
-		/* Request a new slot for the real data of the first fragment */
-		slot = request_slot(ring);
-		desc = ring->vbase + slot;
-		meta = ring->meta + slot;
 	}
+
+	/*
+	 * Request another descriptor, which will hold
+	 * the device TX header (and PLCP header).
+	 */
+	header_skb = dev_alloc_skb(sizeof(struct bcm430x_txhdr));
+	if (unlikely(!header_skb))
+		return -ENOMEM;
+	meta->skb = header_skb;
+	meta->nofree_skb = 0;
+	/* Now calculate and add the tx header.
+	 * The tx header includes the PLCP header.
+	 */
+	bcm430x_generate_txhdr(ring->bcm,
+			       (struct bcm430x_txhdr *)header_skb->data,
+			       skb,
+			       (ctx->cur_frag == 0),
+			       (u16)slot);
+	err = map_descbuffer(ring, desc, meta);
+	if (unlikely(err)) {
+		printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
+		return_slot(ring, slot);
+		goto out;
+	}
+	/* Request a new slot for the real data. */
+	slot = request_slot(ring);
+	desc = ring->vbase + slot;
+	meta = ring->meta + slot;
 
 //bcm430x_printk_dump(skb->data, skb->len, "SKB");
 
@@ -889,9 +889,6 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 
 	ctx.nr_frags = txb->nr_frags;
 	ctx.cur_frag = 0;
-	ctx.packet_size = 0;
-	for (i = 0; i < txb->nr_frags; i++)
-		ctx.packet_size += txb->fragments[i]->len;
 
 	spin_lock_irqsave(&ring->lock, flags);
 	for (i = 0; i < txb->nr_frags; i++) {
