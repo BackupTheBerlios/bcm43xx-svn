@@ -816,15 +816,15 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	if (bcm->current_core->radio->initval == 0xFFFF) {
 		//FIXME: init2050 gives OOPS
 		//bcm->current_core->radio->initval = bcm430x_radio_init2050(bcm);
-		bcm430x_phy_lo_b_measure(bcm);
+		bcm430x_phy_lo_g_measure(bcm);
 	} else {
 		//bcm430x_radio_write16(bcm, 0x0078, bcm->current_core->radio->initval);
-		//FIXME: take the saved value from lo_b_measure for G PHY as mask
+		//FIXME: take the saved value from lo_g_measure for G PHY as mask
 		// bcm430x_radio_write16(bcm, 0x0052, (bcm430x_radio_read16(0x0052) & 0xFFF0) | ???);
 	}
 
 	if (bcm->current_core->phy->connected) {
-		//FIXME: Set GPHY CompLo
+		bcm430x_phy_lo_adjust(bcm);
 		bcm430x_phy_write(bcm, 0x080F, 0x8078);
 
 		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL) {
@@ -1147,10 +1147,6 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	u8 r27, r31;
 
 	/* Setup */
-	if (phy->desired_power[0] < 0) {
-		phy->info_unk16 = 0xFFFF;
-		FIXME();
-	}
 	if (phy->connected) {
 		regstack[0] = bcm430x_phy_read(bcm, 0x0429);
 		regstack[1] = bcm430x_phy_read(bcm, 0x0802);

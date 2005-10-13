@@ -2681,7 +2681,6 @@ static void bcm430x_detach_board(struct bcm430x_private *bcm)
 
 	/* Free allocated structures/fields */
 	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
-		kfree(bcm->phy[i].desired_power);
 		kfree(bcm->phy[i].lo_pairs);
 	}
 }	
@@ -2747,16 +2746,11 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	bcm->current_core->phy->type = phy_type;
 	bcm->current_core->phy->rev = phy_rev;
 	if ((phy_type == BCM430x_PHYTYPE_B) || (phy_type == BCM430x_PHYTYPE_G)) {
-		bcm->current_core->phy->desired_power = kmalloc(sizeof(s8) * BCM430x_LO_COUNT, GFP_KERNEL);
-		if (!bcm->current_core->phy->desired_power)
-			return -ENOMEM;
-		memset(bcm->current_core->phy->desired_power, -1, sizeof(s8) * BCM430x_LO_COUNT);
+		//XXX: Change to kzalloc
 		bcm->current_core->phy->lo_pairs = kmalloc(sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT,
 		                                          GFP_KERNEL);
-		if (!bcm->current_core->phy->lo_pairs) {
-			kfree(bcm->current_core->phy->desired_power);
+		if (!bcm->current_core->phy->lo_pairs)
 			return -ENOMEM;
-		}
 		memset(bcm->current_core->phy->lo_pairs, 0, sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT);
 	}
 	bcm->current_core->phy->info_unk16 = 0xFFFF;
