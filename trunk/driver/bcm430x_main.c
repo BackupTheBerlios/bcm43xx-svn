@@ -434,14 +434,14 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	}
 
 	/* Set Frame Control from 80211 header. */
-	txhdr->frame_control = cpu_to_le16(*frame_control);
+	txhdr->frame_control = *frame_control;
 	/* Copy address1 from 80211 header. */
-	memcpy(txhdr, macaddr1, 6);
-	/* Set the cookie (used as driver internal ID for the frame) */
-	txhdr->cookie = cpu_to_le16(cookie);
+	memcpy(txhdr->mac1, macaddr1, 6);
 	/* Set the fallback duration ID. */
 	//FIXME: We use the original durid for now.
-	txhdr->fallback_dur_id = cpu_to_le16(*duration_id);
+	txhdr->fallback_dur_id = *duration_id;
+	/* Set the cookie (used as driver internal ID for the frame) */
+	txhdr->cookie = cpu_to_le16(cookie);
 
 	/* Generate the PLCP header and the fallback PLCP header. */
 	bcm430x_generate_plcp_hdr(&txhdr->plcp, fragment_skb->len,

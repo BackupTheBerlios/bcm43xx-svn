@@ -65,7 +65,7 @@ struct bcm430x_txhdr {
 			unsigned char wep_iv[10];
 			unsigned char unknown_wsec_tkip_data[3]; //FIXME
 			PAD_BYTES(3);
-			unsigned char dest_mac[6];
+			unsigned char mac1[6];
 			u16 unknown_zeroed_1;
 			struct bcm430x_plcp_hdr4 rts_cts_fallback_plcp;
 			u16 rts_cts_dur_fallback;
