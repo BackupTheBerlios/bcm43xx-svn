@@ -2512,7 +2512,7 @@ static void bcm430x_periodic_work2_handler(void *d)
 	spin_lock_irqsave(&bcm->lock, flags);
 
 	bcm430x_mac_suspend(bcm);
-	bcm430x_phy_measurelowsig(bcm);
+	bcm430x_phy_lo_g_measure(bcm);
 	bcm430x_mac_enable(bcm);
 
 	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {

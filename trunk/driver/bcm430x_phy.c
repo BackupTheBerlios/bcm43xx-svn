@@ -145,7 +145,7 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 		t_batt = bcm->current_core->radio->txpower[0];
 		t_ratt = bcm->current_core->radio->txpower[1];
 		t_txatt = bcm->current_core->radio->txpower[2];
-		bcm430x_radio_set_txpower_b(bcm, 0x000B, 0x0009, 0x0000);
+		bcm430x_radio_set_txpower_bg(bcm, 0x000B, 0x0009, 0x0000);
 	}
 
 	bcm430x_dummy_transmission(bcm);
@@ -155,7 +155,7 @@ static void bcm430x_phy_init_pctl(struct bcm430x_private *bcm)
 	if ((bcm->current_core->phy->type != BCM430x_PHYTYPE_B)
 	    || (bcm->current_core->phy->rev < 2)
 	    || ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000)) {
-		bcm430x_radio_set_txpower_b(bcm, t_batt, t_ratt, t_txatt);
+		bcm430x_radio_set_txpower_bg(bcm, t_batt, t_ratt, t_txatt);
 	}
 
 	bcm430x_radio_write16(bcm, 0x0076, bcm430x_radio_read16(bcm, 0x0076) & 0xFF7B);
@@ -563,7 +563,7 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_phy_write(bcm, 0x002A, 0x88C2);
 	}
-	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
+	bcm430x_radio_set_txpower_bg(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	bcm430x_phy_init_pctl(bcm);
 }
 
@@ -616,7 +616,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x002A, 0x88A3);
 	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)
 		bcm430x_phy_write(bcm, 0x002A, 0x88C2);
-	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
+	bcm430x_radio_set_txpower_bg(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
 		bcm430x_calc_nrssi_slope(bcm);
 		bcm430x_calc_nrssi_threshold(bcm);
@@ -721,7 +721,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
 	bcm430x_phy_write(bcm, 0x88A3, 0x88A3);
 
-	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
+	bcm430x_radio_set_txpower_bg(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 
 	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x005D, 0x000D);
@@ -782,7 +782,7 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 	                      (bcm430x_radio_read16(bcm, 0x007A) & 0x00F8) | 0x0007);
 	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
 	bcm430x_phy_write(bcm, 0x0014, 0x0200);
-	bcm430x_radio_set_txpower_b(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
+	bcm430x_radio_set_txpower_bg(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	bcm430x_radio_write16(bcm, 0x0052,
 	                      (bcm430x_radio_read16(bcm, 0x0052) & 0x00F0) | 0x0009);
 	bcm430x_radio_write16(bcm, 0x005D, 0x000D);
@@ -1082,7 +1082,6 @@ u16 bcm430x_phy_lo_g_state(struct bcm430x_private *bcm, u16 pair, u16 r27)
 					bcm430x_phy_write(bcm, 0x0810, transition.value);
 					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
 				}
-				done = 1;
 				if (tmp < deviation) {
 					deviation = tmp;
 					state = j + 1;
@@ -1229,8 +1228,6 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 					r31 = 0;
 				}
 			} else {
-				if (phy->desired_power[i + 14 * j] == 0)
-					continue;
 				control = phy->lo_pairs[i + 14 * j];
 				r27 = 3;
 				r31 = 1;
@@ -1274,8 +1271,6 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 					r31 = 0;
 				}
 			} else {
-				if (phy->desired_power[i + 14 * j] == 0)
-					continue;
 				control = phy->lo_pairs[i + 14 * j];
 				r27 = 3;
 				r31 = 1;

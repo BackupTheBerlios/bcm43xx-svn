@@ -42,7 +42,8 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm);
 void bcm430x_phy_calibrate(struct bcm430x_private *bcm);
 int bcm430x_phy_connect(struct bcm430x_private *bcm, int connect);
 
-void bcm430x_phy_measurelowsig(struct bcm430x_private *bcm);
+void bcm430x_phy_lo_b_measure(struct bcm430x_private *bcm);
+void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm);
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm);
 
-void bcm430x_phy_lo_g_adjust(struct bcm430x_private *bcm);
+void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm);
