@@ -1106,7 +1106,10 @@ u16 bcm430x_phy_lo_pair(struct bcm430x_private *bcm, u16 baseband, u16 radio, u1
 {
 	u8 dict[10] = { 11, 10, 11, 12, 13, 12, 13, 12, 13, 12 };
 
-	baseband /= 2;
+	if (baseband > 12)
+		baseband = 6;
+	else
+		baseband /= 2;
 
 	if (tx == 3) {
 		return bcm->current_core->phy->lo_pairs[radio + 14 * baseband].value;
@@ -1148,14 +1151,87 @@ u8 bcm430x_phy_lo_unk16(struct bcm430x_private *bcm)
 	return ret;
 }
 
+static inline
+u16 bcm430x_phy_lo_state(struct bcm430x_private *bcm, u16 pair, u16 r27)
+{
+	union bcm430x_lopair transitions[8] = {
+		{ .items = { +1, +1 } }, { .items = { +1, 0 } },
+		{ .items = { +1, -1 } }, { .items = { 0, -1 } },
+		{ .items = { -1, -1 } }, { .items = { -1, 0 } },
+		{ .items = { -1, +1 } }, { .items = { 0, +1 } }
+	};
+	union bcm430x_lopair transition;
+	int i = 12, j;
+	u8 state = 0, done = 0;
+	u16 deviation = bcm430x_phy_lo_singledeviation(bcm, r27), tmp, ret;
+
+	while ((i--) && (!done)) {
+		if (state == 0) {
+			for (j = 0; j < 8; j++) {
+				transition.value = pair;
+				transition.items[0] += transitions[j].items[0];
+				transition.items[0] += transitions[j].items[0];
+				tmp = 0xFFFF;
+				if ((abs(transition.items[0]) < 9) && (abs(transition.items[1]) < 9)) {
+					bcm430x_phy_write(bcm, 0x0810, transition.value);
+					tmp = bcm430x_phy_lo_singledeviation(bcm, r27);
+				}
+				if (tmp < deviation) {
+					deviation = tmp;
+					state = j + 1;
+					ret = transition.value;
+				}
+			}
+		} else if (state % 2 == 0) {
+			for (j = -1; j < 2; j++) {
+				if (!j)
+					continue;
+				transition.value = pair;
+				transition.items[0] += transitions[((state - 1) % 8) + j].items[0];
+				transition.items[1] += transitions[((state - 1) % 8) + j].items[1];
+				tmp = 0xFFFF;
+				if ((abs(transition.items[0]) < 9) && (abs(transition.items[1]) < 9)) {
+					bcm430x_phy_write(bcm, 0x0810, transition.value);
+					tmp = bcm430x_phy_lo_singledeviation(bcm, r27);
+				}
+				if (tmp < deviation) {
+					deviation = tmp;
+					state = ((state - 1) % 8) + j + 1;
+					ret = transition.value;
+				}
+			}
+		} else {
+			for (j = -2; j < 3; j++) {
+				if (!j)
+					continue;
+				transition.value = pair;
+				transition.items[0] += transitions[((state - 1) % 8) + j].items[0];
+				transition.items[1] += transitions[((state - 1) % 8) + j].items[1];
+				tmp = 0xFFFF;
+				if ((abs(transition.items[0]) < 9) && (abs(transition.items[1]) < 9)) {
+					bcm430x_phy_write(bcm, 0x0810, transition.value);
+					tmp = bcm430x_phy_lo_singledeviation(bcm, r27);
+				}
+				if (tmp < deviation) {
+					deviation = tmp;
+					state = ((state - 1) % 8) + j + 1;
+					ret = transition.value;
+				}
+			}	
+		}
+	}
+
+	return ret;
+}
+
 /* http://bcm-specs.sipsolutions.net/LocalOscillator/Measure */
 void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 {
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
-	int i, oldi, j;
+	int h, i, oldi, j;
 	union bcm430x_lopair control = { .value = 0 };
 	u8 pairorder[10] = { 3, 1, 5, 7, 9, 2, 0, 4, 6, 8 };
-	u16 tmp;
+	u16 tmp, reg;
 	u16 regstack[16] = { 0 };
 
 	//XXX: What are these?
@@ -1218,7 +1294,8 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x8078, 0x080F);
 
 	/* Measure */
-	for (i = 0; i < 10; i++) {
+	for (h = 0; h < 10; h++) {
+		i = pairorder[h];
 		if (phy->info_unk16 != 0xFFFF) {
 			if (i == 3)
 				control.value = 0;
@@ -1250,13 +1327,26 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 			}
 			bcm430x_phy_write(bcm, 0x43, i);
 			bcm430x_phy_write(bcm, 0x52, phy->info_unk16);
-			TODO(); //TODO: Set the baseband attenuation on chip
+			reg = 0x0060;
+			if (bcm->current_core->phy->version == 0) {
+				reg = 0x03E6;
+				tmp = (bcm430x_phy_read(bcm, reg) & 0xFFF0) | (j * 2);
+			} else if (bcm->current_core->phy->version == 1) {
+				tmp  = bcm430x_phy_read(bcm, reg) & ~0x0078;
+				tmp |= ((j * 2) << 3) & 0x0078;
+			} else {
+				tmp  = bcm430x_phy_read(bcm, reg) & ~0x003C;
+				tmp |= ((j * 2) << 2) & 0x003C;
+			}
 			tmp = (regstack[10] & 0xFFF0);
 			if (r31)
 				tmp |= 0x0008;
 			bcm430x_radio_write16(bcm, 0x7A, tmp);
-			TODO(); //TODO: Run the state machine
+			phy->lo_pairs[i + 14 * i].value = bcm430x_phy_lo_state(bcm,
+			                                                       phy->lo_pairs[i + 14 * j].value,
+									       r27);
 		}
+		oldi = i;
 	}
 	for (i = 10; i < 14; i++) {
 		for (j = 0; j < 4; j++) {
@@ -1282,17 +1372,30 @@ void bcm430x_phy_lo_measure(struct bcm430x_private *bcm)
 			}
 			bcm430x_phy_write(bcm, 0x43, i);
 			bcm430x_phy_write(bcm, 0x52, phy->info_unk16 + 0x30);
-			TODO(); //TODO: Set the baseband attenuation on chip
+			reg = 0x0060;
+			if (bcm->current_core->phy->version == 0) {
+				reg = 0x03E6;
+				tmp = (bcm430x_phy_read(bcm, reg) & 0xFFF0) | (j * 2);
+			} else if (bcm->current_core->phy->version == 1) {
+				tmp  = bcm430x_phy_read(bcm, reg) & ~0x0078;
+				tmp |= ((j * 2) << 3) & 0x0078;
+			} else {
+				tmp  = bcm430x_phy_read(bcm, reg) & ~0x003C;
+				tmp |= ((j * 2) << 2) & 0x003C;
+			}
+			bcm430x_phy_write(bcm, reg, tmp);
 			tmp = (regstack[10] & 0xFFF0);
 			if (r31)
 				tmp |= 0x0008;
 			bcm430x_radio_write16(bcm, 0x7A, tmp);
-			TODO(); //TODO: Run the state machine	
+			phy->lo_pairs[i + 14 * j].value = bcm430x_phy_lo_state(bcm,
+			                                     	               phy->lo_pairs[i + 14 * j].value,
+								               r27);
 		}
 	}
 
 	/* Restoration */
-	TODO(); //TODO: 1. adjust the LO: ...
+	bcm430x_phy_lo_adjust(bcm);
 	bcm430x_phy_write(bcm, 0x2E, 0x807F);
 	if (phy->connected)
 		bcm430x_phy_write(bcm, 0x2F, 0x0202);
