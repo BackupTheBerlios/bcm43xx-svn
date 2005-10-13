@@ -3046,7 +3046,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
-	bcm->ieee->ieee802_1x = 1;
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
