@@ -84,7 +84,8 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 	u8 channel;
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	
+
+#if 0
 	if ((data->freq.m == 0) && (data->freq.m <= 1000)) {
 		channel = data->freq.m;
 	} else
@@ -95,6 +96,7 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 
 	TODO(); //TODO: Actual channel selection, based on current_core, etc.
 	printk_wx(KERN_INFO PFX "Selected channel: %d\n", channel);
+#endif
 
 	return 0;
 }
