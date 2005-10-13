@@ -46,6 +46,7 @@ typedef unsigned char byte;
 
 struct cmdline_args {
 	const char *infile;
+	const char *postfix;
 };
 
 static struct cmdline_args cmdargs;
@@ -102,7 +103,7 @@ static void write_fw(const char *infilename, const char *outfilename, uint8_t fl
 static void write_iv(const char *infilename, uint8_t flags, byte *data)
 {
 	FILE* fw;
-	char ivfilename[35];
+	char ivfilename[2048];
 	int i;
 
 	for (i = 1; i <= 10; i++) {
@@ -113,7 +114,9 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 			i++;
 		}
 
-		sprintf(ivfilename, "%s/bcm430x_initval%02d.fw", target_dir, i);
+		snprintf(ivfilename, sizeof(ivfilename),
+			 "%s/bcm430x_initval%02d%s.fw",
+			 target_dir, i, cmdargs.postfix);
 		fw = fopen(ivfilename, "w");
 
 		if (!fw) {
@@ -121,7 +124,7 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 			exit(1);
 		}
 
-		printf("extracting bcm430x_initval%02d.fw ...\n", i);
+		printf("extracting bcm430x_initval%02d%s.fw ...\n", i, cmdargs.postfix);
 
 		while (1) {
 
@@ -307,6 +310,7 @@ static void print_usage(int argc, char *argv[])
 	printf("  -l             List supported driver versions\n");
 	printf("  -i DRIVER.SYS  Identify a driver file (don't extract)\n");
 	printf("  -w DRIVER.SYS  Extract and write firmware to /lib/firmware\n");
+	printf("  -p \".FOO\"    Postfix for firmware filenames (.FOO.fw)\n");
 	printf("  -v             Print fwcutter version\n");
 	printf("  -h|--help      Print this help\n");
 	printf("\nExample: %s bcmwl5.sys\n"
@@ -383,7 +387,16 @@ static int parse_args(int argc, char *argv[])
 			}
 			target_dir = "/lib/firmware";
 			cmdargs.infile = next_arg;
-			break;
+		} else if (cmp_arg(arg, "-p", &param) == 0) {
+			if (param)
+				next_arg = param;
+			else
+				i++;
+			if (!next_arg) {
+				printf("-p needs a parameter\n");
+				return -1;
+			}
+			cmdargs.postfix = next_arg;
 		} else {
 			cmdargs.infile = arg;
 			break;
@@ -404,9 +417,12 @@ int main(int argc, char *argv[])
 	FILE *fd;
 	const struct file *file;
 	int err;
+	char fwname[1024];
+
+	get_endianess();
 
 	target_dir = ".";
-	get_endianess();
+	cmdargs.postfix = "";
 	err = parse_args(argc, argv);
 	if (err == 1)
 		return 0;
@@ -424,15 +440,20 @@ int main(int argc, char *argv[])
 	if (!file)
 		goto out_close;
 
-	extract_fw(cmdargs.infile, "bcm430x_microcode2.fw",
+	snprintf(fwname, sizeof(fwname), "bcm430x_microcode2%s.fw", cmdargs.postfix);
+	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc2_pos, file->uc2_length);
-	extract_fw(cmdargs.infile, "bcm430x_microcode4.fw",
+	snprintf(fwname, sizeof(fwname), "bcm430x_microcode4%s.fw", cmdargs.postfix);
+	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc4_pos, file->uc4_length);
-	extract_fw(cmdargs.infile, "bcm430x_microcode5.fw",
+	snprintf(fwname, sizeof(fwname), "bcm430x_microcode5%s.fw", cmdargs.postfix);
+	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc5_pos, file->uc5_length);
-	extract_fw(cmdargs.infile, "bcm430x_pcm4.fw",
+	snprintf(fwname, sizeof(fwname), "bcm430x_pcm4%s.fw", cmdargs.postfix);
+	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->pcm4_pos, file->pcm4_length);
-	extract_fw(cmdargs.infile, "bcm430x_pcm5.fw",
+	snprintf(fwname, sizeof(fwname), "bcm430x_pcm5%s.fw", cmdargs.postfix);
+	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->pcm5_pos, file->pcm5_length);
 	extract_iv(cmdargs.infile, file->flags, file->iv_pos);
 
