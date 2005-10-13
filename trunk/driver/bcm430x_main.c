@@ -58,9 +58,23 @@ MODULE_AUTHOR("Stefano Brivio");
 MODULE_AUTHOR("Michael Buesch");
 MODULE_LICENSE("GPL");
 
-/* module parameters */
-static int pio = 0;
-static int short_preamble = 0;
+/* Module parameters */
+static int modparam_pio;
+module_param_named(pio, modparam_pio, int, 0444);
+MODULE_PARM_DESC(pio, "enable(1) / disable(0) PIO mode");
+
+static int modparam_short_preamble;
+module_param_named(short_preamble, modparam_short_preamble, int, 0444);
+MODULE_PARM_DESC(short_preamble, "enable(1) / disable(0) the Short Preamble mode");
+
+#ifdef BCM430x_DEBUG
+static char modparam_fwpostfix[64];
+module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
+MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
+#else
+# define modparam_fwpostfix  ""
+#endif /* BCM430x_DEBUG */
+
 
 /* If you want to debug with just a single device, enable this,
  * where the string is the pci device ID (as given by the kernel's
@@ -1227,7 +1241,7 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 {
 	int err = -ENODEV;
 	const struct firmware *fw;
-	char buf[22] = { 0 };
+	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
 
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
 	bcm430x_mmioprint_enable(bcm);
@@ -1235,8 +1249,9 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	bcm430x_mmioprint_disable(bcm);
 #endif
 
-	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d.fw",
-		 (bcm->current_core->rev >= 5 ? 5 : bcm->current_core->rev));
+	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d%s.fw",
+		 (bcm->current_core->rev >= 5 ? 5 : bcm->current_core->rev),
+		 modparam_fwpostfix);
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX 
 		       "Error: Microcode \"%s\" not available or load failed.\n",
@@ -1250,7 +1265,9 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	release_firmware(fw);
 
 	snprintf(buf, ARRAY_SIZE(buf),
-		 "bcm430x_pcm%d.fw", (bcm->current_core->rev < 5 ? 4 : 5));
+		 "bcm430x_pcm%d%s.fw",
+		 (bcm->current_core->rev < 5 ? 4 : 5),
+		 modparam_fwpostfix);
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
 		printk(KERN_ERR PFX
 		       "Error: PCM \"%s\" not available or load failed.\n",
@@ -1300,7 +1317,7 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	int err = -ENODEV;
 	u32 sbtmstatehigh;
 	const struct firmware *fw;
-	char buf[21] = { 0 };
+	char buf[21 + sizeof(modparam_fwpostfix) - 1] = { 0 };
 
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
 	bcm430x_mmioprint_enable(bcm);
@@ -1311,11 +1328,13 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	if ((bcm->current_core->rev == 2) || (bcm->current_core->rev == 4)) {
 		switch (bcm->current_core->phy->type) {
 			case BCM430x_PHYTYPE_A:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 3);
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+					 3, modparam_fwpostfix);
 				break;
 			case BCM430x_PHYTYPE_B:
 			case BCM430x_PHYTYPE_G:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 1);
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+					 1, modparam_fwpostfix);
 				break;
 			default:
 				goto out_noinitval;
@@ -1324,11 +1343,13 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	} else if (bcm->current_core->rev >= 5) {
 		switch (bcm->current_core->phy->type) {
 			case BCM430x_PHYTYPE_A:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 7);
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+					 7, modparam_fwpostfix);
 				break;
 			case BCM430x_PHYTYPE_B:
 			case BCM430x_PHYTYPE_G:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 5);
+				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+					 5, modparam_fwpostfix);
 				break;
 			default:
 				goto out_noinitval;
@@ -1358,13 +1379,16 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 			case BCM430x_PHYTYPE_A:
 				sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
 				if (sbtmstatehigh & 0x00010000)
-					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 9);
+					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+						 9, modparam_fwpostfix);
 				else
-					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 10);
+					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+						 10, modparam_fwpostfix);
 				break;
 			case BCM430x_PHYTYPE_B:
 			case BCM430x_PHYTYPE_G:
-					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d.fw", 6);
+					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+						 6, modparam_fwpostfix);
 				break;
 			default:
 				goto out_noinitval;
@@ -1731,7 +1755,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	} else
 		bcm430x_write16(bcm, 0x0608, 0x0002);
 
-	if (short_preamble)
+	if (modparam_short_preamble)
 		bcm430x_short_preamble_enable(bcm);
 	else
 		bcm430x_short_preamble_disable(bcm);
@@ -3035,7 +3059,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		err = -ENOMEM;
 		goto err_free_netdev;
 	}
-	if (pio)
+	if (modparam_pio)
 		bcm->data_xfer_mode = BCM430x_DATAXFER_PIO;
 	else
 		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
@@ -3124,12 +3148,6 @@ static void __exit bcm430x_exit(void)
 	pci_unregister_driver(&bcm430x_pci_driver);
 	bcm430x_debugfs_exit();
 }
-
-module_param(pio, int, 0444);
-MODULE_PARM_DESC(pio, "enable(1) / disable(0) PIO mode");
-
-module_param(short_preamble, int, 0444);
-MODULE_PARM_DESC(short_preamble, "enable(1) / disable(0) the Short Preamble mode");
 
 module_init(bcm430x_init)
 module_exit(bcm430x_exit)
