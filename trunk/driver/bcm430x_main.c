@@ -464,6 +464,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	//TODO: rts, wsec
 	txhdr->wsec_rate |= (txhdr->plcp.raw[0] << BCM430x_TXHDR_RATE_SHIFT)
 			    & BCM430x_TXHDR_RATE_MASK;
+
+
+bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), "TX header");
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
