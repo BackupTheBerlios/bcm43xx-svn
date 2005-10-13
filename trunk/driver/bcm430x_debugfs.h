@@ -1,12 +1,13 @@
 #ifndef BCM430x_DEBUGFS_H_
 #define BCM430x_DEBUGFS_H_
 
+struct bcm430x_private;
+
 #ifdef BCM430x_DEBUG
 
 #include <linux/list.h>
 #include <asm/semaphore.h>
 
-struct bcm430x_private;
 struct dentry;
 
 struct bcm430x_dfsentry
