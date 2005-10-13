@@ -91,7 +91,8 @@ struct sk_buff;
 
 void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 				     struct bcm430x_txhdr *txhdr,
-				     const struct sk_buff *fragment_skb,
+				     const unsigned char *fragment_data,
+				     const unsigned int fragment_len,
 				     const int is_first_fragment,
 				     const u16 cookie));
 

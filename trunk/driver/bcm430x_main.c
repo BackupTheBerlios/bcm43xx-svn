@@ -370,7 +370,8 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 void fastcall
 bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 		       struct bcm430x_txhdr *txhdr,
-		       const struct sk_buff *fragment_skb,
+		       const unsigned char *fragment_data,
+		       const unsigned int fragment_len,
 		       const int is_first_fragment,
 		       const u16 cookie)
 {
@@ -389,9 +390,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	/* First do some black magic to retrieve some
 	 * values from the 80211 header of the packet.
 	 */
-	frame_control = (const u16 *)fragment_skb->data;
-	macaddr1 = fragment_skb->data + 4;
-	duration_id = (const u16 *)(fragment_skb->data + 2);
+	frame_control = (const u16 *)fragment_data;
+	macaddr1 = fragment_data + 4;
+	duration_id = (const u16 *)(fragment_data + 2);
 
 	/* Now contruct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
@@ -450,9 +451,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	txhdr->cookie = cpu_to_le16(cookie);
 
 	/* Generate the PLCP header and the fallback PLCP header. */
-	bcm430x_generate_plcp_hdr(&txhdr->plcp, fragment_skb->len,
+	bcm430x_generate_plcp_hdr(&txhdr->plcp, fragment_len,
 				  bitrate, ofdm_modulation);
-	bcm430x_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_skb->len,
+	bcm430x_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_len,
 				  fallback_bitrate, fallback_ofdm_modulation);
 
 	/* Set the CONTROL field */
@@ -3046,6 +3047,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
+	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
