@@ -464,6 +464,8 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	tmp |= 0x10; // FIXME: unknown meaning.
 	if (ofdm_modulation)
 		tmp |= BCM430x_TXHDRFLAG_FALLBACKOFDM;
+	if (is_first_fragment)
+		tmp |= BCM430x_TXHDRFLAG_FIRSTFRAGMENT;
 	txhdr->flags = cpu_to_le16(tmp);
 
 	/* Set WSEC/RATE field */
