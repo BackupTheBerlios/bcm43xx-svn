@@ -437,6 +437,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	memcpy(txhdr, macaddr1, 6);
 	/* Set the cookie (used as driver internal ID for the frame) */
 	txhdr->cookie = cpu_to_le16(cookie);
+	/* Set the fallback duration ID. */
+	//FIXME: We use the original durid for now.
+	txhdr->fallback_dur_id = *duration_id;
 
 	/* Generate the PLCP header and the fallback PLCP header. */
 	bcm430x_generate_plcp_hdr(&txhdr->plcp, packet_octets,

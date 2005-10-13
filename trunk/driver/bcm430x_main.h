@@ -77,8 +77,8 @@ struct bcm430x_txhdr {
 			struct bcm430x_plcp_hdr6 rts_cts_plcp;
 			u16 rts_cts_frame_type;
 			u16 rts_cts_dur;
-			unsigned char first_mac[6];
-			unsigned char second_mac[6];
+			unsigned char rts_cts_mac1[6];
+			unsigned char rts_cts_mac2[6];
 			PAD_BYTES(2);
 			struct bcm430x_plcp_hdr6 plcp;
 		} __attribute__((__packed__));
