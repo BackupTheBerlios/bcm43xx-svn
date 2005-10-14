@@ -110,6 +110,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1468, 0x0311, 0, 0, 0 }, /* AMBITG T60H906.00 */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1799, 0x7000, 0, 0, 0 }, /* Belkin F5D7000 PCI Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x17f9, 0x0006, 0, 0, 0 }, /* Amilo A1650 Laptop */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1028, 0x0005, 0, 0, 0 }, /* Dell TrueMobile 1370 Mini-PCI Card */
 
 	/* Broadcom 4306 802.11b/g */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x02fa, 0x3010, 0, 0, 0 }, /* Siemens Gigaset PC Card */
