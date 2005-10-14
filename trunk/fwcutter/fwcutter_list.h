@@ -337,6 +337,19 @@ static const struct file {
 		.pcm5_pos    = 0x4db80,  .pcm5_length = 0x520,
 	},
 	{
+		.name        = "d11ucode.o",
+		.version     = "3.31.16.0 ?", /*FIXME: version correct? */
+		.md5         = "31e6cac8a8129bf8f91291293e017329",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       INIT_VAL_08_MISSING,
+		.iv_pos      = 0x40,
+		.uc2_pos     = 0x3120,  .uc2_length  = 0x3d88,
+		.uc4_pos     = 0x6eac,  .uc4_length  = 0x44a0,
+		.uc5_pos     = 0xb350,  .uc5_length  = 0x4ec0,
+		.pcm4_pos    = 0x10214,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x10690,  .pcm5_length = 0x478,
+	},
+	{
 		.name        = "wl.o",
 		.version     = "3.50.21.0",                            /* 05/11/2003 */
 		.md5         = "f71be0e1d14f68c98d916465a300d835",
@@ -363,4 +376,3 @@ static const struct file {
 };
 
 #define FILES (sizeof(files) / sizeof(files[0]))
-
