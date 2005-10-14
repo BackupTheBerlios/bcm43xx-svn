@@ -1111,9 +1111,14 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	}
 
 	if (unlikely(reason & BCM430x_IRQ_TXFIFO_ERROR)) {
-		dprintkl(KERN_ERR PFX "TX FIFO error. DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+		dprintkl(KERN_ERR PFX "TX FIFO error. DMA reasons: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n"
+			 KERN_ERR PFX "               DMA TX stat: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
 			 bcm->dma_reason[0], bcm->dma_reason[1],
-			 bcm->dma_reason[2], bcm->dma_reason[3]);
+			 bcm->dma_reason[2], bcm->dma_reason[3],
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_STATUS),
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA2_BASE + BCM430x_DMA_TX_STATUS),
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA3_BASE + BCM430x_DMA_TX_STATUS),
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA4_BASE + BCM430x_DMA_TX_STATUS));
 		bcm430x_recover_from_fatal(bcm, BCM430x_FATAL_TXFIFO);
 		spin_unlock_irqrestore(&bcm->lock, flags);
 		return;
