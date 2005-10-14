@@ -282,7 +282,7 @@ static int alloc_ringmemory(struct bcm430x_dmaring *ring)
 		}
 	}
 
-	ring->vbase = dma_pool_alloc(ringallocator.pool, GFP_KERNEL, /*FIXME: | GFP_DMA? */
+	ring->vbase = dma_pool_alloc(ringallocator.pool, GFP_KERNEL,
 				     &ring->dmabase);
 	if (!ring->vbase) {
 		printk(KERN_ERR PFX "Could not allocate DMA ring.\n");
@@ -475,7 +475,7 @@ static inline int alloc_descbuffer(struct bcm430x_dmaring *ring,
 				   size_t size, unsigned int gfp_flags)
 {
 	assert(!meta->mapped);
-	meta->skb = __dev_alloc_skb(size, gfp_flags | GFP_DMA);
+	meta->skb = __dev_alloc_skb(size, gfp_flags);
 	if (unlikely(!meta->skb))
 		return -ENOMEM;
 	return 0;
