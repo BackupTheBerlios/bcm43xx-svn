@@ -55,3 +55,9 @@ bcmwl564.sys	Link
 bcmwl5a.sys	Link
 -------------   -------------------------------------------------------
 3.90.16.0	http://www.linksys.com/servlet/Satellite?blobcol=urldata&blobheadername1=Content-Type&blobheadername2=Content-Disposition&blobheadervalue1=application%2Fx-msdownload&blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&blobkey=id&blobtable=MungoBlobs&blobwhere=1124848568427&ssbinary=true
+
+wl.o		Link
+-------------   -------------------------------------------------------
+3.50.21.0	http://nthill.free.fr/openwrt/sources/wl/wl-2.02.7.tar.bz2
+3.60.13.0	http://nthill.free.fr/openwrt/sources/wl/wl-2.09.1.tar.bz2
+		http://nthill.free.fr/openwrt/sources/wl/wl-3.37.6.tar.bz2
