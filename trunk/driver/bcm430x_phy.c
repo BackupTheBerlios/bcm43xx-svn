@@ -1245,7 +1245,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 			if (r31)
 				tmp |= 0x0008;
 			bcm430x_radio_write16(bcm, 0x7A, tmp);
-			phy->lo_pairs[i + 14 * i].value = bcm430x_phy_lo_g_state(bcm,
+			phy->lo_pairs[i + 14 * j].value = bcm430x_phy_lo_g_state(bcm,
 			                                                       phy->lo_pairs[i + 14 * j].value,
 									       r27);
 		}
