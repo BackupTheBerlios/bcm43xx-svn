@@ -78,14 +78,14 @@
 
 
 /* DMA engine tuning knobs */
+#define BCM430x_DMA_RINGMEMSIZE		PAGE_SIZE
 #define BCM430x_TXRING_SLOTS		20 /*FIXME: set to 256 again */
 #define BCM430x_RXRING_SLOTS		256
 #define BCM430x_DMA1_RX_FRAMEOFFSET	30
 #define BCM430x_NUM_RXBUFFERS		16
 #define BCM430x_DMA1_RXBUFFERSIZE	2048
 #define BCM430x_DMA4_RXBUFFERSIZE	16
-#define BCM430x_DMA_TXTIMEOUT		(HZ) /* jiffies */
-#define BCM430x_DMA_TXWORK_RETRY_DELAY	(HZ / 100) /* jiffies */
+#define BCM430x_DMA_TXTIMEOUT		(HZ * 10) /* jiffies */
 
 /* suspend the tx queue, if less than this percent slots are free. */
 #define BCM430x_TXSUSPEND_PERCENT	20

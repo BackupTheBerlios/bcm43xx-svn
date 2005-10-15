@@ -497,7 +497,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	       & BCM430x_TXHDR_RATE_MASK;
 	txhdr->wsec_rate = cpu_to_le16(tmp);
 
-bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
+//bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
@@ -1056,8 +1056,7 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 
 	while (1) {
 		if (bcm->current_core->rev < 5) {
-			printkl(KERN_ERR PFX "TODO in %s at line %d\n", __FILE__, __LINE__);
-			/* TODO: The status is received via the last DMA controller or PIO queue 3. */
+			TODO(); /* TODO: The status is received via the last DMA controller or PIO queue 3. */
 			if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA) {
 				/* XXX */
 			} else {
@@ -1067,10 +1066,8 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 			return;
 		} else {
 			res = build_transmit_status_array(bcm, transmit_status);
-			if (res) {
-printkl(KERN_INFO PFX "handle_irq_transmit_status: No transmit status available\n");
-				return;
-			}
+			if (res)
+				break;
 		}
 		interpret_transmit_status_array(bcm, transmit_status);
 	}
@@ -3064,10 +3061,20 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		err = -ENOMEM;
 		goto err_free_netdev;
 	}
-	if (modparam_pio)
-		bcm->data_xfer_mode = BCM430x_DATAXFER_PIO;
-	else
-		bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
+
+	bcm->data_xfer_mode = BCM430x_DATAXFER_PIO;
+	if (!modparam_pio) {
+
+bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
+//FIXME: Something like that, instead of the above?
+#if 0
+		if (pci_set_dma_mask(pdev, DMA_29BIT_MASK) == 0 &&
+		    pci_set_consistent_dma_mask(pdev, DMA_29BIT_MASK) == 0)
+			bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
+		else
+			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
+#endif
+	}
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);

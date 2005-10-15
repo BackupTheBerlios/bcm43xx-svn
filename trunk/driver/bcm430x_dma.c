@@ -35,17 +35,29 @@
 #include <asm/semaphore.h>
 
 
-static struct bcm430x_ringallocator {
-	struct dma_pool *pool;
-	int refcnt;
-} ringallocator;
-static DECLARE_MUTEX(ringallocator_sem);
-
-
 static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 			     struct bcm430x_dmadesc *desc,
 			     struct bcm430x_dmadesc_meta *meta);
 
+static inline
+void ring_sync_for_cpu(struct bcm430x_dmaring *ring)
+{
+	struct device *dev = &(ring->bcm->pci_dev->dev);
+
+	dma_sync_single_for_cpu(dev, ring->dmabase,
+				BCM430x_DMA_RINGMEMSIZE,
+				DMA_TO_DEVICE);
+}
+
+static inline
+void ring_sync_for_device(struct bcm430x_dmaring *ring)
+{
+	struct device *dev = &(ring->bcm->pci_dev->dev);
+
+	dma_sync_single_for_device(dev, ring->dmabase,
+				   BCM430x_DMA_RINGMEMSIZE,
+				   DMA_TO_DEVICE);
+}
 
 static inline int used_slots(struct bcm430x_dmaring *ring)
 {
@@ -261,63 +273,36 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 
 static int alloc_ringmemory(struct bcm430x_dmaring *ring)
 {
-	const size_t ring_memsize = 4096;
-	const size_t ring_memalign = 4096;
-
 	int err = -ENOMEM;
-	struct pci_dev *pci_dev = ring->bcm->pci_dev;
-	struct device *dev = &pci_dev->dev;
+	struct device *dev = &(ring->bcm->pci_dev->dev);
 
-	assert(ring->nr_slots * sizeof(struct bcm430x_dmadesc) < ring_memsize);
-
-	down(&ringallocator_sem);
-
-	if (ringallocator.refcnt == 0) {
-		ringallocator.pool = dma_pool_create(DRV_NAME "_dmarings",
-						     dev, ring_memsize,
-						     ring_memalign, ring_memalign);
-		if (!ringallocator.pool) {
-			printk(KERN_ERR PFX "Could not create DMA-ring pool.\n");
-			goto out_up;
-		}
-	}
-
-	ring->vbase = dma_pool_alloc(ringallocator.pool, GFP_KERNEL,
-				     &ring->dmabase);
+	ring->vbase = (struct bcm430x_dmadesc *)__get_free_page(GFP_KERNEL);
 	if (!ring->vbase) {
-		printk(KERN_ERR PFX "Could not allocate DMA ring.\n");
-		err = -ENOMEM;
-		goto err_destroy_pool;
+		printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
+		goto out;
 	}
-	memset(ring->vbase, 0, ring_memsize);
+	memset(ring->vbase, 0, BCM430x_DMA_RINGMEMSIZE);
+	ring->dmabase = dma_map_single(dev, ring->vbase,
+				       BCM430x_DMA_RINGMEMSIZE,
+				       DMA_TO_DEVICE);
+	if (!ring->dmabase) {
+		printk(KERN_ERR PFX "DMA ringmemory mapping failed\n");
+		goto out;
+	}
+printk(KERN_INFO PFX "ring allocated 0x%p 0x%08x\n", ring->vbase, ring->dmabase);
 
-	ringallocator.refcnt++;
 	err = 0;
-out_up:
-	up(&ringallocator_sem);
-
+out:
 	return err;
-
-err_destroy_pool:
-	if (ringallocator.refcnt == 0) {
-		dma_pool_destroy(ringallocator.pool);
-		ringallocator.pool = 0;
-	}
-	goto out_up;
 }
 
 static void free_ringmemory(struct bcm430x_dmaring *ring)
 {
-	down(&ringallocator_sem);
-
-	dma_pool_free(ringallocator.pool, ring->vbase, ring->dmabase);
-	ringallocator.refcnt--;
-	if (ringallocator.refcnt == 0) {
-		dma_pool_destroy(ringallocator.pool);
-		ringallocator.pool = 0;
-	}
-
-	up(&ringallocator_sem);
+	dma_unmap_single(&(ring->bcm->pci_dev->dev),
+			 ring->dmabase,
+			 BCM430x_DMA_RINGMEMSIZE,
+			 DMA_TO_DEVICE);
+	free_page((unsigned long)(ring->vbase));
 }
 
 static void setup_ringmemory(struct bcm430x_dmaring *ring)
@@ -791,6 +776,8 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		return -ENOMEM;
 	}
 
+	ring_sync_for_cpu(ring);
+
 	slot = request_slot(ring);
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
@@ -880,8 +867,11 @@ printk(KERN_INFO PFX "mapping %d\n", slot);
 		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_COMPIRQ);
 		assert(ctx->first_slot != -1);
 printk(KERN_INFO PFX "transmitting slot %d\n", ctx->first_slot);
+		ring_sync_for_device(ring);
 		/* Now transfer the whole frame. */
 		tx_xfer(ring, ctx->first_slot);
+	} else {
+		ring_sync_for_device(ring);
 	}
 out:
 	return err;
