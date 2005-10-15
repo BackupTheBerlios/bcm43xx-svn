@@ -381,6 +381,11 @@ struct bcm430x_phyinfo {
 	/* LO Measurement Data */
 	union bcm430x_lopair *lo_pairs;
 	u16 info_unk16;
+
+	/* TSSI to dBm table in use */
+	s16 *tssi_to_dbm;
+	/* idle TSSI value */
+	s16 idle_tssi;
 };
 
 struct bcm430x_radioinfo {

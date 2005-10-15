@@ -30,7 +30,6 @@
 
 #include <linux/types.h>
 
-
 struct bcm430x_private;
 
 u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
