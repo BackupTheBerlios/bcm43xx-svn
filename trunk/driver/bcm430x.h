@@ -383,9 +383,9 @@ struct bcm430x_phyinfo {
 	u16 info_unk16;
 
 	/* TSSI to dBm table in use */
-	s16 *tssi_to_dbm;
+	s8 *tssi2dbm;
 	/* idle TSSI value */
-	s16 idle_tssi;
+	s8 idle_tssi;
 };
 
 struct bcm430x_radioinfo {

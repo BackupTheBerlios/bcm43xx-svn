@@ -2664,7 +2664,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		if (i != 0) {
 			bcm430x_mac_suspend(bcm);
 			bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-			bcm430x_mac_suspend(bcm);
+			bcm430x_radio_turn_off(bcm);
 		}
 	}
 	if (num_80211_cores >= 2) {
@@ -2672,8 +2672,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		bcm430x_mac_enable(bcm);
 	}
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
-	//TODO: Set up LEDs
-	//TODO: Initialize PIO
 
 	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
 

@@ -1410,12 +1410,12 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 static void bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
 {
 	if ((bcm->chip_id == 0x4301) && ((bcm->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)) {
-		bcm->current_core->phy->idle_tssi = 0x34;	//FIXME: Is this ok?
-		bcm->current_core->phy->tssi_to_dbm = bcm430x_tssi2dbm_b_table;
+		bcm->current_core->phy->idle_tssi = 0x34; //FIXME: Is this ok?
+		bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_b_table;
 		return;
 	}
 	if ((bcm->chip_id == 0x4306) || (bcm->chip_id == 0x4301)) {
-		if (unlikely(0)) {	//FIXME: What should be here?
+		if (unlikely(0)) { //FIXME: What should be here?
 		}
 		else {
 			switch (bcm->current_core->phy->type) {
@@ -1424,11 +1424,11 @@ static void bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
 					break;
 				case BCM430x_PHYTYPE_B:
 					bcm->current_core->phy->idle_tssi = 0x34;
-					bcm->current_core->phy->tssi_to_dbm = bcm430x_tssi2dbm_b_table;
+					bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_b_table;
 					break;
 				case BCM430x_PHYTYPE_G:
 					bcm->current_core->phy->idle_tssi = 0x34;
-					bcm->current_core->phy->tssi_to_dbm = bcm430x_tssi2dbm_g_table;
+					bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_g_table;
 					break;
 			}
 		}
