@@ -6,6 +6,7 @@
                      Stefano Brivio <st3@riseup.net>
                      Michael Buesch <mbuesch@freenet.de>
                      Danny van Dyk <kugelfang@gentoo.org>
+                     Andreas Jaggi <andreas.jaggi@waterwave.ch>
 
   Some parts of the code in this file are derived from the ipw2200
   driver  Copyright(c) 2003 - 2004 Intel Corporation.
@@ -68,3 +69,7 @@ int bcm430x_radio_get_interference_mitigation(struct bcm430x_private *bcm)
 
 void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm);
 void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm);
+s16 bcm430x_nrssi_hw_read(struct bcm430x_private *bcm, u16 offset);
+void bcm430x_nrssi_hw_write(struct bcm430x_private *bcm, u16 offset, s16 val);
+void bcm430x_nrssi_hw_update(struct bcm430x_private *bcm, u16 val);
+void bcm430x_nrssi_mem_update(struct bcm430x_private *bcm);

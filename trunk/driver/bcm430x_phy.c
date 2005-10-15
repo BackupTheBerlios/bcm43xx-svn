@@ -270,8 +270,8 @@ static void bcm430x_phy_setupg(struct bcm430x_private *bcm)
 		bcm430x_phy_agcsetup(bcm);
 		break;
 	case 2:
-		bcm430x_phy_write(bcm, BCM430x_PHY_NRSSILT_CTRL, 0xBA98);
-		bcm430x_phy_write(bcm, BCM430x_PHY_NRSSILT_DATA, 0x7654);
+		//FIXME: 0xBA98 should be in 0-64, 0x7654 should be 6-bit!
+		bcm430x_nrssi_hw_write(bcm, 0xBA98, 0x7654);
 
 		bcm430x_phy_write(bcm, 0x04C0, 0x1861);
 		bcm430x_phy_write(bcm, 0x04C1, 0x0271);
@@ -818,9 +818,8 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 		//bcm->current_core->radio->initval = bcm430x_radio_init2050(bcm);
 		bcm430x_phy_lo_g_measure(bcm);
 	} else {
-		//bcm430x_radio_write16(bcm, 0x0078, bcm->current_core->radio->initval);
-		//FIXME: take the saved value from lo_g_measure for G PHY as mask
-		// bcm430x_radio_write16(bcm, 0x0052, (bcm430x_radio_read16(0x0052) & 0xFFF0) | ???);
+		bcm430x_radio_write16(bcm, 0x0078, bcm->current_core->radio->initval);
+		bcm430x_radio_write16(bcm, 0x0052, (bcm430x_radio_read16(bcm, 0x0052) & 0xFFF0) | bcm->current_core->phy->info_unk16);
 	}
 
 	if (bcm->current_core->phy->connected) {
@@ -841,7 +840,8 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	}
 
 	if ((bcm->sprom.boardflags & BCM430x_BFL_RSSI) == 0) {
-		//FIXME: Update hardware NRSSI Table
+		//FIXME: 0x7FFFFFFF should be 16-bit !
+		bcm430x_nrssi_hw_update(bcm, (u16)0x7FFFFFFF);
 		bcm430x_calc_nrssi_threshold(bcm);
 	} else {
 		if (bcm->current_core->phy->connected) {
