@@ -38,7 +38,7 @@
 #include "bcm430x_radio.h"
 #include "bcm430x_ilt.h"
 
-const s8 bcm430x_tssi2dbm_b_table[] = {
+static const s8 bcm430x_tssi2dbm_b_table[] = {
 	0x4D, 0x4C, 0x4B, 0x4A,
 	0x4A, 0x49, 0x48, 0x47,
 	0x47, 0x46, 0x45, 0x45,
@@ -57,7 +57,7 @@ const s8 bcm430x_tssi2dbm_b_table[] = {
 	0xF9, 0xF9, 0xF9, 0xF9
 };
 
-const s8 bcm430x_tssi2dbm_g_table[] = {
+static const s8 bcm430x_tssi2dbm_g_table[] = {
 	0x4D, 0x4D, 0x4D, 0x4C,
 	0x4C, 0x4C, 0x4B, 0x4B,
 	0x4A, 0x4A, 0x49, 0x49,
@@ -1428,7 +1428,7 @@ static void bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
 					break;
 				case BCM430x_PHYTYPE_G:
 					bcm->current_core->phy->idle_tssi = 0x34;
-					bcm->current_core->phy->tssi_to_dbm = bcm430x_tssi2dbm_b_table;
+					bcm->current_core->phy->tssi_to_dbm = bcm430x_tssi2dbm_g_table;
 					break;
 			}
 		}
