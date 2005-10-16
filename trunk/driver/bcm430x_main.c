@@ -1129,19 +1129,27 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		bcmirq_handled(BCM430x_IRQ_XMIT_ERROR);
 	}
 
-	if (reason & BCM430x_IRQ_BEACON) {
-		/*TODO*/
-		//bcmirq_handled(BCM430x_IRQ_BEACON);
-	}
-
 	if (reason & BCM430x_IRQ_TBTT) {
-		/*TODO*/
-		//bcmirq_handled(BCM430x_IRQ_TBTT);
+		/*TODO: some powercontrol/powersave stuff */
+		if (bcm->ieee->iw_mode == IW_MODE_ADHOC)
+			bcm->adhoc_on_last_tbtt = 1;
+		else
+			bcm->adhoc_on_last_tbtt = 0;
+		bcmirq_handled(BCM430x_IRQ_TBTT);
 	}
 
 	if (reason & BCM430x_IRQ_REG124) {
+		if (bcm->adhoc_on_last_tbtt /* FIXME: || bcm->ieee->iw_mode == IW_MODE_ADHOC */) {
+			bcm430x_write32(bcm, BCM430x_MMIO_STATUS2_BITFIELD,
+					bcm430x_read32(bcm, BCM430x_MMIO_STATUS2_BITFIELD)
+					| 0x00000004);
+		}
+		bcmirq_handled(BCM430x_IRQ_REG124);
+	}
+
+	if (reason & BCM430x_IRQ_BEACON) {
 		/*TODO*/
-		//bcmirq_handled(BCM430x_IRQ_REG124);
+		//bcmirq_handled(BCM430x_IRQ_BEACON);
 	}
 
 	if (reason & BCM430x_IRQ_PMQ) {

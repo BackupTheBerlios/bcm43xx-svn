@@ -39,6 +39,7 @@
 #define BCM430x_MMIO_DMA4_REASON	0x38
 #define BCM430x_MMIO_DMA4_IRQ_MASK	0x3C
 #define BCM430x_MMIO_STATUS_BITFIELD	0x120
+#define BCM430x_MMIO_STATUS2_BITFIELD	0x124
 #define BCM430x_MMIO_GEN_IRQ_REASON	0x128
 #define BCM430x_MMIO_GEN_IRQ_MASK	0x12C
 #define BCM430x_MMIO_RAM_CONTROL	0x130
@@ -540,6 +541,8 @@ struct bcm430x_private {
 	u32 dma_reason[4];
 	/* saved irq enable/disable state bitfield. */
 	u32 irq_savedstate;
+	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
+	u8 adhoc_on_last_tbtt:1;
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;
