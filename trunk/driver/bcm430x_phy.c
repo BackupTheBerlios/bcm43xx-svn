@@ -567,9 +567,9 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
 	if (bcm->current_core->radio->channel == 0xFFFF) {
-		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
 	} else {
-		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel);
+		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel, 0);
 	}
 	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
@@ -619,9 +619,9 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
 	if (bcm->current_core->radio->channel == 0xFFFF) {
-		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
 	} else {
-		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel);
+		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel, 0);
 	}
 	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
@@ -700,10 +700,12 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x005D, (bcm430x_phy_read(bcm, 0x005D) & 0xFF80) | 0x000A);
 	}
 
-	//FIXME: roam_delta
-	//if (bcm->roam_delta != 0) {
-	//	bcm430x_phy_write(bcm, 0x0401, (bcm430x_phy_read(bcm, 0x0401) & 0x0000) | 0x1000);
-	//}
+#if 0
+	//FIXME: Bad Frames Preemption handling (user controlled)
+	if (badframespreemption != 0) {
+		bcm430x_phy_write(bcm, 0x0401, (bcm430x_phy_read(bcm, 0x0401) & 0x0000) | 0x1000);
+	}
+#endif
 
 	if ((bcm->current_core->phy->rev == 1)
 	    && ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000)) {
@@ -732,7 +734,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 	}
 
 	//XXX: Must be 7!
-	bcm430x_radio_selectchannel(bcm, 7);
+	bcm430x_radio_selectchannel(bcm, 7, 0);
 
 	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000) {
 		bcm430x_radio_write16(bcm, 0x0075, 0x0080);
@@ -752,7 +754,7 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 
 	bcm430x_radio_write16(bcm, 0x007A, bcm430x_radio_read16(bcm, 0x007A) | 0x0007);
 
-	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
+	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
 
 	bcm430x_phy_write(bcm, 0x0014, 0x0080);
 	bcm430x_phy_write(bcm, 0x0032, 0x00CA);
@@ -808,7 +810,7 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 		bcm430x_radio_write16(bcm, 0x042B,
 		                      bcm430x_radio_read16(bcm, 0x042B) | 0x2000);
 	}
-	bcm430x_radio_selectchannel(bcm, 7);
+	bcm430x_radio_selectchannel(bcm, 7, 0);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0023);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
@@ -817,7 +819,7 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 	bcm430x_radio_write16(bcm, 0x005C, 0x00B0);
 	bcm430x_radio_write16(bcm, 0x007A,
 	                      (bcm430x_radio_read16(bcm, 0x007A) & 0x00F8) | 0x0007);
-	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
+	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
 	bcm430x_phy_write(bcm, 0x0014, 0x0200);
 	bcm430x_radio_set_txpower_bg(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	bcm430x_radio_write16(bcm, 0x0052,
@@ -1206,7 +1208,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		regstack[14] = bcm430x_phy_read(bcm, 0x0814);
 		regstack[15] = bcm430x_phy_read(bcm, 0x0815);
 	}
-	bcm430x_radio_selectchannel(bcm, 6);
+	bcm430x_radio_selectchannel(bcm, 6, 0);
 	if (phy->connected) {
 		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x7FFF);
 		bcm430x_phy_write(bcm, 0x0802, regstack[1] & 0xFFFE);
@@ -1357,8 +1359,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0429, regstack[0]);
 		bcm430x_phy_write(bcm, 0x0802, regstack[1]);
 	}
-	TODO(); // FuncPlaceholder
-	bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel);
+	bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel, 1);
 }
 
 /* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
@@ -1366,6 +1367,8 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 {
 	u16 saved[2] = { 0 };
 	s16 sum; //FIXME: Should this be signed or unsigned?!
+	u16 desired, estimated;
+	u16 delta_radio = 0, delta_baseband = 0;
 
 	if (bcm->current_core->phy->savedpctlreg == 0xFFFF)
 		return;
@@ -1400,6 +1403,17 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 
 		sum = (saved[0] & 0x00FF) + (saved[0] >> 4) + (saved[1] & 0x00FF) + (saved[1] >> 4);
 		sum +=  (sum - 2 < 0) ? 5 : 2;
+
+#if 0
+		TODO(); //TODO: Implement EstimatePowerOut
+		TODO(); //TODO: Adjust the desired power out
+		delta_radio = -((estimated - desired) + 7) / 8;
+		delta_baseband = -(estimated - desired)/2 - 4 * delta_radio;
+		if ((delta_radio == 0) && (delta_baseband == 0))
+			bcm430x_lo_mark_current_used(bcm);
+		
+#endif
+
 
 		TODO(); //TODO: 'Continues'
 		break;

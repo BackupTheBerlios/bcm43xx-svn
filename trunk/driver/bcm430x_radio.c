@@ -1003,13 +1003,13 @@ void bcm430x_radio_init2060(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x0069, 0x07BE);
 	bcm430x_phy_write(bcm, 0x006A, 0x0000);
 
-	err = bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_A);
+	err = bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_A, 0);
 	assert(err == 0);
 	udelay(1000);
 }
 
 int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
-				u8 channel)
+				u8 channel, u8 workaround)
 {
         switch (bcm->current_core->phy->type) {
         case BCM430x_PHYTYPE_A:
@@ -1043,6 +1043,16 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
         case BCM430x_PHYTYPE_G:
 		if ((channel < 1) || (channel > 14))
 			return -EINVAL;
+		
+		/* Synthetic PU workaround */
+		if ((workaround) && ((bcm->current_core->radio->id & BCM430x_RADIO_ID_REVISIONMASK) < 6)) {
+			if (channel <= 10)
+				bcm430x_write16(bcm, 0x03F0, channel + 4);
+			else
+				bcm430x_write16(bcm, 0x03F0, 1);
+			udelay(100);
+		}
+
                 bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
 		                frequencies_bg[channel - 1]);
                 break;
@@ -1228,7 +1238,7 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0015, 0x8000);
 		bcm430x_phy_write(bcm, 0x0015, 0xCC00);
 		bcm430x_phy_write(bcm, 0x0015, ((bcm->current_core->phy->connected) ? 0x00C0 : 0x0000));
-		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG);
+		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
 		break;
 	default:
 		assert(0);
@@ -1242,6 +1252,9 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 	
 int bcm430x_radio_turn_off(struct bcm430x_private *bcm)
 {
+	if (!bcm->current_core->radio->enabled)
+		return 0;
+
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		bcm430x_radio_write16(bcm, 0x0004, 0x00FF);

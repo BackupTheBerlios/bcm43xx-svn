@@ -50,7 +50,7 @@ void bcm430x_radio_init2060(struct bcm430x_private *bcm);
 int bcm430x_radio_turn_on(struct bcm430x_private *bcm);
 int bcm430x_radio_turn_off(struct bcm430x_private *bcm);
 
-int bcm430x_radio_selectchannel(struct bcm430x_private *bcm, u8 channel);
+int bcm430x_radio_selectchannel(struct bcm430x_private *bcm, u8 channel, u8 workaround);
 void bcm430x_radio_set_txpower_a(struct bcm430x_private *bcm, u16 txpower);
 void bcm430x_radio_set_txpower_bg(struct bcm430x_private *bcm,
                                u16 baseband_attenuation, u16 attenuation,
