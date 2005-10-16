@@ -1138,6 +1138,7 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		bcmirq_handled(BCM430x_IRQ_XMIT_STATUS);
 	}
 
+	bcmirq_handled(BCM430x_IRQ_PIO_WORKAROUND); /* handled in top-half */
 #ifdef BCM430x_DEBUG
 	if (reason & ~_handled) {
 		printkl(KERN_WARNING PFX
@@ -1186,6 +1187,28 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	bcm->dma_reason[3] = bcm430x_read32(bcm, BCM430x_MMIO_DMA4_REASON)
 			     & 0x0001dc00;
 
+
+	if ((bcm->data_xfer_mode == BCM430x_DATAXFER_PIO) &&
+	    (bcm->current_core->rev < 3) &&
+	    (!(reason & BCM430x_IRQ_PIO_WORKAROUND))) {
+		/* Apply a PIO specific workaround to the dma_reasons */
+
+#define apply_pio_workaround(BASE, QNUM) \
+	do {										\
+	if (bcm430x_read16(bcm, BASE + BCM430x_PIO_RXCTL) & BCM430x_PIO_RXCTL_INIT)	\
+		bcm->dma_reason[QNUM] |= 0x00010000;					\
+	else										\
+		bcm->dma_reason[QNUM] &= ~0x00010000;					\
+	} while (0)
+
+		apply_pio_workaround(BCM430x_MMIO_PIO1_BASE, 0);
+		apply_pio_workaround(BCM430x_MMIO_PIO2_BASE, 1);
+		apply_pio_workaround(BCM430x_MMIO_PIO3_BASE, 2);
+		apply_pio_workaround(BCM430x_MMIO_PIO4_BASE, 3);
+
+#undef apply_pio_workaround
+	}
+
 	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON,
 			reason & mask);
 
@@ -1197,11 +1220,6 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 			bcm->dma_reason[2]);
 	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_REASON,
 			bcm->dma_reason[3]);
-
-	if (bcm->data_xfer_mode == BCM430x_DATAXFER_PIO &&
-	    bcm->current_core->rev < 3) {
-		/* TODO */
-	}
 
 	/* disable all IRQs. They are enabled again in the bottom half. */
 	bcm->irq_savedstate = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
@@ -2113,7 +2131,7 @@ static int bcm430x_pio_init(struct bcm430x_private *bcm)
 	bcm->current_core->pio->queue3 = queue;
 
 	if (bcm->current_core->rev < 3)
-		bcm->irq_savedstate |= BCM430x_IRQ_PIO_INIT;
+		bcm->irq_savedstate |= BCM430x_IRQ_PIO_WORKAROUND;
 
 	dprintk(KERN_INFO PFX "PIO initialized\n");
 	err = 0;
