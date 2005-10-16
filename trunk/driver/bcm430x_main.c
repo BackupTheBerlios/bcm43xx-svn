@@ -1073,6 +1073,22 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 	}
 }
 
+/* Debug helper for irq bottom-half to print all reason registers. */
+#define bcmirq_print_reasons(description) \
+	do {											\
+		dprintkl(KERN_ERR PFX description "\n"						\
+			 KERN_ERR PFX "  Generic Reason: 0x%08x\n"				\
+			 KERN_ERR PFX "  DMA reasons:    0x%08x, 0x%08x, 0x%08x, 0x%08x\n"	\
+			 KERN_ERR PFX "  DMA TX status:  0x%08x, 0x%08x, 0x%08x, 0x%08x\n",	\
+			 reason,								\
+			 bcm->dma_reason[0], bcm->dma_reason[1],				\
+			 bcm->dma_reason[2], bcm->dma_reason[3],				\
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_STATUS),	\
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA2_BASE + BCM430x_DMA_TX_STATUS),	\
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA3_BASE + BCM430x_DMA_TX_STATUS),	\
+			 bcm430x_read32(bcm, BCM430x_MMIO_DMA4_BASE + BCM430x_DMA_TX_STATUS));	\
+	} while (0)
+
 /* Interrupt handler bottom-half */
 static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 {
@@ -1088,6 +1104,30 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	reason = bcm->irq_reason;
+
+	if (unlikely(reason & BCM430x_IRQ_TXFIFO_ERROR)) {
+		/* This is a fatal error. It should never happen.
+		 * We have to reset the chip.
+		 */
+		bcmirq_print_reasons("TX FIFO ERROR");
+		bcm430x_recover_from_fatal(bcm, BCM430x_FATAL_TXFIFO);
+		spin_unlock_irqrestore(&bcm->lock, flags);
+		return;
+	}
+
+	if (unlikely(reason & BCM430x_IRQ_XMIT_ERROR)) {
+		/* TX error. We get this when Template Ram is written in wrong endianess
+		 * in dummy_tx(). We also get this if something is wrong with the TX data
+		 * on DMA or PIO queues (tx header issue??).
+		 * It seems like we do not always have to reset the chip here. If the error
+		 * is triggered by dummy_tx(), we should reset the chip. Do not reset, if it was
+		 * triggered by a normal transmission.
+		 * At least this is what we figured out by testing.
+		 * FIXME
+		 */
+		bcmirq_print_reasons("XMIT ERROR");
+		bcmirq_handled(BCM430x_IRQ_XMIT_ERROR);
+	}
 
 	if (reason & BCM430x_IRQ_BEACON) {
 		/*TODO*/
@@ -1107,20 +1147,6 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	if (reason & BCM430x_IRQ_PMQ) {
 		/*TODO*/
 		//bcmirq_handled(BCM430x_IRQ_PMQ);
-	}
-
-	if (unlikely(reason & BCM430x_IRQ_TXFIFO_ERROR)) {
-		dprintkl(KERN_ERR PFX "TX FIFO error. DMA reasons: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n"
-			 KERN_ERR PFX "               DMA TX stat: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-			 bcm->dma_reason[0], bcm->dma_reason[1],
-			 bcm->dma_reason[2], bcm->dma_reason[3],
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_STATUS),
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA2_BASE + BCM430x_DMA_TX_STATUS),
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA3_BASE + BCM430x_DMA_TX_STATUS),
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA4_BASE + BCM430x_DMA_TX_STATUS));
-		bcm430x_recover_from_fatal(bcm, BCM430x_FATAL_TXFIFO);
-		spin_unlock_irqrestore(&bcm->lock, flags);
-		return;
 	}
 
 	if (reason & BCM430x_IRQ_SCAN) {
@@ -1154,6 +1180,8 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	bcm430x_interrupt_enable(bcm, bcm->irq_savedstate);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
+
+#undef bcmirq_print_reasons
 
 /* Interrupt handler top-half */
 static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
@@ -2389,6 +2417,7 @@ static void bcm430x_chip_reset(void *_bcm)
 
 	netif_tx_disable(bcm->net_dev);
 	bcm430x_free_board(bcm);
+	bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
 	err = bcm430x_init_board(bcm);
 	if (err) {
 		printk(KERN_ERR PFX "Chip reset failed!\n");

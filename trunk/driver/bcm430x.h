@@ -266,6 +266,7 @@
 #define BCM430x_IRQ_REG124		(1 << 5) /*FIXME: purpose? */
 #define BCM430x_IRQ_PMQ			(1 << 6) /*FIXME: purpose? */
 #define BCM430x_IRQ_PIO_WORKAROUND	(1 << 8)
+#define BCM430x_IRQ_XMIT_ERROR		(1 << 11)
 #define BCM430x_IRQ_TXFIFO_ERROR	(1 << 15)
 #define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
 #define BCM430x_IRQ_BGNOISE		(1 << 18)
