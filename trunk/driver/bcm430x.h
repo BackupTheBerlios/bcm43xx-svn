@@ -7,7 +7,6 @@
 #include <linux/interrupt.h>
 #include <linux/stringify.h>
 #include <net/ieee80211.h>
-#include <asm/semaphore.h>
 #include <asm/atomic.h>
 #include <asm/io.h>
 
@@ -488,11 +487,7 @@ struct bcm430x_private {
 	void *mmio_addr;
 	unsigned int mmio_len;
 
-	/* Spinlock to protect all data in this structure,
-	 * which is accessed from irq context. */ //TODO: Explicitely state which members are the data.
 	spinlock_t lock;
-	/* Semaphore to protect all other data. */
-	struct semaphore sem;
 
 	/* Driver status flags BCM430x_STAT_XXX */
 	u32 status;

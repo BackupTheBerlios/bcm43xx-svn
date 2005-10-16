@@ -51,13 +51,13 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 			       char *extra)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
 	int i = 0;
 	char suffix[6] = { 0 };
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-	down(&bcm->sem);
-
+	spin_lock_irqsave(&bcm->lock, flags);
 	if ((bcm->phy[0].type == BCM430x_PHYTYPE_A) || (bcm->phy[1].type == BCM430x_PHYTYPE_A)) {
 		suffix[i++] = 'a';
 		suffix[i++] = '/';
@@ -69,8 +69,8 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 	} else {
 		suffix[i++] = 'b';
 	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
 	snprintf(data->name, IFNAMSIZ, "IEEE 802.11%s", suffix);
-	up(&bcm->sem);
 
 	return 0;
 }
@@ -81,10 +81,12 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 				      char *extra)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
 	u8 channel;
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
+	spin_lock_irqsave(&bcm->lock, flags);
 #if 0
 	if ((data->freq.m == 0) && (data->freq.m <= 1000)) {
 		channel = data->freq.m;
@@ -97,6 +99,7 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 	TODO(); //TODO: Actual channel selection, based on current_core, etc.
 	printk_wx(KERN_INFO PFX "Selected channel: %d\n", channel);
 #endif
+	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return 0;
 }
@@ -107,6 +110,8 @@ static int bcm430x_wx_get_channelfreq(struct net_device *net_dev,
 				      char *extra)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int err = -ENODEV;
 	static const u16 frequencies_bg[14] = {
 	        12, 17, 22, 27,
 		32, 37, 42, 47,
@@ -116,19 +121,17 @@ static int bcm430x_wx_get_channelfreq(struct net_device *net_dev,
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-	down(&bcm->sem);
-
-	if (bcm->current_core->radio->channel == 0xFFFF) {
-		up(&bcm->sem);
-		return -ENODEV;
-	}
-
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (bcm->current_core->radio->channel == 0xFFFF)
+		goto out_unlock;
 	data->freq.e = 0;
 	data->freq.m = bcm->current_core->radio->channel;
 
-	up(&bcm->sem);
-	
-	return 0;
+	err = 0;
+out_unlock:
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	return err;
 }
 
 static int bcm430x_wx_set_mode(struct net_device *net_dev,
@@ -141,7 +144,6 @@ static int bcm430x_wx_set_mode(struct net_device *net_dev,
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-	down(&bcm->sem);
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (data->mode == IW_MODE_AUTO)
 		bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
@@ -152,7 +154,6 @@ static int bcm430x_wx_set_mode(struct net_device *net_dev,
 		printk(KERN_ERR PFX "TODO: mode not committed!\n");
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
-	up(&bcm->sem);
 
 	return 0;
 }
@@ -163,12 +164,13 @@ static int bcm430x_wx_get_mode(struct net_device *net_dev,
 			       char *extra)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-	down(&bcm->sem);
+	spin_lock_irqsave(&bcm->lock, flags);
 	data->mode = bcm->ieee->iw_mode;
-	up(&bcm->sem);
+	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return 0;
 }
@@ -371,7 +373,6 @@ static int bcm430x_wx_set_defaultrate(struct net_device *net_dev,
 		goto out;
 	}
 
-	down(&bcm->sem);
 	spin_lock_irqsave(&bcm->lock, flags);
 
 	if (is_ofdm) {
@@ -389,7 +390,6 @@ static int bcm430x_wx_set_defaultrate(struct net_device *net_dev,
 	err = 0;
 out_unlock:	
 	spin_unlock_irqrestore(&bcm->lock, flags);
-	up(&bcm->sem);
 out:
 	return err;
 }
@@ -400,12 +400,12 @@ static int bcm430x_wx_get_defaultrate(struct net_device *net_dev,
 				      char *extra)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
 	int err = -EINVAL;
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-	down(&bcm->sem);
-
+	spin_lock_irqsave(&bcm->lock, flags);
 	switch (bcm->current_core->phy->default_bitrate) {
 	case IEEE80211_CCK_RATE_1MB:
 		data->bitrate.value = 1000000;
@@ -449,7 +449,8 @@ static int bcm430x_wx_get_defaultrate(struct net_device *net_dev,
 	}
 	err = 0;
 out_up:
-	up(&bcm->sem);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return err;
 }
 
@@ -543,9 +544,7 @@ static int bcm430x_wx_set_encoding(struct net_device *net_dev,
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-	down(&bcm->sem);
 	err = ieee80211_wx_set_encode(bcm->ieee, info, data, extra);
-	up(&bcm->sem);
 
 	return err;
 }
@@ -560,9 +559,7 @@ static int bcm430x_wx_get_encoding(struct net_device *net_dev,
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-	down(&bcm->sem);
 	err = ieee80211_wx_get_encode(bcm->ieee, info, data, extra);
-	up(&bcm->sem);
 
 	return err;
 }

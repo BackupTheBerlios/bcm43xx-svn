@@ -2649,10 +2649,12 @@ static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
 	int i, err;
+	unsigned long flags;
 
+	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->status &= ~BCM430x_STAT_BOARDINITDONE;
 	bcm->status |= BCM430x_STAT_DEVSHUTDOWN;
-	mb();
+	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	bcm430x_periodic_tasks_delete(bcm);
 
@@ -2674,9 +2676,11 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	int i, err;
 	int num_80211_cores;
 	int connect_phy;
+	unsigned long flags;
 
+	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->status &= ~ BCM430x_STAT_DEVSHUTDOWN;
-	mb();
+	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	err = bcm430x_pctl_set_crystal(bcm, 1);
 	if (err)
@@ -2733,8 +2737,9 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 
 	bcm430x_periodic_tasks_setup(bcm);
 
-	mb();
+	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->status |= BCM430x_STAT_BOARDINITDONE;
+	spin_unlock_irqrestore(&bcm->lock, flags);
 	assert(err == 0);
 out:
 	return err;
@@ -3032,14 +3037,8 @@ static int bcm430x_net_open(struct net_device *net_dev)
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err = 0;
 
-	down(&bcm->sem);
-	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE))
 		err = bcm430x_init_board(bcm);
-		if (err)
-			goto out_up;
-	}
-out_up:
-	up(&bcm->sem);
 
 	return err;
 }
@@ -3048,12 +3047,8 @@ static int bcm430x_net_stop(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
-	down(&bcm->sem);
-
 	bcm430x_disable_interrupts_sync(bcm);
 	bcm430x_free_board(bcm);
-
-	up(&bcm->sem);
 
 	return 0;
 }
@@ -3111,7 +3106,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
 	spin_lock_init(&bcm->lock);
-	init_MUTEX(&bcm->sem);
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
 		     (unsigned long)bcm);
