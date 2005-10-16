@@ -398,7 +398,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	u8 fallback_bitrate;
 	u16 tmp;
 
-	/* Values from the 80211 header */
+	/* Values from the 80211 header.
+	 * Note that the values are _not_ in CPU order (but in LE)
+	 */
 	const u16 *frame_control;
 	const unsigned char *macaddr1;
 	const u16 *duration_id;
@@ -482,9 +484,11 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 
 	/* Set the FLAGS field */
 	tmp = 0;
-	if (!is_multicast_ether_addr((const u8 *)macaddr1))
+	if (!is_multicast_ether_addr((const u8 *)macaddr1) ||
+	    is_broadcast_ether_addr((const u8 *)macaddr1))
 		tmp |= BCM430x_TXHDRFLAG_NOMCAST;
-	tmp |= 0x10; // FIXME: unknown meaning.
+	if (1 /* FIXME: PS poll?? */)
+		tmp |= 0x10; // FIXME: unknown meaning.
 	if (fallback_ofdm_modulation)
 		tmp |= BCM430x_TXHDRFLAG_FALLBACKOFDM;
 	if (is_first_fragment)
