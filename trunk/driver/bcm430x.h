@@ -381,8 +381,8 @@ struct bcm430x_sprominfo {
 	u8 idle_tssi_tgt_aphy;
 	u8 idle_tssi_tgt_bgphy;
 	u16 boardflags;
-	u8 antennagain_aphy;
-	u8 antennagain_bgphy;
+	u16 antennagain_aphy;
+	u16 antennagain_bgphy;
 	u16 spromversion;
 };
 

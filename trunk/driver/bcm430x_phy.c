@@ -1421,7 +1421,7 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 }
 
 /* http://bcm-specs.sipsolutions.net/TSSI_to_DBM_Table */
-static void bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
+void bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
 {
 	if ((bcm->chip_id == 0x4301) && (bcm->current_core->radio->version == 0x2050)) {
 		bcm->current_core->phy->idle_tssi = 0x34; //FIXME: Is this ok?
@@ -1453,7 +1453,6 @@ int bcm430x_phy_init(struct bcm430x_private *bcm)
 {
 	int initialized = 0;
 
-	bcm430x_phy_init_tssi2dbm_table(bcm);
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		if ((bcm->current_core->phy->rev == 2) || (bcm->current_core->phy->rev == 3)) {

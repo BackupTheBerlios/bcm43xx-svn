@@ -698,8 +698,10 @@ static int bcm430x_read_sprom(struct bcm430x_private *bcm)
 
 	/* antenna gain */
 	value = sprom_read(bcm, BCM430x_SPROM_ANTENNA_GAIN);
-	bcm->sprom.antennagain_aphy = (value & 0x00FF);
-	bcm->sprom.antennagain_bgphy = (value & 0xFF00) >> 8;
+	if (value == 0x0000 || value == 0xFFFF)
+		value = 0x0202;
+	bcm->sprom.antennagain_aphy = (value & 0x00FF) * 4;
+	bcm->sprom.antennagain_bgphy = ((value & 0xFF00) >> 8) * 4;
 
 	/* SPROM version, crc8 */
 	value = sprom_read(bcm, BCM430x_SPROM_VERSION);
@@ -3088,6 +3090,7 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 			goto err_chipset_detach;
 
 		bcm430x_radio_turn_off(bcm);
+		bcm430x_phy_init_tssi2dbm_table(bcm);
 		bcm430x_wireless_core_disable(bcm);
 	}
 
