@@ -3132,18 +3132,12 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	if (modparam_pio) {
 		bcm->pio_mode = 1;
 	} else {
-
-bcm->pio_mode = 0;
-//FIXME: Something like that, instead of the above?
-#if 0
-		if (pci_set_dma_mask(pdev, DMA_29BIT_MASK) == 0 &&
-		    pci_set_consistent_dma_mask(pdev, DMA_29BIT_MASK) == 0)
+		if (pci_set_dma_mask(pdev, DMA_30BIT_MASK) == 0) {
 			bcm->pio_mode = 0;
-		else {
+		} else {
 			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
 			bcm->pio_mode = 1;
 		}
-#endif
 	}
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
