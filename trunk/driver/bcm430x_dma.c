@@ -653,6 +653,11 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 		ring->tx = 1;
 	INIT_LIST_HEAD(&ring->xfers);
 
+	/* Turn off hardware byteswapping. That's for dummytx() and PIO. */
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+			bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+			& ~ BCM430x_SBF_XFER_REG_BYTESWAP);
+
 	err = alloc_ringmemory(ring);
 	if (err)
 		goto err_kfree_meta;

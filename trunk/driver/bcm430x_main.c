@@ -151,15 +151,16 @@ static int bcm430x_init_board(struct bcm430x_private *bcm);
 
 static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 {
-	int hwswap;
+	u32 oldsbf;
 
-	hwswap = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	hwswap &= BCM430x_SBF_XFER_REG_BYTESWAP;
-	if (!hwswap)
-		val = swab32(val);
+	oldsbf = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+			oldsbf | BCM430x_SBF_XFER_REG_BYTESWAP);
 
 	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
 	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, val);
+
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, oldsbf);
 }
 
 void bcm430x_shm_control_word(struct bcm430x_private *bcm,

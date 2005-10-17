@@ -29,12 +29,11 @@
 
 
 static inline
-u16 bcm430x_pio_swapdata(struct bcm430x_pioqueue *queue,
-			 u16 data)
+void assert_hwswap(struct bcm430x_pioqueue *queue)
 {
-	if (!queue->hwswap)
-		return swab16(data);
-	return data;
+	assert(bcm430x_read32(queue->bcm,
+			      BCM430x_MMIO_STATUS_BITFIELD)
+	       & BCM430x_SBF_XFER_REG_BYTESWAP);
 }
 
 static inline
@@ -104,7 +103,6 @@ static inline
 void tx_octet(struct bcm430x_pioqueue *queue,
 	      u8 octet)
 {
-	//FIXME: data endianess?
 	if (queue->bcm->current_core->rev < 3) {
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, octet);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXCTL, BCM430x_PIO_TXCTL_WRITEHI);
@@ -124,7 +122,7 @@ void tx_data(struct bcm430x_pioqueue *queue,
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)packet) );
-		data = bcm430x_pio_swapdata(queue, data);
+		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
 		i += 2;
 	}
@@ -132,7 +130,7 @@ void tx_data(struct bcm430x_pioqueue *queue,
 			  BCM430x_PIO_TXCTL_WRITELO | BCM430x_PIO_TXCTL_WRITEHI);
 	for ( ; i < octets; i += 2) {
 		data = be16_to_cpu( *((u16 *)(packet + i)) );
-		data = bcm430x_pio_swapdata(queue, data);
+		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
 	}
 	if (octets % 2)
@@ -147,7 +145,7 @@ void tx_complete(struct bcm430x_pioqueue *queue,
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)(skb->data + skb->len - 2)) );
-		bcm430x_pio_swapdata(queue, data);
+		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXCTL,
 				  BCM430x_PIO_TXCTL_WRITEHI | BCM430x_PIO_TXCTL_COMPLETE);
@@ -303,9 +301,8 @@ struct bcm430x_pioqueue * bcm430x_setup_pioqueue(struct bcm430x_private *bcm,
 	INIT_WORK(&queue->txwork, txwork_handler, queue);
 
 	value = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	if (value & BCM430x_SBF_XFER_REG_BYTESWAP)
-		queue->hwswap = 1;
-printk(KERN_INFO PFX "PIO hwswap %u\n", queue->hwswap);
+	value |= BCM430x_SBF_XFER_REG_BYTESWAP;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value);
 
 	qsize = bcm430x_read16(bcm, queue->mmio_base + BCM430x_PIO_TXQBUFSIZE);
 	if (qsize <= BCM430x_PIO_TXQADJUST) {

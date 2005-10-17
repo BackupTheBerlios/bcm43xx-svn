@@ -52,8 +52,7 @@ struct bcm430x_pioqueue {
 	struct bcm430x_private *bcm;
 	u16 mmio_base;
 
-	u32 hwswap:1,
-	    tx_suspended:1;
+	u8 tx_suspended:1;
 
 	/* Adjusted size of the device internal TX buffer. */
 	u16 tx_devq_size;
