@@ -930,9 +930,16 @@ static inline void dma_completion_irq(struct bcm430x_dmaring *ring,
 void fastcall
 bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
 			   u16 cookie)
-{
+{//FIXME: need this function? I think what we want is xmitstatus. See below.
 	dma_completion_irq(bcm->current_core->dma->tx_ring1,
 			   cookie);
+}
+
+void fastcall
+bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
+			      struct bcm430x_xmitstatus *status)
+{
+	/*TODO*/
 }
 
 /* vim: set ts=8 sw=8 sts=8: */

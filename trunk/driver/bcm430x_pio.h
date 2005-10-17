@@ -27,25 +27,26 @@
 /* PIO tuning knobs */
 #define BCM430x_PIO_TXTIMEOUT		(HZ * 10) /* jiffies */
 #define BCM430x_PIO_MAXTXPACKETS	20
+#define BCM430x_PIO_MAXTXDEVQPACKETS	31
 #define BCM430x_PIO_TXQADJUST		80
 
 
 struct bcm430x_pioqueue;
+struct bcm430x_xmitstatus;
+
+struct bcm430x_pio_txcontext {
+	u8 xmitted_frags;
+};
 
 struct bcm430x_pio_txpacket {
 	struct bcm430x_pioqueue *queue;
 	struct ieee80211_txb *txb;
 	struct list_head list;
 	struct timer_list timeout;
+	struct bcm430x_pio_txcontext ctx;
 };
 
 #define pio_txpacket_getindex(packet) ((int)(packet - packet->queue->__tx_packets_cache)) 
-
-struct bcm430x_pio_txcontext {
-	u8 nr_frags;
-	u8 cur_frag;
-	u16 cookie;
-};
 
 struct bcm430x_pioqueue {
 	struct bcm430x_private *bcm;
@@ -64,8 +65,6 @@ struct bcm430x_pioqueue {
 	struct list_head txfree;
 	struct list_head txqueue;
 	int nr_txqueued;
-	struct list_head txfired;
-	int nr_txfired;
 	spinlock_t txlock;
 	struct work_struct txwork;
 	struct bcm430x_pio_txpacket __tx_packets_cache[BCM430x_PIO_MAXTXPACKETS];
@@ -78,5 +77,8 @@ void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue);
 
 int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
 			     struct ieee80211_txb *txb);
+
+void FASTCALL(bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
+					    struct bcm430x_xmitstatus *status));
 
 #endif /* BCM430x_PIO_H_ */

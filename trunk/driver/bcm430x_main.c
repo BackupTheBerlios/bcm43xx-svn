@@ -918,7 +918,7 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 {
 	u32 flags = 0x00040000;
 
-	if ((bcm430x_core_enabled(bcm)) && (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)) {
+	if ((bcm430x_core_enabled(bcm)) && (!bcm->pio_mode)) {
 		/* reset all used DMA controllers. */
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
 		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA2_BASE);
@@ -1001,57 +1001,67 @@ out:
 }
 
 /* Read the Transmit Status from MMIO and build the Transmit Status array. */
-static inline int build_transmit_status_array(struct bcm430x_private *bcm,
-					      unsigned char *status)
+static inline int build_transmit_status(struct bcm430x_private *bcm,
+					struct bcm430x_hwxmitstatus *status)
 {
 	u32 v170;
 	u32 v174;
+	u8 tmp[2];
 
 	v170 = bcm430x_read32(bcm, 0x170);
 	if (v170 == 0x00000000)
 		return -1;
 	v174 = bcm430x_read32(bcm, 0x174);
 
-	memset(status, 0, BCM430x_XMIT_STAT_ARRAY_SIZE);
+	memset(status, 0, sizeof(*status));
 
 	/* Internal Sending ID. */
-	*((u16 *)(status + 4)) = cpu_to_le16( (u16)(v170 >> 16) );
+	status->cookie = cpu_to_le16( (v170 >> 16) & 0x0000FFFF );
 	/* 2 counters (both 4 bits) in the upper byte and flags in the lower byte. */
-	*((u16 *)(status + 6)) = cpu_to_le16( (u16)((v170 & 0xfff0) | ((v170 & 0xf) >> 1)) );
-	/* XXX: 802.11 sequence number? */
-	*((u16 *)(status + 10)) = cpu_to_le16( (u16)(v174 & 0xffff) );
-	/* XXX: Unknown. */
-	*((u16 *)(status + 12)) = cpu_to_le16( (u16)((v174 >> 16) & 0xff) );
+	*((u16 *)tmp) = cpu_to_le16( (u16)((v170 & 0xfff0) | ((v170 & 0xf) >> 1)) );
+	status->flags = tmp[0];
+	status->cnt1 = (tmp[1] & 0x0f); //FIXME: is cnt1 really the lower counter?
+	status->cnt2 = (tmp[1] & 0xf0) >> 4;
+	/* FIXME: 802.11 sequence number? */
+	status->seq = cpu_to_le16( (u16)(v174 & 0xffff) );
+	/* FIXME: Unknown. */
+	status->unknown = cpu_to_le16( (u16)((v174 >> 16) & 0xff) );
 
 	return 0;
 }
 
-static inline void interpret_transmit_status_array(struct bcm430x_private *bcm,
-						   unsigned char *status)
+static inline void interpret_transmit_status(struct bcm430x_private *bcm,
+					     struct bcm430x_hwxmitstatus *hwstatus)
 {
-	u16 internal_id;
-	u8 flags;
-	u8 counter1, counter2;
+	struct bcm430x_xmitstatus status;
 
-	flags = *((u8 *)(status + 6));
-	if (flags & 0x20) {
+	status.cookie = le16_to_cpu(hwstatus->cookie);
+	status.flags = hwstatus->flags;
+	status.cnt1 = hwstatus->cnt1;
+	status.cnt2 = hwstatus->cnt2;
+	status.seq = le16_to_cpu(hwstatus->seq);
+	status.unknown = le16_to_cpu(hwstatus->unknown);
+
+	if (status.flags & 0x20) {
 printkl(KERN_INFO PFX "Transmit Status ignored\n");
 		return;
 	}
 	/* TODO: What is the meaning of the flags? Tested bits are: 0x01, 0x02, 0x10, 0x40, 0x04, 0x08 */
-	counter1 = ( *((u8 *)(status + 7)) & 0xf0) >> 4;
-	counter2 = ( *((u8 *)(status + 7)) & 0x0f);
-	internal_id = le16_to_cpu( *((u16 *)(status + 4)) );
 
 printkl(KERN_INFO PFX "Transmit Status received:  flags: 0x%02x,  "
-		      "cnt1: 0x%02x,  cnt2: 0x%02x,  ID: 0x%04x\n",
-	flags, counter1, counter2, internal_id);
-	/*TODO*/
+		      "cnt1: 0x%02x,  cnt2: 0x%02x,  cookie: 0x%04x,  "
+		      "seq: 0x%04x,  unk: 0x%04x\n",
+	status.flags, status.cnt1, status.cnt2, status.cookie, status.seq, status.unknown);
+
+	if (bcm->pio_mode)
+		bcm430x_pio_handle_xmitstatus(bcm, &status);
+	else
+		bcm430x_dma_handle_xmitstatus(bcm, &status);
 }
 
 static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 {
-	unsigned char transmit_status[BCM430x_XMIT_STAT_ARRAY_SIZE];
+	struct bcm430x_hwxmitstatus transmit_status;
 	int res;
 
 	assert(bcm->current_core->id == BCM430x_COREID_80211);
@@ -1061,19 +1071,18 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 	while (1) {
 		if (bcm->current_core->rev < 5) {
 			TODO(); /* TODO: The status is received via the last DMA controller or PIO queue 3. */
-			if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA) {
+			if (bcm->pio_mode) {
 				/* XXX */
 			} else {
-				assert(bcm->data_xfer_mode == BCM430x_DATAXFER_PIO);
 				/* XXX */
 			}
 			return;
 		} else {
-			res = build_transmit_status_array(bcm, transmit_status);
+			res = build_transmit_status(bcm, &transmit_status);
 			if (res)
 				break;
 		}
-		interpret_transmit_status_array(bcm, transmit_status);
+		interpret_transmit_status(bcm, &transmit_status);
 	}
 }
 
@@ -1228,7 +1237,7 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 			     & 0x0001dc00;
 
 
-	if ((bcm->data_xfer_mode == BCM430x_DATAXFER_PIO) &&
+	if ((bcm->pio_mode) &&
 	    (bcm->current_core->rev < 3) &&
 	    (!(reason & BCM430x_IRQ_PIO_WORKAROUND))) {
 		/* Apply a PIO specific workaround to the dma_reasons */
@@ -1796,7 +1805,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	value32 |= 0x100000; //FIXME: What's this? Is this correct?
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
 
-	if (bcm->data_xfer_mode == BCM430x_DATAXFER_PIO) {
+	if (bcm->pio_mode) {
 		//FIXME: write16 correct?
 		bcm430x_write16(bcm, 0x0210, 0x0100);
 		bcm430x_write16(bcm, 0x0230, 0x0100);
@@ -2396,12 +2405,11 @@ static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 	if (bcm->current_core->rev >= 5)
 		bcm430x_write16(bcm, 0x043C, 0x000C);
 
-	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA) {
+	if (!bcm->pio_mode) {
 		err = bcm430x_dma_init(bcm);
 		if (err)
 			goto err_chip_cleanup;
 	} else {
-		assert(bcm->data_xfer_mode == BCM430x_DATAXFER_PIO);
 		err = bcm430x_pio_init(bcm);
 		if (err)
 			goto err_chip_cleanup;
@@ -2988,10 +2996,10 @@ static inline int bcm430x_tx(struct bcm430x_private *bcm,
 {
 	int err = -ENODEV;
 
-	if (bcm->data_xfer_mode == BCM430x_DATAXFER_DMA)
-		err = bcm430x_dma_transfer_txb(bcm, txb);
-	else
+	if (bcm->pio_mode)
 		err = bcm430x_pio_transfer_txb(bcm, txb);
+	else
+		err = bcm430x_dma_transfer_txb(bcm, txb);
 
 	return err;
 }
@@ -3115,17 +3123,20 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		goto err_free_netdev;
 	}
 
-	bcm->data_xfer_mode = BCM430x_DATAXFER_PIO;
-	if (!modparam_pio) {
+	if (modparam_pio) {
+		bcm->pio_mode = 1;
+	} else {
 
-bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
+bcm->pio_mode = 0;
 //FIXME: Something like that, instead of the above?
 #if 0
 		if (pci_set_dma_mask(pdev, DMA_29BIT_MASK) == 0 &&
 		    pci_set_consistent_dma_mask(pdev, DMA_29BIT_MASK) == 0)
-			bcm->data_xfer_mode = BCM430x_DATAXFER_DMA;
-		else
+			bcm->pio_mode = 0;
+		else {
 			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
+			bcm->pio_mode = 1;
+		}
 #endif
 	}
 

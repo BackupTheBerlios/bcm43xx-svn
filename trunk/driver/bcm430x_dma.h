@@ -95,6 +95,7 @@
 
 struct sk_buff;
 struct bcm430x_private;
+struct bcm430x_xmitstatus;
 
 
 struct bcm430x_dmadesc {
@@ -188,5 +189,8 @@ int FASTCALL(bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
 
 void FASTCALL(bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
 					 u16 cookie));
+
+void FASTCALL(bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
+					    struct bcm430x_xmitstatus *status));
 
 #endif /* BCM430x_DMA_H_ */

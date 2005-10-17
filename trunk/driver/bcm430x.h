@@ -23,7 +23,6 @@
 
 #define BCM430x_IO_SIZE			8192
 #define BCM430x_REG_ACTIVE_CORE		0x80
-#define BCM430x_XMIT_STAT_ARRAY_SIZE	14 /* byte */
 
 /* Interrupt Control PCI Configuration Register. (Only on PCI cores with rev >= 6) */
 #define BCM430x_PCICFG_ICR		0x94
@@ -458,10 +457,6 @@ struct bcm430x_coreinfo {
 	struct bcm430x_pio *pio;
 };
 
-/* data_xfer_mode values */
-#define BCM430x_DATAXFER_DMA			0x01
-#define BCM430x_DATAXFER_PIO			0x02
-
 /* Driver STATUS values */
 #define BCM430x_STAT_BOARDINITDONE		(1 << 0)
 #define BCM430x_STAT_DEVSHUTDOWN		(1 << 1)	// Are we shutting down?
@@ -491,6 +486,7 @@ struct bcm430x_private {
 
 	/* Driver status flags BCM430x_STAT_XXX */
 	u32 status;
+	u32 pio_mode:1;
 
 	u16 board_vendor;
 	u16 board_type;
@@ -543,9 +539,6 @@ struct bcm430x_private {
 	struct tasklet_struct isr_tasklet;
 	/* Custom driver work queue. */
 	struct workqueue_struct *workqueue;
-
-	/* How is data transfered from the chip to the CPU? DMA or PIO. */
-	u8 data_xfer_mode;
 
 	/* Periodic tasks */
 	struct work_struct periodic_work0;

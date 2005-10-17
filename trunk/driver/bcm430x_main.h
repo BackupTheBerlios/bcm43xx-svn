@@ -28,6 +28,9 @@
 
 */
 
+#ifndef BCM430x_MAIN_H_
+#define BCM430x_MAIN_H_
+
 #include "bcm430x.h"
 
 
@@ -96,6 +99,26 @@ void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 				     const int is_first_fragment,
 				     const u16 cookie));
 
+struct bcm430x_hwxmitstatus {
+	PAD_BYTES(2);
+	PAD_BYTES(2);
+	u16 cookie;
+	u8 flags;
+	u8 cnt1:4,
+	   cnt2:4;
+	PAD_BYTES(2);
+	u16 seq; //FIXME
+	u16 unknown; //FIXME
+} __attribute__((__packed__));
+
+struct bcm430x_xmitstatus {
+	u16 cookie;
+	u8 flags;
+	u8 cnt1:4,
+	   cnt2:4;
+	u16 seq;
+	u16 unknown; //FIXME
+};
 
 /* write the SHM Control word with a 32bit word offset */
 void bcm430x_shm_control_word(struct bcm430x_private *bcm,
@@ -138,3 +161,6 @@ int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset, u16 *val);
 int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset, u32 *val);
 int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset, u16 val);
 int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset, u32 val);
+
+
+#endif /* BCM430x_MAIN_H_ */
