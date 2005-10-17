@@ -939,8 +939,9 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 		bcm430x_phy_connect(bcm, connect_phy);
 		bcm430x_core_enable(bcm, flags);
 		bcm430x_write16(bcm, 0x03E6, 0x0000);
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00000400);
-		//XXX: bcm->dma_savestatus[0--3] = { 0, 0, 0, 0 };
+		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
+				bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
+				| BCM430x_SBF_400);
 	}
 }
 
