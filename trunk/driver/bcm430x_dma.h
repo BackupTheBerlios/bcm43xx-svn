@@ -189,9 +189,6 @@ int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
 int FASTCALL(bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
 				      struct ieee80211_txb *txb));
 
-void FASTCALL(bcm430x_dma_completion_irq(struct bcm430x_private *bcm,
-					 u16 cookie));
-
 void FASTCALL(bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 					    struct bcm430x_xmitstatus *status));
 
