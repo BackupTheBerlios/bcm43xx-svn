@@ -1524,17 +1524,18 @@ int bcm430x_phy_init(struct bcm430x_private *bcm)
 
 void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 {
+	u16 antennadiv;
 	u16 offset;
 	u32 ucodeflags;
 
-	if ((bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
-	    && (bcm->current_core->phy->rev == 3)) {
-		bcm->current_core->phy->antenna_diversity = 0;
-	}
+	antennadiv = bcm->current_core->phy->antenna_diversity;
 
-	if (bcm->current_core->phy->antenna_diversity == 0xFFFF) {
-		bcm->current_core->phy->antenna_diversity = 0x180;
-	}
+	if ((bcm->current_core->phy->type == BCM430x_PHYTYPE_A) && antennadiv == 3)
+		antennadiv = 0;
+	if (antennadiv == 0xFFFF)
+		antennadiv = 3;
+
+	assert(antennadiv <= 3);
 
 	ucodeflags = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED,
 					BCM430x_UCODEFLAGS_OFFSET);
@@ -1544,46 +1545,63 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
-		offset = 0x0000;
 	case BCM430x_PHYTYPE_G:
-		offset = 0x0400;
+		if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
+			offset = 0x0000;
+		else
+			offset = 0x0400;
 
-		if (bcm->current_core->phy->antenna_diversity == 0x100) {
-			bcm430x_phy_write(bcm, offset + 1, (bcm430x_phy_read(bcm, offset + 1) & 0x7E7F) | 0x0180);
+		if (antennadiv == 2) {
+			bcm430x_phy_write(bcm, offset + 1,
+					  (bcm430x_phy_read(bcm, offset + 1)
+					   & 0x7E7F) | (antennadiv << 7));
 		} else {
-			bcm430x_phy_write(bcm, offset + 1, (bcm430x_phy_read(bcm, offset + 1) & 0x7E7F) | bcm->current_core->phy->antenna_diversity);
+			bcm430x_phy_write(bcm, offset + 1,
+					  (bcm430x_phy_read(bcm, offset + 1)
+					   & 0x7E7F) | (3/*automatic*/ << 7));
 		}
-
-		if (bcm->current_core->phy->antenna_diversity == 0x100) {
-			bcm430x_phy_write(bcm, offset + 0x002B, (bcm430x_phy_read(bcm, offset + 0x002B) & 0xFEFF) | 0x0100);
-		}
-
-		if (bcm->current_core->phy->antenna_diversity > 0x100) {
-			bcm430x_phy_write(bcm, offset + 0x002B, bcm430x_phy_read(bcm, offset + 0x002B) & 0xFEFF);
+		if (antennadiv == 2) {
+			bcm430x_phy_write(bcm, offset + 0x2B,
+					  (bcm430x_phy_read(bcm, offset + 0x2B)
+					   & 0xFEFF) | (antennadiv << 7));
+		} else if (antennadiv > 2) {
+			bcm430x_phy_write(bcm, offset + 0x2B,
+					  (bcm430x_phy_read(bcm, offset + 0x2B)
+					   & 0xFEFF) | 0/*force0*/);
 		}
 
 		if (!bcm->current_core->phy->connected) {
-			if (bcm->current_core->phy->antenna_diversity < 0x100) {
-				bcm430x_phy_write(bcm, 0x048C, bcm430x_phy_read(bcm, 0x048C) & 0xDFFF);
+			if (antennadiv < 2) {
+				bcm430x_phy_write(bcm, 0x048C,
+						  bcm430x_phy_read(bcm, 0x048C) & 0xDFFF);
 			} else {
-				bcm430x_phy_write(bcm, 0x048C, (bcm430x_phy_read(bcm, 0x048C) & 0xDFFF) | 0x2000);
+				bcm430x_phy_write(bcm, 0x048C,
+						  (bcm430x_phy_read(bcm, 0x048C)
+						   & 0xDFFF) | 0x2000);
 			}
-
 			if (bcm->current_core->phy->rev >= 2) {
-				bcm430x_phy_write(bcm, 0x0461, bcm430x_phy_read(bcm, 0x0461) | 0x0010);
-				bcm430x_phy_write(bcm, 0x04AD, (bcm430x_phy_read(bcm, 0x04AD) & 0xFF00) | 0x0015);
+				bcm430x_phy_write(bcm, 0x0461,
+						  bcm430x_phy_read(bcm, 0x0461) | 0x0010);
+				bcm430x_phy_write(bcm, 0x04AD,
+						  (bcm430x_phy_read(bcm, 0x04AD) & 0xFF00) | 0x0015);
 				bcm430x_phy_write(bcm, 0x0427, 0x0008);
 			}
 		}
 		break;
 	case BCM430x_PHYTYPE_B:
 		if (bcm->current_core->rev == 2) {
-			bcm430x_phy_write(bcm, 0x03E2, (bcm430x_phy_read(bcm, 0x03E2) & 0xFE7F) | 0x0180);
+			bcm430x_phy_write(bcm, 0x03E2,
+					  (bcm430x_phy_read(bcm, 0x03E2)
+					   & 0xFE7F) | (3/*automatic*/ << 7));
 		} else {
-			if (bcm->current_core->phy->antenna_diversity == 0x100) {
-				bcm430x_phy_write(bcm, 0x03E2, (bcm430x_phy_read(bcm, 0x03E2) & 0xFE7F) | 0x0180);
+			if (antennadiv == 2) {
+				bcm430x_phy_write(bcm, 0x03E2,
+						  (bcm430x_phy_read(bcm, 0x03E2)
+						   & 0xFE7F) | (3/*automatic*/ << 7));
 			} else {
-				bcm430x_phy_write(bcm, 0x03E2, (bcm430x_phy_read(bcm, 0x03E2) & 0xFE7F) | bcm->current_core->phy->antenna_diversity);
+				bcm430x_phy_write(bcm, 0x03E2,
+						  (bcm430x_phy_read(bcm, 0x03E2)
+						   & 0xFE7F) | (antennadiv << 7));
 			}
 		}
 		break;
@@ -1592,11 +1610,13 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 		return;
 	}
 
-	if (bcm->current_core->phy->antenna_diversity >= 0x0100) {
+	if (antennadiv >= 2) {
 		ucodeflags = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED,
 						BCM430x_UCODEFLAGS_OFFSET);
 		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED,
 				    BCM430x_UCODEFLAGS_OFFSET,
 				    ucodeflags |  BCM430x_UCODEFLAG_AUTODIV);
 	}
+
+	bcm->current_core->phy->antenna_diversity = antennadiv;
 }
