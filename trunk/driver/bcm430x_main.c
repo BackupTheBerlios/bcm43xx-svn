@@ -2677,6 +2677,10 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	}
 
 	bcm430x_pctl_set_crystal(bcm, 0);
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm->shutting_down = 0;
+	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
 static int bcm430x_init_board(struct bcm430x_private *bcm)
