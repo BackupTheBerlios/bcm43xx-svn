@@ -74,20 +74,17 @@ static u16 flip_4bit(u16 value)
 
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
 {
-	u32 radio_ver;
-
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		offset |= 0x0040;
 		break;
 	case BCM430x_PHYTYPE_B:
-		radio_ver = (bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK);
-		if (radio_ver == 0x02053000) {
+		if (bcm->current_core->radio->version == 0x2053) {
 			if (offset < 0x70)
 				offset += 0x80;
 			else if (offset < 0x80)
 				offset += 0x70;
-		} else if (radio_ver == 0x02050000)
+		} else if (bcm->current_core->radio->version == 0x2050)
 			offset |= 0x80;
 		break;
 	case BCM430x_PHYTYPE_G:
@@ -421,14 +418,14 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_B:
 		if (bcm->current_core->phy->rev < 2)
 			return;
-		if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) != 0x02050000)
+		if (bcm->current_core->radio->version != 0x2050)
 			return;
 		if (!(bcm->sprom.boardflags & BCM430x_BFL_RSSI))
 			return;
 
-		if (bcm->current_core->radio->id == 0x3205017F
-		    || bcm->current_core->radio->id == 0x4205017F
-		    || bcm->current_core->radio->id == 0x52050175) {
+		if (bcm->current_core->radio->_id == 0x3205017F
+		    || bcm->current_core->radio->_id == 0x4205017F
+		    || bcm->current_core->radio->_id == 0x52050175) {
 			threshold = bcm->current_core->radio->nrssi[1];
 		} else {
 			threshold = (0x28 * bcm->current_core->radio->nrssi[0]
@@ -440,9 +437,9 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 		bcm430x_phy_read(bcm, 0x0020); /* dummy read */
 		bcm430x_phy_write(bcm, 0x0020, (((u16)threshold) << 8) | 0x001C);
 
-		if (bcm->current_core->radio->id == 0x3205017F
-		    || bcm->current_core->radio->id == 0x4205017F
-		    || bcm->current_core->radio->id == 0x52050175) {
+		if (bcm->current_core->radio->_id == 0x3205017F
+		    || bcm->current_core->radio->_id == 0x4205017F
+		    || bcm->current_core->radio->_id == 0x52050175) {
 			bcm430x_phy_write(bcm, 0x0087, 0x0E0D);
 			bcm430x_phy_write(bcm, 0x0086, 0x0C0B);
 			bcm430x_phy_write(bcm, 0x0085, 0x0A09);
@@ -1013,7 +1010,7 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 {
         switch (bcm->current_core->phy->type) {
         case BCM430x_PHYTYPE_A:
-		if (!(bcm->current_core->radio->id == 0x1206017F))
+		if (bcm->current_core->radio->_id != 0x1206017F)
 			return -ENODEV;
 		if (channel > 200)
 			return -EINVAL;
@@ -1045,17 +1042,32 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 			return -EINVAL;
 		
 		/* Synthetic PU workaround */
-		if ((workaround) && ((bcm->current_core->radio->id & BCM430x_RADIO_ID_REVISIONMASK) < 6)) {
-			if (channel <= 10)
-				bcm430x_write16(bcm, 0x03F0, channel + 4);
-			else
-				bcm430x_write16(bcm, 0x03F0, 1);
-			udelay(100);
+		if (workaround) {
+			if (bcm->current_core->radio->version == 0x2050 &&
+			    bcm->current_core->radio->revision < 6) {
+				if (channel <= 10)
+					bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
+							frequencies_bg[channel + 4 - 1]);
+				else
+					bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
+							frequencies_bg[0]);
+				udelay(100);
+				bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
+				                frequencies_bg[channel - 1]);
+			}
 		}
-
-                bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
+		bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
 		                frequencies_bg[channel - 1]);
-                break;
+		if (channel == 14) {
+			bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT,
+					bcm430x_read16(bcm, BCM430x_MMIO_CHANNEL_EXT)
+					| (1 << 11));
+		} else {
+			bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT,
+					bcm430x_read16(bcm, BCM430x_MMIO_CHANNEL_EXT)
+					& ~(1 << 11));
+		}
+		break;
         default:
 		assert(0);
         }
@@ -1210,7 +1222,7 @@ void bcm430x_radio_set_txpower_bg(struct bcm430x_private *bcm,
 	bcm430x_phy_write(bcm, reg, tmp);
 	bcm430x_radio_write16(bcm, 0x0043, attenuation);
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0064, attenuation);
-	if ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000) {
+	if (bcm->current_core->radio->version == 0x2050) {
 		bcm430x_radio_write16(bcm, 0x0052,
 		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F) | txpower);
 	}

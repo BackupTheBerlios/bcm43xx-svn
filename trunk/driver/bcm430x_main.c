@@ -545,6 +545,9 @@ static void bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm)
 static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 {
 	u32 radio_id;
+	u16 manufact;
+	u16 version;
+	u8 revision;
 
 	if (bcm->chip_id == 0x4317) {
 		if (bcm->chip_rev == 0x00)
@@ -554,18 +557,19 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 		else
 			radio_id = 0x5205017F;
 	} else {
-		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIO_ID);
+		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIOCTL_ID);
 		radio_id = bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA_HIGH);
 		radio_id <<= 16;
-		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIO_ID);
+		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIOCTL_ID);
 		radio_id |= bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA_LOW);
 	}
 
+	manufact = (radio_id & 0x00000FFF);
+	version = (radio_id & 0x0FFFF000) >> 12;
+	revision = (radio_id & 0xF0000000) >> 28;
+
 	dprintk(KERN_INFO PFX "Detected Radio:  ID: %x (Manuf: %x Ver: %x Rev: %x)\n",
-		radio_id,
-		(radio_id & 0x00000FFF),
-		(radio_id & 0x0FFFF000) >> 12,
-		(radio_id & 0xF0000000) >> 28);
+		radio_id, manufact, version, revision);
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
@@ -579,7 +583,10 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 		break;
 	}
 
-	bcm->current_core->radio->id = radio_id;
+	bcm->current_core->radio->manufact = manufact;
+	bcm->current_core->radio->version = version;
+	bcm->current_core->radio->revision = revision;
+	bcm->current_core->radio->_id = radio_id;
 
 	return 0;
 }
@@ -2376,8 +2383,8 @@ static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 			ucodeflags |= BCM430x_UCODEFLAG_UNKPACTRL;
 	} else if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
 		ucodeflags |= BCM430x_UCODEFLAG_UNKBGPHY;
-		if ((bcm->current_core->phy->rev >= 2)
-		    && ((bcm->current_core->radio->id & BCM430x_RADIO_ID_VERSIONMASK) == 0x02050000))
+		if ((bcm->current_core->phy->rev >= 2) &&
+		    (bcm->current_core->radio->version == 0x2050))
 			ucodeflags &= ~BCM430x_UCODEFLAG_UNKGPHY;
 	}
 

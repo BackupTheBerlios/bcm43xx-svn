@@ -86,6 +86,8 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
+printk("setchannel m=%d, e=%d, i=%u, flags=%u\n", data->freq.m, data->freq.e, data->freq.i, data->freq.flags);
+
 	spin_lock_irqsave(&bcm->lock, flags);
 #if 0
 	if ((data->freq.m == 0) && (data->freq.m <= 1000)) {
@@ -112,20 +114,17 @@ static int bcm430x_wx_get_channelfreq(struct net_device *net_dev,
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	unsigned long flags;
 	int err = -ENODEV;
-	static const u16 frequencies_bg[14] = {
-	        12, 17, 22, 27,
-		32, 37, 42, 47,
-		52, 57, 62, 67,
-		72, 84,
-	};
+	u16 channel;
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (bcm->current_core->radio->channel == 0xFFFF)
+	channel = bcm->current_core->radio->channel;
+	if (channel == 0xFFFF)
 		goto out_unlock;
+	assert(channel > 0 && channel <= 1000);
 	data->freq.e = 0;
-	data->freq.m = bcm->current_core->radio->channel;
+	data->freq.m = channel;
 
 	err = 0;
 out_unlock:

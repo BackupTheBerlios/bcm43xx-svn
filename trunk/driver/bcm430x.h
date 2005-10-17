@@ -60,6 +60,7 @@
 #define BCM430x_MMIO_ANTENNA		0x3E8
 /* #define BCM430x_MMIO_???		0x3Ec*/
 #define BCM430x_MMIO_CHANNEL		0x3F0
+#define BCM430x_MMIO_CHANNEL_EXT	0x3F4
 #define BCM430x_MMIO_RADIO_CONTROL	0x3F6
 #define BCM430x_MMIO_RADIO_DATA_HIGH	0x3F8
 #define BCM430x_MMIO_RADIO_DATA_LOW	0x3FA
@@ -224,10 +225,7 @@
 #define BCM430x_PHY_NRSSILT_DATA	0x0804
 
 /* RadioRegisters */
-#define BCM430x_RADIO_ID		0x01
-#define BCM430x_RADIO_ID_REVISIONMASK	0xF0000000
-#define BCM430x_RADIO_ID_VERSIONMASK	0x0FFFF000
-#define BCM430x_RADIO_ID_MANUFACTMASK	0x00000FFF
+#define BCM430x_RADIOCTL_ID		0x01
 
 /* StatusBitField */
 #define BCM430x_SBF_MAC_ENABLED		0x00000001
@@ -389,8 +387,11 @@ struct bcm430x_phyinfo {
 };
 
 struct bcm430x_radioinfo {
-	/* Radio ID */
-	u32 id;
+	u16 manufact;
+	u16 version;
+	u8 revision;
+	u32 _id; /* raw id value */
+
 	/* 0: baseband attenuation,
 	 * 1: radio attenuation, 
 	 * 2: tx_CTL1
