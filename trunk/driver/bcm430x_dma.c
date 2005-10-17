@@ -289,6 +289,9 @@ static int alloc_ringmemory(struct bcm430x_dmaring *ring)
 		printk(KERN_ERR PFX "DMA ringmemory mapping failed\n");
 		goto out;
 	}
+	if (ring->dmabase & 0x000003FF)
+		printk(KERN_WARNING PFX "DMAring not 1024 byte aligned!\n");
+
 printk(KERN_INFO PFX "ring allocated 0x%p 0x%08x\n", ring->vbase, ring->dmabase);
 
 	err = 0;
