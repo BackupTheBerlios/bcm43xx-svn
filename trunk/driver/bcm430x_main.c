@@ -928,11 +928,11 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 		if (bcm->current_core->rev < 5)
 			bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA4_BASE);
 	}
-	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN)
+	if (bcm->shutting_down) {
 		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 				& ~(BCM430x_SBF_MAC_ENABLED | 0x00000002));
-	else {
+	} else {
 		if (connect_phy)
 			flags |= 0x20000000;
 		bcm430x_phy_connect(bcm, connect_phy);
@@ -945,7 +945,7 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 
 static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 {
-	if (bcm->status & BCM430x_STAT_DEVSHUTDOWN) {
+	if (bcm->shutting_down) {
 		bcm430x_radio_turn_off(bcm);
 		bcm430x_write16(bcm, 0x03E6, 0x00F4);
 		bcm430x_core_disable(bcm, 0);
@@ -2574,7 +2574,7 @@ static void bcm430x_periodic_work0_handler(void *d)
 	bcm430x_phy_xmitpower(bcm);
 	//TODO for APHY (temperature?)
 
-	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {
+	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work0,
 				   BCM430x_PERIODIC_0_DELAY);
 	}
@@ -2592,7 +2592,7 @@ static void bcm430x_periodic_work1_handler(void *d)
 	bcm430x_calc_nrssi_slope(bcm);
 	bcm430x_mac_enable(bcm);
 
-	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {
+	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
 				   BCM430x_PERIODIC_1_DELAY);
 	}
@@ -2610,7 +2610,7 @@ static void bcm430x_periodic_work2_handler(void *d)
 	bcm430x_phy_lo_g_measure(bcm);
 	bcm430x_mac_enable(bcm);
 
-	if (likely(!(bcm->status & BCM430x_STAT_DEVSHUTDOWN))) {
+	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work2,
 				   BCM430x_PERIODIC_2_DELAY);
 	}
@@ -2660,8 +2660,8 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	bcm->status &= ~BCM430x_STAT_BOARDINITDONE;
-	bcm->status |= BCM430x_STAT_DEVSHUTDOWN;
+	bcm->initialized = 0;
+	bcm->shutting_down = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	bcm430x_periodic_tasks_delete(bcm);
@@ -2687,7 +2687,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	bcm->status &= ~ BCM430x_STAT_DEVSHUTDOWN;
+	bcm->shutting_down = 0;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	err = bcm430x_pctl_set_crystal(bcm, 1);
@@ -2746,7 +2746,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	bcm430x_periodic_tasks_setup(bcm);
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	bcm->status |= BCM430x_STAT_BOARDINITDONE;
+	bcm->initialized = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	assert(err == 0);
 out:
@@ -3045,7 +3045,7 @@ static int bcm430x_net_open(struct net_device *net_dev)
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err = 0;
 
-	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE))
+	if (!bcm->initialized)
 		err = bcm430x_init_board(bcm);
 
 	return err;

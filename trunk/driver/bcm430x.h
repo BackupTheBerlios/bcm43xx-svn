@@ -457,10 +457,6 @@ struct bcm430x_coreinfo {
 	struct bcm430x_pio *pio;
 };
 
-/* Driver STATUS values */
-#define BCM430x_STAT_BOARDINITDONE		(1 << 0)
-#define BCM430x_STAT_DEVSHUTDOWN		(1 << 1)	// Are we shutting down?
-
 #define BCM430x_LED_COUNT			4
 #define BCM430x_LED_OFF				0
 #define BCM430x_LED_ON				1
@@ -484,9 +480,10 @@ struct bcm430x_private {
 
 	spinlock_t lock;
 
-	/* Driver status flags BCM430x_STAT_XXX */
-	u32 status;
-	u32 pio_mode:1;
+	/* Driver status flags. */
+	u32 initialized:1,	/* init_board() succeed */
+	    shutting_down:1,	/* free_board() in progress */
+	    pio_mode:1;		/* PIO (if true), or DMA (if false) used. */
 
 	u16 board_vendor;
 	u16 board_type;

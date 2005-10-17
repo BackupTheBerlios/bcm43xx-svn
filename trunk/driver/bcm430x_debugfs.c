@@ -86,7 +86,7 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	down(&big_buffer_sem);
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+	if (!bcm->initialized) {
 		fappend("Board not initialized.\n");
 		goto out;
 	}
@@ -166,7 +166,7 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+	if (!bcm->initialized) {
 		fappend("Board not initialized.\n");
 		goto out;
 	}
@@ -194,7 +194,7 @@ static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
 
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+	if (!bcm->initialized) {
 		fappend("Board not initialized.\n");
 		goto out;
 	}
@@ -230,7 +230,7 @@ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
 
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+	if (!bcm->initialized) {
 		fappend("Board not initialized.\n");
 		goto out;
 	}
@@ -262,7 +262,7 @@ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
 		goto out_up;
 	}
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (!(bcm->status & BCM430x_STAT_BOARDINITDONE)) {
+	if (!bcm->initialized) {
 		printk(KERN_INFO PFX "debugfs: Board not initialized.\n");
 		res = -EFAULT;
 		goto out_unlock;

@@ -149,7 +149,7 @@ static int bcm430x_wx_set_mode(struct net_device *net_dev,
 		bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	else
 		bcm->ieee->iw_mode = data->mode;
-	if (bcm->status & BCM430x_STAT_BOARDINITDONE) {
+	if (bcm->initialized) {
 		/*TODO: commit the new mode to the device (StatusBitField?) */
 		printk(KERN_ERR PFX "TODO: mode not committed!\n");
 	}
