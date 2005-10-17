@@ -285,18 +285,25 @@ static int alloc_ringmemory(struct bcm430x_dmaring *ring)
 	ring->dmabase = dma_map_single(dev, ring->vbase,
 				       BCM430x_DMA_RINGMEMSIZE,
 				       DMA_TO_DEVICE);
-	if (!ring->dmabase) {
-		printk(KERN_ERR PFX "DMA ringmemory mapping failed\n");
-		goto out;
+	/* sanity checks... */
+	if (ring->dmabase & 0x000003FF) {
+		printk(KERN_ERR PFX "Error: DMA ringmemory not 1024 byte aligned!\n");
+		goto err_unmap;
 	}
-	if (ring->dmabase & 0x000003FF)
-		printk(KERN_WARNING PFX "DMAring not 1024 byte aligned!\n");
-
-printk(KERN_INFO PFX "ring allocated 0x%p 0x%08x\n", ring->vbase, ring->dmabase);
-
+	if (ring->dmabase & ~BCM430x_DMA_DMABUSADDRMASK) {
+		printk(KERN_ERR PFX "Error: DMA ringmemory above 1G mark!\n");
+		goto err_unmap;
+	}
 	err = 0;
 out:
 	return err;
+
+err_unmap:
+	dma_unmap_single(dev, ring->dmabase,
+			 BCM430x_DMA_RINGMEMSIZE,
+			 DMA_TO_DEVICE);
+	free_page((unsigned long)(ring->vbase));
+	goto out;
 }
 
 static void free_ringmemory(struct bcm430x_dmaring *ring)
@@ -410,9 +417,9 @@ static inline int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
 	return bcm430x_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 }
 
-static int map_descbuffer(struct bcm430x_dmaring *ring,
-			  struct bcm430x_dmadesc *desc,
-			  struct bcm430x_dmadesc_meta *meta)
+static void map_descbuffer(struct bcm430x_dmaring *ring,
+			   struct bcm430x_dmadesc *desc,
+			   struct bcm430x_dmadesc_meta *meta)
 {
 	enum dma_data_direction dir;
 
@@ -424,14 +431,10 @@ static int map_descbuffer(struct bcm430x_dmaring *ring,
 		dir = DMA_FROM_DEVICE;
 	meta->dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
 				       meta->skb->data, meta->skb->len, dir);
-	if (!meta->dmaaddr) /*FIXME: can this fail? */
-		return -ENOMEM;
 	meta->mapped = 1;
 
-	set_desc_addr(desc, meta->dmaaddr);
+	set_desc_addr(desc, meta->dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
 	set_desc_ctl(desc, get_desc_ctl(desc) | (BCM430x_DMADTOR_BYTECNT_MASK & meta->skb->len));
-
-	return 0;
 }
 
 static void unmap_descbuffer(struct bcm430x_dmaring *ring,
@@ -518,9 +521,7 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 				       buffersize, GFP_KERNEL);
 		if (err)
 			goto err_unwind;
-		err = map_descbuffer(ring, desc, meta);
-		if (err)
-			goto err_unwind;
+		map_descbuffer(ring, desc, meta);
 
 		assert(used_slots(ring) <= ring->nr_slots);
 		ring->last_used++;
@@ -557,7 +558,7 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		/* Set Transmit Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
-				ring->dmabase);
+				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
 	} else {
 		err = dmacontroller_rx_reset(ring);
 		if (err)
@@ -574,7 +575,7 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		/* Set Receive Descriptor ring address. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
-				ring->dmabase);
+				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
 	}
 
 out:
@@ -682,7 +683,7 @@ static void cancel_txitem(struct bcm430x_dma_txitem *item)
 	slot = dma_txitem_getslot(item);
 	free_descriptor_frame(item->ring, slot);
 	list_del(&item->list);
-	return_slot(item->ring, slot);
+	return_slot(item->ring, slot);//TODO: return all slots
 }
 
 static void cancel_transfers(struct bcm430x_dmaring *ring)
@@ -765,7 +766,7 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 				  struct ieee80211_txb *txb,
 				  struct bcm430x_dma_txcontext *ctx)
 {
-	int err = -ENODEV;
+	int err = 0;
 	int slot;
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
@@ -817,12 +818,7 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 				       skb->data, skb->len,
 				       (ctx->cur_frag == 0),
 				       (u16)slot);
-		err = map_descbuffer(ring, desc, meta);
-		if (unlikely(err)) {
-			printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
-			return_slot(ring, slot);
-			goto out;
-		}
+		map_descbuffer(ring, desc, meta);
 		/* Request a new slot for the real data. */
 		slot = request_slot(ring);
 		desc = ring->vbase + slot;
@@ -846,12 +842,7 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	meta->skb = skb;
 	meta->nofree_skb = 1;
 printk(KERN_INFO PFX "mapping %d\n", slot);
-	err = map_descbuffer(ring, desc, meta);
-	if (unlikely(err)) {
-		printk(KERN_ERR PFX "Could not DMA map a sk_buff!\n");
-		return_slot(ring, slot);
-		goto out;
-	}
+	map_descbuffer(ring, desc, meta);
 
 	if (skb_shinfo(skb)->nr_frags != 0) {
 		/* Map the remaining Scatter/Gather fragments */
