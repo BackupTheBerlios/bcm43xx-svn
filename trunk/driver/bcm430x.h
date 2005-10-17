@@ -410,7 +410,7 @@ struct bcm430x_phyinfo {
 	u16 info_unk16;
 
 	/* TSSI to dBm table in use */
-	s8 *tssi2dbm;
+	const s8 *tssi2dbm;
 	/* idle TSSI value */
 	s8 idle_tssi;
 };

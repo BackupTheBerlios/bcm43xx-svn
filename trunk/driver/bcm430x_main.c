@@ -3090,7 +3090,9 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 			goto err_chipset_detach;
 
 		bcm430x_radio_turn_off(bcm);
-		bcm430x_phy_init_tssi2dbm_table(bcm);
+		err = bcm430x_phy_init_tssi2dbm_table(bcm);
+		if (err)
+			goto err_chipset_detach;
 		bcm430x_wireless_core_disable(bcm);
 	}
 

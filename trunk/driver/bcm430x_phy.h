@@ -35,7 +35,7 @@ struct bcm430x_private;
 u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val);
 
-void bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm);
+int bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm);
 int bcm430x_phy_init(struct bcm430x_private *bcm);
 
 void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm);

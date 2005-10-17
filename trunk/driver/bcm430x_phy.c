@@ -71,9 +71,9 @@ static const s8 bcm430x_tssi2dbm_g_table[] = {
 	0x34, 0x32, 0x31, 0x2F,
 	0x2D, 0x2B, 0x28, 0x25,
 	0x21, 0x1C, 0x16, 0x0E,
-	0x05, 0xF9, 0xE0, 0xE0,
-	0xE0, 0xE0, 0xE0, 0xE0, 
-	0xE0, 0xE0, 0xE0, 0xE0
+	0x05, 0xF9, 0xEC, 0xEC,
+	0xEC, 0xEC, 0xEC, 0xEC, 
+	0xEC, 0xEC, 0xEC, 0xEC
 };
 
 static void bcm430x_phy_initg(struct bcm430x_private *bcm);
@@ -1421,32 +1421,60 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 }
 
 /* http://bcm-specs.sipsolutions.net/TSSI_to_DBM_Table */
-void bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
+int bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
 {
-	if ((bcm->chip_id == 0x4301) && (bcm->current_core->radio->version == 0x2050)) {
-		bcm->current_core->phy->idle_tssi = 0x34; //FIXME: Is this ok?
+	s16 pab0, pab1, pab2;
+
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+		pab0 = (s16)(bcm->sprom.pa0b0);
+		pab1 = (s16)(bcm->sprom.pa0b1);
+		pab2 = (s16)(bcm->sprom.pa0b2);
+	} else {
+		pab0 = (s16)(bcm->sprom.pa1b0);
+		pab1 = (s16)(bcm->sprom.pa1b1);
+		pab2 = (s16)(bcm->sprom.pa1b2);
+	}
+
+	if ((bcm->chip_id == 0x4301) && (bcm->current_core->radio->version != 0x2050)) {
+		bcm->current_core->phy->idle_tssi = 0x34;
 		bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_b_table;
-		return;
+		return 0;
 	}
 	if ((bcm->chip_id == 0x4306) || (bcm->chip_id == 0x4301)) {
-		if (unlikely(0)) { //FIXME: What should be here?
-		}
-		else {
+		if (pab0 != 0 && pab1 != 0 && pab2 != 0 &&
+		    pab0 != -1 && pab1 != -1 && pab2 != -1) {
+			/* The pabX values are set in SPROM. Use them. */
+			if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
+				bcm->current_core->phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_aphy);
+			else
+				bcm->current_core->phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
+			if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
+				TODO(); //TODO: incomplete specs.
+			}
+			TODO(); //TODO: incomplete specs.
+			return -ENODEV;
+		} else {
+			/* pabX values not set in SPROM. */
 			switch (bcm->current_core->phy->type) {
-				case BCM430x_PHYTYPE_A:
-					TODO(); //TODO: What is 'uninitalized'?
-					break;
-				case BCM430x_PHYTYPE_B:
-					bcm->current_core->phy->idle_tssi = 0x34;
-					bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_b_table;
-					break;
-				case BCM430x_PHYTYPE_G:
-					bcm->current_core->phy->idle_tssi = 0x34;
-					bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_g_table;
-					break;
+			case BCM430x_PHYTYPE_A:
+				/* APHY needs a generated table. */
+				bcm->current_core->phy->tssi2dbm = NULL;
+				printk(KERN_ERR PFX "Could not generate tssi2dBm "
+						    "table (wrong SPROM info)!\n");
+				return -ENODEV;
+			case BCM430x_PHYTYPE_B:
+				bcm->current_core->phy->idle_tssi = 0x34;
+				bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_b_table;
+				break;
+			case BCM430x_PHYTYPE_G:
+				bcm->current_core->phy->idle_tssi = 0x34;
+				bcm->current_core->phy->tssi2dbm = bcm430x_tssi2dbm_g_table;
+				break;
 			}
 		}
 	}
+
+	return 0;
 }
 
 int bcm430x_phy_init(struct bcm430x_private *bcm)
