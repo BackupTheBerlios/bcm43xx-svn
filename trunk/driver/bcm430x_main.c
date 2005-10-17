@@ -598,33 +598,125 @@ err_unsupported_radio:
 	return -ENODEV;
 }
 
-/* Read SPROM and fill the useful values in the net_device struct */
-static void bcm430x_read_sprom(struct bcm430x_private *bcm)
+static inline
+u16 sprom_read(struct bcm430x_private *bcm,
+	       u16 offset)
 {
-	int i;
+	return bcm430x_read16(bcm, BCM430x_SPROM_BASE + (2 * offset));
+}
+
+/* Read the SPROM and store its adjusted values in bcm->sprom */
+static int bcm430x_read_sprom(struct bcm430x_private *bcm)
+{
 	u16 value;
-	struct net_device *net_dev = bcm->net_dev;
 
-	/* read MAC address into dev->dev_addr */
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 0);
-	*((u16 *)net_dev->dev_addr + 0) = cpu_to_be16(value);
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 1);
-	*((u16 *)net_dev->dev_addr + 1) = cpu_to_be16(value);
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 2);
-	*((u16 *)net_dev->dev_addr + 2) = cpu_to_be16(value);
+	/* boardflags2 */
+	value = sprom_read(bcm, BCM430x_SPROM_BOARDFLAGS2);
+	bcm->sprom.boardflags2 = value;
 
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_BOARDFLAGS);
-	if (value == 0xffff)
+	/* il0macaddr */
+	value = sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 0);
+	*(((u16 *)bcm->sprom.il0macaddr) + 0) = cpu_to_be16(value);
+	value = sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 1);
+	*(((u16 *)bcm->sprom.il0macaddr) + 1) = cpu_to_be16(value);
+	value = sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 2);
+	*(((u16 *)bcm->sprom.il0macaddr) + 2) = cpu_to_be16(value);
+
+	/* et0macaddr */
+	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 0);
+	*(((u16 *)bcm->sprom.il0macaddr) + 0) = cpu_to_be16(value);
+	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 1);
+	*(((u16 *)bcm->sprom.il0macaddr) + 1) = cpu_to_be16(value);
+	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 2);
+	*(((u16 *)bcm->sprom.il0macaddr) + 2) = cpu_to_be16(value);
+
+	/* et1macaddr */
+	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 0);
+	*(((u16 *)bcm->sprom.il0macaddr) + 0) = cpu_to_be16(value);
+	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 1);
+	*(((u16 *)bcm->sprom.il0macaddr) + 1) = cpu_to_be16(value);
+	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 2);
+	*(((u16 *)bcm->sprom.il0macaddr) + 2) = cpu_to_be16(value);
+
+	/* ethernat phy settings */
+	value = sprom_read(bcm, BCM430x_SPROM_ETHPHY);
+	bcm->sprom.et0phyaddr = (value & 0x001F);
+	bcm->sprom.et1phyaddr = (value & 0x03E0) >> 5;
+	bcm->sprom.et0mdcport = (value & (1 << 14)) >> 14;
+	bcm->sprom.et1mdcport = (value & (1 << 15)) >> 15;
+
+	/* boardrev, antennas, country code */
+	value = sprom_read(bcm, BCM430x_SPROM_BOARDREV);
+	bcm->sprom.boardrev = (value & 0x000F);
+	bcm->sprom.countrycode = (value & 0x0F00) >> 8;
+	bcm->sprom.antennas_aphy = (value & 0x3000) >> 12;
+	bcm->sprom.antennas_bgphy = (value & 0xC000) >> 14;
+
+	/* pa0b* */
+	value = sprom_read(bcm, BCM430x_SPROM_PA0B0);
+	bcm->sprom.pa0b0 = value;
+	value = sprom_read(bcm, BCM430x_SPROM_PA0B1);
+	bcm->sprom.pa0b1 = value;
+	value = sprom_read(bcm, BCM430x_SPROM_PA0B2);
+	bcm->sprom.pa0b2 = value;
+
+	/* wl0gpio* */
+	value = sprom_read(bcm, BCM430x_SPROM_WL0GPIO0);
+	if (value == 0xFFFF)
+		value = 0x0000;
+	bcm->sprom.wl0gpio0 = (value & 0x00FF);
+	bcm->sprom.wl0gpio1 = (value & 0xFF00) >> 8;
+	value = sprom_read(bcm, BCM430x_SPROM_WL0GPIO2);
+	if (value == 0xFFFF)
+		value = 0x0000;
+	bcm->sprom.wl0gpio2 = (value & 0x00FF);
+	bcm->sprom.wl0gpio3 = (value & 0xFF00) >> 8;
+
+	/* maxpower */
+	value = sprom_read(bcm, BCM430x_SPROM_MAXPWR);
+	bcm->sprom.maxpower_aphy = (value & 0x00FF);
+	bcm->sprom.maxpower_bgphy = (value & 0xFF00) >> 8;
+
+	/* pa1b* */
+	value = sprom_read(bcm, BCM430x_SPROM_PA1B0);
+	bcm->sprom.pa1b0 = value;
+	value = sprom_read(bcm, BCM430x_SPROM_PA1B1);
+	bcm->sprom.pa1b1 = value;
+	value = sprom_read(bcm, BCM430x_SPROM_PA1B2);
+	bcm->sprom.pa1b2 = value;
+
+	/* idle tssi target */
+	value = sprom_read(bcm, BCM430x_SPROM_IDL_TSSI_TGT);
+	bcm->sprom.idle_tssi_tgt_aphy = (value & 0x00FF);
+	bcm->sprom.idle_tssi_tgt_bgphy = (value & 0xFF00) >> 8;
+
+	/* boardflags */
+	value = sprom_read(bcm, BCM430x_SPROM_BOARDFLAGS);
+	if (value == 0xFFFF)
 		value = 0x0000;
 	bcm->sprom.boardflags = value;
 
-	/* read LED infos */
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_WL0GPIO0);
-	bcm->leds[0] = value & 0x00FF;
-	bcm->leds[1] = (value & 0xFF00) >> 8;
-	value = bcm430x_sprom_read(bcm, BCM430x_SPROM_WL0GPIO2);
-	bcm->leds[2] = value & 0x00FF;
-	bcm->leds[3] = (value & 0xFF00) >> 8;
+	/* antenna gain */
+	value = sprom_read(bcm, BCM430x_SPROM_ANTENNA_GAIN);
+	bcm->sprom.antennagain_aphy = (value & 0x00FF);
+	bcm->sprom.antennagain_bgphy = (value & 0xFF00) >> 8;
+
+	/* SPROM version, crc8 */
+	value = sprom_read(bcm, BCM430x_SPROM_VERSION);
+	bcm->sprom.spromversion = value;
+
+	return 0;
+}
+
+/* Read and adjust LED infos */
+static int bcm430x_leds_init(struct bcm430x_private *bcm)
+{
+	int i;
+
+	bcm->leds[0] = bcm->sprom.wl0gpio0;
+	bcm->leds[1] = bcm->sprom.wl0gpio1;
+	bcm->leds[2] = bcm->sprom.wl0gpio2;
+	bcm->leds[3] = bcm->sprom.wl0gpio3;
 
 	for (i = 0; i < BCM430x_LED_COUNT; i++) {
 		if ((bcm->leds[i] & ~BCM430x_LED_ACTIVELOW) == BCM430x_LED_INACTIVE) {
@@ -650,6 +742,8 @@ static void bcm430x_read_sprom(struct bcm430x_private *bcm)
 			}
 		}
 	}
+
+	return 0;
 }
 
 /* DummyTransmission function, as documented on 
@@ -2959,7 +3053,12 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_chipset_detach;
-	bcm430x_read_sprom(bcm);
+	err = bcm430x_read_sprom(bcm);
+	if (err)
+		goto err_chipset_detach;
+	err = bcm430x_leds_init(bcm);
+	if (err)
+		goto err_chipset_detach;
 
 	num_80211_cores = bcm430x_num_80211_cores(bcm);
 	for (i = 0; i < num_80211_cores; i++) {
@@ -2995,6 +3094,12 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	/* Use the first 80211 core as default. */
 	bcm->def_80211_core = &bcm->core_80211[0];
 	bcm430x_pctl_set_crystal(bcm, 0);
+
+	/* Set the MAC address in the networking subsystem */
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
+		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
+	else
+		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
 
 out:
 	return err;

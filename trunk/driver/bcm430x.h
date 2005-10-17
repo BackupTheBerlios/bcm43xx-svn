@@ -354,7 +354,36 @@ struct bcm430x_initval {
 } __attribute__((__packed__));
 
 struct bcm430x_sprominfo {
+	u16 boardflags2;
+	u8 il0macaddr[6];
+	u8 et0macaddr[6];
+	u8 et1macaddr[6];
+	u8 et0phyaddr:5;
+	u8 et1phyaddr:5;
+	u8 et0mdcport:1;
+	u8 et1mdcport:1;
+	u8 boardrev;
+	u8 countrycode:4;
+	u8 antennas_aphy:2;
+	u8 antennas_bgphy:2;
+	u16 pa0b0;
+	u16 pa0b1;
+	u16 pa0b2;
+	u8 wl0gpio0;
+	u8 wl0gpio1;
+	u8 wl0gpio2;
+	u8 wl0gpio3;
+	u8 maxpower_aphy;
+	u8 maxpower_bgphy;
+	u16 pa1b0;
+	u16 pa1b1;
+	u16 pa1b2;
+	u8 idle_tssi_tgt_aphy;
+	u8 idle_tssi_tgt_bgphy;
 	u16 boardflags;
+	u8 antennagain_aphy;
+	u8 antennagain_bgphy;
+	u16 spromversion;
 };
 
 union bcm430x_lopair {
