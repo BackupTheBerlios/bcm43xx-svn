@@ -62,9 +62,8 @@ void suspend_txqueue(struct bcm430x_pioqueue *queue)
 static inline
 void try_to_suspend_txqueue(struct bcm430x_pioqueue *queue)
 {
-	if (queue->nr_txqueued < BCM430x_PIO_MAXTXPACKETS)
-		return;
-	suspend_txqueue(queue);
+	if (list_empty(&queue->txfree))
+		suspend_txqueue(queue);
 }
 
 static inline
@@ -196,7 +195,7 @@ int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
 
 	for (i = packet->ctx.xmitted_frags; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
-		if (tx_devq_is_full(queue, (u16)skb->len)) {
+		if (tx_devq_is_full(queue, (u16)(skb->len + sizeof(struct bcm430x_txhdr)))) {
 printk(KERN_INFO PFX "txQ full\n");
 			return 1;
 		}
@@ -221,7 +220,6 @@ static void cancel_txpacket(struct bcm430x_pio_txpacket *packet)
 	free_txpacket(packet);
 	INIT_LIST_HEAD(&packet->list);
 	list_add(&packet->list, &packet->queue->txfree);
-	packet->queue->nr_txqueued--;
 
 	try_to_resume_txqueue(packet->queue);
 }
@@ -358,7 +356,8 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	unsigned long flags;
 
 	spin_lock_irqsave(&queue->txlock, flags);
-	packet = queue->__tx_packets_cache + queue->nr_txqueued;
+	assert(!list_empty(&queue->txfree));
+	packet = list_entry(queue->txfree.next, struct bcm430x_pio_txpacket, list);
 
 	packet->queue = queue;
 	packet->txb = txb;
@@ -368,7 +367,6 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	memset(&packet->ctx, 0, sizeof(packet->ctx));
 
 	list_add(&packet->list, &queue->txqueue);
-	queue->nr_txqueued++;
 	try_to_suspend_txqueue(queue);
 	spin_unlock_irqrestore(&queue->txlock, flags);
 

@@ -64,7 +64,6 @@ struct bcm430x_pioqueue {
 
 	struct list_head txfree;
 	struct list_head txqueue;
-	int nr_txqueued;
 	spinlock_t txlock;
 	struct work_struct txwork;
 	struct bcm430x_pio_txpacket __tx_packets_cache[BCM430x_PIO_MAXTXPACKETS];
