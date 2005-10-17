@@ -1517,7 +1517,7 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 	i = 0;
 	while (1) {
 		data = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
-		if (data == 0x00000001)
+		if (data == BCM430x_IRQ_READY)
 			break;
 		i++;
 		if (i >= BCM430x_IRQWAIT_MAX_RETRIES) {
