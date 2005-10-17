@@ -573,13 +573,16 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
-		//TODO: fail, if the radio is not 2060 with rev 1 and vendor 0x17f
+		if ((version != 0x2060) || (revision != 1) || (manufact != 0x17f))
+			goto err_unsupported_radio;
 		break;
 	case BCM430x_PHYTYPE_B:
-		//TODO: fail, if the radio is not 205x
+		if ((version & 0xFFF0) != 0x2050)
+			goto err_unsupported_radio;
 		break;
 	case BCM430x_PHYTYPE_G:
-		//TODO: fail, if the radio is not 2050
+		if (version != 0x2050)
+			goto err_unsupported_radio;
 		break;
 	}
 
@@ -589,6 +592,10 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 	bcm->current_core->radio->_id = radio_id;
 
 	return 0;
+
+err_unsupported_radio:
+	printk(KERN_ERR PFX "Unsupported Radio connected to the PHY!\n");
+	return -ENODEV;
 }
 
 /* Read SPROM and fill the useful values in the net_device struct */
