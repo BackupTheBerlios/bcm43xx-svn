@@ -3065,7 +3065,7 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
 		if (err)
-			goto err_chipset_detach;
+			goto err_80211_unwind;
 
 		/* make the core usable */
 		bcm430x_setup_backplane_pci_connection(bcm, (1 << bcm->current_core->index));
@@ -3077,20 +3077,20 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 
 		err = bcm430x_read_phyinfo(bcm);
 		if (err && (i == 0))
-			goto err_chipset_detach;
+			goto err_80211_unwind;
 
 		err = bcm430x_read_radioinfo(bcm);
 		if (err && (i == 0))
-			goto err_chipset_detach;
+			goto err_80211_unwind;
 
 		err = bcm430x_validate_chip(bcm);
 		if (err && (i == 0))
-			goto err_chipset_detach;
+			goto err_80211_unwind;
 
 		bcm430x_radio_turn_off(bcm);
 		err = bcm430x_phy_init_tssi2dbm_table(bcm);
 		if (err)
-			goto err_chipset_detach;
+			goto err_80211_unwind;
 		bcm430x_wireless_core_disable(bcm);
 	}
 
@@ -3104,9 +3104,14 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	else
 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
 
+	assert(err == 0);
 out:
 	return err;
 
+err_80211_unwind:
+	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+		kfree(bcm->phy[i].lo_pairs);
+	}
 err_chipset_detach:
 	bcm430x_chipset_detach(bcm);
 err_iounmap:
