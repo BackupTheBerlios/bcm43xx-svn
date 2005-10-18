@@ -511,9 +511,10 @@ struct bcm430x_private {
 	spinlock_t lock;
 
 	/* Driver status flags. */
-	u32 initialized:1,	/* init_board() succeed */
-	    shutting_down:1,	/* free_board() in progress */
-	    pio_mode:1;		/* PIO (if true), or DMA (if false) used. */
+	u32 initialized:1,		/* init_board() succeed */
+	    shutting_down:1,		/* free_board() in progress */
+	    pio_mode:1,			/* PIO (if true), or DMA (if false) used. */
+	    bad_frames_preempt:1;	/* Use "Bad Frames Preemption" (default off) */
 
 	u16 board_vendor;
 	u16 board_type;

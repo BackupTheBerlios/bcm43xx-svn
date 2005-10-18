@@ -28,6 +28,9 @@
 
 */
 
+#ifndef BCM430x_POWER_H_
+#define BCM430x_POWER_H_
+
 #include <linux/types.h>
 
 
@@ -37,3 +40,5 @@ int bcm430x_pctl_init(struct bcm430x_private *bcm);
 int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode);
 int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on);
 u16 bcm430x_pctl_powerup_delay(struct bcm430x_private *bcm);
+
+#endif /* BCM430x_POWER_H_ */

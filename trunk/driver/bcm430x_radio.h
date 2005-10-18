@@ -28,6 +28,9 @@
 
 */
 
+#ifndef BCM430x_RADIO_H_
+#define BCM430x_RADIO_H_
+
 #include "bcm430x.h"
 
 
@@ -73,3 +76,5 @@ s16 bcm430x_nrssi_hw_read(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_nrssi_hw_write(struct bcm430x_private *bcm, u16 offset, s16 val);
 void bcm430x_nrssi_hw_update(struct bcm430x_private *bcm, u16 val);
 void bcm430x_nrssi_mem_update(struct bcm430x_private *bcm);
+
+#endif /* BCM430x_RADIO_H_ */

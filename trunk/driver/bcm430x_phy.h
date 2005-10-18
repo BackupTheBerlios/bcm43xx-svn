@@ -28,12 +28,15 @@
 
 */
 
+#ifndef BCM430x_PHY_H_
+#define BCM430x_PHY_H_
+
 #include <linux/types.h>
 
 struct bcm430x_private;
 
 u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_phy_write(struct bcm430x_private *bcm, int offset, u16 val);
+void bcm430x_phy_write(struct bcm430x_private *bcm, u16 offset, u16 val);
 
 int bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm);
 int bcm430x_phy_init(struct bcm430x_private *bcm);
@@ -47,3 +50,5 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm);
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm);
 
 void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm);
+
+#endif /* BCM430x_PHY_H_ */

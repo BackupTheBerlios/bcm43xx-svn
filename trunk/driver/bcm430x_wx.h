@@ -28,4 +28,9 @@
 
 */
 
+#ifndef BCM430x_WX_H_
+#define BCM430x_WX_H_
+
 extern const struct iw_handler_def bcm430x_wx_handlers_def;
+
+#endif /* BCM430x_WX_H_ */

@@ -67,6 +67,10 @@ static int modparam_short_preamble;
 module_param_named(short_preamble, modparam_short_preamble, int, 0444);
 MODULE_PARM_DESC(short_preamble, "enable(1) / disable(0) the Short Preamble mode");
 
+static int modparam_bad_frames_preempt;
+module_param_named(bad_frames_preempt, modparam_bad_frames_preempt, int, 0444);
+MODULE_PARM_DESC(bad_frames_preempt, "enable(1) / disable(0) Bad Frames Preemption");
+
 #ifdef BCM430x_DEBUG
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
@@ -3248,6 +3252,8 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm->ieee = netdev_priv(net_dev);
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
+	if (modparam_bad_frames_preempt)
+		bcm->bad_frames_preempt = 1;
 	spin_lock_init(&bcm->lock);
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
