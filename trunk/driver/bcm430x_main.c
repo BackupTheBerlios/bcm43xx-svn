@@ -3325,12 +3325,24 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 #ifdef CONFIG_PM
 
 static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
-{/*TODO*/
+{
+	TODO();
+	/*TODO: What has to be done is basically:
+	 *	* suspend TX and RX
+	 *	* wait until all running TX and RX operations are completed.
+	 *	* mask chip irqs
+	 *	* bring the chip down.
+	 */
 	return 0;
 }
 
 static int bcm430x_resume(struct pci_dev *pdev)
-{/*TODO*/
+{
+	TODO();
+	/*TODO: The opposite of bcm430x_suspend() has to be done:
+	 *	* bring the chip up.
+	 *	* resume TX. (?)
+	 */
 	return 0;
 }
 
