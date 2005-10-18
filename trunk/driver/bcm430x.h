@@ -605,6 +605,17 @@ int bcm430x_num_80211_cores(struct bcm430x_private *bcm)
 	return cnt;
 }
 
+/* Are we running in init_board() context? */
+static inline
+int bcm430x_is_initializing(struct bcm430x_private *bcm)
+{
+	if (bcm->initialized)
+		return 0;
+	if (bcm->shutting_down)
+		return 0;
+	return 1;
+}
+
 
 /* MMIO read/write functions. Debug and non-debug variants. */
 #ifdef BCM430x_DEBUG
