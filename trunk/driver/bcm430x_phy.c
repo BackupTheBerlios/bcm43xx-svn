@@ -757,12 +757,15 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 	bcm430x_write16(bcm, 0x03E4, (bcm430x_read16(bcm, 0x03E4) & 0xFFC0) | 0x0004);
 }
 
-static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
-	u16 offset, val = 0x1E1F;
+static void bcm430x_phy_initb6(struct bcm430x_private *bcm)
+{
+	u16 offset, val;
 
 	bcm430x_radio_write16(bcm, 0x007A,
 	                      (bcm430x_radio_read16(bcm, 0x007A) | 0x0050));
-	if (bcm->current_core->radio->_id == 0x3205017F) {
+	if ((bcm->current_core->radio->manufact == 0x17F) &&
+	    (bcm->current_core->radio->version == 0x2050) &&
+	    (bcm->current_core->radio->revision == 3)) {
 		bcm430x_radio_write16(bcm, 0x0051, 0x001F);
 		bcm430x_radio_write16(bcm, 0x0052, 0x0040);
 		bcm430x_radio_write16(bcm, 0x0053, 0x005B);
@@ -773,20 +776,21 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 		bcm430x_radio_write16(bcm, 0x005E, 0x0088);
 		bcm430x_radio_write16(bcm, 0x007D, 0x0088);
 	}
-	bcm430x_phy_write(bcm, 0x0088, 0x1E1F);
+	val = 0x1E1F;
+	bcm430x_phy_write(bcm, 0x0088, val);
 	for (offset = 0x0088; offset < 0x0098; offset++) {
 		bcm430x_phy_write(bcm, offset, val);
 		val -= 0x0202;
 	}
 	val = 0x3E3F;
-	for (offset = 0x0098; offset < 0x00A9; offset++) {
+	for (offset = 0x0098; offset < 0x00A8; offset++) {
 		bcm430x_phy_write(bcm, offset, val);
 		val -= 0x0202;
 	}
 	val = 0x2120;
-	for (offset = 0x00A8; offset < 0x00C9; offset++) {
-		bcm430x_phy_write(bcm, offset, val);
-		val -= 0x0202;
+	for (offset = 0x00A8; offset < 0x00C8; offset++) {
+		bcm430x_phy_write(bcm, offset, (val & 0x3F3F));
+		val += 0x0202;
 	}
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
 		bcm430x_radio_write16(bcm, 0x007A,
@@ -798,7 +802,10 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 		bcm430x_radio_write16(bcm, 0x042B,
 		                      bcm430x_radio_read16(bcm, 0x042B) | 0x2000);
 	}
+
+	/* Force to channel 7, even if not supported. */
 	bcm430x_radio_selectchannel(bcm, 7, 0);
+
 	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0023);
 	bcm430x_radio_write16(bcm, 0x0050, 0x0020);
@@ -807,7 +814,9 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm) {
 	bcm430x_radio_write16(bcm, 0x005C, 0x00B0);
 	bcm430x_radio_write16(bcm, 0x007A,
 	                      (bcm430x_radio_read16(bcm, 0x007A) & 0x00F8) | 0x0007);
+
 	bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
+
 	bcm430x_phy_write(bcm, 0x0014, 0x0200);
 	bcm430x_radio_set_txpower_bg(bcm, 0xFFFF, 0xFFFF, 0xFFFF);
 	bcm430x_radio_write16(bcm, 0x0052,
@@ -827,10 +836,11 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 {
 	if (bcm->current_core->phy->rev == 1)
 		bcm430x_phy_initb5(bcm);
-	if (bcm->current_core->phy->rev == 2)
+	else if (bcm->current_core->phy->rev == 2)
 		bcm430x_phy_initb6(bcm);
 	if ((bcm->current_core->phy->rev >= 2) || bcm->current_core->phy->connected)
 		bcm430x_phy_inita(bcm);
+
 	if (bcm->current_core->phy->rev >= 2) {
 		bcm430x_phy_write(bcm, 0x003E, 0x817A);
 		bcm430x_phy_write(bcm, 0x0814, 0x0000);
@@ -841,43 +851,41 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x04C3, 0x8606);
 	}
 	if (bcm->current_core->radio->initval == 0xFFFF) {
-		//FIXME: init2050 gives OOPS
+		FIXME();//FIXME: init2050 gives OOPS
 		//bcm->current_core->radio->initval = bcm430x_radio_init2050(bcm);
 		bcm430x_phy_lo_g_measure(bcm);
 	} else {
 		bcm430x_radio_write16(bcm, 0x0078, bcm->current_core->radio->initval);
-		bcm430x_radio_write16(bcm, 0x0052, (bcm430x_radio_read16(bcm, 0x0052) & 0xFFF0) | bcm->current_core->phy->info_unk16);
+		bcm430x_radio_write16(bcm, 0x0052,
+				      (bcm430x_radio_read16(bcm, 0x0052) & 0xFFF0)
+				      | bcm->current_core->phy->info_unk16);
 	}
 
 	if (bcm->current_core->phy->connected) {
 		bcm430x_phy_lo_adjust(bcm);
 		bcm430x_phy_write(bcm, 0x080F, 0x8078);
 
-		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL) {
+		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
 			bcm430x_phy_write(bcm, 0x002E, 0x807F);
-		} else {
+		else
 			bcm430x_phy_write(bcm, 0x002E, 0x8075);
-		}
 
-		if (bcm->current_core->phy->rev < 2) {
+		if (bcm->current_core->phy->rev < 2)
 			bcm430x_phy_write(bcm, 0x002F, 0x0101);
-		} else {
+		else
 			bcm430x_phy_write(bcm, 0x002F, 0x0202);
-		}
 	}
 
 	if ((bcm->sprom.boardflags & BCM430x_BFL_RSSI) == 0) {
-		//FIXME: 0x7FFFFFFF should be 16-bit !
+		FIXME();//FIXME: 0x7FFFFFFF should be 16-bit !
 		bcm430x_nrssi_hw_update(bcm, (u16)0x7FFFFFFF);
 		bcm430x_calc_nrssi_threshold(bcm);
-	} else {
-		if (bcm->current_core->phy->connected) {
-			if ((bcm->current_core->radio->nrssi[0] == -1000) && (bcm->current_core->radio->nrssi[1] == -1000)) {
-				bcm430x_calc_nrssi_slope(bcm);
-			} else {
-				bcm430x_calc_nrssi_threshold(bcm);
-			}
-		}
+	} else if (bcm->current_core->phy->connected) {
+		if ((bcm->current_core->radio->nrssi[0] == -1000) &&
+		    (bcm->current_core->radio->nrssi[1] == -1000))
+			bcm430x_calc_nrssi_slope(bcm);
+		else
+			bcm430x_calc_nrssi_threshold(bcm);
 	}
 	bcm430x_phy_init_pctl(bcm);
 }
