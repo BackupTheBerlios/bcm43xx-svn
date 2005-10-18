@@ -100,16 +100,15 @@ void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
 		bcm430x_radio_set_txpower_a(bcm, 0x0018);
 	else {
-		//FIXME: (Only variables are set, most have unknown usage, working on it)
+		TODO();//TODO: (Only variables are set, most have unknown usage, working on it)
 	}
 	if ((bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
 	    && (bcm->current_core->phy->rev == 1)) {
-		//XXX: Reseting active wireless core for the moment?
 		bcm430x_wireless_core_reset(bcm, 0);
 		bcm430x_phy_initg(bcm);
-		//XXX: See above
 		bcm430x_wireless_core_reset(bcm, 1);
 	}
+	bcm->current_core->phy->calibrated = 1;
 }
 
 /* Connect the PHY 
