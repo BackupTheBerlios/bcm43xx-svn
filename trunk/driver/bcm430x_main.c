@@ -2960,12 +2960,10 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	bcm->current_core->phy->type = phy_type;
 	bcm->current_core->phy->rev = phy_rev;
 	if ((phy_type == BCM430x_PHYTYPE_B) || (phy_type == BCM430x_PHYTYPE_G)) {
-		//XXX: Change to kzalloc
-		bcm->current_core->phy->lo_pairs = kmalloc(sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT,
-		                                          GFP_KERNEL);
+		bcm->current_core->phy->lo_pairs = kzalloc(sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT,
+							   GFP_KERNEL);
 		if (!bcm->current_core->phy->lo_pairs)
 			return -ENOMEM;
-		memset(bcm->current_core->phy->lo_pairs, 0, sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT);
 	}
 	bcm->current_core->phy->info_unk16 = 0xFFFF;
 
