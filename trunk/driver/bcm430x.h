@@ -1,5 +1,5 @@
-#ifndef BCM430x_H
-#define BCM430x_H
+#ifndef BCM430x_H_
+#define BCM430x_H_
 
 #include <linux/version.h>
 #include <linux/kernel.h>
@@ -705,23 +705,39 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
 	 	__value;				\
 	})
 
-/* 
- * Wrapper for older kernels 
+
+/*
+ * Compatibility stuff follows
  */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
 # warning "The bcm430x driver is designed to run with the version of the ieee80211 stack"
 # warning "as of linux-2.6.14 or later. Please upgrade to the latest 2.6 kernel."
+# warning "DO NOT COMPLAIN ABOUT BUGS. UPDATE FIRST AND TRY AGAIN."
 #else
 # if !defined(CONFIG_IEEE80211_MODULE) && !defined(CONFIG_IEEE80211)
 #  error "Generic IEEE 802.11 Networking Stack (CONFIG_IEEE80211) not available."
 # endif
 #endif
 
-/* pm_message_t type */
+/* 
+ * Wrapper for older kernels
+ * There is no guarantee, that the driver will work with older kernels.
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
+# include <linux/slab.h>
+static inline
+void * kzalloc(size_t size, unsigned int flags)
+{
+	void *ret = kmalloc(size, flags);
+	if (ret)
+		memset(ret, 0, size);
+	return ret;
+}
+#endif /* < 2.6.14 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 11)
-#include <linux/pm.h>
+# include <linux/pm.h>
 typedef u32 /*__bitwise*/ pm_message_t;
-#endif
+#endif /* < 2.6.11 */
 
-#endif /* BCM430x_H */
+#endif /* BCM430x_H_ */
