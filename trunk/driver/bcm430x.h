@@ -514,7 +514,8 @@ struct bcm430x_private {
 	u32 initialized:1,		/* init_board() succeed */
 	    shutting_down:1,		/* free_board() in progress */
 	    pio_mode:1,			/* PIO (if true), or DMA (if false) used. */
-	    bad_frames_preempt:1;	/* Use "Bad Frames Preemption" (default off) */
+	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
+	    adhoc_on_last_tbtt:1;	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
 
 	u16 board_vendor;
 	u16 board_type;
@@ -560,8 +561,6 @@ struct bcm430x_private {
 	u32 dma_reason[4];
 	/* saved irq enable/disable state bitfield. */
 	u32 irq_savedstate;
-	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
-	u8 adhoc_on_last_tbtt:1;
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;
