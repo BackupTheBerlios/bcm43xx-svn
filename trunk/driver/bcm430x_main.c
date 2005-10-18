@@ -2683,7 +2683,7 @@ static void bcm430x_periodic_work0_handler(void *d)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	bcm430x_phy_xmitpower(bcm);
+	bcm430x_phy_xmitpower(bcm);//FIXME: unless scanning?
 	//TODO for APHY (temperature?)
 
 	if (likely(!bcm->shutting_down)) {
@@ -2700,9 +2700,13 @@ static void bcm430x_periodic_work1_handler(void *d)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	bcm430x_mac_suspend(bcm);
-	bcm430x_calc_nrssi_slope(bcm);
-	bcm430x_mac_enable(bcm);
+	//TODO: mark all vsets from the LO as unused
+
+	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
+		bcm430x_mac_suspend(bcm);
+		bcm430x_calc_nrssi_slope(bcm);
+		bcm430x_mac_enable(bcm);
+	}
 
 	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
@@ -2719,7 +2723,7 @@ static void bcm430x_periodic_work2_handler(void *d)
 	spin_lock_irqsave(&bcm->lock, flags);
 
 	bcm430x_mac_suspend(bcm);
-	bcm430x_phy_lo_g_measure(bcm);
+	bcm430x_phy_lo_g_measure(bcm); //FIXME: G?
 	bcm430x_mac_enable(bcm);
 
 	if (likely(!bcm->shutting_down)) {
@@ -2752,10 +2756,8 @@ static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
 			   BCM430x_PERIODIC_0_DELAY);
 
 	/* Periodic task 1: Delay ~60sec */
-	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
-		queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
-				   BCM430x_PERIODIC_1_DELAY);
-	}
+	queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
+			   BCM430x_PERIODIC_1_DELAY);
 
 	/* Periodic task 2: Delay ~120sec */
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G &&
