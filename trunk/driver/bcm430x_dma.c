@@ -928,6 +928,8 @@ void bcm430x_dma_tx_frame(struct bcm430x_private *bcm,
 	struct bcm430x_dma_txcontext ctx;
 	int err;
 	size_t skb_size = size;
+	unsigned long flags;
+	struct bcm430x_dmaring *ring;
 
 	if (!bcm->no_txhdr)
 		skb_size += sizeof(struct bcm430x_txhdr);
@@ -942,8 +944,10 @@ void bcm430x_dma_tx_frame(struct bcm430x_private *bcm,
 
 	ctx.nr_frags = 1;
 	ctx.cur_frag = 0;
-	err = dma_tx_fragment(bcm->current_core->dma->tx_ring1,
-			      skb, NULL, &ctx, 1);
+	ring = bcm->current_core->dma->tx_ring1;
+	spin_lock_irqsave(&ring->lock, flags);
+	err = dma_tx_fragment(ring, skb, NULL, &ctx, 1);
+	spin_unlock_irqrestore(&ring->lock, flags);
 	if (err)
 		printk(KERN_ERR PFX "TX FRAME failed!\n");
 }

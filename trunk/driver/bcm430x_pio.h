@@ -44,6 +44,14 @@ struct bcm430x_pio_txpacket {
 	struct list_head list;
 	struct timer_list timeout;
 	struct bcm430x_pio_txcontext ctx;
+
+#ifdef BCM430x_DEBUG
+	/* Do not free the txb, but the skb contained in it.
+	 * This is only used for debugging and the
+	 * DebugFS "send" and "sendraw" files.
+	 */
+	int txb_is_dummy;
+#endif /* BCM430x_DEBUG */
 };
 
 #define pio_txpacket_getindex(packet) ((int)(packet - packet->queue->__tx_packets_cache)) 
@@ -79,4 +87,8 @@ int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
 void FASTCALL(bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 					    struct bcm430x_xmitstatus *status));
 
+#ifdef BCM430x_DEBUG
+void bcm430x_pio_tx_frame(struct bcm430x_private *bcm,
+			  const char *buf, size_t size);
+#endif /* BCM430x_DEBUG */
 #endif /* BCM430x_PIO_H_ */

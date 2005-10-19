@@ -163,17 +163,19 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 
 	/*TODO: fragmented skb */
 
-	if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
-		printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
-		return;
+	if (DEBUG_ONLY(queue->bcm->no_txhdr) == 0) {
+		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
+			printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
+			return;
+		}
+		__skb_push(skb, sizeof(struct bcm430x_txhdr));
+		bcm430x_generate_txhdr(queue->bcm,
+				       (struct bcm430x_txhdr *)skb->data,
+				       skb->data + sizeof(struct bcm430x_txhdr),
+				       skb->len - sizeof(struct bcm430x_txhdr),
+				       (ctx->xmitted_frags == 0),
+				       /*ctx->cookie*/0xCAFE);//FIXME
 	}
-	__skb_push(skb, sizeof(struct bcm430x_txhdr));
-	bcm430x_generate_txhdr(queue->bcm,
-			       (struct bcm430x_txhdr *)skb->data,
-			       skb->data + sizeof(struct bcm430x_txhdr),
-			       skb->len - sizeof(struct bcm430x_txhdr),
-			       (ctx->xmitted_frags == 0),
-			       /*ctx->cookie*/0xCAFE);//FIXME
 
 	tx_start(queue);
 	octets = skb->len;
@@ -209,6 +211,21 @@ printk(KERN_INFO PFX "txQ full\n");
 
 static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 {
+#ifdef BCM430x_DEBUG
+	u8 i;
+
+	if (packet->txb_is_dummy) {
+		/* This is only a hack for the debugging function
+		 * bcm430x_pio_tx_frame()
+		 */
+		for (i = 0; i < packet->txb->nr_frags; i++)
+			dev_kfree_skb_any(packet->txb->fragments[i]);
+		kfree(packet->txb);
+		packet->txb_is_dummy = 0;
+		return;
+	}
+#endif /* BCM430x_DEBUG */
+
 	ieee80211_txb_free(packet->txb);
 }
 
@@ -347,7 +364,8 @@ void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue)
 
 static inline
 int pio_transfer_txb(struct bcm430x_pioqueue *queue,
-		     struct ieee80211_txb *txb)
+		     struct ieee80211_txb *txb,
+		     const int txb_is_dummy)
 {
 	struct bcm430x_pio_txpacket *packet;
 	unsigned long flags;
@@ -360,6 +378,10 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	packet->txb = txb;
 	list_del(&packet->list);
 	INIT_LIST_HEAD(&packet->list);
+#ifdef BCM430x_DEBUG
+	if (txb_is_dummy)
+		packet->txb_is_dummy = 1;
+#endif /* BCM430x_DEBUG */
 
 	memset(&packet->ctx, 0, sizeof(packet->ctx));
 
@@ -377,10 +399,49 @@ int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
 	int err;
 
 	err = pio_transfer_txb(bcm->current_core->pio->queue1,
-			       txb);
+			       txb, 0);
 
 	return err;
 }
+
+#ifdef BCM430x_DEBUG
+void bcm430x_pio_tx_frame(struct bcm430x_private *bcm,
+			  const char *buf, size_t size)
+{
+	struct sk_buff *skb;
+	size_t skb_size;
+	struct bcm430x_pioqueue *queue;
+	struct ieee80211_txb *dummy_txb;
+
+	skb_size = size;
+	if (!bcm->no_txhdr)
+		skb_size += sizeof(struct bcm430x_txhdr);
+	skb = dev_alloc_skb(skb_size);
+	if (!skb) {
+		printk(KERN_ERR PFX "Out of memory!\n");
+		return;
+	}
+	if (!bcm->no_txhdr)
+		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
+	memcpy(skb->data, buf, size);
+
+	/* Setup a dummy txb. Be careful to not free this
+	 * with ieee80211_txb_free()
+	 */
+	dummy_txb = kzalloc(sizeof(*dummy_txb) + sizeof(u8 *),
+			    GFP_ATOMIC);
+	if (!dummy_txb) {
+		dev_kfree_skb_any(skb);
+		printk(KERN_ERR PFX "Out of memory!\n");
+		return;
+	}
+	dummy_txb->nr_frags = 1;
+	dummy_txb->fragments[0] = skb;
+
+	queue = bcm->current_core->pio->queue1;
+	pio_transfer_txb(queue, dummy_txb, 1);
+}
+#endif /* BCM430x_DEBUG */
 
 void fastcall
 bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
