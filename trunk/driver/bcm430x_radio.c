@@ -37,16 +37,6 @@
 #include "bcm430x_ilt.h"
 
 
-/* Frequencies are given as frequencies_bg[index] + 2.4GHz
- * Starting with channel 1
- */
-static const u16 frequencies_bg[14] = {
-        12, 17, 22, 27,
-	32, 37, 42, 47,
-	52, 57, 62, 67,
-	72, 84,
-};
-
 /* Table for bcm430x_radio_calibrationvalue() */
 static const u16 rcc_table[16] = {
 	0x0002, 0x0003, 0x0001, 0x000F,
@@ -1005,75 +995,166 @@ void bcm430x_radio_init2060(struct bcm430x_private *bcm)
 	udelay(1000);
 }
 
-int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
-				u8 channel, u8 workaround)
+/* Get the freq, as it has to be written to the device. */
+static inline
+u16 channel2freq_bg(u8 channel)
 {
-        switch (bcm->current_core->phy->type) {
-        case BCM430x_PHYTYPE_A:
-		if (bcm->current_core->radio->_id != 0x1206017F)
-			return -ENODEV;
+	/* Frequencies are given as frequencies_bg[index] + 2.4GHz
+	 * Starting with channel 1
+	 */
+	static const u16 frequencies_bg[14] = {
+		12, 17, 22, 27,
+		32, 37, 42, 47,
+		52, 57, 62, 67,
+		72, 84,
+	};
+
+	assert(channel >= 1 && channel <= 14);
+
+	return frequencies_bg[channel - 1];
+}
+
+/* Get the freq, as it has to be written to the device. */
+static inline
+u16 channel2freq_a(u8 channel)
+{
+	assert(channel <= 200);
+
+	return (5000 + 5 * channel);
+}
+
+static inline
+u16 freq_r3A_value(u16 frequency)
+{
+	u16 value;
+
+	FIXME();//FIXME: This table seems to be buggy.
+	if (frequency < 5081)
+		value = 0x0040;
+	else if (frequency < 5321)
+		value = 0x0000;
+	else if (frequency < 5701)
+		value = 0x0080;
+	else if (frequency < 5806)
+		value = 0x0080;
+	else
+		value = 0x0040;
+
+	return value;
+}
+
+int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
+				u8 channel,
+				int synthetic_pu_workaround)
+{
+	struct bcm430x_radioinfo *radio = bcm->current_core->radio;
+	u16 r8, tmp;
+	u16 freq;
+
+	if ((radio->manufact == 0x17F) &&
+	    (radio->version == 0x2060) &&
+	    (radio->revision == 1)) {
 		if (channel > 200)
 			return -EINVAL;
+		freq = channel2freq_a(channel);
 
-		TODO(); //FIXME: 1. Workaround here doesn't make sense (Specs)
-		bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL, 5000 + 5 * channel);
-		bcm430x_phy_write(bcm, 0x0008, 0x0000);
-		TODO(); //FIXME: 4.-13.
+		r8 = bcm430x_radio_read16(bcm, 0x0008);
+		bcm430x_write16(bcm, 0x03F0, channel);
+		bcm430x_radio_write16(bcm, 0x0008, r8);
+
+		TODO();//TODO: write max channel TX power? to Radio 0x2D
+		tmp = bcm430x_radio_read16(bcm, 0x002E);
+		tmp &= 0x0080;
+		TODO();//TODO: OR tmp with the Power out estimation for this channel?
+		bcm430x_radio_write16(bcm, 0x002E, tmp);
+
+		if (freq >= 4920 && freq <= 5500) {
+			TODO();
+			//TODO: find the diff between the channel freq and 5500 and
+			//	multiply that by 0.025862069 and mask the result by 0xF.
+			//	Use this as the saved value of r8.
+		}
+		bcm430x_radio_write16(bcm, 0x0007, (r8 << 4) | r8);
+		bcm430x_radio_write16(bcm, 0x0020, (r8 << 4) | r8);
+		bcm430x_radio_write16(bcm, 0x0021, (r8 << 4) | r8);
+		bcm430x_radio_write16(bcm, 0x0022,
+				      (bcm430x_radio_read16(bcm, 0x0022)
+				       & 0x000F) | (r8 << 4));
+		bcm430x_radio_write16(bcm, 0x002A, (r8 << 4));
+		bcm430x_radio_write16(bcm, 0x002B, (r8 << 4));
+		bcm430x_radio_write16(bcm, 0x0008,
+				      (bcm430x_radio_read16(bcm, 0x0008)
+				       & 0x00F0) | (r8 << 4));
 		bcm430x_radio_write16(bcm, 0x0029,
-		                      (bcm430x_radio_read16(bcm, 0x0029) & 0xFF0F) | 0x000B);
+				      (bcm430x_radio_read16(bcm, 0x0029)
+				       & 0xFF0F) | 0x00B0);
 		bcm430x_radio_write16(bcm, 0x0035, 0x00AA);
 		bcm430x_radio_write16(bcm, 0x0036, 0x0085);
-		TODO(); //FIXME: 17.
+		bcm430x_radio_write16(bcm, 0x003A,
+				      (bcm430x_radio_read16(bcm, 0x003A)
+				       & 0xFF20) | freq_r3A_value(freq));
 		bcm430x_radio_write16(bcm, 0x003D,
-		                      bcm430x_radio_read16(bcm, 0x003D) & 0x00FF);
+				      bcm430x_radio_read16(bcm, 0x003D) & 0x00FF);
 		bcm430x_radio_write16(bcm, 0x0081,
-		                      (bcm430x_radio_read16(bcm, 0x0081) & 0xFF7F) | 0x0080);
+				      (bcm430x_radio_read16(bcm, 0x0081)
+				       & 0xFF7F) | 0x0080);
 		bcm430x_radio_write16(bcm, 0x0035,
-		                      bcm430x_radio_read16(bcm, 0x0035) & 0xFFEF);
+				      bcm430x_radio_read16(bcm, 0x0035) & 0xFFEF);
 		bcm430x_radio_write16(bcm, 0x0035,
-		                      (bcm430x_radio_read16(bcm, 0x0035) & 0xFFEF) | 0x0010 );
-		TODO(); //FIXME: 22.-25.
-		bcm430x_phy_xmitpower(bcm);
-
-		break;
-        case BCM430x_PHYTYPE_B:
-        case BCM430x_PHYTYPE_G:
+				      (bcm430x_radio_read16(bcm, 0x0035)
+				       & 0xFFEF) | 0x0010);
+		TODO();	//TODO: Set TX IQ based on VOS
+			//	Calc IQ Comp Delta
+			//	Write IQ Comp Deltza to PHY 0x69
+			//	TSSI2dbm workaround
+		bcm430x_phy_xmitpower(bcm);//FIXME correct?
+	} else {
 		if ((channel < 1) || (channel > 14))
 			return -EINVAL;
-		
-		/* Synthetic PU workaround */
-		if (workaround) {
-			if (bcm->current_core->radio->version == 0x2050 &&
-			    bcm->current_core->radio->revision < 6) {
+
+		if (synthetic_pu_workaround) {
+			/* Synthetic PU workaround */
+			if (radio->version == 0x2050 &&
+			    radio->revision < 6) {
 				if (channel <= 10)
 					bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
-							frequencies_bg[channel + 4 - 1]);
+							channel2freq_bg(channel + 4));
 				else
 					bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
-							frequencies_bg[0]);
+							channel2freq_bg(1));
 				udelay(100);
 				bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
-				                frequencies_bg[channel - 1]);
+						channel2freq_bg(1));
 			}
 		}
 		bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
-		                frequencies_bg[channel - 1]);
+				channel2freq_bg(channel));
+
 		if (channel == 14) {
+			if (0 /*FIXME: country == Japan */) {
+				bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED,
+						    BCM430x_UCODEFLAGS_OFFSET,
+						    bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED,
+								       BCM430x_UCODEFLAGS_OFFSET)
+						    & ~(1 << 7));
+			} else {
+				bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED,
+						    BCM430x_UCODEFLAGS_OFFSET,
+						    bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED,
+								       BCM430x_UCODEFLAGS_OFFSET)
+						    | (1 << 7));
+			}
 			bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT,
 					bcm430x_read16(bcm, BCM430x_MMIO_CHANNEL_EXT)
 					| (1 << 11));
 		} else {
 			bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT,
 					bcm430x_read16(bcm, BCM430x_MMIO_CHANNEL_EXT)
-					& ~(1 << 11));
+					& 0xF7BF);
 		}
-		break;
-        default:
-		assert(0);
-        }
+	}
 
 	bcm->current_core->radio->channel = channel;
-	
 	//XXX: Using the longer of 2 timeouts (8000 vs 2000 usecs). Specs states
 	//     that 2000 usecs might suffice.
 	udelay(8000);
