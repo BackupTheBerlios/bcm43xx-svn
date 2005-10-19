@@ -257,13 +257,14 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 		last_fragment = !!(get_desc_ctl(desc) & BCM430x_DMADTOR_FRAMEEND);
 		unmap_descbuffer(ring, desc, meta);
 		if (!meta->nofree_skb)
-			dev_kfree_skb_any(meta->skb);
+			dev_kfree_skb_irq(meta->skb);
 		meta->skb = NULL;
 		if (meta->txb) {
 			ieee80211_txb_free(meta->txb);
 			meta->txb = NULL;
 		}
-		/*TODO?*/
+
+		return_slot(ring, slot);
 
 		if (last_fragment)
 			break;
@@ -688,7 +689,6 @@ static void cancel_txitem(struct bcm430x_dma_txitem *item)
 	slot = dma_txitem_getslot(item);
 	free_descriptor_frame(item->ring, slot);
 	list_del(&item->list);
-	return_slot(item->ring, slot);//TODO: return all slots
 }
 
 static void cancel_transfers(struct bcm430x_dmaring *ring)
@@ -835,7 +835,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 			desc = ring->vbase + slot;
 			meta = ring->meta + slot;
 		} else {
-			/* Reserve enough headroom for tzhe device tx header. */
+			/* Reserve enough headroom for the device tx header. */
 			__skb_push(skb, sizeof(struct bcm430x_txhdr));
 			/* Now calculate and add the tx header.
 			 * The tx header includes the PLCP header.
@@ -933,7 +933,7 @@ void bcm430x_dma_tx_frame(struct bcm430x_private *bcm,
 
 	if (!bcm->no_txhdr)
 		skb_size += sizeof(struct bcm430x_txhdr);
-	skb = dev_alloc_skb(size);
+	skb = dev_alloc_skb(skb_size);
 	if (!skb) {
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
