@@ -26,6 +26,11 @@ After extraction, run make installfw which will copy bcm430x_*.fw to
 Where can I find some driver source files?
 ------------------------------------------
 
+AppleAirPort2
+-------------
+You can find the Apple Airport Extreme driver in your Mac OS X system at
+/System/Library/Extensions/AppleAirPort2.kext/Contents/MacOS/AppleAirPort2
+
 bcmwl5.sys	Link
 -------------   -------------------------------------------------------
 3.20.23.0	http://nicolas.bonifas.free.fr/inspiron/bcmwl5.sys
