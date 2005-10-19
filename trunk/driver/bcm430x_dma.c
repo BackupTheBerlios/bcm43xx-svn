@@ -766,10 +766,12 @@ static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
 	return -EINVAL;
 }
 
-static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
-				  struct sk_buff *skb,
-				  struct ieee80211_txb *txb,
-				  struct bcm430x_dma_txcontext *ctx)
+static inline
+int dma_tx_fragment(struct bcm430x_dmaring *ring,
+		    struct sk_buff *skb,
+		    struct ieee80211_txb *txb,
+		    struct bcm430x_dma_txcontext *ctx,
+		    const int forcefree_skb)
 {
 	int err = 0;
 	int slot;
@@ -802,50 +804,58 @@ static inline int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		ctx->first_slot = slot;
 	}
 
-	if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
-		/* SKB has not enough headroom. Blame the ieee80211 subsys for this.
-		 * On latest 80211 subsys this should not trigger.
-		 * Request another descriptor, which will hold
-		 * the device TX header (and PLCP header).
-		 */
-		dprintk(KERN_WARNING PFX "Not enough skb headroom. "
-					 "Using additional descriptor for header.\n");
-		header_skb = dev_alloc_skb(sizeof(struct bcm430x_txhdr));
-		if (unlikely(!header_skb))
-			return -ENOMEM;
-		meta->skb = header_skb;
-		meta->nofree_skb = 0;
-		/* Now calculate and add the tx header.
-		 * The tx header includes the PLCP header.
-		 */
-		bcm430x_generate_txhdr(ring->bcm,
-				       (struct bcm430x_txhdr *)header_skb->data,
-				       skb->data, skb->len,
-				       (ctx->cur_frag == 0),
-				       (u16)slot);
-		map_descbuffer(ring, desc, meta);
-		/* Request a new slot for the real data. */
-		slot = request_slot(ring);
-		desc = ring->vbase + slot;
-		meta = ring->meta + slot;
-	} else {
-		/* Reserve enough headroom for tzhe device tx header. */
-		__skb_push(skb, sizeof(struct bcm430x_txhdr));
-		/* Now calculate and add the tx header.
-		 * The tx header includes the PLCP header.
-		 */
-		bcm430x_generate_txhdr(ring->bcm,
-				       (struct bcm430x_txhdr *)skb->data,
-				       skb->data + sizeof(struct bcm430x_txhdr),
-				       skb->len - sizeof(struct bcm430x_txhdr),
-				       (ctx->cur_frag == 0),
-				       (u16)slot);
+	/* Add the txhdr.
+	 * In DEBUG mode and if no_txhdr is set, do not add the txhdr.
+	 */
+	if (DEBUG_ONLY(ring->bcm->no_txhdr) == 0) {
+		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
+			/* SKB has not enough headroom. Blame the ieee80211 subsys for this.
+			 * On latest 80211 subsys this should not trigger.
+			 * Request another descriptor, which will hold
+			 * the device TX header (and PLCP header).
+			 */
+			dprintk(KERN_WARNING PFX "Not enough skb headroom. "
+						 "Using additional descriptor for header.\n");
+			header_skb = dev_alloc_skb(sizeof(struct bcm430x_txhdr));
+			if (unlikely(!header_skb))
+				return -ENOMEM;
+			meta->skb = header_skb;
+			meta->nofree_skb = 0;
+			/* Now calculate and add the tx header.
+			 * The tx header includes the PLCP header.
+			 */
+			bcm430x_generate_txhdr(ring->bcm,
+					       (struct bcm430x_txhdr *)header_skb->data,
+					       skb->data, skb->len,
+					       (ctx->cur_frag == 0),
+					       (u16)slot);
+			map_descbuffer(ring, desc, meta);
+			/* Request a new slot for the real data. */
+			slot = request_slot(ring);
+			desc = ring->vbase + slot;
+			meta = ring->meta + slot;
+		} else {
+			/* Reserve enough headroom for tzhe device tx header. */
+			__skb_push(skb, sizeof(struct bcm430x_txhdr));
+			/* Now calculate and add the tx header.
+			 * The tx header includes the PLCP header.
+			 */
+			bcm430x_generate_txhdr(ring->bcm,
+					       (struct bcm430x_txhdr *)skb->data,
+					       skb->data + sizeof(struct bcm430x_txhdr),
+					       skb->len - sizeof(struct bcm430x_txhdr),
+					       (ctx->cur_frag == 0),
+					       (u16)slot);
+		}
 	}
 //bcm430x_printk_dump(skb->data, skb->len, "SKB");
 
 	/* write the buffer to the descriptor and map it. */
 	meta->skb = skb;
-	meta->nofree_skb = 1;
+	if (DEBUG_ONLY(forcefree_skb))
+		meta->nofree_skb = 0;
+	else
+		meta->nofree_skb = 1;
 printk(KERN_INFO PFX "mapping %d\n", slot);
 	map_descbuffer(ring, desc, meta);
 
@@ -899,7 +909,7 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
 		ctx.first_slot = -1;
-		err = dma_tx_fragment(ring, skb, txb, &ctx);
+		err = dma_tx_fragment(ring, skb, txb, &ctx, 0);
 		if (err)
 			break;//TODO: correct error handling.
 		ctx.cur_frag++;
@@ -909,6 +919,30 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 //dump_ringmemory(ring);
 	return err;
 }
+
+#ifdef BCM430x_DEBUG
+void bcm430x_dma_tx_frame(struct bcm430x_private *bcm,
+			  const char *buf, size_t size)
+{
+	struct sk_buff *skb;
+	struct bcm430x_dma_txcontext ctx;
+	int err;
+
+	skb = dev_alloc_skb(size);
+	if (!skb) {
+		printk(KERN_ERR PFX "Out of memory!\n");
+		return;
+	}
+	memcpy(skb->data, buf, size);
+
+	ctx.nr_frags = 1;
+	ctx.cur_frag = 0;
+	err = dma_tx_fragment(bcm->current_core->dma->tx_ring1,
+			      skb, NULL, &ctx, 1);
+	if (err)
+		printk(KERN_ERR PFX "TX FRAME failed!\n");
+}
+#endif /* BCM430x_DEBUG */
 
 int fastcall
 bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,

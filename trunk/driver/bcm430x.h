@@ -331,6 +331,24 @@
 # define dprintkl(f, x...)	do { /* nothing */ } while (0)
 #endif
 
+/* Helper macro for if branches.
+ * An if branch marked with this macro is only taken in DEBUG mode.
+ * Example:
+ *	if (DEBUG_ONLY(foo == bar)) {
+ *		do something
+ *	}
+ *	In DEBUG mode, the branch will be taken if (foo == bar).
+ *	In non-DEBUG mode, the branch will never be taken.
+ */
+#ifdef DEBUG_ONLY
+# undef DEBUG_ONLY
+#endif
+#ifdef BCM430x_DEBUG
+# define DEBUG_ONLY(x)	(x)
+#else
+# define DEBUG_ONLY(x)	0
+#endif
+
 /* debugging printk() */
 #ifdef dprintk
 # undef dprintk
@@ -527,7 +545,8 @@ struct bcm430x_private {
 	    shutting_down:1,		/* free_board() in progress */
 	    pio_mode:1,			/* PIO (if true), or DMA (if false) used. */
 	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
-	    adhoc_on_last_tbtt:1;	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
+	    adhoc_on_last_tbtt:1,	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
+	    no_txhdr:1;			/* Tempoary flag for DEBUG mode only. */
 
 	u16 board_vendor;
 	u16 board_type;

@@ -35,6 +35,8 @@
 #include "bcm430x.h"
 #include "bcm430x_main.h"
 #include "bcm430x_debugfs.h"
+#include "bcm430x_dma.h"
+#include "bcm430x_pio.h"
 
 #define REALLY_BIG_BUFFER_SIZE	(1024*256)
 
@@ -335,7 +337,14 @@ static ssize_t sendraw_write_file(struct file *file, const char __user *user_buf
 	}
 
 	bcm430x_printk_dump(buf, buf_size, "RAW TX");
-	TODO();//TODO: raw transmit the data either via PIO or DMA.
+
+	/* Tempoarly disable txheader generation. */
+	bcm->no_txhdr = 1;
+	if (bcm->pio_mode)
+		TODO();//TODO PIO xfer
+	else
+		bcm430x_dma_tx_frame(bcm, buf, buf_size);
+	bcm->no_txhdr = 0;
 
 	res = buf_size;
 out_unlock:
@@ -429,11 +438,11 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 						bcm, &shmdump_fops);
 	if (!e->dentry_shmdump)
 		printk(KERN_ERR PFX "debugfs: creating \"shm_dump\" for \"%s\" failed!\n", devdir);
-	e->dentry_tsf = debugfs_create_file("tsf", 0644, e->subdir,
+	e->dentry_tsf = debugfs_create_file("tsf", 0666, e->subdir,
 	                                    bcm, &tsf_fops);
 	if (!e->dentry_tsf)
 		printk(KERN_ERR PFX "debugfs: creating \"tsf\" for \"%s\" failed!\n", devdir);
-	e->dentry_sendraw = debugfs_create_file("sendraw", 0644, e->subdir,
+	e->dentry_sendraw = debugfs_create_file("sendraw", 0666, e->subdir,
 						bcm, &sendraw_fops);
 	if (!e->dentry_sendraw)
 		printk(KERN_ERR PFX "debugfs: creating \"sendraw\" for \"%s\" failed!\n", devdir);
