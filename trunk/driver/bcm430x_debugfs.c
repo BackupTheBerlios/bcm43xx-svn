@@ -284,6 +284,67 @@ out_up:
 	return res;
 }
 
+static ssize_t sendraw_read_file(struct file *file, char __user *userbuf,
+				 size_t count, loff_t *ppos)
+{
+	const size_t len = REALLY_BIG_BUFFER_SIZE;
+
+	struct bcm430x_private *bcm = file->private_data;
+	char *buf = really_big_buffer;
+	size_t pos = 0;
+	ssize_t res;
+	unsigned long flags;
+
+	down(&big_buffer_sem);
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (!bcm->initialized) {
+		fappend("Board not initialized.\n");
+		goto out;
+	}
+	fappend("RAW TX:\n"
+		"Data written to this file will be transmitted.\n"
+		"The data must contain all headers (txhdr, PLCP)\n");
+
+out:
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+	up(&big_buffer_sem);
+	return res;
+}
+
+static ssize_t sendraw_write_file(struct file *file, const char __user *user_buf,
+				  size_t count, loff_t *ppos)
+{
+	struct bcm430x_private *bcm = file->private_data;
+	char *buf = really_big_buffer;
+	ssize_t buf_size;
+	ssize_t res;
+	unsigned long flags;
+
+	buf_size = min(count, sizeof (really_big_buffer) - 1);
+	down(&big_buffer_sem);
+	if (copy_from_user(buf, user_buf, buf_size)) {
+	        res = -EFAULT;
+		goto out_up;
+	}
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (!bcm->initialized) {
+		printk(KERN_INFO PFX "debugfs: Board not initialized.\n");
+		res = -EFAULT;
+		goto out_unlock;
+	}
+
+	bcm430x_printk_dump(buf, buf_size, "RAW TX");
+	TODO();//TODO: raw transmit the data either via PIO or DMA.
+
+	res = buf_size;
+out_unlock:
+	spin_unlock_irqrestore(&bcm->lock, flags);
+out_up:
+	up(&big_buffer_sem);
+	return res;
+}
+
 #undef fappend
 #undef fappend_ioblock32
 
@@ -315,6 +376,12 @@ static struct file_operations drvinfo_fops = {
 static struct file_operations tsf_fops = {
 	.read = tsf_read_file,
 	.write = tsf_write_file,
+	.open = open_file_generic,
+};
+
+static struct file_operations sendraw_fops = {
+	.read = sendraw_read_file,
+	.write = sendraw_write_file,
 	.open = open_file_generic,
 };
 
@@ -366,6 +433,10 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 	                                    bcm, &tsf_fops);
 	if (!e->dentry_tsf)
 		printk(KERN_ERR PFX "debugfs: creating \"tsf\" for \"%s\" failed!\n", devdir);
+	e->dentry_sendraw = debugfs_create_file("sendraw", 0644, e->subdir,
+						bcm, &sendraw_fops);
+	if (!e->dentry_sendraw)
+		printk(KERN_ERR PFX "debugfs: creating \"sendraw\" for \"%s\" failed!\n", devdir);
 	/* Add new files, here. */
 	list_add(&e->list, &fs.entries);
 	fs.nr_entries++;
@@ -388,6 +459,7 @@ void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm)
 	debugfs_remove(e->dentry_spromdump);
 	debugfs_remove(e->dentry_devinfo);
 	debugfs_remove(e->dentry_tsf);
+	debugfs_remove(e->dentry_sendraw);
 	debugfs_remove(e->subdir);
 	list_del(&e->list);
 	fs.nr_entries--;
