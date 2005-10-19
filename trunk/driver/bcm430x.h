@@ -517,7 +517,7 @@ struct bcm430x_private {
 	struct net_device *net_dev;
 	struct pci_dev *pci_dev;
 
-	void *mmio_addr;
+	void __iomem *mmio_addr;
 	unsigned int mmio_len;
 
 	spinlock_t lock;

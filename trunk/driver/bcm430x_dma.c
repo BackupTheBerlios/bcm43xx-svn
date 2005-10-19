@@ -258,10 +258,10 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 		unmap_descbuffer(ring, desc, meta);
 		if (!meta->nofree_skb)
 			dev_kfree_skb_any(meta->skb);
-		meta->skb = 0;
+		meta->skb = NULL;
 		if (meta->txb) {
 			ieee80211_txb_free(meta->txb);
-			meta->txb = 0;
+			meta->txb = NULL;
 		}
 		/*TODO?*/
 
@@ -497,7 +497,7 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 {
 	size_t buffersize = 0;
 	int i, err = 0, num_buffers = 0;
-	struct bcm430x_dmadesc *desc = 0;
+	struct bcm430x_dmadesc *desc = NULL;
 	struct bcm430x_dmadesc_meta *meta;
 
 	if (!ring->tx) {
@@ -677,7 +677,7 @@ err_kfree_meta:
 	kfree(ring->meta);
 err_kfree_ring:
 	kfree(ring);
-	ring = 0;
+	ring = NULL;
 	goto out;
 }
 

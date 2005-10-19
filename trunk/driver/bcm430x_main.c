@@ -2143,7 +2143,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			current_core, core_id, core_rev, core_vendor,
 			bcm430x_core_enabled(bcm) ? "enabled" : "disabled" );
 
-		core = 0;
+		core = NULL;
 		switch (core_id) {
 		case BCM430x_COREID_PCI:
 			core = &bcm->core_pci;
@@ -2182,7 +2182,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 				core = &(bcm->core_80211[i]);
 				if (!(core->flags & BCM430x_COREFLAG_AVAILABLE))
 					break;
-				core = 0;
+				core = NULL;
 			}
 			if (!core) {
 				printk(KERN_WARNING PFX "More than %d cores of type 802.11 found.\n",
@@ -2261,13 +2261,13 @@ out:
 static void bcm430x_pio_free(struct bcm430x_private *bcm)
 {
 	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue3);
-	bcm->current_core->pio->queue3 = 0;
+	bcm->current_core->pio->queue3 = NULL;
 	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
-	bcm->current_core->pio->queue2 = 0;
+	bcm->current_core->pio->queue2 = NULL;
 	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
-	bcm->current_core->pio->queue1 = 0;
+	bcm->current_core->pio->queue1 = NULL;
 	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
-	bcm->current_core->pio->queue0 = 0;
+	bcm->current_core->pio->queue0 = NULL;
 }
 
 static int bcm430x_pio_init(struct bcm430x_private *bcm)
@@ -2305,30 +2305,30 @@ out:
 
 err_destroy2:
 	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
-	bcm->current_core->pio->queue2 = 0;
+	bcm->current_core->pio->queue2 = NULL;
 err_destroy1:
 	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
-	bcm->current_core->pio->queue1 = 0;
+	bcm->current_core->pio->queue1 = NULL;
 err_destroy0:
 	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
-	bcm->current_core->pio->queue0 = 0;
+	bcm->current_core->pio->queue0 = NULL;
 	goto out;
 }
 
 static void bcm430x_dma_free(struct bcm430x_private *bcm)
 {
 	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring1);
-	bcm->current_core->dma->rx_ring1 = 0;
+	bcm->current_core->dma->rx_ring1 = NULL;
 	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
-	bcm->current_core->dma->rx_ring0 = 0;
+	bcm->current_core->dma->rx_ring0 = NULL;
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
-	bcm->current_core->dma->tx_ring3 = 0;
+	bcm->current_core->dma->tx_ring3 = NULL;
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
-	bcm->current_core->dma->tx_ring2 = 0;
+	bcm->current_core->dma->tx_ring2 = NULL;
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
-	bcm->current_core->dma->tx_ring1 = 0;
+	bcm->current_core->dma->tx_ring1 = NULL;
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
-	bcm->current_core->dma->tx_ring0 = 0;
+	bcm->current_core->dma->tx_ring0 = NULL;
 }
 
 static int bcm430x_dma_init(struct bcm430x_private *bcm)
@@ -2383,19 +2383,19 @@ out:
 
 err_destroy_rx0:
 	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
-	bcm->current_core->dma->rx_ring0 = 0;
+	bcm->current_core->dma->rx_ring0 = NULL;
 err_destroy_tx3:
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
-	bcm->current_core->dma->tx_ring3 = 0;
+	bcm->current_core->dma->tx_ring3 = NULL;
 err_destroy_tx2:
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
-	bcm->current_core->dma->tx_ring2 = 0;
+	bcm->current_core->dma->tx_ring2 = NULL;
 err_destroy_tx1:
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
-	bcm->current_core->dma->tx_ring1 = 0;
+	bcm->current_core->dma->tx_ring1 = NULL;
 err_destroy_tx0:
 	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
-	bcm->current_core->dma->tx_ring0 = 0;
+	bcm->current_core->dma->tx_ring0 = NULL;
 	goto out;
 }
 
@@ -2985,7 +2985,7 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	struct net_device *net_dev = bcm->net_dev;
 	int err;
 	int i;
-	void *ioaddr;
+	void __iomem *ioaddr;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
 	int num_80211_cores;
 
@@ -3036,7 +3036,7 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		goto err_pci_release;
 	}
 
-	net_dev->base_addr = (long)ioaddr;
+	net_dev->base_addr = (unsigned long)ioaddr;
 	bcm->mmio_addr = ioaddr;
 	bcm->mmio_len = mmio_len;
 

@@ -319,7 +319,7 @@ out:
 
 err_freequeue:
 	kfree(queue);
-	queue = 0;
+	queue = NULL;
 	goto out;
 }
 

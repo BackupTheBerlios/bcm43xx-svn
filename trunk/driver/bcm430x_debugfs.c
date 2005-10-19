@@ -327,7 +327,7 @@ static struct bcm430x_dfsentry * find_dfsentry(struct bcm430x_private *bcm)
 			return e;
 	}
 
-	return 0;
+	return NULL;
 }
 
 void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
@@ -404,10 +404,10 @@ void bcm430x_debugfs_init(void)
 	init_MUTEX(&fs.sem);
 	INIT_LIST_HEAD(&fs.entries);
 	fs.nr_entries = 0;
-	fs.root = debugfs_create_dir(DRV_NAME, 0);
+	fs.root = debugfs_create_dir(DRV_NAME, NULL);
 	if (!fs.root)
 		printk(KERN_ERR PFX "debugfs: creating \"" DRV_NAME "\" subdir failed!\n");
-	fs.dentry_driverinfo = debugfs_create_file("driver", 0444, fs.root, 0, &drvinfo_fops);
+	fs.dentry_driverinfo = debugfs_create_file("driver", 0444, fs.root, NULL, &drvinfo_fops);
 	if (!fs.dentry_driverinfo)
 		printk(KERN_ERR PFX "debugfs: creating \"" DRV_NAME "/driver\" failed!\n");
 }
