@@ -17,3 +17,12 @@ Requirements
 
 1)	Linux Kernel 2.6.14 or later
 	http://www.kernel.org/
+
+	Please configure your kernel with:
+	a) CONFIG_IEEE80211 (required):
+		-> Networking
+		  -> Generic IEEE 802.11 Networking Stack
+
+	b) CONFIG_DEBUG_FS (optional):
+		-> Kernel hacking
+		  -> Debug Filesystem

@@ -36,6 +36,7 @@ bcmwl5.sys	Link
 		http://communications.siemens.com/repository/1135/113557/pccard54_V11200_eng.exe
 3.40.20.0	http://broadband.motorola.com/consumers/products/WN825g/downloads/WN-WPCI-Web-Update-v1.1.exe
 		http://broadband.motorola.com/consumers/products/WPCI810g/downloads/WN-WPCI-Web-Update-v1.1.exe
+3.40.25.3	http://www.silfreed.net/download/hpzt3000cto/SP23107A.tar.gz
 3.40.73.0	http://ftp.us.dell.com/network/R83097.EXE
 		ftp://ftp.us.dell.com/network/R83097.EXE
 3.40.100.0	ftp://ftp.wildpackets.com/pub/outgoing/brcmDvr340rc100a~@.zip		
