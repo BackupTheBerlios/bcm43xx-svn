@@ -927,12 +927,17 @@ void bcm430x_dma_tx_frame(struct bcm430x_private *bcm,
 	struct sk_buff *skb;
 	struct bcm430x_dma_txcontext ctx;
 	int err;
+	size_t skb_size = size;
 
+	if (!bcm->no_txhdr)
+		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(size);
 	if (!skb) {
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
+	if (!bcm->no_txhdr)
+		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb->data, buf, size);
 
 	ctx.nr_frags = 1;
