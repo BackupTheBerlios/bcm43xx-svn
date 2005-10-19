@@ -815,7 +815,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	u32 tmp1 = 0, tmp2 = 0;
 
 	backup[0] = bcm430x_radio_read16(bcm, 0x0043);
-	backup[1] = bcm430x_radio_read16(bcm, 0x0015);
+	backup[1] = bcm430x_phy_read(bcm, 0x0015);
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
 		backup[2] = bcm430x_phy_read(bcm, 0x0030);
 		backup[3] = bcm430x_read16(bcm, 0x03EC);
@@ -864,9 +864,9 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B)
 		bcm430x_radio_write16(bcm, 0x0078, 0x0003);
 
-	bcm430x_radio_write16(bcm, 0x0015, 0xBFAF);
-	bcm430x_radio_write16(bcm, 0x002B, 0x1403);
-	if (!bcm->current_core->phy->connected)
+	bcm430x_phy_write(bcm, 0x0015, 0xBFAF);
+	bcm430x_phy_write(bcm, 0x002B, 0x1403);
+	if (bcm->current_core->phy->connected)
 		bcm430x_phy_write(bcm, 0x0812, 0x00B2);
 	bcm430x_phy_write(bcm, 0x0015, 0xBFA0);
 	bcm430x_radio_write16(bcm, 0x0051,
