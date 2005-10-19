@@ -26,3 +26,10 @@ Requirements
 	b) CONFIG_DEBUG_FS (optional):
 		-> Kernel hacking
 		  -> Debug Filesystem
+
+2)	Firmware Files
+
+	Please try fwcutter. Fwcutter can extract the firmware from various 
+	binary driver files. It supports driver files from Windows, MacOS and 
+	Linux. You can get fwcutter from http://bcm43xx.berlios.de/.
+	Also, fwcutter comes with a README file for further instructions.
