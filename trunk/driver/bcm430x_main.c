@@ -800,33 +800,22 @@ void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 
 	for (i = 0x00; i < max_loop; i++) {
 		value = bcm430x_read16(bcm, 0x050E);
-//		dprintk(KERN_INFO PFX "dummy_tx(): loop1, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0080) != 0)
 			break;
 		udelay(10);
 	}
-	if (unlikely(i >= max_loop))
-		printk(KERN_WARNING PFX "dummy_tx() Warning: first loop timed out!\n");
-
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm430x_read16(bcm, 0x050E);
-//		dprintk(KERN_INFO PFX "dummy_tx(): loop2, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0400) != 0)
 			break;
 		udelay(10);
 	}
-	if (unlikely(i >= 0x0A))
-		printk(KERN_WARNING PFX "dummy_tx() Warning: second loop timed out!\n");
-
 	for (i = 0x00; i < 0x0A; i++) {
 		value = bcm430x_read16(bcm, 0x0690);
-//		dprintk(KERN_INFO PFX "dummy_tx(): loop3, iteration %d, value = %04x\n", i, value);
 		if ((value & 0x0100) == 0)
 			break;
 		udelay(10);
 	}
-	if (unlikely(i >= 0x0A))
-		printk(KERN_WARNING PFX "dummy_tx() Warning: third loop timed out!\n");
 }
 
 /* Puts the index of the current core into user supplied core variable.
