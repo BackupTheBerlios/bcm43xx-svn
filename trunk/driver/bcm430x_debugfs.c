@@ -341,7 +341,7 @@ static ssize_t send_write_file(struct file *file, const char __user *user_buf,
 		goto out_unlock;
 	}
 
-	bcm430x_printk_dump(buf, buf_size, "TX");
+	bcm430x_printk_dump(buf, buf_size, "DebugFS: TX");
 
 	if (bcm->pio_mode)
 		TODO();//TODO PIO xfer
@@ -413,7 +413,7 @@ static ssize_t sendraw_write_file(struct file *file, const char __user *user_buf
 		goto out_unlock;
 	}
 
-	bcm430x_printk_dump(buf, buf_size, "RAW TX");
+	bcm430x_printk_dump(buf, buf_size, "DebugFS: RAW TX");
 
 	/* Tempoarly disable txheader generation. */
 	bcm->no_txhdr = 1;
