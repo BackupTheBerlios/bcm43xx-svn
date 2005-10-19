@@ -1407,6 +1407,7 @@ static s8 bcm430x_phy_estimate_power_out(struct bcm430x_private *bcm, s8 tssi)
 		case BCM430x_PHYTYPE_G:
 			tmp = limit_value(tmp, 0x00, 0x3F);
 			tssi2dbm = bcm->current_core->phy->tssi2dbm[tmp];
+			break;
 		default:
 			assert(0);
 	}
