@@ -248,7 +248,7 @@ static void bcm430x_phy_agcsetup(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0420, (bcm430x_phy_read(bcm, 0x0420) & 0xFFF0) | 0x0004);
 	}
 
-	bcm430x_phy_write(bcm, 0x048A, (bcm430x_phy_read(bcm, 0x048A) & 0x8080) | 0x7874);
+	bcm430x_phy_write(bcm, 0x04A8, (bcm430x_phy_read(bcm, 0x04A8) & 0x8080) | 0x7874);
 	bcm430x_phy_write(bcm, 0x048E, 0x1C00);
 
 	if (bcm->current_core->phy->rev == 1) {
@@ -258,10 +258,10 @@ static void bcm430x_phy_agcsetup(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x048D, 0x0002);
 	}
 
-	bcm430x_ilt_write16(bcm, offset + 0x0800, 0x0000);
-	bcm430x_ilt_write16(bcm, offset + 0x0801, 0x0007);
-	bcm430x_ilt_write16(bcm, offset + 0x0802, 0x0016);
-	bcm430x_ilt_write16(bcm, offset + 0x0803, 0x0028);
+	bcm430x_ilt_write16(bcm, offset + 0x0800, 0);
+	bcm430x_ilt_write16(bcm, offset + 0x0801, 7);
+	bcm430x_ilt_write16(bcm, offset + 0x0802, 16);
+	bcm430x_ilt_write16(bcm, offset + 0x0803, 28);
 }
 
 static void bcm430x_phy_setupg(struct bcm430x_private *bcm)
@@ -794,10 +794,10 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm)
 		                      bcm430x_radio_read16(bcm, 0x007A) | 0x0020);
 		bcm430x_radio_write16(bcm, 0x0051,
 		                      bcm430x_radio_read16(bcm, 0x0051) | 0x0002);
-		bcm430x_radio_write16(bcm, 0x0802,
-		                      bcm430x_radio_read16(bcm, 0x0802) | 0x0100);
-		bcm430x_radio_write16(bcm, 0x042B,
-		                      bcm430x_radio_read16(bcm, 0x042B) | 0x2000);
+		bcm430x_phy_write(bcm, 0x0802,
+		                  bcm430x_phy_read(bcm, 0x0802) | 0x0100);
+		bcm430x_phy_write(bcm, 0x042B,
+		                  bcm430x_phy_read(bcm, 0x042B) | 0x2000);
 	}
 
 	/* Force to channel 7, even if not supported. */
