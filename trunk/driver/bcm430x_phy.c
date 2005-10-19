@@ -1384,6 +1384,36 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	bcm430x_radio_selectchannel(bcm, oldchannel, 1);
 }
 
+/* http://bcm-specs.sipsolutions.net/EstimatePowerOut
+ * This function converts a TSSI value to dBm.
+ */
+static s8 bcm430x_phy_estimate_power_out(struct bcm430x_private *bcm, s8 tssi)
+{
+	s8 tssi2dbm = 0;
+	s32 tmp;
+
+	tmp = bcm->current_core->phy->idle_tssi;
+	tmp += tssi;
+	tmp -= (s8)(bcm->current_core->phy->savedpctlreg);
+
+	switch (bcm->current_core->phy->type) {
+		case BCM430x_PHYTYPE_A:
+			tmp += 0x80;
+			tmp = limit_value(tmp, 0x00, 0xFF);
+			tssi2dbm = bcm->current_core->phy->tssi2dbm[tmp];
+			TODO(); //TODO: There's a FIXME on the specs
+			break;
+		case BCM430x_PHYTYPE_B:
+		case BCM430x_PHYTYPE_G:
+			tmp = limit_value(tmp, 0x00, 0x3F);
+			tssi2dbm = bcm->current_core->phy->tssi2dbm[tmp];
+		default:
+			assert(0);
+	}
+
+	return tssi2dbm;
+}
+
 /* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 {
