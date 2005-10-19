@@ -2432,6 +2432,7 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 
 	assert(mac_len == 6);
 
+	//FIXME: seems like the MAC has to be written to more locations. Maybe the BSSID, too... .
 	/* Write our MAC address to template ram */
 	for (i = 0; i < mac_len; i += sizeof(u32))
 		bcm430x_ram_write(bcm, 0x20 + i * sizeof(u32), *((u32 *)(mac + i)));
