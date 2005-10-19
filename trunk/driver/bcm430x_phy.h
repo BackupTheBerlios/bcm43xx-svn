@@ -54,4 +54,7 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm);
  */
 void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm, int fixed);
 
+void bcm430x_phy_set_baseband_attenuation(struct bcm430x_private *bcm,
+					  u16 baseband_attenuation);
+
 #endif /* BCM430x_PHY_H_ */

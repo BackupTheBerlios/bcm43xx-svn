@@ -1189,24 +1189,26 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 }
 
 /* Set the baseband attenuation value on chip. */
-static void bcm430x_phy_set_baseband_attenuation(struct bcm430x_private *bcm,
-						 u16 baseband_attenuation)
+void bcm430x_phy_set_baseband_attenuation(struct bcm430x_private *bcm,
+					  u16 baseband_attenuation)
 {
-	u16 reg, value;
+	u16 value;
 
-	reg = 0x0060;
 	if (bcm->current_core->phy->version == 0) {
-		reg = 0x03E6; FIXME();//FIXME: review: where is this reg from? I do not find it in the specs.
-		value = (bcm430x_phy_read(bcm, reg) & 0xFFF0);
+		value = (bcm430x_read16(bcm, 0x03E6) & 0xFFF0);
 		value |= (baseband_attenuation & 0x000F);
-	} else if (bcm->current_core->phy->version == 1) {
-		value = bcm430x_phy_read(bcm, reg) & ~0x003C;
+		bcm430x_write16(bcm, 0x03E6, value);
+		return;
+	}
+
+	if (bcm->current_core->phy->version == 1) {
+		value = bcm430x_phy_read(bcm, 0x0060) & ~0x003C;
 		value |= (baseband_attenuation << 2) & 0x003C;
 	} else {
-		value = bcm430x_phy_read(bcm, reg) & ~0x0078;
+		value = bcm430x_phy_read(bcm, 0x0060) & ~0x0078;
 		value |= (baseband_attenuation << 3) & 0x0078;
 	}
-	bcm430x_phy_write(bcm, reg, value);
+	bcm430x_phy_write(bcm, 0x0060, value);
 }
 
 /* http://bcm-specs.sipsolutions.net/LocalOscillator/Measure */

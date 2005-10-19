@@ -1194,8 +1194,6 @@ void bcm430x_radio_set_txpower_bg(struct bcm430x_private *bcm,
                                  u16 baseband_attenuation, u16 attenuation,
 			         u16 txpower)
 {
-	u16 reg = 0x0060, tmp;
-
 	if (baseband_attenuation == 0xFFFF)
 		baseband_attenuation = bcm->current_core->radio->txpower[0];
 	else
@@ -1209,17 +1207,7 @@ void bcm430x_radio_set_txpower_bg(struct bcm430x_private *bcm,
 	else
 		bcm->current_core->radio->txpower[2] = txpower;
 
-	if (bcm->current_core->phy->version == 0) {
-		reg = 0x03E6;
-		tmp = (bcm430x_phy_read(bcm, reg) & 0xFFF0) | baseband_attenuation;
-	} else if (bcm->current_core->phy->version == 1) {
-		tmp  = bcm430x_phy_read(bcm, reg) & ~0x0078;
-		tmp |= (baseband_attenuation << 3) & 0x0078;
-	} else {
-		tmp  = bcm430x_phy_read(bcm, reg) & ~0x003C;
-		tmp |= (baseband_attenuation << 2) & 0x003C;
-	}
-	bcm430x_phy_write(bcm, reg, tmp);
+	bcm430x_phy_set_baseband_attenuation(bcm, baseband_attenuation);
 	bcm430x_radio_write16(bcm, 0x0043, attenuation);
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0064, attenuation);
 	if (bcm->current_core->radio->version == 0x2050) {
