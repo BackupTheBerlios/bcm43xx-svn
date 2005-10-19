@@ -536,14 +536,20 @@ static inline u32 bcm430x_interrupt_disable(struct bcm430x_private *bcm, u32 mas
 }
 
 /* Make sure we don't receive more data from the device. */
-static void bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm)
+static int bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
+	if (bcm430x_is_initializing(bcm) || bcm->shutting_down) {
+		spin_unlock_irqrestore(&bcm->lock, flags);
+		return -EBUSY;
+	}
 	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	tasklet_disable(&bcm->isr_tasklet);
+
+	return 0;
 }
 
 static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
@@ -2716,8 +2722,11 @@ static void bcm430x_periodic_work2_handler(void *d)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
+	assert(bcm->current_core->phy->type == BCM430x_PHYTYPE_G);
+	assert(bcm->current_core->phy->rev >= 2);
+
 	bcm430x_mac_suspend(bcm);
-	bcm430x_phy_lo_g_measure(bcm); //FIXME: G?
+	bcm430x_phy_lo_g_measure(bcm);
 	bcm430x_mac_enable(bcm);
 
 	if (likely(!bcm->shutting_down)) {
@@ -3318,6 +3327,25 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 
 static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 {
+/* Untested and wrong:
+	struct net_device *net_dev = pci_get_drvdata(pdev);
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	int err;
+
+	err = bcm430x_disable_interrupts_sync(bcm);
+	if (err)
+		return -EAGAIN;
+
+	dprintk(KERN_INFO PFX "Suspending...\n");
+
+	assert(bcm->initialized);
+	bcm430x_free_board(bcm);
+	netif_device_detach(net_dev);
+
+	pci_save_state(pdev);
+	pci_disable_device(pdev);
+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+*/
 	TODO();
 	/*TODO: What has to be done is basically:
 	 *	* suspend TX and RX
@@ -3325,17 +3353,31 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 	 *	* mask chip irqs
 	 *	* bring the chip down.
 	 */
-	return 0;
+
+	return -ENOSYS;
 }
 
 static int bcm430x_resume(struct pci_dev *pdev)
 {
+/* Untested and wrong:
+	struct net_device *net_dev = pci_get_drvdata(pdev);
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+
+	dprintk(KERN_INFO PFX "Resuming...\n");
+
+	pci_set_power_state(pdev, 0);
+	pci_enable_device(pdev);
+	pci_restore_state(pdev);
+
+	netif_device_attach(net_dev);
+	bcm430x_init_board(bcm);
+*/
 	TODO();
 	/*TODO: The opposite of bcm430x_suspend() has to be done:
 	 *	* bring the chip up.
 	 *	* resume TX. (?)
 	 */
-	return 0;
+	return -ENOSYS;
 }
 
 #endif				/* CONFIG_PM */
