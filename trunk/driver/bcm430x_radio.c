@@ -870,10 +870,10 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0812, 0x00B2);
 	bcm430x_phy_write(bcm, 0x0015, 0xBFA0);
 	bcm430x_radio_write16(bcm, 0x0051,
-	                      (bcm430x_read16(bcm, 0x0051) | 0x0004));
+	                      (bcm430x_radio_read16(bcm, 0x0051) | 0x0004));
 	bcm430x_radio_write16(bcm, 0x0052, 0x0000);
 	bcm430x_radio_write16(bcm, 0x0043, 0x0009);
-	bcm430x_radio_write16(bcm, 0x0058, 0x0000);
+	bcm430x_phy_write(bcm, 0x0058, 0x0000);
 
 	for (i = 0; i < 16; i++) {
 		bcm430x_phy_write(bcm, 0x005A, 0x0480);
@@ -904,8 +904,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	bcm430x_radio_write16(bcm, 0x0058, 0x0000);
 
 	for (i = 0; i < 16; i++) {
-		bcm430x_phy_write(bcm, 0x0078, flip_4bit(i) | 0x0020);
-		backup[13] = bcm430x_phy_read(bcm, 0x0078);
+		bcm430x_radio_write16(bcm, 0x0078, (flip_4bit(i) << 1) | 0x0020);
+		backup[13] = bcm430x_radio_read16(bcm, 0x0078);
 		udelay(10);
 		for (j = 0; j < 16; j++) {
 			bcm430x_phy_write(bcm, 0x005A, 0x0D80);
@@ -961,7 +961,7 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 		}
 	}
 	if (i >= 15)
-		ret = bcm430x_radio_read16(bcm, 0x0078);
+		ret = backup[13];
 
 	return ret;
 }

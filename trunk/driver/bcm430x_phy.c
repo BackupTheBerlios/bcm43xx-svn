@@ -848,8 +848,7 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x04C3, 0x8606);
 	}
 	if (bcm->current_core->radio->initval == 0xFFFF) {
-		FIXME();//FIXME: init2050 gives OOPS
-		//bcm->current_core->radio->initval = bcm430x_radio_init2050(bcm);
+		bcm->current_core->radio->initval = bcm430x_radio_init2050(bcm);
 		bcm430x_phy_lo_g_measure(bcm);
 	} else {
 		bcm430x_radio_write16(bcm, 0x0078, bcm->current_core->radio->initval);
