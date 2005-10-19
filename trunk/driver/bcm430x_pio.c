@@ -157,13 +157,14 @@ void tx_complete(struct bcm430x_pioqueue *queue,
 static inline
 void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 			   struct sk_buff *skb,
-			   struct bcm430x_pio_txcontext *ctx)
+			   struct bcm430x_pio_txpacket *packet)
 {
+	struct bcm430x_pio_txcontext *ctx = &packet->ctx;
 	unsigned int octets;
 
 	/*TODO: fragmented skb */
 
-	if (DEBUG_ONLY(queue->bcm->no_txhdr) == 0) {
+	if (DEBUG_ONLY(packet->no_txhdr) == 0) {
 		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
 			printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
 			return;
@@ -199,7 +200,7 @@ int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
 printk(KERN_INFO PFX "txQ full\n");
 			return 1;
 		}
-		pio_tx_write_fragment(queue, skb, &packet->ctx);
+		pio_tx_write_fragment(queue, skb, packet);
 
 		packet->ctx.xmitted_frags++;
 		queue->tx_devq_packets++;
@@ -222,6 +223,7 @@ static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 			dev_kfree_skb_any(packet->txb->fragments[i]);
 		kfree(packet->txb);
 		packet->txb_is_dummy = 0;
+		packet->no_txhdr = 0;
 		return;
 	}
 #endif /* BCM430x_DEBUG */
@@ -381,6 +383,8 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 #ifdef BCM430x_DEBUG
 	if (txb_is_dummy)
 		packet->txb_is_dummy = 1;
+	if (queue->bcm->no_txhdr)
+		packet->no_txhdr = 1;
 #endif /* BCM430x_DEBUG */
 
 	memset(&packet->ctx, 0, sizeof(packet->ctx));

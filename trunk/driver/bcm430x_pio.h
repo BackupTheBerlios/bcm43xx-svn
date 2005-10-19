@@ -51,6 +51,8 @@ struct bcm430x_pio_txpacket {
 	 * DebugFS "send" and "sendraw" files.
 	 */
 	int txb_is_dummy;
+	/* For DebugFS "sendraw" */
+	int no_txhdr;
 #endif /* BCM430x_DEBUG */
 };
 
