@@ -2902,7 +2902,7 @@ static void bcm430x_detach_board(struct bcm430x_private *bcm)
 
 	/* Free allocated structures/fields */
 	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
-		kfree(bcm->phy[i].lo_pairs);
+		kfree(bcm->phy[i]._lo_pairs);
 	}
 }	
 
@@ -2913,6 +2913,7 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	u8 phy_type;
 	u8 phy_rev;
 	int phy_rev_ok = 1;
+	void *p;
 
 	value = bcm430x_read16(bcm, BCM430x_MMIO_PHY_VER);
 
@@ -2967,10 +2968,11 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	bcm->current_core->phy->type = phy_type;
 	bcm->current_core->phy->rev = phy_rev;
 	if ((phy_type == BCM430x_PHYTYPE_B) || (phy_type == BCM430x_PHYTYPE_G)) {
-		bcm->current_core->phy->lo_pairs = kzalloc(sizeof(union bcm430x_lopair) * BCM430x_LO_COUNT,
-							   GFP_KERNEL);
-		if (!bcm->current_core->phy->lo_pairs)
+		p = kzalloc(sizeof(struct bcm430x_lopair) * BCM430x_LO_COUNT,
+			    GFP_KERNEL);
+		if (!p)
 			return -ENOMEM;
+		bcm->current_core->phy->_lo_pairs = p;
 	}
 	bcm->current_core->phy->info_unk16 = 0xFFFF;
 
@@ -3117,7 +3119,7 @@ out:
 
 err_80211_unwind:
 	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
-		kfree(bcm->phy[i].lo_pairs);
+		kfree(bcm->phy[i]._lo_pairs);
 	}
 err_chipset_detach:
 	bcm430x_chipset_detach(bcm);

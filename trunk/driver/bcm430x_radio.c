@@ -1228,7 +1228,7 @@ void bcm430x_radio_set_txpower_bg(struct bcm430x_private *bcm,
 	}
 
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
-		bcm430x_phy_lo_adjust(bcm);
+		bcm430x_phy_lo_adjust(bcm, 0);
 }
 
 

@@ -49,6 +49,9 @@ void bcm430x_phy_lo_b_measure(struct bcm430x_private *bcm);
 void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm);
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm);
 
-void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm);
+/* Adjust the LocalOscillator to the saved values.
+ * "fixed" is only set to 1 once in initialization. Set to 0 otherwise.
+ */
+void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm, int fixed);
 
 #endif /* BCM430x_PHY_H_ */

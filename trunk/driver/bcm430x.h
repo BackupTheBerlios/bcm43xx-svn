@@ -213,6 +213,7 @@
 #define BCM430x_PHY_ILT_A_CTRL		0x0072
 #define BCM430x_PHY_ILT_A_DATA1		0x0073
 #define BCM430x_PHY_ILT_A_DATA2		0x0074
+#define BCM430x_PHY_G_LO_CONTROL	0x0810
 #define BCM430x_PHY_ILT_G_CTRL		0x0472
 #define BCM430x_PHY_ILT_G_DATA1		0x0473
 #define BCM430x_PHY_ILT_G_DATA2		0x0474
@@ -386,11 +387,11 @@ struct bcm430x_sprominfo {
 	u16 spromversion;
 };
 
-union bcm430x_lopair {
-	s8 items[2];
-	u16 value;
+/* Value pair to measure the LocalOscillator. */
+struct bcm430x_lopair {
+	s8 low;
+	s8 high;
 };
-
 #define BCM430x_LO_COUNT	(14*4)
 
 struct bcm430x_phyinfo {
@@ -405,8 +406,10 @@ struct bcm430x_phyinfo {
 	u8 connected:1,
 	   calibrated:1;
 	u8 default_bitrate;
-	/* LO Measurement Data */
-	union bcm430x_lopair *lo_pairs;
+	/* LO Measurement Data.
+	 * Use bcm430x_get_lopair() to get a value.
+	 */
+	struct bcm430x_lopair *_lo_pairs;
 	u16 info_unk16;
 
 	/* TSSI to dBm table in use */
@@ -414,6 +417,15 @@ struct bcm430x_phyinfo {
 	/* idle TSSI value */
 	s8 idle_tssi;
 };
+
+
+static inline
+struct bcm430x_lopair * bcm430x_get_lopair(struct bcm430x_phyinfo *phy,
+					   u16 radio_attenuation,
+					   u16 baseband_attenuation)
+{
+	return phy->_lo_pairs + (radio_attenuation + 14 * (baseband_attenuation / 2));
+}
 
 struct bcm430x_radioinfo {
 	u16 manufact;
