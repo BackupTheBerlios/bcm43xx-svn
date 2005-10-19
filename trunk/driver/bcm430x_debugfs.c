@@ -64,7 +64,7 @@ static int open_file_generic(struct inode *inode, struct file *file)
 		unsigned int __i;						\
 		for (__i = 0; __i < (length); __i++) {				\
 			__d = ioread32(bcm->mmio_addr + (mmio_offset));		\
-			if (__i % 6 == 0)					\
+			if (__i % 8 == 0)					\
 				fappend("\n0x%04x:  0x%08x, ", __i, __d);	\
 			else							\
 				fappend("0x%08x, ", __d);			\
@@ -605,7 +605,7 @@ void bcm430x_printk_dump(const char *data,
 	       description, size);
 	for (i = 0; i < size; i++) {
 		c = data[i];
-		if (i % 6 == 0)
+		if (i % 8 == 0)
 			printk("\n" KERN_INFO PFX "0x%08x:  0x%02x, ", i, c & 0xff);
 		else
 			printk("0x%02x, ", c & 0xff);
@@ -625,7 +625,7 @@ void bcm430x_printk_bitdump(const unsigned char *data,
 	       description, bytes, msb_to_lsb ? "MSB to LSB" : "LSB to MSB");
 	for (i = 0; i < bytes; i++) {
 		d = data + i;
-		if (i % 6 == 0)
+		if (i % 8 == 0)
 			printk("\n" KERN_INFO PFX "0x%08x:  ", i);
 		if (msb_to_lsb) {
 			for (j = 7; j >= 0; j--) {
