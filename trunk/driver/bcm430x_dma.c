@@ -821,6 +821,67 @@ static inline void tx_xfer(struct bcm430x_dmaring *ring,
 	dmacontroller_poke_tx(ring, slot);
 }
 
+/* Generate a cookie for the TX header. */
+static inline
+u16 generate_cookie(struct bcm430x_dmaring *ring,
+		    int slot)
+{
+	u16 cookie = 0x0000;
+
+	/* Use the upper 4 bits of the cookie as
+	 * DMA controller ID and store the slot number
+	 * in the lower 12 bits
+	 */
+	switch (ring->mmio_base) {
+	default:
+		assert(0);
+	case BCM430x_MMIO_DMA1_BASE:
+		break;
+	case BCM430x_MMIO_DMA2_BASE:
+		cookie = 0x1000;
+		break;
+	case BCM430x_MMIO_DMA3_BASE:
+		cookie = 0x2000;
+		break;
+	case BCM430x_MMIO_DMA4_BASE:
+		cookie = 0x3000;
+		break;
+	}
+	assert(((u16)slot & 0xF000) == 0x0000);
+	cookie |= (u16)slot;
+
+	return cookie;
+}
+
+/* Inspect a cookie and find out to which controller/slot it belongs. */
+static inline
+struct bcm430x_dmaring * parse_cookie(struct bcm430x_private *bcm,
+				      u16 cookie, int *slot)
+{
+	struct bcm430x_dmaring *ring = NULL;
+
+	switch (cookie & 0xF000) {
+	case 0x0000:
+		ring = bcm->current_core->dma->tx_ring0;
+		break;
+	case 0x1000:
+		ring = bcm->current_core->dma->tx_ring1;
+		break;
+	case 0x2000:
+		ring = bcm->current_core->dma->tx_ring2;
+		break;
+	case 0x3000:
+		ring = bcm->current_core->dma->tx_ring3;
+		break;
+	default:
+		assert(0);
+	}
+	*slot = (cookie & 0x0FFF);
+	assert(*slot >= 0 && *slot < ring->nr_slots);
+
+	return ring;
+}
+
 static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
 				     struct sk_buff *skb,
 				     struct bcm430x_dma_txcontext *ctx)
@@ -894,7 +955,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 					       (struct bcm430x_txhdr *)header_skb->data,
 					       skb->data, skb->len,
 					       (ctx->cur_frag == 0),
-					       (u16)slot);
+					       generate_cookie(ring, slot));
 			map_descbuffer(ring, desc, meta);
 			/* Request a new slot for the real data. */
 			slot = request_slot(ring);
@@ -911,12 +972,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 					       skb->data + sizeof(struct bcm430x_txhdr),
 					       skb->len - sizeof(struct bcm430x_txhdr),
 					       (ctx->cur_frag == 0),
-					       (u16)slot);
-			/*FIXME: If we want to use more DMA controllers
-			 *	 in parallel, we might want to encode the controller
-			 *	 index into the cookie.
-			 *	 Just use "slot" for now, as it is unique for this controller.
-			 */
+					       generate_cookie(ring, slot));
 		}
 	}
 //bcm430x_printk_dump(skb->data, skb->len, "SKB");
@@ -1041,6 +1097,14 @@ void fastcall
 bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 			      struct bcm430x_xmitstatus *status)
 {
+	struct bcm430x_dmaring *ring;
+	int slot;
+
+	ring = parse_cookie(bcm, status->cookie, &slot);
+	assert(ring);
+printk(KERN_INFO PFX "Received txstatus on DMA controller 0x%04x slot %d\n",
+       ring->mmio_base, slot);
+
 	/*TODO*/
 }
 
