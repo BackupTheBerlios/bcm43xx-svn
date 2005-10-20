@@ -766,7 +766,7 @@ static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
 	return -EINVAL;
 }
 
-static inline
+static fastcall
 int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		    struct sk_buff *skb,
 		    struct ieee80211_txb *txb,
@@ -804,10 +804,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		ctx->first_slot = slot;
 	}
 
-	/* Add the txhdr.
-	 * In DEBUG mode and if no_txhdr is set, do not add the txhdr.
-	 */
-	if (DEBUG_ONLY(ring->bcm->no_txhdr) == 0) {
+	if (likely(ring->bcm->no_txhdr == 0)) {
 		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
 			/* SKB has not enough headroom. Blame the ieee80211 subsys for this.
 			 * On latest 80211 subsys this should not trigger.
@@ -852,7 +849,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	/* write the buffer to the descriptor and map it. */
 	meta->skb = skb;
-	if (DEBUG_ONLY(forcefree_skb))
+	if (unlikely(forcefree_skb))
 		meta->nofree_skb = 0;
 	else
 		meta->nofree_skb = 1;
@@ -920,8 +917,10 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 	return err;
 }
 
-#ifdef BCM430x_DEBUG
-void bcm430x_dma_tx_frame(struct bcm430x_private *bcm,
+/* Write a frame directly to the ring.
+ * This is only to be used for debugging and testing (loopback)
+ */
+void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 			  const char *buf, size_t size)
 {
 	struct sk_buff *skb;
@@ -929,29 +928,26 @@ void bcm430x_dma_tx_frame(struct bcm430x_private *bcm,
 	int err;
 	size_t skb_size = size;
 	unsigned long flags;
-	struct bcm430x_dmaring *ring;
 
-	if (!bcm->no_txhdr)
+	if (!ring->bcm->no_txhdr)
 		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(skb_size);
 	if (!skb) {
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
-	if (!bcm->no_txhdr)
+	if (!ring->bcm->no_txhdr)
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb->data, buf, size);
 
 	ctx.nr_frags = 1;
 	ctx.cur_frag = 0;
-	ring = bcm->current_core->dma->tx_ring1;
 	spin_lock_irqsave(&ring->lock, flags);
 	err = dma_tx_fragment(ring, skb, NULL, &ctx, 1);
 	spin_unlock_irqrestore(&ring->lock, flags);
 	if (err)
 		printk(KERN_ERR PFX "TX FRAME failed!\n");
 }
-#endif /* BCM430x_DEBUG */
 
 int fastcall
 bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,

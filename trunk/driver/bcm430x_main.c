@@ -537,8 +537,9 @@ static inline u32 bcm430x_interrupt_disable(struct bcm430x_private *bcm, u32 mas
 }
 
 /* Make sure we don't receive more data from the device. */
-static int bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm)
+static int bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm, u32 *oldstate)
 {
+	u32 old;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
@@ -546,9 +547,11 @@ static int bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm)
 		spin_unlock_irqrestore(&bcm->lock, flags);
 		return -EBUSY;
 	}
-	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	old = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	tasklet_disable(&bcm->isr_tasklet);
+	if (oldstate)
+		*oldstate = old;
 
 	return 0;
 }
@@ -2770,6 +2773,96 @@ static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
 	}
 }
 
+/* Run a Loopback test on the DMA/PIO engine */
+static int bcm430x_loopback_test(struct bcm430x_private *bcm)
+{
+	static const u32 packet[8] = {
+		0x00000000,
+		0xFFFFFFFF,
+		0x55555555,
+		0xAAAAAAAA,
+		0x33333333,
+		0xCCCCCCCC,
+		0x66666666,
+		0x99999999,
+	};
+	u32 tmp;
+	unsigned long flags;
+	int i, j = 0, err;
+
+	netif_tx_disable(bcm->net_dev);
+
+	/* Enable Loopback mode */
+	if (bcm->pio_mode) {
+		tmp = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_RX_CONTROL);
+		tmp |= BCM430x_DMA_RXCTRL_PIO;
+		bcm430x_write32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_RX_CONTROL, tmp);
+	}
+	tmp = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL);
+	tmp |= BCM430x_DMA_TXCTRL_LOOPBACK;
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL, tmp);
+
+	/*FIXME: The following should ACK all outstanding IRQs. Not sure... */
+	err = bcm430x_disable_interrupts_sync(bcm, &tmp);
+	assert(err == 0);
+	bcm430x_interrupt_enable(bcm, tmp);
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm->no_txhdr = 1;
+	/* Now send the testpacket */
+	if (bcm->pio_mode) {
+		TODO();//TODO
+	} else {
+		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring0,
+				     (const char *)packet, sizeof(packet));
+	}
+	bcm->no_txhdr = 0;
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	/* Wait for an answer... */
+	err = -ECOMM;
+	for (i = 0; i < 100; i++) {
+		spin_lock_irqsave(&bcm->lock, flags);
+		if (bcm->dma_reason[0] & 0xFD00) {
+			udelay(10);
+			dprintk(KERN_INFO PFX "Loopback test: DMA reason received 0x%08x\n",
+				bcm->dma_reason[0]);
+			for (j = 0; j < 500; j++) {
+				//TODO: check the queues for a received packet.
+				if (0/*received*/) {
+					j = -2;
+					break;
+				}
+				udelay(10);
+			}
+			if (j == 500)
+				j = -1;
+		}
+		spin_unlock_irqrestore(&bcm->lock, flags);
+		if (j < 0)
+			break;
+		/* Relax to give the IRQ a good chance to trigger. */
+		msleep(1);
+	}
+	if (j == -2) {
+		//TODO: compare the received packet with the original.
+	}
+
+	/* Disable Loopback mode */
+	if (bcm->pio_mode) {
+		tmp = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_RX_CONTROL);
+		tmp &= ~BCM430x_DMA_RXCTRL_PIO;
+		bcm430x_write32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_RX_CONTROL, tmp);
+	}
+	tmp = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL);
+	tmp &= ~BCM430x_DMA_TXCTRL_LOOPBACK;
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL, tmp);
+
+	netif_wake_queue(bcm->net_dev);
+
+	return err;
+}
+
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
@@ -2869,6 +2962,11 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	bcm430x_periodic_tasks_setup(bcm);
+
+#if 0
+	if (bcm430x_loopback_test(bcm) != 0)
+		printk(KERN_WARNING PFX "Loopback test FAILED!\n");
+#endif
 
 	assert(err == 0);
 out:
@@ -3196,7 +3294,7 @@ static int bcm430x_net_stop(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
-	bcm430x_disable_interrupts_sync(bcm);
+	bcm430x_disable_interrupts_sync(bcm, NULL);
 	bcm430x_free_board(bcm);
 
 	return 0;
@@ -3333,7 +3431,7 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err;
 
-	err = bcm430x_disable_interrupts_sync(bcm);
+	err = bcm430x_disable_interrupts_sync(bcm, NULL);
 	if (err)
 		return -EAGAIN;
 

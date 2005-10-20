@@ -551,7 +551,7 @@ struct bcm430x_private {
 	    pio_mode:1,			/* PIO (if true), or DMA (if false) used. */
 	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
 	    adhoc_on_last_tbtt:1,	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
-	    no_txhdr:1,			/* Tempoary flag for DEBUG mode only. */
+	    no_txhdr:1,			/* Do not add a TX header in DMA or PIO code. */
 	    powersaving:1;		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
 
 	u16 board_vendor;
