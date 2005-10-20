@@ -363,15 +363,17 @@ void bcm430x_power_saving_ctl_bits(struct bcm430x_private *bcm,
 	int i;
 	u32 status;
 
+//FIXME: Force 25 to off and 26 to on for now:
+bit25 = 0;
+bit26 = 1;
+
 	if (bit25 == -1) {
 		//TODO: If powersave is not off and FIXME is not set and we are not in adhoc
 		//	and thus is not an AP and we are associated, set bit 25
-bit25 = 0;
 	}
 	if (bit26 == -1) {
 		//TODO: If the device is awake or this is an AP, or FIXME, or FIXME,
 		//	or we are associated, or FIXME, or FIXME, set bit26
-bit26 = 1;
 	}
 	status = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 	if (bit25)
