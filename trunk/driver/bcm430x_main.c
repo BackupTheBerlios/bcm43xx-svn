@@ -122,6 +122,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1028, 0x0002, 0, 0, 0 }, /* Dell TrueMobile 1300 PCMCIA Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1028, 0x0003, 0, 0, 0 }, /* Dell TrueMobile 1350 Mini-PCI Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12f4, 0, 0, 0 }, /* HP nx9105 Laptop */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12f8, 0, 0, 0 }, /* HP zd8000 Laptop */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12fa, 0, 0, 0 }, /* Compaq Presario R3xxx PCI on board */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1043, 0x100f, 0, 0, 0 }, /* Asus WL-100G PC Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1057, 0x7025, 0, 0, 0 }, /* Motorola WN825G PC Card */
