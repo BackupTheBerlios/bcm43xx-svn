@@ -782,6 +782,12 @@ void * kzalloc(size_t size, unsigned int flags)
 		memset(ret, 0, size);
 	return ret;
 }
+static inline
+int is_broadcast_ether_addr(const u8 *addr)
+{
+	return ((addr[0] == 0xFF) && (addr[1] == 0xFF) && (addr[2] == 0xFF) &&
+		(addr[3] == 0xFF) && (addr[4] == 0xFF) && (addr[5] == 0xFF));
+}
 #endif /* < 2.6.14 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 11)
 # include <linux/pm.h>
