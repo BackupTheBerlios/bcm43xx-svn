@@ -409,6 +409,7 @@ struct bcm430x_sprominfo {
 struct bcm430x_lopair {
 	s8 low;
 	s8 high;
+	u8 used:1;
 };
 #define BCM430x_LO_COUNT	(14*4)
 

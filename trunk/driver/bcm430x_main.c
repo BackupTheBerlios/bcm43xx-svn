@@ -2865,11 +2865,12 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 
 	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
 
-	bcm430x_periodic_tasks_setup(bcm);
-
 	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->initialized = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	bcm430x_periodic_tasks_setup(bcm);
+
 	assert(err == 0);
 out:
 	return err;

@@ -1384,6 +1384,17 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	bcm430x_radio_selectchannel(bcm, oldchannel, 1);
 }
 
+static
+void bcm430x_phy_lo_mark_current_used(struct bcm430x_private *bcm)
+{
+	TODO();//TODO
+}
+
+void bcm430x_phy_lo_mark_all_unused(struct bcm430x_private *bcm)
+{
+	TODO();//TODO
+}
+
 /* http://bcm-specs.sipsolutions.net/EstimatePowerOut
  * This function converts a TSSI value to dBm.
  */
@@ -1418,58 +1429,70 @@ static s8 bcm430x_phy_estimate_power_out(struct bcm430x_private *bcm, s8 tssi)
 /* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 {
-	u16 saved[2] = { 0 };
-	s16 sum; //FIXME: Should this be signed or unsigned?!
-	u16 desired, estimated;
-	u16 delta_radio = 0, delta_baseband = 0;
+	u16 tmp;
+	s8 v0, v1, v2, v3;
+	s8 average, pwrout;
+	u16 desired_pwr, estimated_pwr, pwr_adjust;
+	u16 radio_att_delta, baseband_att_delta;
 
 	if (bcm->current_core->phy->savedpctlreg == 0xFFFF)
 		return;
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
-		if (((bcm->board_type == 0x0416) || (bcm->board_type == 0x040A))
-		    && (bcm->board_vendor == PCI_VENDOR_ID_BROADCOM))
-			return;
 
-		FIXME(); //FIXME: Nothing for A PHYs yet :-/
+		TODO(); //TODO: Nothing for A PHYs yet :-/
+
 		break;
-
 	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
-		//XXX: What is board_type 0x0416?
-		if ((bcm->board_type == 0x0416) && (bcm->board_vendor == PCI_VENDOR_ID_BROADCOM))
+		if ((bcm->board_type == 0x0416) &&
+		    (bcm->board_vendor == 0x106B/*FIXME: Board Vendor Broadcom*/))
 			return;
 
-		saved[0] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x00F8);
-		saved[1] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x005A);
-		if ((saved[0] == 0x7F7F) || (saved[1] == 0x7F7F)) {
-			saved[0] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0070);
-			saved[1] = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0072);
-			if ((saved[0] == 0x7F7F) || (saved[1] == 0x7F7F))
+		tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0058);
+		v0 = (s8)(tmp & 0x00FF);
+		v1 = (s8)((tmp & 0xFF00) >> 8);
+		tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x005A);
+		v2 = (s8)(tmp & 0x00FF);
+		v3 = (s8)((tmp & 0xFF00) >> 8);
+		if ((v0 == 0x7F && v1 == 0x7F) || (v2 == 0x7F && v3 == 0x7F)) {
+			tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0070);
+			v0 = (s8)(tmp & 0x00FF);
+			v1 = (s8)((tmp & 0xFF00) >> 8);
+			tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0072);
+			v2 = (s8)(tmp & 0x00FF);
+			v3 = (s8)((tmp & 0xFF00) >> 8);
+			if ((v0 == 0x7F && v1 == 0x7F) || (v2 == 0x7F && v3 == 0x7F))
 				return;
-
-			saved[0] = (saved[0] + 0x2020) & 0x3F3F;
-			saved[1] = (saved[1] + 0x2020) & 0x3F3F;
+			v0 = (v0 + 0x20) & 0x3F;
+			v1 = (v1 + 0x20) & 0x3F;
+			v2 = (v2 + 0x20) & 0x3F;
+			v3 = (v3 + 0x20) & 0x3F;
 		}
 		bcm430x_radio_clear_tssi(bcm);
 
-		sum = (saved[0] & 0x00FF) + (saved[0] >> 4) + (saved[1] & 0x00FF) + (saved[1] >> 4);
-		sum +=  (sum - 2 < 0) ? 5 : 2;
+		average = (v0 + v1 + v2 + v3 + 2) / 4;
+		estimated_pwr = bcm430x_phy_estimate_power_out(bcm, average);
+		//TODO: adjust
+		pwr_adjust = estimated_pwr - desired_pwr;
+		radio_att_delta = -(pwr_adjust + 7) / 8;
+		baseband_att_delta = -(pwr_adjust / 2) - (4 * radio_att_delta);
+		if ((radio_att_delta == 0) && (baseband_att_delta == 0)) {
+			bcm430x_phy_lo_mark_current_used(bcm);
+			return;
+		}
+		//FIXME: LO measure correct here?
+		if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
+			bcm430x_phy_lo_g_measure(bcm);
+		else
+			bcm430x_phy_lo_b_measure(bcm);
 
-#if 0
-		TODO(); //TODO: Implement EstimatePowerOut
-		TODO(); //TODO: Adjust the desired power out
-		delta_radio = -((estimated - desired) + 7) / 8;
-		delta_baseband = -(estimated - desired)/2 - 4 * delta_radio;
-		if ((delta_radio == 0) && (delta_baseband == 0))
-			bcm430x_lo_mark_current_used(bcm);
 		
-#endif
-
-
 		TODO(); //TODO: 'Continues'
 		break;
+	default:
+		assert(0);
 	}
 }
 
