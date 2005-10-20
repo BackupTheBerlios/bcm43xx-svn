@@ -35,6 +35,9 @@
 
 struct bcm430x_private;
 
+void bcm430x_phy_lock(struct bcm430x_private *bcm);
+void bcm430x_phy_unlock(struct bcm430x_private *bcm);
+
 u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_phy_write(struct bcm430x_private *bcm, u16 offset, u16 val);
 
@@ -53,6 +56,7 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm);
  * "fixed" is only set to 1 once in initialization. Set to 0 otherwise.
  */
 void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm, int fixed);
+void bcm430x_phy_lo_mark_all_unused(struct bcm430x_private *bcm);
 
 void bcm430x_phy_set_baseband_attenuation(struct bcm430x_private *bcm,
 					  u16 baseband_attenuation);

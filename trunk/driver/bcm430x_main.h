@@ -154,5 +154,7 @@ int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset, u32 *val);
 int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset, u16 val);
 int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset, u32 val);
 
+void bcm430x_mac_suspend(struct bcm430x_private *bcm);
+void bcm430x_mac_enable(struct bcm430x_private *bcm);
 
 #endif /* BCM430x_MAIN_H_ */

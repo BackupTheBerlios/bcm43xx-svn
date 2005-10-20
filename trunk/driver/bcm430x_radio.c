@@ -62,6 +62,26 @@ static u16 flip_4bit(u16 value)
 	return flipped;
 }
 
+void bcm430x_radio_lock(struct bcm430x_private *bcm)
+{
+	u32 status;
+
+	status = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	status |= BCM430x_SBF_RADIOREG_LOCK;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, status);
+	udelay(10);
+}
+
+void bcm430x_radio_unlock(struct bcm430x_private *bcm)
+{
+	u32 status;
+
+	bcm430x_read16(bcm, BCM430x_MMIO_PHY_VER); /* dummy read */
+	status = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	status &= ~BCM430x_SBF_RADIOREG_LOCK;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, status);
+}
+
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset)
 {
 	switch (bcm->current_core->phy->type) {

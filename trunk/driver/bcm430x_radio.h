@@ -44,6 +44,9 @@
 #define BCM430x_RADIO_INTERFMODE_AUTOWLAN	3
 
 
+void bcm430x_radio_lock(struct bcm430x_private *bcm);
+void bcm430x_radio_unlock(struct bcm430x_private *bcm);
+
 u16 bcm430x_radio_read16(struct bcm430x_private *bcm, u16 offset);
 void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val);
 

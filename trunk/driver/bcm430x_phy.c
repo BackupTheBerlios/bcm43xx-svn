@@ -37,6 +37,8 @@
 #include "bcm430x_main.h"
 #include "bcm430x_radio.h"
 #include "bcm430x_ilt.h"
+#include "bcm430x_power.h"
+
 
 static const s8 bcm430x_tssi2dbm_b_table[] = {
 	0x4D, 0x4C, 0x4B, 0x4A,
@@ -78,6 +80,36 @@ static const s8 bcm430x_tssi2dbm_g_table[] = {
 
 static void bcm430x_phy_initg(struct bcm430x_private *bcm);
 
+
+void bcm430x_phy_lock(struct bcm430x_private *bcm)
+{
+	assert(!in_interrupt());
+	if (bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD) == 0x00000000)
+		return;
+	if (bcm->current_core->rev < 3) {
+		bcm430x_mac_suspend(bcm);
+		spin_lock(&bcm->current_core->phy->lock);
+	} else {
+		if (bcm->ieee->iw_mode == IW_MODE_MASTER)
+			return;
+		bcm430x_power_saving_ctl_bits(bcm, -1, 1);
+	}
+}
+
+void bcm430x_phy_unlock(struct bcm430x_private *bcm)
+{
+	assert(!in_interrupt());
+	if (bcm->current_core->rev < 3) {
+		if (!spin_is_locked(&bcm->current_core->phy->lock))
+			return;
+		spin_unlock(&bcm->current_core->phy->lock);
+		bcm430x_mac_enable(bcm);
+	} else {
+		if (bcm->ieee->iw_mode == IW_MODE_MASTER)
+			return;
+		bcm430x_power_saving_ctl_bits(bcm, -1, -1);
+	}
+}
 
 u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset)
 {
@@ -1430,10 +1462,12 @@ static s8 bcm430x_phy_estimate_power_out(struct bcm430x_private *bcm, s8 tssi)
 void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 {
 	u16 tmp;
+	u16 txpower;
 	s8 v0, v1, v2, v3;
-	s8 average, pwrout;
-	u16 desired_pwr, estimated_pwr, pwr_adjust;
-	u16 radio_att_delta, baseband_att_delta;
+	s8 average;
+	s16 desired_pwr, estimated_pwr, pwr_adjust;
+	s16 radio_att_delta, baseband_att_delta;
+	s16 radio_attenuation, baseband_attenuation;
 
 	if (bcm->current_core->phy->savedpctlreg == 0xFFFF)
 		return;
@@ -1473,8 +1507,10 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 		bcm430x_radio_clear_tssi(bcm);
 
 		average = (v0 + v1 + v2 + v3 + 2) / 4;
+		//TODO: If FIXME, substract 13
 		estimated_pwr = bcm430x_phy_estimate_power_out(bcm, average);
 		//TODO: adjust
+return;
 		pwr_adjust = estimated_pwr - desired_pwr;
 		radio_att_delta = -(pwr_adjust + 7) / 8;
 		baseband_att_delta = -(pwr_adjust / 2) - (4 * radio_att_delta);
@@ -1482,14 +1518,56 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 			bcm430x_phy_lo_mark_current_used(bcm);
 			return;
 		}
-		//FIXME: LO measure correct here?
-		if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
-			bcm430x_phy_lo_g_measure(bcm);
-		else
-			bcm430x_phy_lo_b_measure(bcm);
 
-		
-		TODO(); //TODO: 'Continues'
+		//TODO: calculate the new baseband and radio att values
+
+		/* baseband_attenuation affects the lower level 4 times as
+		 * much as radio attenuation. So adjust them.
+		 */
+		while (baseband_attenuation < 1 && radio_attenuation > 0) {
+			radio_attenuation--;
+			baseband_attenuation += 4;
+		}
+		/* adjust maximum values */
+		while (baseband_attenuation > 5 && radio_attenuation < 9) {
+			baseband_attenuation -= 4;
+			radio_attenuation++;
+		}
+		if (radio_attenuation < 0)
+			radio_attenuation = 0;
+
+		txpower = bcm->current_core->radio->txpower[2];
+		if (bcm->current_core->radio->version == 0x2050) {
+			if (radio_attenuation == 0) {
+				if (txpower == 0) {
+					txpower = 3;
+					radio_attenuation += 2;
+					baseband_attenuation += 2;
+				} else if (0 /*FIXME: the board does not have GPIO 9 controlling the PA*/) {
+					baseband_attenuation += 4 * (radio_attenuation - 2);
+					radio_attenuation = 2;
+				}
+			} else if (radio_attenuation > 4 && txpower != 0) {
+				txpower = 0;
+				if (baseband_attenuation < 3) {
+					radio_attenuation -= 3;
+					baseband_attenuation += 2;
+				} else {
+					radio_attenuation -= 2;
+					baseband_attenuation -= 2;
+				}
+			}
+		}
+		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
+		radio_attenuation = limit_value(radio_attenuation, 0, 9);
+
+		bcm430x_phy_lock(bcm);
+		bcm430x_radio_lock(bcm);
+		bcm430x_radio_set_txpower_bg(bcm, baseband_attenuation,
+					     radio_attenuation, txpower);
+		bcm430x_phy_lo_mark_current_used(bcm);
+		bcm430x_radio_unlock(bcm);
+		bcm430x_phy_unlock(bcm);
 		break;
 	default:
 		assert(0);

@@ -350,3 +350,44 @@ err_pci:
 	err = -EBUSY;
 	goto out;
 }
+
+/* Set the PowerSavingControlBits.
+ * Bitvalues:
+ *   0  => unset the bit
+ *   1  => set the bit
+ *   -1 => calculate the bit
+ */
+void bcm430x_power_saving_ctl_bits(struct bcm430x_private *bcm,
+				   int bit25, int bit26)
+{
+	int i;
+	u32 status;
+
+	if (bit25 == -1) {
+		//TODO: If powersave is not off and FIXME is not set and we are not in adhoc
+		//	and thus is not an AP and we are associated, set bit 25
+bit25 = 0;
+	}
+	if (bit26 == -1) {
+		//TODO: If the device is awake or this is an AP, or FIXME, or FIXME,
+		//	or we are associated, or FIXME, or FIXME, set bit26
+bit26 = 1;
+	}
+	status = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	if (bit25)
+		status |= BCM430x_SBF_PS1;
+	else
+		status &= ~BCM430x_SBF_PS1;
+	if (bit26)
+		status |= BCM430x_SBF_PS2;
+	else
+		status &= ~BCM430x_SBF_PS2;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, status);
+	if (bit26 && bcm->current_core->rev >= 5) {
+		for (i = 0; i < 100; i++) {
+			if (bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0040) != 4)
+				break;
+			udelay(10);
+		}
+	}
+}

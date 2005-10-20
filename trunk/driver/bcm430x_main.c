@@ -1789,7 +1789,7 @@ static int bcm430x_gpio_cleanup(struct bcm430x_private *bcm)
 }
 
 /* http://bcm-specs.sipsolutions.net/EnableMac */
-static void bcm430x_mac_enable(struct bcm430x_private *bcm)
+void bcm430x_mac_enable(struct bcm430x_private *bcm)
 {
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
@@ -1802,7 +1802,7 @@ static void bcm430x_mac_enable(struct bcm430x_private *bcm)
 }
 
 /* http://bcm-specs.sipsolutions.net/SuspendMAC */
-static void bcm430x_mac_suspend(struct bcm430x_private *bcm)
+void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 {
 	int i = 1000;
 	//FIXME: FuncPlaceholder (Set PS CTRL)
@@ -2701,8 +2701,7 @@ static void bcm430x_periodic_work1_handler(void *d)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	//TODO: mark all vsets from the LO as unused
-
+	bcm430x_phy_lo_mark_all_unused(bcm);
 	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
 		bcm430x_mac_suspend(bcm);
 		bcm430x_calc_nrssi_slope(bcm);
