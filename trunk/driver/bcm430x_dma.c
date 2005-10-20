@@ -1111,11 +1111,42 @@ printk(KERN_INFO PFX "Received txstatus on DMA controller 0x%04x slot %d\n",
 	/*TODO*/
 }
 
+static inline
+void dma_rx(struct bcm430x_dmaring *ring,
+	    int slot)
+{
+	struct bcm430x_dmadesc *desc;
+	struct bcm430x_dmadesc_meta *meta;
+	struct bcm430x_rxhdr rxhdr;
+	unsigned char *data;
+
+printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
+       ring->mmio_base, slot);
+
+	desc = ring->vbase + slot;
+	meta = ring->meta + slot;
+
+	unmap_descbuffer(ring, desc, meta);
+	data = meta->skb->data;
+	bcm430x_rxhdr_to_cpuorder(&rxhdr, (struct bcm430x_hwrxhdr *)data);
+
+	//TODO: Interpret the rxhdr.
+	//TODO: map the descbuffer again and make the device ready for new rx.
+}
+
 void fastcall
 bcm430x_dma_rx(struct bcm430x_dmaring *ring)
 {
-printk(KERN_INFO PFX "Data received on DMA controller 0x%04x\n",
-       ring->mmio_base);
+	u32 status;
+	u16 descptr;
+	int slot;
+
+	assert(!ring->tx);
+	status = bcm430x_read32(ring->bcm, ring->mmio_base + BCM430x_DMA_RX_STATUS);
+	descptr = (status & BCM430x_DMA_RXSTAT_DPTR_MASK);
+	slot = descptr / sizeof(struct bcm430x_dmadesc);
+	assert(slot >= 0 && slot < ring->nr_slots);
+	dma_rx(ring, slot);
 }
 
 /* vim: set ts=8 sw=8 sts=8: */
