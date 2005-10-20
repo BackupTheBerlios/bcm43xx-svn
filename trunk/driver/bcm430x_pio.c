@@ -454,4 +454,10 @@ bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 	/*TODO*/
 }
 
+void fastcall
+bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
+{
+	/*TODO*/
+}
+
 /* vim: set ts=8 sw=8 sts=8: */

@@ -89,6 +89,8 @@ int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
 void FASTCALL(bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 					    struct bcm430x_xmitstatus *status));
 
+void FASTCALL(bcm430x_pio_rx(struct bcm430x_pioqueue *queue));
+
 #ifdef BCM430x_DEBUG
 void bcm430x_pio_tx_frame(struct bcm430x_private *bcm,
 			  const char *buf, size_t size);

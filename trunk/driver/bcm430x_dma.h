@@ -194,4 +194,6 @@ void FASTCALL(bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 			  const char *buf, size_t size);
 
+void FASTCALL(bcm430x_dma_rx(struct bcm430x_dmaring *ring));
+
 #endif /* BCM430x_DMA_H_ */

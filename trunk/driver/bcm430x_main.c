@@ -1209,8 +1209,8 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 			 KERN_ERR PFX "  DMA reasons:    0x%08x, 0x%08x, 0x%08x, 0x%08x\n"	\
 			 KERN_ERR PFX "  DMA TX status:  0x%08x, 0x%08x, 0x%08x, 0x%08x\n",	\
 			 reason,								\
-			 bcm->dma_reason[0], bcm->dma_reason[1],				\
-			 bcm->dma_reason[2], bcm->dma_reason[3],				\
+			 dma_reason[0], dma_reason[1],						\
+			 dma_reason[2], dma_reason[3],						\
 			 bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_STATUS),	\
 			 bcm430x_read32(bcm, BCM430x_MMIO_DMA2_BASE + BCM430x_DMA_TX_STATUS),	\
 			 bcm430x_read32(bcm, BCM430x_MMIO_DMA3_BASE + BCM430x_DMA_TX_STATUS),	\
@@ -1221,6 +1221,7 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 {
 	u32 reason;
+	u32 dma_reason[4];
 	unsigned long flags;
 
 #ifdef BCM430x_DEBUG
@@ -1232,6 +1233,10 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	reason = bcm->irq_reason;
+	dma_reason[0] = bcm->dma_reason[0];
+	dma_reason[1] = bcm->dma_reason[1];
+	dma_reason[2] = bcm->dma_reason[2];
+	dma_reason[3] = bcm->dma_reason[3];
 
 	if (unlikely(reason & BCM430x_IRQ_TXFIFO_ERROR)) {
 		/* This is a fatal error. It should never happen.
@@ -1295,6 +1300,25 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		//bcmirq_handled(BCM430x_IRQ_BGNOISE);
 	}
 
+	/* Check the DMA reason registers for received data. */
+	assert(!(dma_reason[1] & BCM430x_DMAIRQ_RX_DONE));
+	assert(!(dma_reason[2] & BCM430x_DMAIRQ_RX_DONE));
+	if (dma_reason[0] & BCM430x_DMAIRQ_RX_DONE) {
+		if (bcm->pio_mode)
+			bcm430x_pio_rx(bcm->current_core->pio->queue0);
+		else
+			bcm430x_dma_rx(bcm->current_core->dma->rx_ring0);
+	}
+	if (dma_reason[3] & BCM430x_DMAIRQ_RX_DONE) {
+		if (likely(bcm->current_core->rev < 5)) {
+			if (bcm->pio_mode)
+				bcm430x_pio_rx(bcm->current_core->pio->queue3);
+			else
+				bcm430x_dma_rx(bcm->current_core->dma->rx_ring1);
+		} else
+			assert(0);
+	}
+
 	if (reason & BCM430x_IRQ_XMIT_STATUS) {
 		handle_irq_transmit_status(bcm);
 		bcmirq_handled(BCM430x_IRQ_XMIT_STATUS);
@@ -1307,8 +1331,8 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 			"Unhandled IRQ! Reason: 0x%08x,  Unhandled: 0x%08x,  "
 			"DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
 			reason, (reason & ~_handled),
-			bcm->dma_reason[0], bcm->dma_reason[1],
-			bcm->dma_reason[2], bcm->dma_reason[3]);
+			dma_reason[0], dma_reason[1],
+			dma_reason[2], dma_reason[3]);
 	}
 #endif
 #undef bcmirq_handled

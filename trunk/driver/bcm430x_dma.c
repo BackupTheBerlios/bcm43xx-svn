@@ -27,6 +27,7 @@
 #include "bcm430x_dma.h"
 #include "bcm430x_main.h"
 #include "bcm430x_debugfs.h"
+#include "bcm430x_power.h"
 
 #include <linux/dmapool.h>
 #include <linux/pci.h>
@@ -677,6 +678,8 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	struct bcm430x_dmaring *ring;
 	int err;
 
+bcm430x_power_saving_ctl_bits(bcm, -1, -1);
+
 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
 	if (!ring)
 		goto out;
@@ -1106,6 +1109,13 @@ printk(KERN_INFO PFX "Received txstatus on DMA controller 0x%04x slot %d\n",
        ring->mmio_base, slot);
 
 	/*TODO*/
+}
+
+void fastcall
+bcm430x_dma_rx(struct bcm430x_dmaring *ring)
+{
+printk(KERN_INFO PFX "Data received on DMA controller 0x%04x\n",
+       ring->mmio_base);
 }
 
 /* vim: set ts=8 sw=8 sts=8: */
