@@ -592,10 +592,14 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 	int err;
 	u32 value;
 
+//FIXME: Do we have to reset the controllers here?
 	if (ring->tx) {
+#if 0
 		err = dmacontroller_tx_reset(ring);
 		if (err)
 			goto out;
+#endif
+err = 0;
 		/* Set Transmit Control register to "transmit enable" */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
@@ -605,9 +609,11 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
 				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
 	} else {
+#if 0
 		err = dmacontroller_rx_reset(ring);
 		if (err)
 			goto out;
+#endif
 		err = alloc_initial_descbuffers(ring);
 		if (err)
 			goto out;
@@ -678,7 +684,7 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	struct bcm430x_dmaring *ring;
 	int err;
 
-bcm430x_power_saving_ctl_bits(bcm, -1, -1);
+//bcm430x_power_saving_ctl_bits(bcm, -1, -1);
 
 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
 	if (!ring)
@@ -702,10 +708,12 @@ bcm430x_power_saving_ctl_bits(bcm, -1, -1);
 		ring->tx = 1;
 	INIT_LIST_HEAD(&ring->xfers);
 
+#if 0
 	/* Turn off hardware byteswapping. That's for dummytx() and PIO. */
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 			bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 			& ~ BCM430x_SBF_XFER_REG_BYTESWAP);
+#endif
 
 	err = alloc_ringmemory(ring);
 	if (err)

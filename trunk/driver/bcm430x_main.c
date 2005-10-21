@@ -1343,29 +1343,10 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 
 #undef bcmirq_print_reasons
 
-/* Interrupt handler top-half */
-static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
+static inline
+void bcm430x_interrupt_ack(struct bcm430x_private *bcm,
+			   u32 reason, u32 mask)
 {
-	struct bcm430x_private *bcm = dev_id;
-	u32 reason, mask;
-
-	if (!bcm)
-		return IRQ_NONE;
-
-	spin_lock(&bcm->lock);
-
-	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
-	if (reason == 0xffffffff) {
-		/* irq not for us (shared irq) */
-		spin_unlock(&bcm->lock);
-		return IRQ_NONE;
-	}
-	mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
-	if (!(reason & mask)) {
-		spin_unlock(&bcm->lock);
-		return IRQ_HANDLED;
-	}
-
 	bcm->dma_reason[0] = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_REASON)
 			     & 0x0001dc00;
 	bcm->dma_reason[1] = bcm430x_read32(bcm, BCM430x_MMIO_DMA2_REASON)
@@ -1374,7 +1355,6 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 			     & 0x0000dc00;
 	bcm->dma_reason[3] = bcm430x_read32(bcm, BCM430x_MMIO_DMA4_REASON)
 			     & 0x0001dc00;
-
 
 	if ((bcm->pio_mode) &&
 	    (bcm->current_core->rev < 3) &&
@@ -1408,6 +1388,32 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 			bcm->dma_reason[2]);
 	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_REASON,
 			bcm->dma_reason[3]);
+}
+
+/* Interrupt handler top-half */
+static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
+{
+	struct bcm430x_private *bcm = dev_id;
+	u32 reason, mask;
+
+	if (!bcm)
+		return IRQ_NONE;
+
+	spin_lock(&bcm->lock);
+
+	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+	if (reason == 0xffffffff) {
+		/* irq not for us (shared irq) */
+		spin_unlock(&bcm->lock);
+		return IRQ_NONE;
+	}
+	mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	if (!(reason & mask)) {
+		spin_unlock(&bcm->lock);
+		return IRQ_HANDLED;
+	}
+
+	bcm430x_interrupt_ack(bcm, reason, mask);
 
 	/* disable all IRQs. They are enabled again in the bottom half. */
 	bcm->irq_savedstate = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
@@ -2810,12 +2816,77 @@ static int bcm430x_loopback_test(struct bcm430x_private *bcm)
 		0x66666666,
 		0x99999999,
 	};
-	u32 tmp;
+	u32 tmp, tmp2;
 	unsigned long flags;
-	int i, j = 0, err;
+	u16 dma = BCM430x_MMIO_DMA1_BASE;
+	int i, j = 0, err = -ECOMM;
 
-	netif_tx_disable(bcm->net_dev);
+printk("loopback\n");
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (bcm->initialized) {
+		printk(KERN_ERR PFX "loopback_test() can not be done "
+				    "on an intitialized device!\n");
+		spin_unlock_irqrestore(&bcm->lock, flags);
+		goto out;
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
 
+printk("start\n");
+	if (bcm->pio_mode)
+		bcm430x_pio_init(bcm);
+	else
+		bcm430x_dma_init(bcm);
+
+printk("initdone\n");
+	if (bcm->pio_mode) {
+		tmp = bcm430x_read32(bcm, dma + BCM430x_DMA_RX_CONTROL);
+		tmp |= BCM430x_DMA_RXCTRL_PIO;
+		bcm430x_write32(bcm, dma + BCM430x_DMA_RX_CONTROL, tmp);
+	}
+	tmp = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL);
+	tmp |= BCM430x_DMA_TXCTRL_LOOPBACK;
+	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL, tmp);
+
+printk("ack\n");
+	/* ACK outstanding IRQs */
+	tmp = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+	tmp2 = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	bcm430x_interrupt_ack(bcm, tmp, tmp2);
+
+printk("send\n");
+	/* Now send the testpacket */
+	bcm->no_txhdr = 1;
+	if (bcm->pio_mode) {
+		TODO();//TODO
+	} else {
+		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring0,
+				     (const char *)packet, sizeof(packet));
+	}
+	bcm->no_txhdr = 0;
+
+	/* Poll for an answer. */
+	for (i = 0; i < 100; i++) {
+		udelay(10);
+		tmp = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+		tmp2 = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+		bcm430x_interrupt_ack(bcm, tmp, tmp2);
+dprintk(KERN_INFO PFX "Loopback test: DMA reason received 0x%08x\n",
+	bcm->dma_reason[0]);
+
+		for (j = 0; j < 500; j++) {
+		}
+		if (bcm->dma_reason[0] & 0xFD00)
+			break;
+	}
+
+	if (bcm->pio_mode)
+		bcm430x_pio_free(bcm);
+	else
+		bcm430x_pio_free(bcm);
+out:
+	return err;
+
+#if 0
 	/* Enable Loopback mode */
 	if (bcm->pio_mode) {
 		tmp = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_RX_CONTROL);
@@ -2881,8 +2952,7 @@ static int bcm430x_loopback_test(struct bcm430x_private *bcm)
 	tmp = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL);
 	tmp &= ~BCM430x_DMA_TXCTRL_LOOPBACK;
 	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_CONTROL, tmp);
-
-	netif_wake_queue(bcm->net_dev);
+#endif
 
 	return err;
 }
@@ -2986,11 +3056,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	bcm430x_periodic_tasks_setup(bcm);
-
-#if 0
-	if (bcm430x_loopback_test(bcm) != 0)
-		printk(KERN_WARNING PFX "Loopback test FAILED!\n");
-#endif
 
 	assert(err == 0);
 out:
@@ -3196,6 +3261,11 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		assert(err != -ENODEV);
 		if (err)
 			goto err_80211_unwind;
+
+#if 0
+		if (bcm430x_loopback_test(bcm) != 0)
+			printk(KERN_WARNING PFX "Loopback test FAILED!\n");
+#endif
 
 		/* make the core usable */
 		bcm430x_setup_backplane_pci_connection(bcm, (1 << bcm->current_core->index));
