@@ -164,7 +164,7 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 
 	/*TODO: fragmented skb */
 
-	if (DEBUG_ONLY(packet->no_txhdr) == 0) {
+	if (likely(packet->no_txhdr == 0)) {
 		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
 			printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
 			return;
@@ -212,10 +212,9 @@ printk(KERN_INFO PFX "txQ full\n");
 
 static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 {
-#ifdef BCM430x_DEBUG
-	u8 i;
+	if (unlikely(packet->txb_is_dummy)) {
+		u8 i;
 
-	if (packet->txb_is_dummy) {
 		/* This is only a hack for the debugging function
 		 * bcm430x_pio_tx_frame()
 		 */
@@ -226,8 +225,6 @@ static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 		packet->no_txhdr = 0;
 		return;
 	}
-#endif /* BCM430x_DEBUG */
-
 	ieee80211_txb_free(packet->txb);
 }
 
@@ -380,12 +377,10 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	packet->txb = txb;
 	list_del(&packet->list);
 	INIT_LIST_HEAD(&packet->list);
-#ifdef BCM430x_DEBUG
-	if (txb_is_dummy)
+	if (unlikely(txb_is_dummy))
 		packet->txb_is_dummy = 1;
-	if (queue->bcm->no_txhdr)
+	if (unlikely(queue->bcm->no_txhdr))
 		packet->no_txhdr = 1;
-#endif /* BCM430x_DEBUG */
 
 	memset(&packet->ctx, 0, sizeof(packet->ctx));
 
@@ -408,24 +403,22 @@ int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
 	return err;
 }
 
-#ifdef BCM430x_DEBUG
-void bcm430x_pio_tx_frame(struct bcm430x_private *bcm,
+void bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 			  const char *buf, size_t size)
 {
 	struct sk_buff *skb;
 	size_t skb_size;
-	struct bcm430x_pioqueue *queue;
 	struct ieee80211_txb *dummy_txb;
 
 	skb_size = size;
-	if (!bcm->no_txhdr)
+	if (!queue->bcm->no_txhdr)
 		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(skb_size);
 	if (!skb) {
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
-	if (!bcm->no_txhdr)
+	if (!queue->bcm->no_txhdr)
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb->data, buf, size);
 
@@ -442,10 +435,8 @@ void bcm430x_pio_tx_frame(struct bcm430x_private *bcm,
 	dummy_txb->nr_frags = 1;
 	dummy_txb->fragments[0] = skb;
 
-	queue = bcm->current_core->pio->queue1;
 	pio_transfer_txb(queue, dummy_txb, 1);
 }
-#endif /* BCM430x_DEBUG */
 
 void fastcall
 bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,

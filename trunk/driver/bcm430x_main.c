@@ -2821,6 +2821,10 @@ static int bcm430x_loopback_test(struct bcm430x_private *bcm)
 	u16 dma = BCM430x_MMIO_DMA1_BASE;
 	int i, j = 0, err = -ECOMM;
 
+/*FIXME: This is broken. We might want to call it after init_board().
+ *	 If we do this, we must bring the 80211 core down here (and up
+ *	 again before we return)
+ */
 printk("loopback\n");
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (bcm->initialized) {
@@ -2857,7 +2861,8 @@ printk("send\n");
 	/* Now send the testpacket */
 	bcm->no_txhdr = 1;
 	if (bcm->pio_mode) {
-		TODO();//TODO
+		bcm430x_pio_tx_frame(bcm->current_core->pio->queue0,
+				     (const char *)packet, sizeof(packet));
 	} else {
 		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring0,
 				     (const char *)packet, sizeof(packet));
