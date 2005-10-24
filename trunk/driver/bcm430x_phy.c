@@ -943,7 +943,7 @@ void bcm430x_phy_lo_b_measure(struct bcm430x_private *bcm)
 {
 	const int is_2053_radio = (bcm->current_core->radio->version == 0x2053);
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
-	u16 regstack[12];
+	u16 regstack[12] = { 0 };
 	u16 mls;
 	u16 fval;
 	int i, j;
