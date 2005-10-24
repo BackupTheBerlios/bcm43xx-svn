@@ -595,8 +595,8 @@ bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 		if (bcm430x_phy_read(bcm, 0x0033) == 0x0800)
 			break;
 
-		TODO();
-		//TODO: (16c?)
+		bcm->current_core->radio->aci_enable = 1;
+
 		stack_save(bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD));
 		stack_save(bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS));
 		if (bcm->current_core->rev < 5) {
@@ -705,8 +705,7 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 		bcm430x_phy_write(bcm, 0x042B,
 				  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
 
-		TODO();
-		if (0 /*TODO: Bad frame preempt?*/) {
+		if (!bcm->bad_frames_preempt) {
 			bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD,
 					  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) & 0x1000);
 		}
@@ -725,12 +724,13 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 		bcm430x_phy_write(bcm, 0x04AC, stack_restore());
 		break;
 	case BCM430x_RADIO_INTERFMODE_MANUALWLAN:
+	case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
 //TODO: review!
 		if (bcm430x_phy_read(bcm, 0x0033) != 0x0800)
 			break;
 
-		TODO();
-		//TODO: (16c?)
+		bcm->current_core->radio->aci_enable = 0;
+
 		bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD, stack_restore());
 		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS, stack_restore());
 		if (bcm->current_core->rev < 5) {
@@ -774,11 +774,11 @@ int bcm430x_radio_set_interference_mitigation(struct bcm430x_private *bcm,
 	if (!bcm->current_core->phy->connected)
 		return -ENODEV;
 
+	bcm->current_core->radio->aci_wlan_automatic = 0;
 	switch (mode) {
 	case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
-		TODO();
-		/*TODO: Either enable or disable MANUALWLAN mode. */
-		if (1/*TODO*/)
+		bcm->current_core->radio->aci_wlan_automatic = 1;
+		if (bcm->current_core->radio->aci_enable)
 			mode = BCM430x_RADIO_INTERFMODE_MANUALWLAN;
 		else
 			mode = BCM430x_RADIO_INTERFMODE_NONE;
@@ -797,7 +797,10 @@ int bcm430x_radio_set_interference_mitigation(struct bcm430x_private *bcm,
 	if (currentmode != BCM430x_RADIO_INTERFMODE_NONE)
 		bcm430x_radio_interference_mitigation_disable(bcm, currentmode);
 
-	if (mode != BCM430x_RADIO_INTERFMODE_NONE)
+	if (mode == BCM430x_RADIO_INTERFMODE_NONE) {
+		bcm->current_core->radio->aci_enable = 0;
+		bcm->current_core->radio->aci_hw_rssi = 0;
+	} else
 		bcm430x_radio_interference_mitigation_enable(bcm, mode);
 	bcm->current_core->radio->interfmode = mode;
 

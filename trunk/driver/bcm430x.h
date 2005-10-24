@@ -477,6 +477,10 @@ struct bcm430x_radioinfo {
 	u16 initval;
 
 	u8 enabled:1;
+	/* ACI (adjacent channel interference) flags. */
+	u8 aci_enable:1,
+	   aci_wlan_automatic:1,
+	   aci_hw_rssi:1;
 };
 
 /* Data structures for DMA transmission, per 80211 core. */
