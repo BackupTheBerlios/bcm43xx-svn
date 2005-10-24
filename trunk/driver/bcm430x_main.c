@@ -714,8 +714,8 @@ static int bcm430x_read_sprom(struct bcm430x_private *bcm)
 	value = sprom_read(bcm, BCM430x_SPROM_ANTENNA_GAIN);
 	if (value == 0x0000 || value == 0xFFFF)
 		value = 0x0202;
-	bcm->sprom.antennagain_aphy = (value & 0x00FF) * 4;
-	bcm->sprom.antennagain_bgphy = ((value & 0xFF00) >> 8) * 4;
+	bcm->sprom.antennagain_aphy = (value & 0x00FF);
+	bcm->sprom.antennagain_bgphy = (value & 0xFF00) >> 8;
 
 	/* SPROM version, crc8 */
 	value = sprom_read(bcm, BCM430x_SPROM_VERSION);

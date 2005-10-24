@@ -1465,6 +1465,7 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 	u16 txpower;
 	s8 v0, v1, v2, v3;
 	s8 average;
+	u8 max_pwr;
 	s16 desired_pwr, estimated_pwr, pwr_adjust;
 	s16 radio_att_delta, baseband_att_delta;
 	s16 radio_attenuation, baseband_attenuation;
@@ -1509,8 +1510,14 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 		average = (v0 + v1 + v2 + v3 + 2) / 4;
 		//TODO: If FIXME, substract 13
 		estimated_pwr = bcm430x_phy_estimate_power_out(bcm, average);
-		//TODO: adjust
-return;
+
+		//FIXME: Is this adjustment correct?
+		max_pwr = bcm->sprom.maxpower_bgphy;
+		if (!(bcm->sprom.boardflags & BCM430x_BFL_PACTRL))
+			max_pwr -= 0xC;
+		desired_pwr = min((u16)(estimated_pwr + (estimated_pwr * bcm->sprom.antennagain_bgphy)),
+				  (u16)max_pwr);
+
 		pwr_adjust = estimated_pwr - desired_pwr;
 		radio_att_delta = -(pwr_adjust + 7) / 8;
 		baseband_att_delta = -(pwr_adjust / 2) - (4 * radio_att_delta);
@@ -1519,7 +1526,11 @@ return;
 			return;
 		}
 
-		//TODO: calculate the new baseband and radio att values
+		/* Calculate the new attenuation values. */
+		baseband_attenuation = bcm->current_core->radio->txpower[0];
+		baseband_attenuation += baseband_att_delta;
+		radio_attenuation = bcm->current_core->radio->txpower[1];
+		radio_attenuation += radio_att_delta;
 
 		/* baseband_attenuation affects the lower level 4 times as
 		 * much as radio attenuation. So adjust them.
@@ -1543,7 +1554,7 @@ return;
 					txpower = 3;
 					radio_attenuation += 2;
 					baseband_attenuation += 2;
-				} else if (0 /*FIXME: the board does not have GPIO 9 controlling the PA*/) {
+				} else if (!(bcm->sprom.boardflags & BCM430x_BFL_PACTRL)) {
 					baseband_attenuation += 4 * (radio_attenuation - 2);
 					radio_attenuation = 2;
 				}
