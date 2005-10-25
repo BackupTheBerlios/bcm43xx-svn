@@ -318,7 +318,7 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 
 static inline
 void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
-				  const u16 octets, const u8 bitrate,
+				  u16 octets, const u8 bitrate,
 				  const int ofdm_modulation)
 {
 	/* "data" and "raw" address the same memory area,
@@ -326,6 +326,8 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 	 */
 
 	/*TODO: This can be optimized, but first let's get it working. */
+
+	octets += 4; //FIXME: Why += 4?
 
 	if (ofdm_modulation) {
 		switch (bitrate) {
