@@ -639,19 +639,19 @@ static int bcm430x_read_sprom(struct bcm430x_private *bcm)
 
 	/* et0macaddr */
 	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 0);
-	*(((u16 *)bcm->sprom.il0macaddr) + 0) = cpu_to_be16(value);
+	*(((u16 *)bcm->sprom.et0macaddr) + 0) = cpu_to_be16(value);
 	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 1);
-	*(((u16 *)bcm->sprom.il0macaddr) + 1) = cpu_to_be16(value);
+	*(((u16 *)bcm->sprom.et0macaddr) + 1) = cpu_to_be16(value);
 	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 2);
-	*(((u16 *)bcm->sprom.il0macaddr) + 2) = cpu_to_be16(value);
+	*(((u16 *)bcm->sprom.et0macaddr) + 2) = cpu_to_be16(value);
 
 	/* et1macaddr */
 	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 0);
-	*(((u16 *)bcm->sprom.il0macaddr) + 0) = cpu_to_be16(value);
+	*(((u16 *)bcm->sprom.et1macaddr) + 0) = cpu_to_be16(value);
 	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 1);
-	*(((u16 *)bcm->sprom.il0macaddr) + 1) = cpu_to_be16(value);
+	*(((u16 *)bcm->sprom.et1macaddr) + 1) = cpu_to_be16(value);
 	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 2);
-	*(((u16 *)bcm->sprom.il0macaddr) + 2) = cpu_to_be16(value);
+	*(((u16 *)bcm->sprom.et1macaddr) + 2) = cpu_to_be16(value);
 
 	/* ethernat phy settings */
 	value = sprom_read(bcm, BCM430x_SPROM_ETHPHY);
