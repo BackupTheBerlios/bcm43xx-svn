@@ -794,13 +794,17 @@ static void tx_timeout(unsigned long d)
 	unsigned long flags;
 
 	spin_lock_irqsave(&item->ring->lock, flags);
-
+	if (list_empty(&item->list)) {
+		/* xmit status received just before timeout. */
+		goto out_unlock;
+	}
 	/* This txitem timed out.
 	 * Drop it and unmap/free all buffers
 	 */
 	dprintk(KERN_WARNING PFX "DMA TX slot %d timed out on controller 0x%04x!\n",
 		dma_txitem_getslot(item), item->ring->mmio_base);
 	cancel_txitem(item);
+out_unlock:
 	spin_unlock_irqrestore(&item->ring->lock, flags);
 }
 
@@ -1092,15 +1096,24 @@ void fastcall
 bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 			      struct bcm430x_xmitstatus *status)
 {
+	struct bcm430x_dma_txitem *item;
 	struct bcm430x_dmaring *ring;
 	int slot;
+	unsigned long flags;
+
+	//FIXME: Can an xmitstatus indicate a failed tx?
 
 	ring = parse_cookie(bcm, status->cookie, &slot);
 	assert(ring);
-printk(KERN_INFO PFX "Received txstatus on DMA controller 0x%04x slot %d\n",
-       ring->mmio_base, slot);
-
-	/*TODO*/
+	spin_lock_irqsave(&ring->lock, flags);
+	item = ring->__tx_items_cache + slot;
+	del_timer(&item->timeout);
+	if (unlikely(list_empty(&item->list))) {
+		/* It timed out, before we could handle it here. */
+		return;
+	}
+	cancel_txitem(item);
+	spin_unlock_irqrestore(&ring->lock, flags);
 }
 
 static inline
