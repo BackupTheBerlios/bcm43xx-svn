@@ -912,7 +912,6 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	int slot;
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
-	struct sk_buff *header_skb;
 
 	/* Make sure we have enough free slots.
 	 * We check for frags+2, because we might need an additional
@@ -949,42 +948,27 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
 			/* SKB has not enough headroom. Blame the ieee80211 subsys for this.
 			 * On latest 80211 subsys this should not trigger.
-			 * Request another descriptor, which will hold
-			 * the device TX header (and PLCP header).
 			 */
-			dprintk(KERN_WARNING PFX "Not enough skb headroom. "
-						 "Using additional descriptor for header.\n");
-			header_skb = dev_alloc_skb(sizeof(struct bcm430x_txhdr));
-			if (unlikely(!header_skb))
-				return -ENOMEM;
-			meta->skb = header_skb;
-			meta->nofree_skb = 0;
-			/* Now calculate and add the tx header.
-			 * The tx header includes the PLCP header.
-			 */
-			bcm430x_generate_txhdr(ring->bcm,
-					       (struct bcm430x_txhdr *)header_skb->data,
-					       skb->data, skb->len,
-					       (ctx->cur_frag == 0),
-					       generate_cookie(ring, slot));
-			map_descbuffer(ring, desc, meta);
-			/* Request a new slot for the real data. */
-			slot = request_slot(ring);
-			desc = ring->vbase + slot;
-			meta = ring->meta + slot;
-		} else {
-			/* Reserve enough headroom for the device tx header. */
-			__skb_push(skb, sizeof(struct bcm430x_txhdr));
-			/* Now calculate and add the tx header.
-			 * The tx header includes the PLCP header.
-			 */
-			bcm430x_generate_txhdr(ring->bcm,
-					       (struct bcm430x_txhdr *)skb->data,
-					       skb->data + sizeof(struct bcm430x_txhdr),
-					       skb->len - sizeof(struct bcm430x_txhdr),
-					       (ctx->cur_frag == 0),
-					       generate_cookie(ring, slot));
+			err = skb_cow(skb, sizeof(struct bcm430x_txhdr));
+			if (unlikely(err)) {
+				return_slot(ring, slot);
+				ring_sync_for_device(ring);
+				printk(KERN_ERR PFX "DMA: Not enough skb headroom!\n");
+				return err;
+			}
 		}
+		assert(skb_headroom(skb) >= sizeof(struct bcm430x_txhdr));
+		/* Reserve enough headroom for the device tx header. */
+		__skb_push(skb, sizeof(struct bcm430x_txhdr));
+		/* Now calculate and add the tx header.
+		 * The tx header includes the PLCP header.
+		 */
+		bcm430x_generate_txhdr(ring->bcm,
+				       (struct bcm430x_txhdr *)skb->data,
+				       skb->data + sizeof(struct bcm430x_txhdr),
+				       skb->len - sizeof(struct bcm430x_txhdr),
+				       (ctx->cur_frag == 0),
+				       generate_cookie(ring, slot));
 	}
 //bcm430x_printk_dump(skb->data, skb->len, "SKB");
 
