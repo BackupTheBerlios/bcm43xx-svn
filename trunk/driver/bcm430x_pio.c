@@ -118,7 +118,7 @@ void tx_data(struct bcm430x_pioqueue *queue,
 	     unsigned int octets)
 {
 	u16 data;
-	unsigned int i = 0;
+	unsigned int i = 0, nr_words;
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)packet) );
@@ -128,7 +128,11 @@ void tx_data(struct bcm430x_pioqueue *queue,
 	}
 	bcm430x_pio_write(queue, BCM430x_PIO_TXCTL,
 			  BCM430x_PIO_TXCTL_WRITELO | BCM430x_PIO_TXCTL_WRITEHI);
-	for ( ; i < octets; i += 2) {
+	if (octets % 2)
+		nr_words = octets - 1;
+	else
+		nr_words = octets;
+	for ( ; i < nr_words; i += 2) {
 		data = be16_to_cpu( *((u16 *)(packet + i)) );
 		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
@@ -161,14 +165,19 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 {
 	struct bcm430x_pio_txcontext *ctx = &packet->ctx;
 	unsigned int octets;
+	int err;
 
 	/*TODO: fragmented skb */
 
 	if (likely(packet->no_txhdr == 0)) {
 		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
-			printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
-			return;
+			err = skb_cow(skb, sizeof(struct bcm430x_txhdr));
+			if (unlikely(err)) {
+				printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
+				return;
+			}
 		}
+		assert(skb_headroom(skb) >= sizeof(struct bcm430x_txhdr));
 		__skb_push(skb, sizeof(struct bcm430x_txhdr));
 		bcm430x_generate_txhdr(queue->bcm,
 				       (struct bcm430x_txhdr *)skb->data,
