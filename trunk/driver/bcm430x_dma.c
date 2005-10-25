@@ -1005,8 +1005,10 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_COMPIRQ);
 		assert(ctx->first_slot != -1);
 
+#if 0
 printk(KERN_INFO PFX "Transmitting slot %d on controller 0x%04x\n",
        ctx->first_slot, ring->mmio_base);
+#endif
 
 		ring_sync_for_device(ring);
 		/* Now transfer the whole frame. */

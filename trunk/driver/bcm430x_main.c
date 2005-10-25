@@ -1161,12 +1161,12 @@ static inline void interpret_transmit_status(struct bcm430x_private *bcm,
 	status.unknown = le16_to_cpu(hwstatus->unknown);
 
 	if (status.flags & 0x20) {
-printkl(KERN_INFO PFX "Transmit Status ignored\n");
+printk(KERN_INFO PFX "Transmit Status ignored\n");
 		return;
 	}
 	/* TODO: What is the meaning of the flags? Tested bits are: 0x01, 0x02, 0x10, 0x40, 0x04, 0x08 */
 
-printkl(KERN_INFO PFX "Transmit Status received:  flags: 0x%02x,  "
+printk(KERN_INFO PFX "Transmit Status received:  flags: 0x%02x,  "
 		      "cnt1: 0x%02x,  cnt2: 0x%02x,  cookie: 0x%04x,  "
 		      "seq: 0x%04x,  unk: 0x%04x\n",
 	status.flags, status.cnt1, status.cnt2, status.cookie, status.seq, status.unknown);
