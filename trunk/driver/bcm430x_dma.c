@@ -973,6 +973,13 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 				       skb->len - sizeof(struct bcm430x_txhdr),
 				       (ctx->cur_frag == 0),
 				       generate_cookie(ring, slot));
+	} else {
+		struct bcm430x_txhdr *txhdr;
+
+		/* We have to modify the cookie to free buffers later. */
+		dprintk(KERN_INFO PFX "Modifying cookie in given TX header.\n");
+		txhdr = (struct bcm430x_txhdr *)skb->data;
+		txhdr->cookie = cpu_to_le16(generate_cookie(ring, slot));
 	}
 //bcm430x_printk_dump(skb->data, skb->len, "SKB");
 
@@ -1066,6 +1073,8 @@ void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 	size_t skb_size = size;
 	unsigned long flags;
 
+	assert(ring->tx);
+
 	if (!ring->bcm->no_txhdr)
 		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(skb_size);
@@ -1073,12 +1082,14 @@ void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
+	skb_put(skb, skb_size);
 	if (!ring->bcm->no_txhdr)
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb->data, buf, size);
 
 	ctx.nr_frags = 1;
 	ctx.cur_frag = 0;
+	ctx.first_slot = -1;
 	spin_lock_irqsave(&ring->lock, flags);
 	err = dma_tx_fragment(ring, skb, NULL, &ctx, 1);
 	spin_unlock_irqrestore(&ring->lock, flags);

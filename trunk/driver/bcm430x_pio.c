@@ -118,7 +118,7 @@ void tx_data(struct bcm430x_pioqueue *queue,
 	     unsigned int octets)
 {
 	u16 data;
-	unsigned int i = 0, nr_words;
+	unsigned int i = 0;
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)packet) );
@@ -128,11 +128,7 @@ void tx_data(struct bcm430x_pioqueue *queue,
 	}
 	bcm430x_pio_write(queue, BCM430x_PIO_TXCTL,
 			  BCM430x_PIO_TXCTL_WRITELO | BCM430x_PIO_TXCTL_WRITEHI);
-	if (octets % 2)
-		nr_words = octets - 1;
-	else
-		nr_words = octets;
-	for ( ; i < nr_words; i += 2) {
+	for ( ; i < octets - 1; i += 2) {
 		data = be16_to_cpu( *((u16 *)(packet + i)) );
 		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
@@ -427,6 +423,7 @@ void bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
+	skb_put(skb, skb_size);
 	if (!queue->bcm->no_txhdr)
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb->data, buf, size);

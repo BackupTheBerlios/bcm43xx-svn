@@ -327,7 +327,8 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 
 	/*TODO: This can be optimized, but first let's get it working. */
 
-	octets += 4; //FIXME: Why += 4?
+	/* Account for hardware-appended FCS. */
+	octets += 4;
 
 	if (ofdm_modulation) {
 		switch (bitrate) {
@@ -3308,9 +3309,9 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 
 	/* Set the MAC address in the networking subsystem */
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
-		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
-	else
 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
+	else
+		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
 
 	assert(err == 0);
 out:
