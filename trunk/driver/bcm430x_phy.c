@@ -1387,7 +1387,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				tmp |= 0x0008;
 			bcm430x_radio_write16(bcm, 0x7A, tmp);
 
-			bcm430x_phy_lo_g_state(bcm, control, 27);
+			bcm430x_phy_lo_g_state(bcm, control, r27);
 		}
 	}
 
