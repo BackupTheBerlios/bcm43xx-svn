@@ -49,9 +49,9 @@ struct bcm430x_pio_txpacket {
 	 * This is only used for debugging and the
 	 * DebugFS "send" and "sendraw" files.
 	 */
-	int txb_is_dummy:1;
+	u8 txb_is_dummy:1;
 	/* For DebugFS "sendraw" */
-	int no_txhdr:1;
+	u8 no_txhdr:1;
 };
 
 #define pio_txpacket_getindex(packet) ((int)(packet - packet->queue->__tx_packets_cache)) 
