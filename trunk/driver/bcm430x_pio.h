@@ -36,6 +36,7 @@ struct bcm430x_xmitstatus;
 
 struct bcm430x_pio_txcontext {
 	u8 xmitted_frags;
+	u16 xmitted_octets;
 };
 
 struct bcm430x_pio_txpacket {
@@ -45,6 +46,8 @@ struct bcm430x_pio_txpacket {
 	struct timer_list timeout;
 	struct bcm430x_pio_txcontext ctx;
 
+	/* TRUE, if this is used (in the txqueue list). */
+	u8 used:1;
 	/* Do not free the txb, but the skb contained in it.
 	 * This is only used for debugging and the
 	 * DebugFS "send" and "sendraw" files.
@@ -54,7 +57,7 @@ struct bcm430x_pio_txpacket {
 	u8 no_txhdr:1;
 };
 
-#define pio_txpacket_getindex(packet) ((int)(packet - packet->queue->__tx_packets_cache)) 
+#define pio_txpacket_getindex(packet) ((int)((packet) - (packet)->queue->__tx_packets_cache)) 
 
 struct bcm430x_pioqueue {
 	struct bcm430x_private *bcm;

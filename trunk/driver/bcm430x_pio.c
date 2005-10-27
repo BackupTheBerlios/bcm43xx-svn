@@ -155,6 +155,66 @@ void tx_complete(struct bcm430x_pioqueue *queue,
 }
 
 static inline
+u16 generate_cookie(struct bcm430x_pioqueue *queue,
+		    int packetindex)
+{
+	u16 cookie = 0x0000;
+
+	/* We use the upper 4 bits for the PIO
+	 * controller ID and the lower 12 bits
+	 * for the packet index (in the cache).
+	 */
+	switch (queue->mmio_base) {
+	default:
+		assert(0);
+	case BCM430x_MMIO_PIO1_BASE:
+		break;
+	case BCM430x_MMIO_PIO2_BASE:
+		cookie = 0x1000;
+		break;
+	case BCM430x_MMIO_PIO3_BASE:
+		cookie = 0x2000;
+		break;
+	case BCM430x_MMIO_PIO4_BASE:
+		cookie = 0x3000;
+		break;
+	}
+	assert(((u16)packetindex & 0xF000) == 0x0000);
+	cookie |= (u16)packetindex;
+
+	return cookie;
+}
+
+static inline
+struct bcm430x_pioqueue * parse_cookie(struct bcm430x_private *bcm,
+				       u16 cookie, int *packetindex)
+{
+	struct bcm430x_pioqueue *queue = NULL;
+
+	switch (cookie & 0xF000) {
+	case 0x0000:
+		queue = bcm->current_core->pio->queue0;
+		break;
+	case 0x1000:
+		queue = bcm->current_core->pio->queue1;
+		break;
+	case 0x2000:
+		queue = bcm->current_core->pio->queue2;
+		break;
+	case 0x3000:
+		queue = bcm->current_core->pio->queue3;
+		break;
+	default:
+		assert(0);
+	}
+
+	*packetindex = (cookie & 0x0FFF);
+	assert(*packetindex >= 0 && *packetindex <= BCM430x_PIO_MAXTXPACKETS);
+
+	return queue;
+}
+
+static inline
 void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 			   struct sk_buff *skb,
 			   struct bcm430x_pio_txpacket *packet)
@@ -180,12 +240,12 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 				       skb->data + sizeof(struct bcm430x_txhdr),
 				       skb->len - sizeof(struct bcm430x_txhdr),
 				       (ctx->xmitted_frags == 0),
-				       /*ctx->cookie*/0xCAFE);//FIXME
+				       generate_cookie(queue, pio_txpacket_getindex(packet)));
 	}
 
 	tx_start(queue);
 	octets = skb->len;
-	if (queue->bcm->current_core->rev < 3)
+	if (queue->bcm->current_core->rev < 3) //FIXME: && this is the last packet in the queue.
 		octets -= 2;
 	tx_data(queue, (u8 *)skb->data, octets);
 	tx_complete(queue, skb);
@@ -197,19 +257,23 @@ int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
 	struct bcm430x_pioqueue *queue = packet->queue;
 	struct ieee80211_txb *txb = packet->txb;
 	struct sk_buff *skb;
+	u16 octets;
 	int i;
 
 	for (i = packet->ctx.xmitted_frags; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
-		if (tx_devq_is_full(queue, (u16)(skb->len + sizeof(struct bcm430x_txhdr)))) {
-printk(KERN_INFO PFX "txQ full\n");
-			return 1;
-		}
-		pio_tx_write_fragment(queue, skb, packet);
 
+		octets = (u16)skb->len;
+		if (likely(queue->bcm->no_txhdr == 0))
+			octets += sizeof(struct bcm430x_txhdr);
+		if (tx_devq_is_full(queue, octets))
+			return 1;
+		pio_tx_write_fragment(queue, skb, packet);
 		packet->ctx.xmitted_frags++;
+		packet->ctx.xmitted_octets += octets;
+
 		queue->tx_devq_packets++;
-		queue->tx_devq_used += skb->len;
+		queue->tx_devq_used += octets;
 	}
 
 	return 0;
@@ -235,10 +299,21 @@ static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 
 static void cancel_txpacket(struct bcm430x_pio_txpacket *packet)
 {
+	struct bcm430x_pioqueue *queue = packet->queue;
+
+	if (unlikely(!packet->used))
+		return;
+
 	list_del(&packet->list);
 	free_txpacket(packet);
 	INIT_LIST_HEAD(&packet->list);
 	list_add(&packet->list, &packet->queue->txfree);
+	packet->used = 0;
+
+	assert(queue->tx_devq_used >= packet->ctx.xmitted_octets);
+	queue->tx_devq_used -= packet->ctx.xmitted_octets;
+	assert(queue->tx_devq_packets >= packet->ctx.xmitted_frags);
+	queue->tx_devq_packets -= packet->ctx.xmitted_frags;
 
 	try_to_resume_txqueue(packet->queue);
 }
@@ -281,6 +356,7 @@ static void txwork_handler(void *d)
 		 */
 		pio_tx_packet(packet);
 	}
+	//TODO: re-queue ourself, if there are pending frags.
 
 	spin_unlock_irqrestore(&queue->txlock, flags);
 }
@@ -390,6 +466,7 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	memset(&packet->ctx, 0, sizeof(packet->ctx));
 
 	list_add(&packet->list, &queue->txqueue);
+	packet->used = 1;
 	try_to_suspend_txqueue(queue);
 	spin_unlock_irqrestore(&queue->txlock, flags);
 
@@ -448,7 +525,18 @@ void fastcall
 bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 			      struct bcm430x_xmitstatus *status)
 {
-	/*TODO*/
+	struct bcm430x_pioqueue *queue;
+	struct bcm430x_pio_txpacket *packet;
+	int packetindex;
+	unsigned long flags;
+
+	queue = parse_cookie(bcm, status->cookie, &packetindex);
+	assert(queue);
+	spin_lock_irqsave(&queue->txlock, flags);
+	packet = queue->__tx_packets_cache + packetindex;
+	del_timer(&packet->timeout);
+	cancel_txpacket(packet);
+	spin_unlock_irqrestore(&queue->txlock, flags);
 }
 
 void fastcall
