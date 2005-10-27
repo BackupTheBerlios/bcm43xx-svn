@@ -209,7 +209,7 @@ struct bcm430x_pioqueue * parse_cookie(struct bcm430x_private *bcm,
 	}
 
 	*packetindex = (cookie & 0x0FFF);
-	assert(*packetindex >= 0 && *packetindex <= BCM430x_PIO_MAXTXPACKETS);
+	assert(*packetindex >= 0 && *packetindex < BCM430x_PIO_MAXTXPACKETS);
 
 	return queue;
 }
