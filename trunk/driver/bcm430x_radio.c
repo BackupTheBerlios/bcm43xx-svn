@@ -113,7 +113,7 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 }
 
 static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
-				  s16 first, s16 second)
+				  s16 first, s16 second, s16 third)
 {
 	u16 i;
 	u16 start = 16, end = 32;
@@ -124,14 +124,14 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 		start = 8;
 		end = 24;
 	}
-	
+
 	for (i = 0; i < 4; i++)
 		bcm430x_ilt_write16(bcm, offset + i, first);
 
 	for (i = start; i < end; i++)
-		bcm430x_ilt_write16(bcm, offset + i, first);
+		bcm430x_ilt_write16(bcm, offset + i, second);
 
-	if (second == -1)
+	if (third == -1)
 		return;
 
 	bcm430x_phy_write(bcm, 0x04A0,
@@ -329,7 +329,7 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 				  bcm430x_phy_read(bcm, 0x0802) & ~(0x0001 | 0x0002));
 		bcm430x_phy_write(bcm, 0x03E2, 0x8000);
 
-		bcm430x_set_all_gains(bcm, 0, 0);
+		bcm430x_set_all_gains(bcm, 0, 8, 0);
 		bcm430x_dummy_transmission(bcm);
 		bcm430x_radio_write16(bcm, 0x007A,
 				      bcm430x_radio_read16(bcm, 0x007A) & 0x00F7);
@@ -362,7 +362,7 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 					  (bcm430x_phy_read(bcm, 0x0811) & 0xFFCF) | 0x0020);
 		}
 
-		bcm430x_set_all_gains(bcm, 3, 1);
+		bcm430x_set_all_gains(bcm, 3, 0, 1);
 		bcm430x_dummy_transmission(bcm);
 		bcm430x_radio_write16(bcm, 0x0052, 0x0060);
 		bcm430x_radio_write16(bcm, 0x0043, 0x0000);
@@ -436,11 +436,12 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 		if (bcm->current_core->radio->_id == 0x3205017F
 		    || bcm->current_core->radio->_id == 0x4205017F
 		    || bcm->current_core->radio->_id == 0x52050175) {
-			threshold = bcm->current_core->radio->nrssi[1];
+			threshold = bcm->current_core->radio->nrssi[1] - 5;
 		} else {
-			threshold = (0x28 * bcm->current_core->radio->nrssi[0]
-				     + 0x20 * (bcm->current_core->radio->nrssi[1]
-					       - (bcm->current_core->radio->nrssi[0] + 0x14)));
+			threshold = 40 * bcm->current_core->radio->nrssi[0];
+			threshold += 33 * (bcm->current_core->radio->nrssi[1]
+					   - bcm->current_core->radio->nrssi[0]);
+			threshold += 20;
 			threshold /= 10;
 		}
 		threshold = limit_value(threshold, 0, 0x3E);
@@ -463,14 +464,25 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_G:
 		if (!bcm->current_core->phy->connected ||
 		    !(bcm->sprom.boardflags & BCM430x_BFL_RSSI)) {
-			TODO();//TODO
+			tmp16 = bcm430x_nrssi_hw_read(bcm, 0x20);
+			if (tmp16 >= 0x20)
+				tmp16 -= 0x40;
+			if (tmp16 < 3) {
+				bcm430x_phy_write(bcm, 0x048A,
+						  (bcm430x_phy_read(bcm, 0x048A)
+						   & 0xF000) | 0x09EB);
+			} else {
+				bcm430x_phy_write(bcm, 0x048A,
+						  (bcm430x_phy_read(bcm, 0x048A)
+						   & 0xF000) | 0x0AED);
+			}
 		} else {
 			tmp = bcm->current_core->radio->interfmode;
 			if (tmp == BCM430x_RADIO_INTERFMODE_NONWLAN) {
 				a = -13;
 				b = -17;
-			} else if (tmp == BCM430x_RADIO_INTERFMODE_NONE
-				   /*FIXME: && bit 2 of unk16c is not set*/) {
+			} else if (tmp == BCM430x_RADIO_INTERFMODE_NONE &&
+				   !bcm->current_core->radio->aci_enable) {
 				a = -13;
 				b = -10;
 			} else {
@@ -480,12 +492,19 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 			a += 0x1B;
 			a *= bcm->current_core->radio->nrssi[1] - bcm->current_core->radio->nrssi[0];
 			a += bcm->current_core->radio->nrssi[0] * 0x40;
-			//TODO limit_value()? specs incomplete
+			if (a >= -63 && a <= -33)
+				a += 97;
+			if (a >= 33 && a <= 64)
+				a -= 33;
+			a /= 64;
 			b += 0x1B;
 			b *= bcm->current_core->radio->nrssi[1] - bcm->current_core->radio->nrssi[0];
 			b += bcm->current_core->radio->nrssi[0] * 0x40;
-			//TODO limit_value()? specs incomplete
-			TODO();
+			if (b >= -63 && b >= -33)
+				b += 97;
+			if (b >= 33 && b >= 64)
+				b -= 33;
+			b /= 64;
 
 			a = limit_value(a, -31, 31);
 			b = limit_value(b, -31, 31);
