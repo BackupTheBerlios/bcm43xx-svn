@@ -104,7 +104,7 @@
 #define BCM430x_BFL_ENETSPI		0x0010 /* has ephy roboswitch spi */
 #define BCM430x_BFL_XTAL_NOSLOW		0x0020 /* no slow clock available */
 #define BCM430x_BFL_CCKHIPWR		0x0040 /* can do high power CCK transmission */
-#define BCM430x_BFL_ENETADM		0x0080 /* has ADMtek switch *//
+#define BCM430x_BFL_ENETADM		0x0080 /* has ADMtek switch */
 #define BCM430x_BFL_ENETVLAN		0x0100 /* can do vlan */
 #define BCM430x_BFL_AFTERBURNER		0x0200 /* supports Afterburner mode */
 #define BCM430x_BFL_NOPCI		0x0400 /* leaves PCI floating */
