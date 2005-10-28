@@ -1165,6 +1165,7 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 	deviation = bcm430x_phy_lo_g_singledeviation(bcm, r27);
 	while ((i--) && (lowered == 1)) {
 		lowered = 0;
+		assert(state >= 0 && state <= 8);
 		if (state == 0) {
 			/* Initial state */
 			for (j = 0; j < 8; j++) {
@@ -1195,7 +1196,7 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 				}
 				if (tmp < deviation) {
 					deviation = tmp;
-					state = ((state - 1) % 8) + j + 1;
+					state = ((state - 1 + j) % 8) + 1;
 					lowered = 1;
 
 					pair->high = transition.high;
@@ -1213,7 +1214,7 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 				}
 				if (tmp < deviation) {
 					deviation = tmp;
-					state = ((state - 1) % 8) + j + 1;
+					state = ((state - 1 + j) % 8) + 1;
 					lowered = 1;
 
 					pair->high = transition.high;
