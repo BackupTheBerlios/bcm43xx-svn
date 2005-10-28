@@ -1340,7 +1340,8 @@ void bcm430x_radio_set_txpower_bg(struct bcm430x_private *bcm,
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0064, attenuation);
 	if (bcm->current_core->radio->version == 0x2050) {
 		bcm430x_radio_write16(bcm, 0x0052,
-		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F) | txpower);
+		                      (bcm430x_radio_read16(bcm, 0x0052) & 0xFF8F)
+				       | (txpower << 4));
 	}
 
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G)

@@ -609,6 +609,14 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 	bcm->current_core->radio->revision = revision;
 	bcm->current_core->radio->_id = radio_id;
 
+	/* Set default attenuation values. */
+	bcm->current_core->radio->txpower[0] = 2;
+	bcm->current_core->radio->txpower[1] = 2;
+	if (revision == 1)
+		bcm->current_core->radio->txpower[2] = 3;
+	else
+		bcm->current_core->radio->txpower[2] = 0;
+
 	return 0;
 
 err_unsupported_radio:
