@@ -2508,10 +2508,12 @@ static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 		sbimconfiglow = bcm430x_read32(bcm, BCM430x_CIR_SBIMCONFIGLOW);
 		sbimconfiglow &= ~ BCM430x_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
 		sbimconfiglow &= ~ BCM430x_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
-		if (1/*FIXME: this is a PCI bus*/)
+		if (bcm->bustype == BCM430x_BUSTYPE_PCI)
 			sbimconfiglow |= 0x32;
-		else if (0/*FIXME: this is a silicone backplane bus*/)
+		else if (bcm->bustype == BCM430x_BUSTYPE_SB)
 			sbimconfiglow |= 0x53;
+		else
+			assert(0);
 		bcm430x_write32(bcm, BCM430x_CIR_SBIMCONFIGLOW, sbimconfiglow);
 	}
 
