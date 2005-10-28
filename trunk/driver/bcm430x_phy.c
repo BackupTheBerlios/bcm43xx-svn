@@ -1058,10 +1058,10 @@ u16 bcm430x_phy_lo_g_deviation_subval(struct bcm430x_private *bcm, u16 control)
 	return bcm430x_phy_read(bcm, 0x002D);
 }
 
-static u16 bcm430x_phy_lo_g_singledeviation(struct bcm430x_private *bcm, u16 control)
+static u32 bcm430x_phy_lo_g_singledeviation(struct bcm430x_private *bcm, u16 control)
 {
 	int i;
-	u16 ret = 0;
+	u32 ret = 0;
 
 	for (i = 0; i < 8; i++)
 		ret += bcm430x_phy_lo_g_deviation_subval(bcm, control);
@@ -1127,7 +1127,7 @@ u16 bcm430x_phy_lo_g_unk16(struct bcm430x_private *bcm)
 {
 	/* phy_info_unk16 */
 	u16 ret = 0, i;
-	u16 smallest, tmp;
+	u32 smallest, tmp;
 
 	bcm430x_radio_write16(bcm, 0x0052, 0x0000);
 	udelay(10);
@@ -1160,7 +1160,7 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 	};
 	struct bcm430x_lopair transition;
 	int i = 12, j, lowered = 1, state = 0;
-	u16 deviation, tmp;
+	u32 deviation, tmp;
 
 	deviation = bcm430x_phy_lo_g_singledeviation(bcm, r27);
 	while ((i--) && (lowered == 1)) {
