@@ -191,7 +191,7 @@ u32 bcm430x_shm_read32(struct bcm430x_private *bcm,
 			bcm430x_shm_control_byte(bcm, routing, offset);
 			ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED);
 			ret <<= 16;
-			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 4);
+			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 1);
 			ret |= bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA);
 
 			return ret;
@@ -235,7 +235,7 @@ void bcm430x_shm_write32(struct bcm430x_private *bcm,
 			bcm430x_shm_control_byte(bcm, routing, offset);
 			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED,
 					(value >> 16) & 0xffff);
-			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 4);
+			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 1);
 			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA,
 					value & 0xffff);
 			return;
