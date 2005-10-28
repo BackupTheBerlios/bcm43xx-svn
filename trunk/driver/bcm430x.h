@@ -102,7 +102,7 @@
 #define BCM430x_BFL_AIRLINEMODE		0x0004 /* implements GPIO 13 radio disable indication */
 #define BCM430x_BFL_RSSI		0x0008 /* FIXME: what's this? */
 #define BCM430x_BFL_ENETSPI		0x0010 /* has ephy roboswitch spi */
-#define BCM430x_BFL_XTAL		0x0020 /* FIXME: what's this? */
+#define BCM430x_BFL_XTAL_NOSLOW		0x0020 /* no slow clock available */
 #define BCM430x_BFL_CCKHIPWR		0x0040 /* can do high power CCK transmission */
 #define BCM430x_BFL_ENETADM		0x0080 /* has ADMtek switch *//
 #define BCM430x_BFL_ENETVLAN		0x0100 /* can do vlan */
@@ -120,9 +120,24 @@
 #define BCM430x_SHM_HWMAC		0x0004
 #define BCM430x_SHM_UCODE		0x0300
 
+/* Chipcommon registers. */
+#define BCM430x_CHIPCOMMON_CAPABILITIES 	0x04
+#define BCM430x_CHIPCOMMON_PLLONDELAY		0xB0
+#define BCM430x_CHIPCOMMON_FREFSELDELAY		0xB4
+#define BCM430x_CHIPCOMMON_SLOWCLKCTL		0xB8
 
-#define BCM430x_CHIPCOMMON_CAPABILITIES 0x04
-#define BCM430x_CAPABILITIES_PCTLMASK	0x0040000
+/* Chipcommon capabilities. */
+#define BCM430x_CAPABILITIES_PCTL		0x00040000
+#define BCM430x_CAPABILITIES_PLLMASK		0x00030000
+#define BCM430x_CAPABILITIES_PLLSHIFT		16
+#define BCM430x_CAPABILITIES_FLASHMASK		0x00000700
+#define BCM430x_CAPABILITIES_FLASHSHIFT		8
+#define BCM430x_CAPABILITIES_EXTBUSPRESENT	0x00000040
+#define BCM430x_CAPABILITIES_UARTGPIO		0x00000020
+#define BCM430x_CAPABILITIES_UARTCLOCKMASK	0x00000018
+#define BCM430x_CAPABILITIES_UARTCLOCKSHIFT	3
+#define BCM430x_CAPABILITIES_MIPSBIGENDIAN	0x00000004
+#define BCM430x_CAPABILITIES_NRUARTSMASK	0x00000003
 
 /* PowerControl */
 #define BCM430x_PCTL_IN			0xB0
@@ -299,6 +314,11 @@
 #define BCM430x_TXHDR_WSEC_KEYINDEX_SHIFT	4
 #define BCM430x_TXHDR_WSEC_ALGO_MASK		0x0003
 #define BCM430x_TXHDR_WSEC_ALGO_SHIFT		0
+
+/* Bus type PCI. */
+#define BCM430x_BUSTYPE_PCI	0
+/* Bus type Silicone Backplane Bus. */
+#define BCM430x_BUSTYPE_SB	1
 
 
 #ifdef assert
@@ -557,6 +577,11 @@ struct bcm430x_private {
 	    adhoc_on_last_tbtt:1,	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
 	    no_txhdr:1,			/* Do not add a TX header in DMA or PIO code. */
 	    powersaving:1;		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
+
+	/* Bus type we are connected to.
+	 * This is currently always BCM430x_BUSTYPE_PCI
+	 */
+	u8 bustype;
 
 	u16 board_vendor;
 	u16 board_type;

@@ -2085,6 +2085,8 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		bcm->core_chipcommon.id = core_id;
 		bcm->core_chipcommon.rev = core_rev;
 		bcm->core_chipcommon.index = 0;
+		/* While we are at it, also read the capabilities. */
+		bcm->chipcommon_capabilities = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_CAPABILITIES);
 	} else {
 		/* without a chipCommon, use a hard coded table. */
 		pci_device = bcm->pci_dev->device;
@@ -3241,9 +3243,6 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	                           &bcm->board_type);
 	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_REVISION_ID,
 	                           &bcm->board_revision);
-
-	bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_CHIPCOMMON_CAPABILITIES,
-	                           &bcm->chipcommon_capabilities);
 
 	err = bcm430x_chipset_attach(bcm);
 	if (err)
