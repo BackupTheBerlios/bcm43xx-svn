@@ -118,6 +118,7 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 	u16 i;
 	u16 start = 16, end = 32;
 	u16 offset = 0x0400;
+	u16 tmp;
 
 	if (bcm->current_core->phy->rev == 1) {
 		offset = 0x5000;
@@ -134,12 +135,14 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 	if (third == -1)
 		return;
 
+	tmp = ((u16)third << 14) | ((u16)third << 6);
 	bcm430x_phy_write(bcm, 0x04A0,
-	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
+	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | tmp);
 	bcm430x_phy_write(bcm, 0x04A1,
-	                  (bcm430x_phy_read(bcm, 0x04A1) & 0xBFBF) | 0x4040);
+	                  (bcm430x_phy_read(bcm, 0x04A1) & 0xBFBF) | tmp);
 	bcm430x_phy_write(bcm, 0x04A2,
-	                  (bcm430x_phy_read(bcm, 0x04A2) & 0xBFBF) | 0x4000);
+	                  (bcm430x_phy_read(bcm, 0x04A2) & 0xBFBF) | tmp);
+	bcm430x_dummy_transmission(bcm);
 }
 
 static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
@@ -147,11 +150,13 @@ static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
 	u16 i, tmp;
 	u16 offset = 0x0400;
 	u16 start = 0x0008, end = 0x0018;
+	u16 diff = 0x0008;
 
 	if (bcm->current_core->phy->rev == 1) {
 		offset = 0x5000;
 		start = 0x0010;
 		end = 0x0020;
+		diff = 0x0010;
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -163,7 +168,7 @@ static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
 	}
 
 	for (i = start; i < end; i++)
-		bcm430x_ilt_write16(bcm, offset + i, i);
+		bcm430x_ilt_write16(bcm, offset + i, i - diff);
 
 	bcm430x_phy_write(bcm, 0x04A0,
 	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
@@ -171,6 +176,7 @@ static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
 	                  (bcm430x_phy_read(bcm, 0x04A1) & 0xBFBF) | 0x4040);
 	bcm430x_phy_write(bcm, 0x04A2,
 	                  (bcm430x_phy_read(bcm, 0x04A2) & 0xBFBF) | 0x4000);
+	bcm430x_dummy_transmission(bcm);
 }
 
 /* http://bcm-specs.sipsolutions.net/NRSSILookupTable */
