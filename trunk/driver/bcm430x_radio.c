@@ -132,16 +132,15 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 	for (i = start; i < end; i++)
 		bcm430x_ilt_write16(bcm, offset + i, second);
 
-	if (third == -1)
-		return;
-
-	tmp = ((u16)third << 14) | ((u16)third << 6);
-	bcm430x_phy_write(bcm, 0x04A0,
-	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | tmp);
-	bcm430x_phy_write(bcm, 0x04A1,
-	                  (bcm430x_phy_read(bcm, 0x04A1) & 0xBFBF) | tmp);
-	bcm430x_phy_write(bcm, 0x04A2,
-	                  (bcm430x_phy_read(bcm, 0x04A2) & 0xBFBF) | tmp);
+	if (third != -1) {
+		tmp = ((u16)third << 14) | ((u16)third << 6);
+		bcm430x_phy_write(bcm, 0x04A0,
+		                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | tmp);
+		bcm430x_phy_write(bcm, 0x04A1,
+		                  (bcm430x_phy_read(bcm, 0x04A1) & 0xBFBF) | tmp);
+		bcm430x_phy_write(bcm, 0x04A2,
+		                  (bcm430x_phy_read(bcm, 0x04A2) & 0xBFBF) | tmp);
+	}
 	bcm430x_dummy_transmission(bcm);
 }
 
