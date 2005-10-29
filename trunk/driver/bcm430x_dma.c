@@ -211,8 +211,8 @@ static void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
 	struct bcm430x_dmadesc *desc;
 
-	/* Be careful in this function. Slots might not get returned
-	 * in the reverse order as they were requested.
+	/* Be careful in this function. Slots might get returned
+	 * in random order.
 	 */
 
 	assert(ring->first_used != -1 && ring->last_used != -1);
