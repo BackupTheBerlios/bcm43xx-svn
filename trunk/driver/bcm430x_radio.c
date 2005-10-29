@@ -193,7 +193,7 @@ s16 bcm430x_nrssi_hw_read(struct bcm430x_private *bcm, u16 offset)
 //TODO: review
 	bcm430x_phy_write(bcm, BCM430x_PHY_NRSSILT_CTRL, offset);
 	tval = bcm430x_phy_read(bcm, BCM430x_PHY_NRSSILT_DATA);
-	if ( tval & 0x0020)
+	if (tval & 0x0020)
 		return (s16)(tval | 0xFF00);
 	else
 		return (s16)(tval);
@@ -203,10 +203,15 @@ s16 bcm430x_nrssi_hw_read(struct bcm430x_private *bcm, u16 offset)
 void bcm430x_nrssi_hw_update(struct bcm430x_private *bcm, u16 val)
 {
 	u16 i;
+	s8 tmp;
 
-//TODO: review
-	for (i=0; i<64; i++) {
-		bcm430x_nrssi_hw_write(bcm, i, bcm430x_nrssi_hw_read(bcm, i)-val);
+	for (i = 0; i < 64; i++) {
+		tmp = bcm430x_nrssi_hw_read(bcm, i) - val;
+		if (tmp < -0x20)
+			tmp = 0x20;
+		else if (tmp > 0x1F)
+			tmp = 0x1F;
+		bcm430x_nrssi_hw_write(bcm, i, tmp);
 	}
 }
 
