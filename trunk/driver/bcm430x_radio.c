@@ -335,7 +335,6 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x03E2, 0x8000);
 
 		bcm430x_set_all_gains(bcm, 0, 8, 0);
-		bcm430x_dummy_transmission(bcm);
 		bcm430x_radio_write16(bcm, 0x007A,
 				      bcm430x_radio_read16(bcm, 0x007A) & 0x00F7);
 		if (bcm->current_core->phy->rev >= 2) {
@@ -368,7 +367,6 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 		}
 
 		bcm430x_set_all_gains(bcm, 3, 0, 1);
-		bcm430x_dummy_transmission(bcm);
 		bcm430x_radio_write16(bcm, 0x0052, 0x0060);
 		bcm430x_radio_write16(bcm, 0x0043, 0x0000);
 		bcm430x_phy_write(bcm, 0x005A, 0x0480);
@@ -409,7 +407,6 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 				  bcm430x_phy_read(bcm, 0x0802) | (0x0001 | 0x0002));
 
 		bcm430x_set_original_gains(bcm);
-		bcm430x_dummy_transmission(bcm);
 
 		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
 				  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) | 0x8000);
