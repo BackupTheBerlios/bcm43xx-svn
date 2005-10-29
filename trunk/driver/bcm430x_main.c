@@ -514,6 +514,38 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 //bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
 
+static
+void bcm430x_macfilter_set(struct bcm430x_private *bcm,
+			   u16 offset,
+			   const u8 *mac)
+{
+	u16 data;
+
+	//FIXME: Only for card rev < 3?
+
+	offset |= 0x0020;
+	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_CONTROL, offset);
+
+	data = mac[1];
+	data |= mac[0] << 8;
+	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
+	data = mac[3];
+	data |= mac[2] << 8;
+	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
+	data = mac[5];
+	data |= mac[4] << 8;
+	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
+}
+
+static inline
+void bcm430x_macfilter_clear(struct bcm430x_private *bcm,
+			     u16 offset)
+{
+	const u8 zero_addr[6] = { 0 };
+
+	bcm430x_macfilter_set(bcm, offset, zero_addr);
+}
+
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.
  */
@@ -3068,6 +3100,8 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		bcm430x_switch_core(bcm, &bcm->core_80211[0]);
 		bcm430x_mac_enable(bcm);
 	}
+	bcm430x_macfilter_clear(bcm, BCM430x_MACFILTER_ASSOC);
+	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
 
 	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
