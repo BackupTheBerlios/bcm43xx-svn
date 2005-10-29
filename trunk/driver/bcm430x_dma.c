@@ -45,6 +45,12 @@ void ring_sync_for_cpu(struct bcm430x_dmaring *ring)
 {
 	struct device *dev = &(ring->bcm->pci_dev->dev);
 
+	/*XXX: I am not sure, if usage of coherent memory would
+	 *     be better, performace wise. Syncing streaming mem
+	 *     might mean copying the whole memory around (On which
+	 *     platforms? Does the bcm430x support these platforms?)
+	 *     On PPC and i386 this operation should be cheap, though.
+	 */
 	dma_sync_single_for_cpu(dev, ring->dmabase,
 				BCM430x_DMA_RINGMEMSIZE,
 				DMA_TO_DEVICE);
@@ -62,6 +68,9 @@ void ring_sync_for_device(struct bcm430x_dmaring *ring)
 
 static inline int used_slots(struct bcm430x_dmaring *ring)
 {
+	/*XXX: As optimization we might want to add a counter to the
+	 *     queue for the used slots, to avoid this calculation.
+	 */
 	if (ring->first_used < 0) {
 		assert(ring->last_used == -1);
 		return 0;
@@ -74,8 +83,9 @@ static inline int used_slots(struct bcm430x_dmaring *ring)
 
 static inline int free_slots(struct bcm430x_dmaring *ring)
 {
-	assert(ring->nr_slots - used_slots(ring) >= 0);
-	return (ring->nr_slots - used_slots(ring));
+	int used = used_slots(ring);
+	assert(used >= 0 && used <= ring->nr_slots);
+	return (ring->nr_slots - used);
 }
 
 static inline int next_slot(struct bcm430x_dmaring *ring, int slot)
@@ -126,6 +136,7 @@ static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
 
 /* Request a slot for usage.
  * Make sure to have the ring synced for CPU, before calling this.
+ * Check if there are free slots, _before_ calling this function.
  */
 static int request_slot(struct bcm430x_dmaring *ring)
 {
@@ -136,27 +147,61 @@ static int request_slot(struct bcm430x_dmaring *ring)
 	assert(free_slots(ring));
 
 	prev = ring->last_used;
-	slot = next_slot(ring, ring->last_used);
+	slot = next_slot(ring, prev);
 	ring->last_used = slot;
-	if (ring->first_used < 0)
+	if (ring->first_used < 0) {
+		assert(ring->first_used == -1);
 		ring->first_used = slot;
+	}
 
 	/* Clear the DTABLEEND flag of the previous slot, if
-	 * slot is the last slot in the linear buffer.
+	 * slot is the last slot in the linear buffer and
+	 * we have more than one used slot.
 	 */
-	if (prev < slot) {
+	if (prev != -1 && prev < slot) {
 		desc = ring->vbase + prev;
 		set_desc_ctl(desc, get_desc_ctl(desc) & ~ BCM430x_DMADTOR_DTABLEEND);
 	}
+	ring->meta[slot].used = 1;
 
 	if (ring->tx) {
 		/* Check the number of available slots and suspend TX,
-		 * if we are running low on free slots
+		 * if we are running low on free slots.
 		 */
 		try_to_suspend_txqueue(ring);
 	}
 
 	return slot;
+}
+
+static inline
+int next_used_slot__dtend(struct bcm430x_dmaring *ring, int slot)
+{
+	struct bcm430x_dmadesc *desc;
+	int ret = slot;
+
+	do {
+		desc = ring->vbase + ret;
+		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
+		ret = next_slot(ring, slot);
+	} while (ring->meta[ret].used == 0);
+
+	return ret;
+}
+
+static inline
+int prev_used_slot__dtend(struct bcm430x_dmaring *ring, int slot)
+{
+	struct bcm430x_dmadesc *desc;
+	int ret = slot;
+
+	do {
+		desc = ring->vbase + ret;
+		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
+		ret = prev_slot(ring, slot);
+	} while (ring->meta[ret].used == 0);
+
+	return ret;
 }
 
 /* Return a slot to the free slots.
@@ -166,33 +211,28 @@ static void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
 	struct bcm430x_dmadesc *desc;
 
+	/* Be careful in this function. Slots might not get returned
+	 * in the reverse order as they were requested.
+	 */
+
+	assert(ring->first_used != -1 && ring->last_used != -1);
 	if (used_slots(ring) > 1) {
 		assert(ring->first_used != ring->last_used);
 		if (ring->first_used == slot)
-			ring->first_used = next_slot(ring, slot);
+			ring->first_used = next_used_slot__dtend(ring, slot);
 		else if (ring->last_used == slot)
-			//XXX: Hm, I think this should not happen.
-			ring->last_used = prev_slot(ring, slot);
-		else {
-			/* Returning a slot inbetween others (making
-			 * a gap) is forbidden.
-			 */
-			assert(0);
-		}
+			ring->last_used = prev_used_slot__dtend(ring, slot);
 	} else {
 		/* slot is the last used.
 		 * Mark the ring as "no used slots"
 		 */
+		assert(ring->first_used == ring->last_used);
 		ring->first_used = -1;
 		ring->last_used = -1;
+		desc = ring->vbase + slot;
+		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
 	}
-
-	/* We set the DTABLEEND flag on _every_ unused slot.
-	 * This way we do not have to check if we are dealing with the
-	 * last one over and over again.
-	 */
-	desc = ring->vbase + slot;
-	set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
+	ring->meta[slot].used = 0;
 
 	if (ring->tx) {
 		/* Check if TX is suspended and check if we have
@@ -521,6 +561,7 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 
 	dma_unmap_single(&ring->bcm->pci_dev->dev,
 			 meta->dmaaddr, meta->skb->len, dir);
+	meta->dmaaddr = 0x00000000;
 
 	meta->mapped = 0;  
 }
@@ -801,7 +842,7 @@ static void tx_timeout(unsigned long d)
 	/* This txitem timed out.
 	 * Drop it and unmap/free all buffers
 	 */
-	dprintk(KERN_WARNING PFX "DMA TX slot %d timed out on controller 0x%04x!\n",
+	dprintk(KERN_WARNING PFX "DMA TX slot 0x%04x timed out on controller 0x%04x!\n",
 		dma_txitem_getslot(item), item->ring->mmio_base);
 	cancel_txitem(item);
 out_unlock:
@@ -833,6 +874,7 @@ static inline void tx_xfer(struct bcm430x_dmaring *ring,
 	item->timeout.expires = jiffies + BCM430x_DMA_TXTIMEOUT;
 	add_timer(&item->timeout);
 
+//dump_ringmemory(ring);
 	dmacontroller_poke_tx(ring, slot);
 }
 
