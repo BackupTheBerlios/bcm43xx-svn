@@ -331,7 +331,7 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 	/*TODO: This can be optimized, but first let's get it working. */
 
 	/* Account for hardware-appended FCS. */
-	octets += 4;
+	octets += IEEE80211_FCS_LEN;
 
 	if (ofdm_modulation) {
 		switch (bitrate) {
