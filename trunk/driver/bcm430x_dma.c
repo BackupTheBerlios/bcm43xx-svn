@@ -547,17 +547,10 @@ err_unwind:
  */
 static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 {
-	int err;
+	int err = 0;
 	u32 value;
 
-//FIXME: Do we have to reset the controllers here?
 	if (ring->tx) {
-#if 0
-		err = dmacontroller_tx_reset(ring);
-		if (err)
-			goto out;
-#endif
-err = 0;
 		/* Set Transmit Control register to "transmit enable" */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
@@ -567,11 +560,6 @@ err = 0;
 				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
 				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
 	} else {
-#if 0
-		err = dmacontroller_rx_reset(ring);
-		if (err)
-			goto out;
-#endif
 		err = alloc_initial_descbuffers(ring);
 		if (err)
 			goto out;
