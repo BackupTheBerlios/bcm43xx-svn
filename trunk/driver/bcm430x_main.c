@@ -75,6 +75,9 @@ MODULE_PARM_DESC(bad_frames_preempt, "enable(1) / disable(0) Bad Frames Preempti
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
 MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
+static char modparam_assoc[18];
+module_param_string(assoc, modparam_assoc, 18, 0x444);
+MODULE_PARM_DESC(assoc, "Associate with this MAC on ifup. Format: XX:XX:XX:XX:XX:XX");
 #else
 # define modparam_fwpostfix  ""
 #endif /* BCM430x_DEBUG */
@@ -541,9 +544,47 @@ static inline
 void bcm430x_macfilter_clear(struct bcm430x_private *bcm,
 			     u16 offset)
 {
-	const u8 zero_addr[6] = { 0 };
+	const u8 zero_addr[ETH_ALEN] = { 0 };
 
 	bcm430x_macfilter_set(bcm, offset, zero_addr);
+}
+
+static void bcm430x_disassociate(struct bcm430x_private *bcm)
+{
+	if (!bcm->associated)
+		return;
+	bcm430x_mac_suspend(bcm);
+	bcm430x_macfilter_clear(bcm, BCM430x_MACFILTER_ASSOC);
+	//TODO: Template RAM
+	if (bcm->current_core->rev < 3) {
+		bcm430x_write16(bcm, 0x0610, 0x8000);
+		bcm430x_write16(bcm, 0x060E, 0x0000);
+	} else
+		bcm430x_write32(bcm, 0x0188, 0x80000000);
+	//TODO: contention
+	//TODO: short slot timing?
+	bcm430x_mac_enable(bcm);
+}
+
+static void bcm430x_associate(struct bcm430x_private *bcm,
+			      const u8 *mac)
+{
+	if (bcm->associated)
+		bcm430x_disassociate(bcm);
+	if (bcm->ieee->iw_mode == IW_MODE_MASTER ||
+	    bcm->ieee->iw_mode == IW_MODE_ADHOC) {
+		printk(KERN_ERR PFX "Can not associate in AP or Ad-Hoc mode.\n");
+		return;
+	}
+	bcm430x_mac_suspend(bcm);
+	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_ASSOC, mac);
+	//TODO: Template RAM
+
+	memcpy(bcm->association.mac_addr, mac, ETH_ALEN);
+	bcm->associated = 1;
+	bcm430x_mac_enable(bcm);
+
+	dprintk(KERN_INFO PFX "Associated to " MAC_FMT "\n", MAC_ARG(mac));
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
@@ -3010,6 +3051,46 @@ out:
 	return err;
 }
 
+#ifdef BCM430x_DEBUG
+static int bcm430x_parse_mac(const char *in,
+			     u8 *out)
+{
+	int i;
+	char *delim;
+
+	for (i = 0; ; i++) {
+		out[i] = simple_strtol(in, NULL, 16);
+		if (i == 5)
+			break;
+		delim = strchr(in, ':');
+		if (!delim)
+			return -EINVAL;
+		in = delim + 1;
+	}
+
+	return 0;
+}
+
+static void bcm430x_initial_association(struct bcm430x_private *bcm)
+{
+	u8 mac[ETH_ALEN];
+
+	if (modparam_assoc[0] == 0)
+		return;
+
+	if (bcm430x_parse_mac(modparam_assoc, mac)) {
+		printk(KERN_ERR PFX "Wrong format in module parameter \"assoc\". "
+				    "Must be XX:XX:XX:XX:XX:XX\n");
+		return;
+	}
+	bcm430x_associate(bcm, mac);
+}
+#else /* BCM430x_DEBUG */
+static inline void bcm430x_initial_association(struct bcm430x_private *bcm)
+{
+}
+#endif /* BCM430x_DEBUG */
+
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
@@ -3428,10 +3509,11 @@ static void bcm430x_net_tx_timeout(struct net_device *dev)
 static int bcm430x_net_open(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	int err = 0;
+	int err;
 
-	if (!bcm->initialized)
-		err = bcm430x_init_board(bcm);
+	err = bcm430x_init_board(bcm);
+	if (err == 0)
+		bcm430x_initial_association(bcm);
 
 	return err;
 }
@@ -3440,6 +3522,7 @@ static int bcm430x_net_stop(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
+	bcm430x_disassociate(bcm);
 	bcm430x_disable_interrupts_sync(bcm, NULL);
 	bcm430x_free_board(bcm);
 
