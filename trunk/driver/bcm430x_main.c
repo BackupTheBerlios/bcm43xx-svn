@@ -407,23 +407,10 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
 	const u8 bitrate = phy->default_bitrate;
+	const struct ieee80211_hdr *wireless_header = (const struct ieee80211_hdr *)fragment_data;
 	int fallback_ofdm_modulation = 0;
 	u8 fallback_bitrate;
 	u16 tmp;
-
-	/* Values from the 80211 header.
-	 * Note that the values are _not_ in CPU order (but in LE)
-	 */
-	const u16 *frame_control;
-	const unsigned char *macaddr1;
-	const u16 *duration_id;
-
-	/* First do some black magic to retrieve some
-	 * values from the 80211 header of the packet.
-	 */
-	frame_control = (const u16 *)fragment_data;
-	macaddr1 = fragment_data + 4;
-	duration_id = (const u16 *)(fragment_data + 2);
 
 	/* Now contruct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
@@ -472,12 +459,12 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	}
 
 	/* Set Frame Control from 80211 header. */
-	txhdr->frame_control = *frame_control;
+	txhdr->frame_control = wireless_header->frame_ctl;
 	/* Copy address1 from 80211 header. */
-	memcpy(txhdr->mac1, macaddr1, 6);
+	memcpy(txhdr->mac1, wireless_header->addr1, 6);
 	/* Set the fallback duration ID. */
 	//FIXME: We use the original durid for now.
-	txhdr->fallback_dur_id = *duration_id;
+	txhdr->fallback_dur_id = wireless_header->duration_id;
 	/* Set the cookie (used as driver internal ID for the frame) */
 	txhdr->cookie = cpu_to_le16(cookie);
 
@@ -497,8 +484,8 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 
 	/* Set the FLAGS field */
 	tmp = 0;
-	if (!is_multicast_ether_addr((const u8 *)macaddr1) ||
-	    is_broadcast_ether_addr((const u8 *)macaddr1))
+	if (!is_multicast_ether_addr(wireless_header->addr1) ||
+	    is_broadcast_ether_addr(wireless_header->addr1))
 		tmp |= BCM430x_TXHDRFLAG_NOMCAST;
 	if (1 /* FIXME: PS poll?? */)
 		tmp |= 0x10; // FIXME: unknown meaning.
