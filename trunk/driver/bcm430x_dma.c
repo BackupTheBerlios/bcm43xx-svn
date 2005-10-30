@@ -387,19 +387,6 @@ static void free_ringmemory(struct bcm430x_dmaring *ring)
 	free_page((unsigned long)(ring->vbase));
 }
 
-/* Initialize the cache from which TX context items are allocated
- * on every TX packet.
- */
-static void setup_txitems_cache(struct bcm430x_dmaring *ring)
-{
-	int i;
-
-	for (i = 0; i < BCM430x_TXRING_SLOTS; i++) {
-		ring->__tx_items_cache[i].ring = ring;
-		init_timer(&ring->__tx_items_cache[i].timeout);
-	}
-}
-
 /* Reset the RX DMA channel */
 int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 				   u16 mmio_base)
@@ -714,12 +701,10 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	ring->mmio_base = dma_controller_base;
 	if (tx)
 		ring->tx = 1;
-	INIT_LIST_HEAD(&ring->xfers);
 
 	err = alloc_ringmemory(ring);
 	if (err)
 		goto err_kfree_meta;
-	setup_txitems_cache(ring);
 	err = dmacontroller_setup(ring);
 	if (err)
 		goto err_free_ringmemory;
@@ -737,32 +722,26 @@ err_kfree_ring:
 	goto out;
 }
 
-/* The cancels and frees all buffers belonging to a TX item. */
-static void cancel_txitem(struct bcm430x_dma_txitem *item)
-{
-	int slot;
-
-	slot = dma_txitem_getslot(item);
-	free_descriptor_frame(item->ring, slot);
-	list_del(&item->list);
-}
-
 /* Cancel all pending transfers.
  * Called on device shutdown, so make sure no transfers
  * are still running on return from this function.
  */
 static void cancel_transfers(struct bcm430x_dmaring *ring)
 {
-	struct bcm430x_dma_txitem *item, *tmp_item;
+	int slot;
+	struct bcm430x_dmadesc *desc;
+	struct bcm430x_dmadesc_meta *meta;
 
-	/* Sync with each running transfer timeout. */
-	list_for_each_entry_safe(item, tmp_item, &ring->xfers, list)
-		del_timer_sync(&item->timeout);
-	/* Make sure each item is canceled. */
-	list_for_each_entry_safe(item, tmp_item, &ring->xfers, list)
-		cancel_txitem(item);
+	ring_sync_for_cpu(ring);
+	for (slot = 0; slot < ring->nr_slots; slot++) {
+		desc = ring->vbase + slot;
+		meta = ring->meta + slot;
 
-	assert(list_empty(&ring->xfers));
+		if (!meta->used)
+			continue;
+		free_descriptor_frame(ring, slot);
+	}
+	ring_sync_for_device(ring);
 }
 
 /* Main cleanup function. */
@@ -786,54 +765,39 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	kfree(ring);
 }
 
-/* Timeout timer handler for TX transfers. */
-static void tx_timeout(unsigned long d)
+static void tx_timeout(struct bcm430x_dmaring *ring)
 {
-	struct bcm430x_dma_txitem *item = (struct bcm430x_dma_txitem *)d;
-	unsigned long flags;
+	assert(ring->tx);
 
-	spin_lock_irqsave(&item->ring->lock, flags);
-	if (list_empty(&item->list)) {
-		/* xmit status received just before timeout. */
-		goto out_unlock;
-	}
-	/* This txitem timed out.
-	 * Drop it and unmap/free all buffers
-	 */
-	dprintk(KERN_WARNING PFX "DMA TX slot 0x%04x timed out on controller 0x%04x!\n",
-		dma_txitem_getslot(item), item->ring->mmio_base);
-	cancel_txitem(item);
-out_unlock:
-	spin_unlock_irqrestore(&item->ring->lock, flags);
+	dprintk("DMA TX timeout on controller 0x%04x\n", ring->mmio_base);
+	dmacontroller_tx_reset(ring);//FIXME: The controller does not wake up from the reset.
+	cancel_transfers(ring);
 }
 
-/* Start a TX transfer. "slot" is the first slot in the frame.
- * This function sets up the timeout timer and pokes the device.
- */
-static inline void tx_xfer(struct bcm430x_dmaring *ring,
-			   int slot)
+void bcm430x_dma_tx_timeout(struct bcm430x_private *bcm)
 {
-	struct bcm430x_dma_txitem *item;
+	struct bcm430x_dmaring *ring;
+	unsigned long flags;
 
-	/* "allocate" a "TX context item" from the cache.
-	 * We use the slotnumber for allocation, as we can
-	 * be sure the slot number is unique, as long as we
-	 * need the TX context item.
-	 */
-	assert(slot < ARRAY_SIZE(ring->__tx_items_cache));
-	item = ring->__tx_items_cache + slot;
-	assert(item->ring == ring);
+	ring = bcm->current_core->dma->tx_ring0;
+	spin_lock_irqsave(&ring->lock, flags);
+	tx_timeout(ring);
+	spin_unlock_irqrestore(&ring->lock, flags);
 
-	INIT_LIST_HEAD(&item->list);
-	list_add_tail(&item->list, &ring->xfers);
+	ring = bcm->current_core->dma->tx_ring1;
+	spin_lock_irqsave(&ring->lock, flags);
+	tx_timeout(ring);
+	spin_unlock_irqrestore(&ring->lock, flags);
 
-	item->timeout.function = tx_timeout;
-	item->timeout.data = (unsigned long)item;
-	item->timeout.expires = jiffies + BCM430x_DMA_TXTIMEOUT;
-	add_timer(&item->timeout);
+	ring = bcm->current_core->dma->tx_ring2;
+	spin_lock_irqsave(&ring->lock, flags);
+	tx_timeout(ring);
+	spin_unlock_irqrestore(&ring->lock, flags);
 
-//dump_ringmemory(ring);
-	dmacontroller_poke_tx(ring, slot);
+	ring = bcm->current_core->dma->tx_ring3;
+	spin_lock_irqsave(&ring->lock, flags);
+	tx_timeout(ring);
+	spin_unlock_irqrestore(&ring->lock, flags);
 }
 
 /* Generate a cookie for the TX header. */
@@ -1013,7 +977,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		assert(ctx->first_slot != -1);
 		ring_sync_for_device(ring);
 		/* Now transfer the whole frame. */
-		tx_xfer(ring, ctx->first_slot);
+		dmacontroller_poke_tx(ring, ctx->first_slot);
 	} else {
 		ring_sync_for_device(ring);
 	}
@@ -1103,7 +1067,6 @@ void fastcall
 bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 			      struct bcm430x_xmitstatus *status)
 {
-	struct bcm430x_dma_txitem *item;
 	struct bcm430x_dmaring *ring;
 	int slot;
 	unsigned long flags;
@@ -1113,13 +1076,7 @@ bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 	ring = parse_cookie(bcm, status->cookie, &slot);
 	assert(ring);
 	spin_lock_irqsave(&ring->lock, flags);
-	item = ring->__tx_items_cache + slot;
-	del_timer(&item->timeout);
-	if (unlikely(list_empty(&item->list))) {
-		/* It timed out, before we could handle it here. */
-		return;
-	}
-	cancel_txitem(item);
+	free_descriptor_frame(ring, slot);
 	spin_unlock_irqrestore(&ring->lock, flags);
 }
 

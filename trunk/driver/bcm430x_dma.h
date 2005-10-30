@@ -88,7 +88,6 @@
 #define BCM430x_DMA_NUM_RXBUFFERS	16
 #define BCM430x_DMA1_RXBUFFERSIZE	2048
 #define BCM430x_DMA4_RXBUFFERSIZE	16
-#define BCM430x_DMA_TXTIMEOUT		(HZ * 10) /* jiffies */
 /* Suspend the tx queue, if less than this percent slots are free. */
 #define BCM430x_TXSUSPEND_PERCENT	20
 /* Resume the tx queue, if more than this percent slots are free. */
@@ -127,15 +126,6 @@ struct bcm430x_dmadesc_meta {
 
 struct bcm430x_dmaring;
 
-/* Context of a running TX transmission. */
-struct bcm430x_dma_txitem {
-	struct bcm430x_dmaring *ring;
-	struct timer_list timeout;
-	struct list_head list;
-};
-/* Get the slot for a txitem */
-#define dma_txitem_getslot(item)  ((int)((item) - (item)->ring->__tx_items_cache))
-
 struct bcm430x_dmaring {
 	spinlock_t lock;
 	struct bcm430x_private *bcm;
@@ -143,7 +133,7 @@ struct bcm430x_dmaring {
 	struct bcm430x_dmadesc *vbase;
 	/* (Unadjusted) DMA base bus-address of the ring memory. */
 	dma_addr_t dmabase;
-	/* Meta data about the allocated descriptors. */
+	/* Meta data about all descriptors. */
 	struct bcm430x_dmadesc_meta *meta;
 	/* Number of descriptor slots in the ring. */
 	int nr_slots;
@@ -160,9 +150,6 @@ struct bcm430x_dmaring {
 	u16 mmio_base;
 	u8 tx:1,	/* TRUE, if this is a TX ring. */
 	   suspended:1;	/* TRUE, if transfers are suspended on this ring. */
-	/* Running transfers */
-	struct list_head xfers;
-	struct bcm430x_dma_txitem __tx_items_cache[BCM430x_TXRING_SLOTS];
 };
 
 struct bcm430x_dma_txcontext {
@@ -196,5 +183,7 @@ void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 			  const char *buf, size_t size);
 
 void FASTCALL(bcm430x_dma_rx(struct bcm430x_dmaring *ring));
+
+void bcm430x_dma_tx_timeout(struct bcm430x_private *bcm);
 
 #endif /* BCM430x_DMA_H_ */

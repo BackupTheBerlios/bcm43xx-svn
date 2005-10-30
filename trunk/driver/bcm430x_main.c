@@ -3502,8 +3502,17 @@ static struct net_device_stats * bcm430x_net_get_stats(struct net_device *net_de
 	return &(bcm430x_priv(net_dev)->ieee->stats);
 }
 
-static void bcm430x_net_tx_timeout(struct net_device *dev)
-{/*TODO*/
+static void bcm430x_net_tx_timeout(struct net_device *net_dev)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (bcm->pio_mode)
+		bcm430x_pio_tx_timeout(bcm);
+	else
+		bcm430x_dma_tx_timeout(bcm);
+	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
 static int bcm430x_net_open(struct net_device *net_dev)

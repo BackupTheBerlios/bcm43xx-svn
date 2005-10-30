@@ -94,4 +94,7 @@ void FASTCALL(bcm430x_pio_rx(struct bcm430x_pioqueue *queue));
 
 void bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 			  const char *buf, size_t size);
+
+void bcm430x_pio_tx_timeout(struct bcm430x_private *bcm);
+
 #endif /* BCM430x_PIO_H_ */
