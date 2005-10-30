@@ -251,6 +251,7 @@ static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
 	 * "slot" is the first slot of the new frame we want to transmit.
 	 * Close your seat belts now, please.
 	 */
+	wmb();
 	bcm430x_write32(ring->bcm,
 			ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
 			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
