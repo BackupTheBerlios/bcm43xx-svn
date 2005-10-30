@@ -22,6 +22,12 @@ fwcutter -l		prints a list of supported driver source files.
 After extraction, run make installfw which will copy bcm430x_*.fw to 
 /lib/firmware for usage by the bcm43xx driver.
 
+Different distributions use different target directories for the firmware 
+files. If the driver complains about missing firmware files look for the 
+correct directory. For some distributions you have to use 
+/lib/hotplug/firmware or /usr/lib/hotplug/firmware instead of /lib/firmware,
+but other directories are also possible.
+
 
 Where can I find some driver source files?
 ------------------------------------------
