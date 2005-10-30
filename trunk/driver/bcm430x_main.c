@@ -114,6 +114,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	/* Broadcom 4318 802.11b/g */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1028, 0x0005, 0, 0, 0 }, /* Dell TrueMobile 1370 Mini-PCI Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x103c, 0x1355, 0, 0, 0 }, /* Compag v2000z Mini-PCI Card */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1043, 0x120f, 0, 0, 0 }, /* Asus Z9200K Laptop */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x106b, 0x4318, 0, 0, 0 }, /* Apple AirPort Extreme 2 Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1468, 0x0311, 0, 0, 0 }, /* AMBITG T60H906.00 */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1799, 0x7000, 0, 0, 0 }, /* Belkin F5D7000 PCI Card */
