@@ -169,46 +169,21 @@ static int request_slot(struct bcm430x_dmaring *ring)
 	return slot;
 }
 
-static inline
-int next_used_slot(struct bcm430x_dmaring *ring, int slot)
-{
-	int ret;
-
-	do {
-		ret = next_slot(ring, slot);
-	} while (ring->meta[ret].used == 0);
-
-	return ret;
-}
-
-static inline
-int prev_used_slot(struct bcm430x_dmaring *ring, int slot)
-{
-	int ret;
-
-	do {
-		ret = prev_slot(ring, slot);
-	} while (ring->meta[ret].used == 0);
-
-	return ret;
-}
-
 /* Return a slot to the free slots.
  * Make sure to have the ring synced for CPU, before calling this.
  */
 static void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
-	/* Be careful in this function. Slots might get returned
-	 * in random order.
-	 */
-
 	assert(ring->first_used != -1 && ring->last_used != -1);
 	if (used_slots(ring) > 1) {
 		assert(ring->first_used != ring->last_used);
-		if (ring->first_used == slot)
-			ring->first_used = next_used_slot(ring, slot);
-		else if (ring->last_used == slot)
-			ring->last_used = prev_used_slot(ring, slot);
+		if (ring->first_used == slot) {
+			ring->first_used = next_slot(ring, slot);
+			assert(ring->meta[ring->first_used].used == 1);
+		} else if (ring->last_used == slot) {
+			ring->last_used = prev_slot(ring, slot);
+			assert(ring->meta[ring->last_used].used == 1);
+		}
 	} else {
 		/* slot is the last used.
 		 * Mark the ring as "no used slots"
