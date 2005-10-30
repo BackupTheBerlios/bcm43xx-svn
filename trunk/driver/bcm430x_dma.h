@@ -100,8 +100,8 @@ struct bcm430x_xmitstatus;
 
 
 struct bcm430x_dmadesc {
-	u32 _control;
-	u32 _address;
+	__le32 _control;
+	__le32 _address;
 } __attribute__((__packed__));
 
 /* Macros to access the bcm430x_dmadesc struct */
