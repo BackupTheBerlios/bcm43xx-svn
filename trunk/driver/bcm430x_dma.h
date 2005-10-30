@@ -137,6 +137,8 @@ struct bcm430x_dmaring {
 	struct bcm430x_dmadesc_meta *meta;
 	/* Number of descriptor slots in the ring. */
 	int nr_slots;
+	/* Number of used descriptor slots. */
+	int used_slots;
 	/* first used slot in the ring. */
 	int first_used;
 	/* last used slot in the ring. */

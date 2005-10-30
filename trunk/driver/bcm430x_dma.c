@@ -68,24 +68,13 @@ void ring_sync_for_device(struct bcm430x_dmaring *ring)
 
 static inline int used_slots(struct bcm430x_dmaring *ring)
 {
-	/*XXX: As optimization we might want to add a counter to the
-	 *     queue for the used slots, to avoid this calculation.
-	 */
-	if (ring->first_used < 0) {
-		assert(ring->last_used == -1);
-		return 0;
-	}
-	if (ring->last_used >= ring->first_used)
-		return (ring->last_used - ring->first_used + 1);
-	return ((ring->nr_slots - ring->first_used)
-		+ (ring->last_used + 1));
+	assert(ring->used_slots >= 0 && ring->used_slots <= ring->nr_slots);
+	return ring->used_slots;
 }
 
 static inline int free_slots(struct bcm430x_dmaring *ring)
 {
-	int used = used_slots(ring);
-	assert(used >= 0 && used <= ring->nr_slots);
-	return (ring->nr_slots - used);
+	return (ring->nr_slots - used_slots(ring));
 }
 
 static inline int next_slot(struct bcm430x_dmaring *ring, int slot)
@@ -158,6 +147,7 @@ static int request_slot(struct bcm430x_dmaring *ring)
 			     | BCM430x_DMADTOR_DTABLEEND);
 	}
 	ring->meta[slot].used = 1;
+	ring->used_slots++;
 
 	if (ring->tx) {
 		/* Check the number of available slots and suspend TX,
@@ -193,6 +183,7 @@ static void return_slot(struct bcm430x_dmaring *ring, int slot)
 		ring->last_used = -1;
 	}
 	ring->meta[slot].used = 0;
+	ring->used_slots--;
 
 	if (ring->tx) {
 		/* Check if TX is suspended and check if we have
