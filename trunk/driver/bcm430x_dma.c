@@ -159,9 +159,7 @@ static int request_slot(struct bcm430x_dmaring *ring)
 	return slot;
 }
 
-/* Return a slot to the free slots.
- * Make sure to have the ring synced for CPU, before calling this.
- */
+/* Return a slot to the free slots. */
 static void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
 	assert(ring->first_used != -1 && ring->last_used != -1);
@@ -175,9 +173,6 @@ static void return_slot(struct bcm430x_dmaring *ring, int slot)
 			assert(ring->meta[ring->last_used].used == 1);
 		}
 	} else {
-		/* slot is the last used.
-		 * Mark the ring as "no used slots"
-		 */
 		assert(ring->first_used == ring->last_used);
 		ring->first_used = -1;
 		ring->last_used = -1;
