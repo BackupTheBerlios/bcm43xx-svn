@@ -560,11 +560,6 @@ struct bcm430x_coreinfo {
 #define BCM430x_LED_INACTIVE			11
 #define BCM430x_LED_ACTIVELOW			(1 << 7)
 
-/* Association context. */
-struct bcm430x_association {
-	u8 mac_addr[ETH_ALEN];
-};
-
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
 
@@ -584,9 +579,7 @@ struct bcm430x_private {
 	    adhoc_on_last_tbtt:1,	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
 	    no_txhdr:1,			/* Do not add a TX header in DMA or PIO code. */
 	    powersaving:1,		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
-	    associated:1;		/* TRUE, of we are associated (see struct bcm430x_association). */
-
-	struct bcm430x_association association;
+	    associated:1;		/* TRUE, of we are associated. */
 
 	/* Bus type we are connected to.
 	 * This is currently always BCM430x_BUSTYPE_PCI

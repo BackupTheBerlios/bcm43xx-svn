@@ -537,6 +537,25 @@ void bcm430x_macfilter_clear(struct bcm430x_private *bcm,
 	bcm430x_macfilter_set(bcm, offset, zero_addr);
 }
 
+static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
+{
+	const u8 *mac = (const u8 *)(bcm->net_dev->dev_addr);
+	const u8 *bssid = (const u8 *)(bcm->ieee->bssid);
+	u8 mac_bssid[ETH_ALEN * 2];
+	int i;
+
+	memcpy(mac_bssid, mac, ETH_ALEN);
+	memcpy(mac_bssid + ETH_ALEN, bssid, ETH_ALEN);
+
+	/* Write our MAC address and BSSID to template ram */
+	for (i = 0; i < ARRAY_SIZE(mac_bssid); i += sizeof(u32))
+		bcm430x_ram_write(bcm, 0x20 + i, *((u32 *)(mac_bssid + i)));
+	for (i = 0; i < ARRAY_SIZE(mac_bssid); i += sizeof(u32))
+		bcm430x_ram_write(bcm, 0x78 + i, *((u32 *)(mac_bssid + i)));
+	for (i = 0; i < ARRAY_SIZE(mac_bssid); i += sizeof(u32))
+		bcm430x_ram_write(bcm, 0x478 + i, *((u32 *)(mac_bssid + i)));
+}
+
 static void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
 	if (!bcm->associated)
@@ -564,11 +583,12 @@ static void bcm430x_associate(struct bcm430x_private *bcm,
 		printk(KERN_ERR PFX "Can not associate in AP or Ad-Hoc mode.\n");
 		return;
 	}
+	memcpy(bcm->ieee->bssid, mac, ETH_ALEN);
+
 	bcm430x_mac_suspend(bcm);
 	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_ASSOC, mac);
-	//TODO: Template RAM
-
-	memcpy(bcm->association.mac_addr, mac, ETH_ALEN);
+	bcm430x_write_mac_bssid_templates(bcm);
+	//TODO: associate with the AP (send some mgmt frame)
 	bcm->associated = 1;
 	bcm430x_mac_enable(bcm);
 
@@ -2503,10 +2523,11 @@ err_destroy_tx0:
 	goto out;
 }
 
-static void bcm430x_gen_bssid(struct bcm430x_private *bcm, 
-			      unsigned char *bssid,
-			      unsigned char *mac)
+static void bcm430x_gen_bssid(struct bcm430x_private *bcm)
 {
+	const u8 *mac = (const u8*)(bcm->net_dev->dev_addr);
+	u8 *bssid = bcm->ieee->bssid;
+
 	switch (bcm->ieee->iw_mode) {
 	case IW_MODE_MASTER:
 	case IW_MODE_ADHOC:
@@ -2519,34 +2540,11 @@ static void bcm430x_gen_bssid(struct bcm430x_private *bcm,
 		 *       randomizing the bssid in non-MASTER mode... .
 		 *       I did not find something about this in the IEEE specs, yet.
 		 */
-		memcpy(bssid, mac, 6);
+		memcpy(bssid, mac, ETH_ALEN);
 		break;
 	default:
 		assert(0);
 	}
-}
-
-static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
-{
-	struct net_device *net_dev = bcm->net_dev;
-	unsigned char *mac = net_dev->dev_addr;
-	unsigned char bssid[6];
-	int mac_len = net_dev->addr_len;
-	int i;
-
-	assert(mac_len == 6);
-
-	//FIXME: seems like the MAC has to be written to more locations. Maybe the BSSID, too... .
-	/* Write our MAC address to template ram */
-	for (i = 0; i < mac_len; i += sizeof(u32))
-		bcm430x_ram_write(bcm, 0x20 + i * sizeof(u32), *((u32 *)(mac + i)));
-
-	/* Write the BSSID to template ram */
-	bcm430x_gen_bssid(bcm, bssid, mac);
-	for (i = 0; i < ARRAY_SIZE(bssid); i += sizeof(u32))
-		bcm430x_ram_write(bcm, 0x26 + i * sizeof(u32), *((u32 *)(bssid + i)));
-	/* Also store it for the 80211 subsystem */
-	memcpy(bcm->ieee->bssid, bssid, ARRAY_SIZE(bssid));
 }
 
 static void bcm430x_wireless_core_cleanup(struct bcm430x_private *bcm)
@@ -2623,6 +2621,7 @@ static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 	/* Maximum Contention Window */
 	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0004, 0x000003ff);
 
+	bcm430x_gen_bssid(bcm);
 	bcm430x_write_mac_bssid_templates(bcm);
 
 	if (bcm->current_core->rev >= 5)
