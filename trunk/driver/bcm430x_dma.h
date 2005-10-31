@@ -139,8 +139,6 @@ struct bcm430x_dmaring {
 	int nr_slots;
 	/* Number of used descriptor slots. */
 	int used_slots;
-	/* first used slot in the ring. */
-	int first_used;
 	/* last used slot in the ring. */
 	int last_used;
 	/* Marks to suspend/resume the queue. */

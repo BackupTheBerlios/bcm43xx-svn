@@ -66,15 +66,9 @@ void ring_sync_for_device(struct bcm430x_dmaring *ring)
 				   DMA_TO_DEVICE);
 }
 
-static inline int used_slots(struct bcm430x_dmaring *ring)
-{
-	assert(ring->used_slots >= 0 && ring->used_slots <= ring->nr_slots);
-	return ring->used_slots;
-}
-
 static inline int free_slots(struct bcm430x_dmaring *ring)
 {
-	return (ring->nr_slots - used_slots(ring));
+	return (ring->nr_slots - ring->used_slots);
 }
 
 static inline int next_slot(struct bcm430x_dmaring *ring, int slot)
@@ -93,34 +87,27 @@ static inline int prev_slot(struct bcm430x_dmaring *ring, int slot)
 	return slot - 1;
 }
 
-static inline void suspend_txqueue(struct bcm430x_dmaring *ring)
+static inline void try_to_suspend_txqueue(struct bcm430x_dmaring *ring)
 {
 	assert(ring->tx);
 	assert(!ring->suspended);
-	netif_stop_queue(ring->bcm->net_dev);
-	ring->suspended = 1;
-}
 
-static inline void try_to_suspend_txqueue(struct bcm430x_dmaring *ring)
-{
-	if (free_slots(ring) < ring->suspend_mark)
-		suspend_txqueue(ring);
-}
-
-static inline void resume_txqueue(struct bcm430x_dmaring *ring)
-{
-	assert(ring->tx);
-	assert(ring->suspended);
-	ring->suspended = 0;
-	netif_wake_queue(ring->bcm->net_dev);
+	if (free_slots(ring) < ring->suspend_mark) {
+		netif_stop_queue(ring->bcm->net_dev);
+		ring->suspended = 1;
+	}
 }
 
 static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
 {
+	assert(ring->tx);
+
 	if (!ring->suspended)
 		return;
-	if (free_slots(ring) >= ring->resume_mark)
-		resume_txqueue(ring);
+	if (free_slots(ring) >= ring->resume_mark) {
+		ring->suspended = 0;
+		netif_wake_queue(ring->bcm->net_dev);
+	}
 }
 
 /* Request a slot for usage.
@@ -130,17 +117,11 @@ static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
 static int request_slot(struct bcm430x_dmaring *ring)
 {
 	int slot;
-	int prev;
 
 	assert(free_slots(ring));
 
-	prev = ring->last_used;
-	slot = next_slot(ring, prev);
+	slot = next_slot(ring, ring->last_used);
 	ring->last_used = slot;
-	if (ring->first_used < 0) {
-		assert(ring->first_used == -1);
-		ring->first_used = slot;
-	}
 	if (slot == ring->nr_slots - 1) {
 		set_desc_ctl(ring->vbase + slot,
 			     get_desc_ctl(ring->vbase + slot)
@@ -162,21 +143,9 @@ static int request_slot(struct bcm430x_dmaring *ring)
 /* Return a slot to the free slots. */
 static void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
-	assert(ring->first_used != -1 && ring->last_used != -1);
-	if (used_slots(ring) > 1) {
-		assert(ring->first_used != ring->last_used);
-		if (ring->first_used == slot) {
-			ring->first_used = next_slot(ring, slot);
-			assert(ring->meta[ring->first_used].used == 1);
-		} else if (ring->last_used == slot) {
-			ring->last_used = prev_slot(ring, slot);
-			assert(ring->meta[ring->last_used].used == 1);
-		}
-	} else {
-		assert(ring->first_used == ring->last_used);
-		ring->first_used = -1;
+	assert(ring->last_used >= 0);
+	if (ring->used_slots == 1)
 		ring->last_used = -1;
-	}
 	ring->meta[slot].used = 0;
 	ring->used_slots--;
 
@@ -229,10 +198,7 @@ void dump_ringmemory(struct bcm430x_dmaring *ring)
 
 	printk(KERN_INFO PFX "*** DMA Ringmemory dump (%s) ***\n",
 	       (ring->tx) ? "tx" : "rx");
-	if (ring->first_used >= 0)
-		printk(KERN_INFO PFX "first_used: 0x%04x\n", ring->first_used);
-	else
-		printk(KERN_INFO PFX "first_used: NONE\n");
+	printk(KERN_INFO PFX "used_slots: 0x%04x\n", ring->used_slots);
 	if (ring->last_used >= 0)
 		printk(KERN_INFO PFX "last_used:  0x%04x\n", ring->last_used);
 	else
@@ -509,8 +475,6 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 	} else
 		assert(0);
 
-	ring->first_used = 0;
-	ring->last_used = 0;
 	for (i = 0; i < num_buffers; i++) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
@@ -520,8 +484,9 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 			goto err_unwind;
 		map_descbuffer(ring, desc, meta);
 
-		assert(used_slots(ring) <= ring->nr_slots);
+		assert(ring->used_slots <= ring->nr_slots);
 		ring->last_used++;
+		ring->used_slots++;
 	}
 	ring_sync_for_cpu(ring);
 	set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
@@ -607,18 +572,18 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 	struct bcm430x_dmadesc_meta *meta;
 	int i;
 
-	if (!used_slots(ring))
+	if (!ring->used_slots)
 		return;
-	i = ring->first_used;
-	do {
+	for (i = 0; i < ring->nr_slots; i++) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
+		if (!meta->used)
+			continue;
+
 		unmap_descbuffer(ring, desc, meta);
 		free_descriptor_buffer(ring, desc, meta, 0);
-
-		i = next_slot(ring, i);
-	} while (i != ring->last_used);
+	}
 }
 
 /* Main initialization function. */
@@ -642,7 +607,6 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	spin_lock_init(&ring->lock);
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
-	ring->first_used = -1;
 	ring->last_used = -1;
 	ring->suspend_mark = ring->nr_slots * BCM430x_TXSUSPEND_PERCENT / 100;
 	ring->resume_mark = ring->nr_slots * BCM430x_TXRESUME_PERCENT / 100;
