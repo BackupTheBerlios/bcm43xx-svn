@@ -211,7 +211,7 @@ void dump_ringmemory(struct bcm430x_dmaring *ring)
 		printk(KERN_INFO PFX "0x%04x:  ctl: 0x%08x, adr: 0x%08x, "
 				     "txb: 0x%p, skb: 0x%p(%s), bus: 0x%08x\n",
 		       i, get_desc_ctl(desc), get_desc_addr(desc),
-		       meta->txb, meta->skb, (meta->nofree_skb) ? " " : "f",
+		       meta->txb, meta->skb, (meta->free_skb) ? "f" : " ",
 		       meta->dmaaddr);
 	}
 }
@@ -224,7 +224,7 @@ static void free_descriptor_buffer(struct bcm430x_dmaring *ring,
 				   int irq_context)
 {
 	unmap_descbuffer(ring, desc, meta);
-	if (!meta->nofree_skb) {
+	if (meta->free_skb) {
 		if (irq_context)
 			dev_kfree_skb_irq(meta->skb);
 		else
@@ -853,12 +853,12 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	/* Write the buffer to the descriptor and map it. */
 	meta->skb = skb;
 	if (unlikely(forcefree_skb)) {
-		meta->nofree_skb = 0;
+		meta->free_skb = 1;
 	} else {
 		/* We do not free the skb, as it is freed as
 		 * part of the txb freeing.
 		 */
-		meta->nofree_skb = 1;
+		meta->free_skb = 0;
 	}
 	map_descbuffer(ring, desc, meta);
 
