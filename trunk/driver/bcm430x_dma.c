@@ -209,10 +209,10 @@ void dump_ringmemory(struct bcm430x_dmaring *ring)
 		meta = ring->meta + i;
 
 		printk(KERN_INFO PFX "0x%04x:  ctl: 0x%08x, adr: 0x%08x, "
-				     "txb: 0x%p, skb: 0x%p(%s), bus: 0x%08x(%s)\n",
+				     "txb: 0x%p, skb: 0x%p(%s), bus: 0x%08x\n",
 		       i, get_desc_ctl(desc), get_desc_addr(desc),
 		       meta->txb, meta->skb, (meta->nofree_skb) ? " " : "f",
-		       meta->dmaaddr, (meta->mapped) ? "m" : " ");
+		       meta->dmaaddr);
 	}
 }
 #endif /* BCM430x_DEBUG */
@@ -407,15 +407,12 @@ static void map_descbuffer(struct bcm430x_dmaring *ring,
 {
 	enum dma_data_direction dir;
 
-	assert(!meta->mapped);
-
 	if (ring->tx)
 		dir = DMA_TO_DEVICE;
 	else
 		dir = DMA_FROM_DEVICE;
 	meta->dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
 				       meta->skb->data, meta->skb->len, dir);
-	meta->mapped = 1;
 
 	/* Tell the device about the buffer */
 	set_desc_addr(desc, meta->dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
@@ -433,24 +430,17 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 {
 	enum dma_data_direction dir;
 
-	if (!meta->mapped)
-		return;
-
 	if (ring->tx)
 		dir = DMA_TO_DEVICE;
 	else
 		dir = DMA_FROM_DEVICE;
 
-	/* First tell the device it is going away. */
 	set_desc_ctl(desc, 0x00000000);
 	set_desc_addr(desc, 0x00000000);
-	mb();//FIXME: need a memory barrier here?
 
 	dma_unmap_single(&ring->bcm->pci_dev->dev,
 			 meta->dmaaddr, meta->skb->len, dir);
 	meta->dmaaddr = 0x00000000;
-
-	meta->mapped = 0;  
 }
 
 /* Allocate the initial descbuffers.
