@@ -472,6 +472,7 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		meta->skb = __dev_alloc_skb(buffersize, GFP_KERNEL);
 		if (!meta->skb)
 			goto err_unwind;
+		meta->free_skb = 1;
 		map_descbuffer(ring, desc, meta);
 
 		assert(ring->used_slots <= ring->nr_slots);
