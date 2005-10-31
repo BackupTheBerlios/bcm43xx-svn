@@ -791,39 +791,13 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
  */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
-# warning "The bcm430x driver is designed to run with the version of the ieee80211 stack"
-# warning "as of linux-2.6.14 or later. Please upgrade to the latest 2.6 kernel."
-# warning "DO NOT COMPLAIN ABOUT BUGS. UPDATE FIRST AND TRY AGAIN."
+# error "The bcm430x driver does not support kernels < 2.6.14"
+# error "The driver will _NOT_ compile on your kernel. Please upgrade to the latest 2.6 kernel."
+# error "DO NOT COMPLAIN ABOUT BUGS. UPDATE FIRST AND TRY AGAIN."
 #else
 # if !defined(CONFIG_IEEE80211_MODULE) && !defined(CONFIG_IEEE80211)
 #  error "Generic IEEE 802.11 Networking Stack (CONFIG_IEEE80211) not available."
 # endif
 #endif
-
-/* 
- * Wrapper for older kernels
- * There is no guarantee, that the driver will work with older kernels.
- */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
-# include <linux/slab.h>
-static inline
-void * kzalloc(size_t size, unsigned int flags)
-{
-	void *ret = kmalloc(size, flags);
-	if (ret)
-		memset(ret, 0, size);
-	return ret;
-}
-static inline
-int is_broadcast_ether_addr(const u8 *addr)
-{
-	return ((addr[0] == 0xFF) && (addr[1] == 0xFF) && (addr[2] == 0xFF) &&
-		(addr[3] == 0xFF) && (addr[4] == 0xFF) && (addr[5] == 0xFF));
-}
-#endif /* < 2.6.14 */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 11)
-# include <linux/pm.h>
-typedef u32 /*__bitwise*/ pm_message_t;
-#endif /* < 2.6.11 */
 
 #endif /* BCM430x_H_ */
