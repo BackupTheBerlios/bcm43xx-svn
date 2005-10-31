@@ -123,8 +123,6 @@ struct bcm430x_dmadesc_meta {
 	struct ieee80211_txb *txb;
 };
 
-struct bcm430x_dmaring;
-
 struct bcm430x_dmaring {
 	spinlock_t lock;
 	struct bcm430x_private *bcm;
@@ -154,7 +152,7 @@ struct bcm430x_dmaring {
 struct bcm430x_dma_txcontext {
 	u8 nr_frags;
 	u8 cur_frag;
-	/* First slot of the frame (for tx_xfer()) */
+	/* First slot of the frame. */
 	int first_slot;
 };
 
