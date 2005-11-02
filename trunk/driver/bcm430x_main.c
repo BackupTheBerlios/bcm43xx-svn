@@ -107,6 +107,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x1028, 0x0407, 0, 0, 0 }, /* Dell TrueMobile 1180 Mini-PCI Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x103c, 0x12f3, 0, 0, 0 }, /* HP Compaq NX9110 802.11b Mini-PCI card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x1043, 0x0120, 0, 0, 0 }, /* Asus WL-103b PC Card */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x1737, 0x4301, 0, 0, 0 }, /* Linksys WMP11 rev2.7 */
 
 	/* Broadcom 4307 802.11b */
 //	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
