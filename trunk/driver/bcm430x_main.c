@@ -3286,7 +3286,6 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 			return -ENOMEM;
 		bcm->current_core->phy->_lo_pairs = p;
 	}
-	bcm->current_core->phy->info_unk16 = 0xFFFF;
 
 	return 0;
 }

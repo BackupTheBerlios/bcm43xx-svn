@@ -886,7 +886,7 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 		bcm430x_radio_write16(bcm, 0x0078, bcm->current_core->radio->initval);
 		bcm430x_radio_write16(bcm, 0x0052,
 				      (bcm430x_radio_read16(bcm, 0x0052) & 0xFFF0)
-				      | bcm->current_core->phy->info_unk16);
+				      | bcm->current_core->radio->txpower[3]);
 	}
 
 	if (bcm->current_core->phy->connected) {
@@ -1140,10 +1140,9 @@ void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm, int fixed)
 }
 
 static inline
-u16 bcm430x_phy_lo_g_unk16(struct bcm430x_private *bcm)
+void bcm430x_phy_lo_g_measure_txctl2(struct bcm430x_private *bcm)
 {
-	/* phy_info_unk16 */
-	u16 ret = 0, i;
+	u16 txctl2 = 0, i;
 	u32 smallest, tmp;
 
 	bcm430x_radio_write16(bcm, 0x0052, 0x0000);
@@ -1153,11 +1152,12 @@ u16 bcm430x_phy_lo_g_unk16(struct bcm430x_private *bcm)
 		bcm430x_radio_write16(bcm, 0x0052, i);
 		udelay(10);
 		tmp = bcm430x_phy_lo_g_singledeviation(bcm, 0);
-		if (tmp < smallest)
-			ret = i;
+		if (tmp < smallest) {
+			smallest = tmp;
+			txctl2 = i;
+		}
 	}
-
-	return ret;
+	bcm->current_core->radio->txpower[3] = txctl2;
 }
 
 static
@@ -1348,9 +1348,10 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0812, 0x00B2);
 	}
 	if (bcm430x_is_initializing(bcm))
-		phy->info_unk16 = bcm430x_phy_lo_g_unk16(bcm);
+		bcm430x_phy_lo_g_measure_txctl2(bcm);
 	bcm430x_phy_write(bcm, 0x080F, 0x8078);
 
+	//FIXME: Seems like we write some PHY regs here, which should be RADIO regs.
 	/* Measure */
 	for (h = 0; h < 10; h++) {
 		/* Loop over each possible RadioAttenuation (0-9) */
@@ -1383,7 +1384,8 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				r31 = 1;
 			}
 			bcm430x_phy_write(bcm, 0x43, i);
-			bcm430x_phy_write(bcm, 0x52, phy->info_unk16); //FIXME TX CTL2
+			bcm430x_radio_write16(bcm, 0x52,
+					      bcm->current_core->radio->txpower[3]);
 
 			bcm430x_phy_set_baseband_attenuation(bcm, j * 2);
 
@@ -1418,7 +1420,9 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				r31 = 1;
 			}
 			bcm430x_phy_write(bcm, 0x43, i);
-			bcm430x_phy_write(bcm, 0x52, phy->info_unk16 + 0x30);//FIXME?
+			bcm430x_radio_write16(bcm, 0x52,
+					      bcm->current_core->radio->txpower[3]
+					      | (3/*txctl1*/ << 4));//FIXME: shouldn't txctl1 be zero here and 3 above?
 
 			bcm430x_phy_set_baseband_attenuation(bcm, j * 2);
 

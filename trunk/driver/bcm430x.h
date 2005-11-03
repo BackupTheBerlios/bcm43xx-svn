@@ -451,7 +451,6 @@ struct bcm430x_phyinfo {
 	 * Use bcm430x_get_lopair() to get a value.
 	 */
 	struct bcm430x_lopair *_lo_pairs;
-	u16 info_unk16;
 
 	/* TSSI to dBm table in use */
 	const s8 *tssi2dbm;
@@ -473,8 +472,9 @@ struct bcm430x_radioinfo {
 	/* 0: baseband attenuation,
 	 * 1: radio attenuation, 
 	 * 2: tx_CTL1
+	 * 3: tx_CTL2
 	 */
-	u16 txpower[3];
+	u16 txpower[4];
 	/* Current Interference Mitigation mode */
 	int interfmode;
 	/* Stack of saved values from the Interference Mitigation code */
