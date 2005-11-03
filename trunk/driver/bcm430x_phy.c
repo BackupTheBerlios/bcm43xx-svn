@@ -1350,6 +1350,17 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		bcm430x_phy_lo_g_measure_txctl2(bcm);
 	bcm430x_phy_write(bcm, 0x080F, 0x8078);
 
+#ifdef BCM430x_DEBUG
+	{
+		/* Poison all LOpairs. */
+		for (i = 0; i < BCM430x_LO_COUNT; i++) {
+			tmp_control = bcm->current_core->phy->_lo_pairs + i;
+			tmp_control->high = -20;
+			tmp_control->low = -20;
+		}
+	}
+#endif /* BCM430x_DEBUG */
+
 	/* Measure */
 	for (h = 0; h < 10; h++) {
 		/* Loop over each possible RadioAttenuation (0-9) */
@@ -1486,7 +1497,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 			}
 		}
 	}
-#endif
+#endif /* BCM430x_DEBUG */
 }
 
 static
