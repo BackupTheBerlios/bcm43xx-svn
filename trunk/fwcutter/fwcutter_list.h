@@ -200,7 +200,7 @@ static const struct file {
 		.md5         = "5e58a3148b98c9f356cde6049435cb21", 
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
 		.iv_pos      = 0x30970,
-		.uc2_pos     = 0x34408,  .uc2_length  = 0x3db8,
+		.uc2_pos     = 0x34408,  .uc2_length  = 0x3db0,
 		.uc4_pos     = 0x381c0,  .uc4_length  = 0x45d0,
 		.uc5_pos     = 0x3c798,  .uc5_length  = 0x5050,
 		.pcm4_pos    = 0x417f0,  .pcm4_length = 0x478,
