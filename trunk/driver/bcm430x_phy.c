@@ -806,7 +806,6 @@ static void bcm430x_phy_initb6(struct bcm430x_private *bcm)
 		bcm430x_radio_write16(bcm, 0x007D, 0x0088);
 	}
 	val = 0x1E1F;
-	bcm430x_phy_write(bcm, 0x0088, val);
 	for (offset = 0x0088; offset < 0x0098; offset++) {
 		bcm430x_phy_write(bcm, offset, val);
 		val -= 0x0202;
