@@ -500,10 +500,9 @@ void bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
-	skb_put(skb, skb_size);
 	if (!queue->bcm->no_txhdr)
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
-	memcpy(skb->data, buf, size);
+	memcpy(skb_put(skb, size), buf, size);
 
 	/* Setup a dummy txb. Be careful to not free this
 	 * with ieee80211_txb_free()

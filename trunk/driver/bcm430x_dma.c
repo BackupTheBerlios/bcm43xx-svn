@@ -944,10 +944,9 @@ void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
-	skb_put(skb, skb_size);
 	if (!ring->bcm->no_txhdr)
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
-	memcpy(skb->data, buf, size);
+	memcpy(skb_put(skb, size), buf, size);
 
 	ctx.nr_frags = 1;
 	ctx.cur_frag = 0;
