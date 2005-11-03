@@ -1351,7 +1351,6 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		bcm430x_phy_lo_g_measure_txctl2(bcm);
 	bcm430x_phy_write(bcm, 0x080F, 0x8078);
 
-	//FIXME: Seems like we write some PHY regs here, which should be RADIO regs.
 	/* Measure */
 	for (h = 0; h < 10; h++) {
 		/* Loop over each possible RadioAttenuation (0-9) */
@@ -1383,9 +1382,10 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				r27 = 3;
 				r31 = 1;
 			}
-			bcm430x_phy_write(bcm, 0x43, i);
+			bcm430x_radio_write16(bcm, 0x43, i);
 			bcm430x_radio_write16(bcm, 0x52,
 					      bcm->current_core->radio->txpower[3]);
+			udelay(10);
 
 			bcm430x_phy_set_baseband_attenuation(bcm, j * 2);
 
@@ -1419,10 +1419,11 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				r27 = 3;
 				r31 = 1;
 			}
-			bcm430x_phy_write(bcm, 0x43, i);
+			bcm430x_radio_write16(bcm, 0x43, i);
 			bcm430x_radio_write16(bcm, 0x52,
 					      bcm->current_core->radio->txpower[3]
-					      | (3/*txctl1*/ << 4));//FIXME: shouldn't txctl1 be zero here and 3 above?
+					      | (3/*txctl1*/ << 4));//FIXME: shouldn't txctl1 be zero here and 3 in the loop above?
+			udelay(10);
 
 			bcm430x_phy_set_baseband_attenuation(bcm, j * 2);
 
@@ -1437,6 +1438,15 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	}
 
 	/* Restoration */
+	if (bcm->current_core->phy->connected) {
+		bcm430x_phy_write(bcm, 0x0015, 0xE300);
+		bcm430x_phy_write(bcm, 0x0812, (r27 << 8) | 0xA0);
+		udelay(5);
+		bcm430x_phy_write(bcm, 0x0812, (r27 << 8) | 0xA2);
+		udelay(2);
+		bcm430x_phy_write(bcm, 0x0812, (r27 << 8) | 0xA3);
+	} else
+		bcm430x_phy_write(bcm, 0x0015, r27 | 0xEFA0);
 	bcm430x_phy_lo_adjust(bcm, bcm430x_is_initializing(bcm));
 	bcm430x_phy_write(bcm, 0x002E, 0x807F);
 	if (phy->connected)
@@ -1466,8 +1476,6 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 
 #ifdef BCM430x_DEBUG
 	{
-		int nr_zero_pairs = 0;
-
 		/* Sanity check for all lopairs. */
 		for (i = 0; i < BCM430x_LO_COUNT; i++) {
 			control = bcm->current_core->phy->_lo_pairs + i;
@@ -1477,10 +1485,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				       "WARNING: Invalid LOpair (low: %d, high: %d, index: %d)\n",
 				       control->low, control->high, i);
 			}
-			if (control->low == 0 && control->high == 0)
-				nr_zero_pairs++;
 		}
-		printk(KERN_INFO PFX "Nr ZERO LOpairs: %d\n", nr_zero_pairs);
 	}
 #endif
 }
