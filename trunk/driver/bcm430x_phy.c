@@ -1161,7 +1161,7 @@ void bcm430x_phy_lo_g_measure_txctl2(struct bcm430x_private *bcm)
 
 static
 void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
-			    struct bcm430x_lopair *in_pair,
+			    const struct bcm430x_lopair *in_pair,
 			    struct bcm430x_lopair *out_pair,
 			    u16 r27)
 {
@@ -1189,10 +1189,10 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 #ifdef BCM430x_DEBUG
 	{
 		/* Revert the poison values. We must begin at 0. */
-		if (in_pair->low == -20) {
-			assert(in_pair->high == -20);
-			in_pair->low = 0;
-			in_pair->high = 0;
+		if (result.low == -20) {
+			assert(result.high == -20);
+			result.low = 0;
+			result.high = 0;
 		}
 	}
 #endif /* BCM430x_DEBUG */
@@ -1205,8 +1205,8 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 			/* Initial state */
 			for (j = 0; j < 8; j++) {
 				index = j;
-				transition.high = in_pair->high + transitions[index].high;
-				transition.low = in_pair->low + transitions[index].low;
+				transition.high = result.high + transitions[index].high;
+				transition.low = result.low + transitions[index].low;
 				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
 					bcm430x_lo_write(bcm, &transition);
 					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
@@ -1227,8 +1227,8 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 				if (index > 8)
 					index = 1;
 				index -= 1;
-				transition.high = in_pair->high + transitions[index].high;
-				transition.low = in_pair->low + transitions[index].low;
+				transition.high = result.high + transitions[index].high;
+				transition.low = result.low + transitions[index].low;
 				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
 					bcm430x_lo_write(bcm, &transition);
 					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
@@ -1251,8 +1251,8 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 				else if (index < 1)
 					index = 7;
 				index -= 1;
-				transition.high = in_pair->high + transitions[index].high;
-				transition.low = in_pair->low + transitions[index].low;
+				transition.high = result.high + transitions[index].high;
+				transition.low = result.low + transitions[index].low;
 				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
 					bcm430x_lo_write(bcm, &transition);
 					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
@@ -1300,7 +1300,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 {
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	u16 h, i, oldi, j;
-	struct bcm430x_lopair *control;
+	const struct bcm430x_lopair *control;
 	struct bcm430x_lopair *tmp_control;
 	const u8 pairorder[10] = { 3, 1, 5, 7, 9, 2, 0, 4, 6, 8 };
 	u16 tmp;
