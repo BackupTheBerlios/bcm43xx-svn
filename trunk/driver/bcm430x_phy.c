@@ -1275,7 +1275,7 @@ void bcm430x_phy_set_baseband_attenuation(struct bcm430x_private *bcm,
 		return;
 	}
 
-	if (bcm->current_core->phy->version == 1) {
+	if (bcm->current_core->phy->version > 1) {
 		value = bcm430x_phy_read(bcm, 0x0060) & ~0x003C;
 		value |= (baseband_attenuation << 2) & 0x003C;
 	} else {
