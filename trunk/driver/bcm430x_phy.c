@@ -1161,7 +1161,7 @@ void bcm430x_phy_lo_g_measure_txctl2(struct bcm430x_private *bcm)
 
 static
 void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
-			    const struct bcm430x_lopair *in_pair,
+			    struct bcm430x_lopair *in_pair,
 			    struct bcm430x_lopair *out_pair,
 			    u16 r27)
 {
@@ -1185,6 +1185,17 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 	u32 deviation, tmp;
 
 	/* Note that in_pair and out_pair can point to the same pair. Be careful. */
+
+#ifdef BCM430x_DEBUG
+	{
+		/* Revert the poison values. We must begin at 0. */
+		if (in_pair->low == -20) {
+			assert(in_pair->high == -20);
+			in_pair->low = 0;
+			in_pair->high = 0;
+		}
+	}
+#endif /* BCM430x_DEBUG */
 
 	deviation = bcm430x_phy_lo_g_singledeviation(bcm, r27);
 	while ((i--) && (lowered == 1)) {
@@ -1289,7 +1300,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 {
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	u16 h, i, oldi, j;
-	const struct bcm430x_lopair *control;
+	struct bcm430x_lopair *control;
 	struct bcm430x_lopair *tmp_control;
 	const u8 pairorder[10] = { 3, 1, 5, 7, 9, 2, 0, 4, 6, 8 };
 	u16 tmp;
