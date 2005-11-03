@@ -2052,7 +2052,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 		bcm430x_write16(bcm, 0x0230, 0x0100);
 		bcm430x_write16(bcm, 0x0250, 0x0100);
 		bcm430x_write16(bcm, 0x0270, 0x0100);
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0034, 0x00000000);
+		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0034, 0x0000);
 	}
 
 	/* Probe Response Timeout value */
@@ -2613,8 +2613,8 @@ static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0006, 7);
 	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0007, 4);
 
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0044, 3);
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0046, 2);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0044, 3);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0046, 2);
 
 	/* Minimum Contention Window */
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B)

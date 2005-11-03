@@ -1213,14 +1213,14 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 
 void bcm430x_radio_set_txantenna(struct bcm430x_private *bcm, u32 val)
 {
-	u32 tmp;
+	u16 tmp;
 
-	tmp = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0022) & 0xFFFFFCFF;
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0022, tmp | val);
-	tmp = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x03a8) & 0xFFFFFCFF;
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x03a8, tmp | val);
-	tmp = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0054) & 0xFFFFFCFF;
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0054, tmp | val);
+	tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0022) & 0xFCFF;
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0022, tmp | val);
+	tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x03a8) & 0xFCFF;
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x03a8, tmp | val);
+	tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0054) & 0xFFCFF;
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0054, tmp | val);
 }
 
 /* http://bcm-specs.sipsolutions.net/TX_Gain_Base_Band */
@@ -1413,15 +1413,15 @@ void bcm430x_radio_clear_tssi(struct bcm430x_private *bcm)
 {
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0068, 0x7F7F);
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x006a, 0x7F7F);
+		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0068, 0x7F7F);
+		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x006a, 0x7F7F);
 		break;
 	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0058, 0x7F7F);
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x005a, 0x7F7F);
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0070, 0x7F7F);
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0072, 0x7F7F);
+		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0058, 0x7F7F);
+		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x005a, 0x7F7F);
+		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0070, 0x7F7F);
+		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0072, 0x7F7F);
 		break;
 	}
 }
