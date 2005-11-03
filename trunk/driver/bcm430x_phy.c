@@ -1079,6 +1079,19 @@ void bcm430x_lo_write(struct bcm430x_private *bcm,
 	value = (u8)(pair->low);
 	value |= ((u8)(pair->high)) << 8;
 
+#ifdef BCM430x_DEBUG
+	/* Sanity check. */
+	if (pair->low < -8 || pair->low > 8 ||
+	    pair->high < -8 || pair->high > 8) {
+		printk(KERN_WARNING PFX
+		       "WARNING: Writing invalid LOpair "
+		       "(low: %d, high: %d, index: %lu)\n",
+		       pair->low, pair->high,
+		       (unsigned long)(pair - bcm->current_core->phy->_lo_pairs));
+		dump_stack();
+	}
+#endif
+
 	bcm430x_phy_write(bcm, BCM430x_PHY_G_LO_CONTROL, value);
 }
 
@@ -1091,34 +1104,38 @@ struct bcm430x_lopair * bcm430x_find_lopair(struct bcm430x_private *bcm,
 	const u8 dict[10] = { 11, 10, 11, 12, 13, 12, 13, 12, 13, 12 };
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 
-	if (baseband_attenuation > 12)
-		baseband_attenuation = 12;
+	if (baseband_attenuation > 6)
+		baseband_attenuation = 6;
+	assert(radio_attenuation < 10);
+	assert(tx == 0 || tx == 3);
 
 	if (tx == 3) {
 		return bcm430x_get_lopair(phy,
 					  radio_attenuation,
 					  baseband_attenuation);
 	}
-	assert(radio_attenuation < 10);
 	return bcm430x_get_lopair(phy, dict[radio_attenuation], baseband_attenuation);
-				  
+}
+
+static inline
+struct bcm430x_lopair * bcm430x_current_lopair(struct bcm430x_private *bcm)
+{
+	return bcm430x_find_lopair(bcm,
+				   bcm->current_core->radio->txpower[0],
+				   bcm->current_core->radio->txpower[1],
+				   bcm->current_core->radio->txpower[2]);
 }
 
 /* Adjust B/G LO */
 void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm, int fixed)
 {
-	struct bcm430x_radioinfo *radio = bcm->current_core->radio;
 	struct bcm430x_lopair *pair;
 
 	if (fixed) {
 		/* Use fixed values. Only for initialization. */
 		pair = bcm430x_find_lopair(bcm, 2, 3, 0);
-	} else {
-		pair = bcm430x_find_lopair(bcm,
-					   radio->txpower[0],
-					   radio->txpower[1],
-					   radio->txpower[2]);
-	}
+	} else
+		pair = bcm430x_current_lopair(bcm);
 	bcm430x_lo_write(bcm, pair);
 }
 
@@ -1145,7 +1162,8 @@ u16 bcm430x_phy_lo_g_unk16(struct bcm430x_private *bcm)
 
 static
 void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
-			    struct bcm430x_lopair *pair,
+			    const struct bcm430x_lopair *in_pair,
+			    struct bcm430x_lopair *out_pair,
 			    u16 r27)
 {
 	struct bcm430x_lopair transitions[8] = {
@@ -1159,9 +1177,15 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 		{ .high =  0,  .low =  1, },
 	};
 	struct bcm430x_lopair transition;
+	struct bcm430x_lopair result = {
+		.high = in_pair->high,
+		.low = in_pair->low,
+	};
 	int i = 12, j, lowered = 1, state = 0;
 	int index;
 	u32 deviation, tmp;
+
+	/* Note that in_pair and out_pair can point to the same pair. Be careful. */
 
 	deviation = bcm430x_phy_lo_g_singledeviation(bcm, r27);
 	while ((i--) && (lowered == 1)) {
@@ -1171,20 +1195,19 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 			/* Initial state */
 			for (j = 0; j < 8; j++) {
 				index = j;
-				transition.high = pair->high + transitions[index].high;
-				transition.low = pair->low + transitions[index].low;
-				tmp = ~0;
+				transition.high = in_pair->high + transitions[index].high;
+				transition.low = in_pair->low + transitions[index].low;
 				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
 					bcm430x_lo_write(bcm, &transition);
 					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
-				}
-				if (tmp < deviation) {
-					deviation = tmp;
-					state = index + 1;
-					lowered = 1;
+					if (tmp < deviation) {
+						deviation = tmp;
+						state = index + 1;
+						lowered = 1;
 
-					pair->high = transition.high;
-					pair->low = transition.low;
+						result.high = transition.high;
+						result.low = transition.low;
+					}
 				}
 			}
 		} else if (state % 2 == 0) {
@@ -1194,20 +1217,19 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 				if (index > 8)
 					index = 1;
 				index -= 1;
-				transition.high = pair->high + transitions[index].high;
-				transition.low = pair->low + transitions[index].low;
-				tmp = ~0;
+				transition.high = in_pair->high + transitions[index].high;
+				transition.low = in_pair->low + transitions[index].low;
 				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
 					bcm430x_lo_write(bcm, &transition);
 					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
-				}
-				if (tmp < deviation) {
-					deviation = tmp;
-					state = index + 1;
-					lowered = 1;
+					if (tmp < deviation) {
+						deviation = tmp;
+						state = index + 1;
+						lowered = 1;
 
-					pair->high = transition.high;
-					pair->low = transition.low;
+						result.high = transition.high;
+						result.low = transition.low;
+					}
 				}
 			}
 		} else {
@@ -1219,24 +1241,25 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 				else if (index < 1)
 					index = 7;
 				index -= 1;
-				transition.high = pair->high + transitions[index].high;
-				transition.low = pair->low + transitions[index].low;
-				tmp = ~0;
+				transition.high = in_pair->high + transitions[index].high;
+				transition.low = in_pair->low + transitions[index].low;
 				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
 					bcm430x_lo_write(bcm, &transition);
 					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
-				}
-				if (tmp < deviation) {
-					deviation = tmp;
-					state = index + 1;
-					lowered = 1;
+					if (tmp < deviation) {
+						deviation = tmp;
+						state = index + 1;
+						lowered = 1;
 
-					pair->high = transition.high;
-					pair->low = transition.low;
+						result.high = transition.high;
+						result.low = transition.low;
+					}
 				}
 			}	
 		}
 	}
+	out_pair->high = result.high;
+	out_pair->low = result.low;
 }
 
 /* Set the baseband attenuation value on chip. */
@@ -1267,7 +1290,8 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 {
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	u16 h, i, oldi, j;
-	struct bcm430x_lopair *control;
+	const struct bcm430x_lopair *control;
+	struct bcm430x_lopair *tmp_control;
 	const u8 pairorder[10] = { 3, 1, 5, 7, 9, 2, 0, 4, 6, 8 };
 	u16 tmp;
 	u16 regstack[16] = { 0 };
@@ -1359,7 +1383,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				r31 = 1;
 			}
 			bcm430x_phy_write(bcm, 0x43, i);
-			bcm430x_phy_write(bcm, 0x52, phy->info_unk16);
+			bcm430x_phy_write(bcm, 0x52, phy->info_unk16); //FIXME TX CTL2
 
 			bcm430x_phy_set_baseband_attenuation(bcm, j * 2);
 
@@ -1368,7 +1392,8 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				tmp |= 0x0008;
 			bcm430x_radio_write16(bcm, 0x007A, tmp);
 
-			bcm430x_phy_lo_g_state(bcm, control, r27);
+			tmp_control = bcm430x_get_lopair(phy, i, j * 2);
+			bcm430x_phy_lo_g_state(bcm, control, tmp_control, r27);
 		}
 		oldi = i;
 	}
@@ -1393,7 +1418,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				r31 = 1;
 			}
 			bcm430x_phy_write(bcm, 0x43, i);
-			bcm430x_phy_write(bcm, 0x52, phy->info_unk16 + 0x30);
+			bcm430x_phy_write(bcm, 0x52, phy->info_unk16 + 0x30);//FIXME?
 
 			bcm430x_phy_set_baseband_attenuation(bcm, j * 2);
 
@@ -1402,7 +1427,8 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				tmp |= 0x0008;
 			bcm430x_radio_write16(bcm, 0x7A, tmp);
 
-			bcm430x_phy_lo_g_state(bcm, control, r27);
+			tmp_control = bcm430x_get_lopair(phy, i, j * 2);
+			bcm430x_phy_lo_g_state(bcm, control, tmp_control, r27);
 		}
 	}
 
@@ -1433,17 +1459,46 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0802, regstack[1]);
 	}
 	bcm430x_radio_selectchannel(bcm, oldchannel, 1);
+
+#ifdef BCM430x_DEBUG
+	{
+		int nr_zero_pairs = 0;
+
+		/* Sanity check for all lopairs. */
+		for (i = 0; i < BCM430x_LO_COUNT; i++) {
+			control = bcm->current_core->phy->_lo_pairs + i;
+			if (control->low < -8 || control->low > 8 ||
+			    control->high < -8 || control->high > 8) {
+				printk(KERN_WARNING PFX
+				       "WARNING: Invalid LOpair (low: %d, high: %d, index: %d)\n",
+				       control->low, control->high, i);
+			}
+			if (control->low == 0 && control->high == 0)
+				nr_zero_pairs++;
+		}
+		printk(KERN_INFO PFX "Nr ZERO LOpairs: %d\n", nr_zero_pairs);
+	}
+#endif
 }
 
 static
 void bcm430x_phy_lo_mark_current_used(struct bcm430x_private *bcm)
 {
-	TODO();//TODO
+	struct bcm430x_lopair *pair;
+
+	pair = bcm430x_current_lopair(bcm);
+	pair->used = 1;
 }
 
 void bcm430x_phy_lo_mark_all_unused(struct bcm430x_private *bcm)
 {
-	TODO();//TODO
+	struct bcm430x_lopair *pair;
+	int i;
+
+	for (i = 0; i < BCM430x_LO_COUNT; i++) {
+		pair = bcm->current_core->phy->_lo_pairs + i;
+		pair->used = 0;
+	}
 }
 
 /* http://bcm-specs.sipsolutions.net/EstimatePowerOut

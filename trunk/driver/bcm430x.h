@@ -464,14 +464,6 @@ struct bcm430x_phyinfo {
 };
 
 
-static inline
-struct bcm430x_lopair * bcm430x_get_lopair(struct bcm430x_phyinfo *phy,
-					   u16 radio_attenuation,
-					   u16 baseband_attenuation)
-{
-	return phy->_lo_pairs + (radio_attenuation + 14 * (baseband_attenuation / 2));
-}
-
 struct bcm430x_radioinfo {
 	u16 manufact;
 	u16 version;
@@ -683,6 +675,14 @@ int bcm430x_is_initializing(struct bcm430x_private *bcm)
 	if (bcm->shutting_down)
 		return 0;
 	return 1;
+}
+
+static inline
+struct bcm430x_lopair * bcm430x_get_lopair(struct bcm430x_phyinfo *phy,
+					   u16 radio_attenuation,
+					   u16 baseband_attenuation)
+{
+	return phy->_lo_pairs + (radio_attenuation + 14 * (baseband_attenuation / 2));
 }
 
 

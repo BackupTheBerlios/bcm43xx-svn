@@ -1173,7 +1173,7 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 							channel2freq_bg(1));
 				udelay(100);
 				bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
-						channel2freq_bg(1));
+						channel2freq_bg(channel));
 			}
 		}
 		bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL,
