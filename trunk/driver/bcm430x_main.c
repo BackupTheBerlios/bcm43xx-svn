@@ -650,6 +650,7 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 	u16 manufact;
 	u16 version;
 	u8 revision;
+	s8 i;
 
 	if (bcm->chip_id == 0x4317) {
 		if (bcm->chip_rev == 0x00)
@@ -700,6 +701,10 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 		bcm->current_core->radio->txpower[2] = 3;
 	else
 		bcm->current_core->radio->txpower[2] = 0;
+
+	/* Initialize the in-memory nrssi Lookup Table. */
+	for (i = 0; i < 64; i++)
+		bcm->current_core->radio->nrssi_lt[i] = i;
 
 	return 0;
 

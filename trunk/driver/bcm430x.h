@@ -482,6 +482,8 @@ struct bcm430x_radioinfo {
 	/* Saved values from the NRSSI Slope calculation */
 	s16 nrssi[2];
 	s16 nrssislope;
+	/* In memory nrssi lookup table. */
+	s8 nrssi_lt[64];
 
 	/* current channel */
 	u16 channel;

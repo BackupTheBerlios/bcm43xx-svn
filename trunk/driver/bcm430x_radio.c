@@ -181,36 +181,31 @@ static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
 /* http://bcm-specs.sipsolutions.net/NRSSILookupTable */
 void bcm430x_nrssi_hw_write(struct bcm430x_private *bcm, u16 offset, s16 val)
 {
-//TODO: review
 	bcm430x_phy_write(bcm, BCM430x_PHY_NRSSILT_CTRL, offset);
-	bcm430x_phy_write(bcm, BCM430x_PHY_NRSSILT_DATA, (u16)(val & 0x003F));
+	bcm430x_phy_write(bcm, BCM430x_PHY_NRSSILT_DATA, (u16)val);
 }
 
 /* http://bcm-specs.sipsolutions.net/NRSSILookupTable */
 s16 bcm430x_nrssi_hw_read(struct bcm430x_private *bcm, u16 offset)
 {
-	u16 tval;
-//TODO: review
+	u16 val;
+
 	bcm430x_phy_write(bcm, BCM430x_PHY_NRSSILT_CTRL, offset);
-	tval = bcm430x_phy_read(bcm, BCM430x_PHY_NRSSILT_DATA);
-	if (tval & 0x0020)
-		return (s16)(tval | 0xFF00);
-	else
-		return (s16)(tval);
+	val = bcm430x_phy_read(bcm, BCM430x_PHY_NRSSILT_DATA);
+
+	return (s16)val;
 }
 
 /* http://bcm-specs.sipsolutions.net/NRSSILookupTable */
 void bcm430x_nrssi_hw_update(struct bcm430x_private *bcm, u16 val)
 {
 	u16 i;
-	s8 tmp;
+	s16 tmp;
 
 	for (i = 0; i < 64; i++) {
-		tmp = bcm430x_nrssi_hw_read(bcm, i) - val;
-		if (tmp < -0x20)
-			tmp = 0x20;
-		else if (tmp > 0x1F)
-			tmp = 0x1F;
+		tmp = bcm430x_nrssi_hw_read(bcm, i);
+		tmp -= val;
+		tmp = limit_value(tmp, -32, 31);
 		bcm430x_nrssi_hw_write(bcm, i, tmp);
 	}
 }
@@ -218,18 +213,16 @@ void bcm430x_nrssi_hw_update(struct bcm430x_private *bcm, u16 val)
 /* http://bcm-specs.sipsolutions.net/NRSSILookupTable */
 void bcm430x_nrssi_mem_update(struct bcm430x_private *bcm)
 {
-	u16 i;
-	s16 d;
-	s16 r;
-//TODO: review
-	d = 0x1F - bcm->current_core->radio->nrssi[0];
-	for (i=0; i<64; i++) {
-		r = (i-d)*bcm->current_core->radio->nrssislope;
-		if (r<0)
-			r--;
-		r = (r>>16) + 0x003A;
-		r = r & 0x003F;
-		//FIXME: store r in table at position ??
+	s16 i, delta;
+	s32 tmp;
+
+	delta = 0x1F - bcm->current_core->radio->nrssi[0];
+	for (i = 0; i < 64; i++) {
+		tmp = (i - delta) * bcm->current_core->radio->nrssislope;
+		tmp /= 0x10000;
+		tmp += 0x3A;
+		tmp = limit_value(tmp, 0, 0x3F);
+		bcm->current_core->radio->nrssi_lt[i] = tmp;
 	}
 }
 
