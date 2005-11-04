@@ -422,7 +422,7 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 	s16 threshold;
 	s16 a, b;
 	int tmp;
-	u16 tmp16;
+	s16 tmp16;
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_B:
