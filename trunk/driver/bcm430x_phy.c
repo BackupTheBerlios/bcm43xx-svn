@@ -328,8 +328,8 @@ static void bcm430x_phy_setupg(struct bcm430x_private *bcm)
 		bcm430x_phy_agcsetup(bcm);
 		break;
 	case 2:
-		//FIXME: 0xBA98 should be in 0-64, 0x7654 should be 6-bit!
-		bcm430x_nrssi_hw_write(bcm, 0xBA98, 0x7654);
+		FIXME();//FIXME: 0xBA98 should be in 0-64, 0x7654 should be 6-bit!
+		bcm430x_nrssi_hw_write(bcm, 0xBA98, (s16)0x7654);
 
 		bcm430x_phy_write(bcm, 0x04C0, 0x1861);
 		bcm430x_phy_write(bcm, 0x04C1, 0x0271);
