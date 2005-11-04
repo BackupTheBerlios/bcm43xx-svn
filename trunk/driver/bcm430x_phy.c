@@ -908,10 +908,10 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 		bcm430x_nrssi_hw_update(bcm, (u16)0x7FFFFFFF);
 		bcm430x_calc_nrssi_threshold(bcm);
 	} else if (bcm->current_core->phy->connected) {
-		if ((bcm->current_core->radio->nrssi[0] == -1000) &&
-		    (bcm->current_core->radio->nrssi[1] == -1000))
+		if (bcm->current_core->radio->nrssi[0] == -1000) {
+			assert(bcm->current_core->radio->nrssi[1] == -1000);
 			bcm430x_calc_nrssi_slope(bcm);
-		else
+		} else
 			bcm430x_calc_nrssi_threshold(bcm);
 	}
 	bcm430x_phy_init_pctl(bcm);
