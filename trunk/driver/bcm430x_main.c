@@ -2801,6 +2801,26 @@ static void bcm430x_periodic_work0_handler(void *d)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
+		//TODO: Update ACI MA
+		switch (bcm->current_core->radio->interfmode) {
+		case BCM430x_RADIO_INTERFMODE_NONWLAN:
+			if (bcm->current_core->phy->rev == 1) {
+				//TODO: rev1 workaround
+			}
+			break;
+		case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
+			bcm430x_mac_suspend(bcm);
+			if (!bcm->current_core->radio->aci_enable &&
+			    1 /*FIXME: We are not scanning? */) {
+				//TODO
+			} else if (1/*FIXME*/) {
+				//TODO
+			}
+			bcm430x_mac_enable(bcm);
+			break;
+		}
+	}
 	bcm430x_phy_xmitpower(bcm);//FIXME: unless scanning?
 	//TODO for APHY (temperature?)
 
