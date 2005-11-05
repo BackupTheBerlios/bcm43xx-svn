@@ -1918,28 +1918,32 @@ void bcm430x_mac_enable(struct bcm430x_private *bcm)
 	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 			| BCM430x_SBF_MAC_ENABLED);
 	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, BCM430x_IRQ_READY);
-	// dummy reads
-	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
-	//FIXME: FuncPlaceholder (Set PS CTRL)
+	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD); /* dummy read */
+	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON); /* dummy read */
+	bcm430x_power_saving_ctl_bits(bcm, -1, -1);
 }
 
 /* http://bcm-specs.sipsolutions.net/SuspendMAC */
 void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 {
-	int i = 1000;
-	//FIXME: FuncPlaceholder (Set PS CTRL)
+	int i;
+	u32 tmp;
+
+	bcm430x_power_saving_ctl_bits(bcm, -1, 1);
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
 	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
 			& ~BCM430x_SBF_MAC_ENABLED);
 	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON); /* dummy read */
-	for ( ; i > 0; i--) {
-		if (bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON) & BCM430x_IRQ_READY)
+	for (i = 1000; i > 0; i--) {
+		tmp = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+		if (tmp & BCM430x_IRQ_READY) {
 			i = -1;
+			break;
+		}
 		udelay(10);
 	}
 	if (!i)
-		printk(KERN_ERR PFX "Failed to suspend mac!\n");
+		printkl(KERN_ERR PFX "Failed to suspend mac!\n");
 }
 
 static void bcm430x_short_preamble_enable(struct bcm430x_private *bcm)
