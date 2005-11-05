@@ -1197,6 +1197,7 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 	}
 #endif /* BCM430x_DEBUG */
 
+	bcm430x_lo_write(bcm, &result);
 	deviation = bcm430x_phy_lo_g_singledeviation(bcm, r27);
 	while ((i--) && (lowered == 1)) {
 		lowered = 0;
