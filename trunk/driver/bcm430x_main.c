@@ -1946,7 +1946,7 @@ static void bcm430x_short_preamble_enable(struct bcm430x_private *bcm)
 {
 	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
 		return;
-	bcm430x_write16(bcm, 0x684, 0x0207);
+	bcm430x_write16(bcm, 0x684, 519);
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 9);
 }
 
@@ -1954,7 +1954,7 @@ static void bcm430x_short_preamble_disable(struct bcm430x_private *bcm)
 {
 	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
 		return;
-	bcm430x_write16(bcm, 0x684, 0x0212);
+	bcm430x_write16(bcm, 0x684, 530);
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
 }
 
