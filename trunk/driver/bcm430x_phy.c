@@ -1315,7 +1315,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	if (phy->connected) {
 		regstack[0] = bcm430x_phy_read(bcm, 0x0429);
 		regstack[1] = bcm430x_phy_read(bcm, 0x0802);
-		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x3FFF);
+		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x7FFF);
 		bcm430x_phy_write(bcm, 0x0802, regstack[1] & 0xFFFC);
 	}
 	regstack[3] = bcm430x_read16(bcm, 0x03E2);
