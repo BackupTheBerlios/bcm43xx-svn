@@ -35,7 +35,7 @@
 #include "bcm430x_wx.h"
 
 /* Define to enable a printk on each wx handler function invocation */
-#define BCM430x_WX_DEBUG
+//#define BCM430x_WX_DEBUG
 
 
 #ifdef BCM430x_WX_DEBUG
@@ -52,24 +52,48 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	unsigned long flags;
-	int i = 0;
-	char suffix[6] = { 0 };
+	int i, nr_80211;
+	struct bcm430x_phyinfo *phy;
+	char suffix[7] = { 0 };
+	int have_a = 0, have_b = 0, have_g = 0;
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	if ((bcm->phy[0].type == BCM430x_PHYTYPE_A) || (bcm->phy[1].type == BCM430x_PHYTYPE_A)) {
+	nr_80211 = bcm430x_num_80211_cores(bcm);
+	for (i = 0; i < nr_80211; i++) {
+		phy = bcm->phy + i;
+		switch (phy->type) {
+		case BCM430x_PHYTYPE_A:
+			have_a = 1;
+			break;
+		case BCM430x_PHYTYPE_G:
+			have_g = 1;
+		case BCM430x_PHYTYPE_B:
+			have_b = 1;
+			break;
+		default:
+			assert(0);
+		}
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	i = 0;
+	if (have_a) {
 		suffix[i++] = 'a';
 		suffix[i++] = '/';
 	}
-	if ((bcm->phy[0].type == BCM430x_PHYTYPE_G) || (bcm->phy[1].type == BCM430x_PHYTYPE_G)) {
+	if (have_b) {
 		suffix[i++] = 'b';
 		suffix[i++] = '/';
-		suffix[i++] = 'g';
-	} else {
-		suffix[i++] = 'b';
 	}
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	if (have_g) {
+		suffix[i++] = 'g';
+		suffix[i++] = '/';
+	}
+	if (i != 0) 
+		suffix[i - 1] = '\0';
+
 	snprintf(data->name, IFNAMSIZ, "IEEE 802.11%s", suffix);
 
 	return 0;
