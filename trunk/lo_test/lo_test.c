@@ -1,6 +1,7 @@
 #include "bcm430x.h"
+#include "reader.h"
 
-static inline
+
 u16 bcm430x_phy_lo_b_r15_loop(struct bcm430x_private *bcm)
 {
 	int i;
@@ -114,7 +115,7 @@ void bcm430x_phy_lo_b_measure(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x0015, regstack[0]);
 }
 
-static inline
+
 u16 bcm430x_phy_lo_g_deviation_subval(struct bcm430x_private *bcm, u16 control)
 {
 	if (bcm->current_core->phy->connected) {
@@ -140,7 +141,7 @@ u16 bcm430x_phy_lo_g_deviation_subval(struct bcm430x_private *bcm, u16 control)
 	return bcm430x_phy_read(bcm, 0x002D);
 }
 
-static u32 bcm430x_phy_lo_g_singledeviation(struct bcm430x_private *bcm, u16 control)
+ u32 bcm430x_phy_lo_g_singledeviation(struct bcm430x_private *bcm, u16 control)
 {
 	int i;
 	u32 ret = 0;
@@ -152,7 +153,7 @@ static u32 bcm430x_phy_lo_g_singledeviation(struct bcm430x_private *bcm, u16 con
 }
 
 /* Write the LocalOscillator CONTROL */
-static inline
+
 void bcm430x_lo_write(struct bcm430x_private *bcm,
 		      struct bcm430x_lopair *pair)
 {
@@ -177,7 +178,7 @@ void bcm430x_lo_write(struct bcm430x_private *bcm,
 	bcm430x_phy_write(bcm, BCM430x_PHY_G_LO_CONTROL, value);
 }
 
-static inline
+
 struct bcm430x_lopair * bcm430x_find_lopair(struct bcm430x_private *bcm,
 					    u16 baseband_attenuation,
 					    u16 radio_attenuation,
@@ -199,7 +200,7 @@ struct bcm430x_lopair * bcm430x_find_lopair(struct bcm430x_private *bcm,
 	return bcm430x_get_lopair(phy, dict[radio_attenuation], baseband_attenuation);
 }
 
-static inline
+
 struct bcm430x_lopair * bcm430x_current_lopair(struct bcm430x_private *bcm)
 {
 	return bcm430x_find_lopair(bcm,
@@ -221,7 +222,7 @@ void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm, int fixed)
 	bcm430x_lo_write(bcm, pair);
 }
 
-static inline
+
 void bcm430x_phy_lo_g_measure_txctl2(struct bcm430x_private *bcm)
 {
 	u16 txctl2 = 0, i;
@@ -242,7 +243,7 @@ void bcm430x_phy_lo_g_measure_txctl2(struct bcm430x_private *bcm)
 	bcm->current_core->radio->txpower[3] = txctl2;
 }
 
-static
+
 void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 			    const struct bcm430x_lopair *in_pair,
 			    struct bcm430x_lopair *out_pair,

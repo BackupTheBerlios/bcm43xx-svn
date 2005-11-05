@@ -1,22 +1,13 @@
 #ifndef BCM430x_H_
 #define BCM430x_H_
 
-#include <linux/version.h>
-#include <linux/kernel.h>
-#include <linux/spinlock.h>
-#include <linux/interrupt.h>
-#include <linux/stringify.h>
+/* kernel foo */
+#include <stdint.h>
+typedef	u32	uint32_t;
+typedef u16	uint16_t;
+
 #include <net/ieee80211.h>
-#include <asm/atomic.h>
-#include <asm/io.h>
 
-#include "bcm430x_debugfs.h"
-
-
-#define DRV_NAME			__stringify(KBUILD_MODNAME)
-#define DRV_VERSION			__stringify(BCM430x_VERSION)
-#define BCM430x_DRIVER_NAME		DRV_NAME " driver " DRV_VERSION
-#define PFX				DRV_NAME ": "
 
 #define BCM430x_SWITCH_CORE_MAX_RETRIES	10
 #define BCM430x_IRQWAIT_MAX_RETRIES	50 /* FIXME: need more? 50 == 500usec */
@@ -690,54 +681,6 @@ struct bcm430x_lopair * bcm430x_get_lopair(struct bcm430x_phyinfo *phy,
 
 /* MMIO read/write functions. Debug and non-debug variants. */
 #ifdef BCM430x_DEBUG
-
-static inline
-u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
-{
-	u16 value;
-
-	value = ioread16(bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
-		printk(KERN_INFO PFX "ioread16   offset: 0x%04x, value: 0x%04x\n",
-		       offset, value);
-	}
-
-	return value;
-}
-
-static inline
-void bcm430x_write16(struct bcm430x_private *bcm, u16 offset, u16 value)
-{
-	iowrite16(value, bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
-		printk(KERN_INFO PFX "iowrite16  offset: 0x%04x, value: 0x%04x\n",
-		       offset, value);
-	}
-}
-
-static inline
-u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
-{
-	u32 value;
-
-	value = ioread32(bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
-		printk(KERN_INFO PFX "ioread32   offset: 0x%04x, value: 0x%08x\n",
-		       offset, value);
-	}
-
-	return value;
-}
-
-static inline
-void bcm430x_write32(struct bcm430x_private *bcm, u16 offset, u32 value)
-{
-	iowrite32(value, bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
-		printk(KERN_INFO PFX "iowrite32  offset: 0x%04x, value: 0x%08x\n",
-		       offset, value);
-	}
-}
 
 static inline
 void bcm430x_mmioprint_initial(struct bcm430x_private *bcm, int value)

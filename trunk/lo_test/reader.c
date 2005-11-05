@@ -69,24 +69,24 @@ static void assert_write(int count, int offset, int value)
 	assert(value == g_value);
 }
 
-uint16_t bcm430x_read16(struct bcm430x_private *bcm, uint16_t offset)
+u16 bcm430x_read16(struct bcm430x_private *bcm, u16 offset)
 {
-	return (uint16_t) assert_read(2, offset);
+	return (u16) assert_read(2, offset);
 }
 
-void bcm430x_write16(struct bcm430x_private *bcm, uint16_t offset,
-		     uint16_t value)
+void bcm430x_write16(struct bcm430x_private *bcm, u16 offset,
+		     u16 value)
 {
 	assert_write(2, offset, value);
 }
 
-uint32_t bcm430x_read32(struct bcm430x_private *bcm, uint16_t offset)
+u32 bcm430x_read32(struct bcm430x_private *bcm, u16 offset)
 {
-	return (uint32_t) assert_read(4, offset);
+	return (u32) assert_read(4, offset);
 }
 
-void bcm430x_write32(struct bcm430x_private *bcm, uint16_t offset,
-		     uint32_t value)
+void bcm430x_write32(struct bcm430x_private *bcm, u16 offset,
+		     u32 value)
 {
 	assert_write(4, offset, value);
 }
