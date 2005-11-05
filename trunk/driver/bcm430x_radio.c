@@ -116,14 +116,14 @@ static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
 				  s16 first, s16 second, s16 third)
 {
 	u16 i;
-	u16 start = 16, end = 32;
+	u16 start = 0x08, end = 0x18;
 	u16 offset = 0x0400;
 	u16 tmp;
 
-	if (bcm->current_core->phy->rev == 1) {
+	if (bcm->current_core->phy->rev <= 1) {
 		offset = 0x5000;
-		start = 8;
-		end = 24;
+		start = 0x10;
+		end = 0x20;
 	}
 
 	for (i = 0; i < 4; i++)
@@ -149,13 +149,11 @@ static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
 	u16 i, tmp;
 	u16 offset = 0x0400;
 	u16 start = 0x0008, end = 0x0018;
-	u16 diff = 0x0008;
 
-	if (bcm->current_core->phy->rev == 1) {
+	if (bcm->current_core->phy->rev <= 1) {
 		offset = 0x5000;
 		start = 0x0010;
 		end = 0x0020;
-		diff = 0x0010;
 	}
 
 	for (i = 0; i < 4; i++) {
@@ -167,7 +165,7 @@ static void bcm430x_set_original_gains(struct bcm430x_private *bcm)
 	}
 
 	for (i = start; i < end; i++)
-		bcm430x_ilt_write16(bcm, offset + i, i - diff);
+		bcm430x_ilt_write16(bcm, offset + i, i - start);
 
 	bcm430x_phy_write(bcm, 0x04A0,
 	                  (bcm430x_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
