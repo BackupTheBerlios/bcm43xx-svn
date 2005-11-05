@@ -1374,25 +1374,20 @@ int bcm430x_radio_turn_on(struct bcm430x_private *bcm)
 	
 int bcm430x_radio_turn_off(struct bcm430x_private *bcm)
 {
-	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
+	const u8 phytype = bcm->current_core->phy->type;
+
+	if (phytype == BCM430x_PHYTYPE_A) {
 		bcm430x_radio_write16(bcm, 0x0004, 0x00FF);
 		bcm430x_radio_write16(bcm, 0x0005, 0x00FB);
 		bcm430x_phy_write(bcm, 0x0010, bcm430x_phy_read(bcm, 0x0010) | 0x0008);
 		bcm430x_phy_write(bcm, 0x0011, bcm430x_phy_read(bcm, 0x0011) | 0x0008);
-		break;
-	case BCM430x_PHYTYPE_B:
-	case BCM430x_PHYTYPE_G:
-		if (bcm->chip_rev < 5)
-			bcm430x_phy_write(bcm, 0x0015, 0xAA00);
-		else {
-			bcm430x_phy_write(bcm, 0x0811, bcm430x_phy_read(bcm, 0x0811) | 0x008C);
-			bcm430x_phy_write(bcm, 0x0812, bcm430x_phy_read(bcm, 0x0812) & 0xFF73);
-		}
-		break;
-	default:
-		assert(0);
 	}
+	if (phytype == BCM430x_PHYTYPE_G &&
+	    bcm->current_core->rev >= 5) {
+		bcm430x_phy_write(bcm, 0x0811, bcm430x_phy_read(bcm, 0x0811) | 0x008C);
+		bcm430x_phy_write(bcm, 0x0812, bcm430x_phy_read(bcm, 0x0812) & 0xFF73);
+	} else
+		bcm430x_phy_write(bcm, 0x0015, 0xAA00);
 	dprintk(KERN_INFO PFX "Radio turned off\n");
 
 	bcm->current_core->radio->enabled = 0;
