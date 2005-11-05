@@ -1161,20 +1161,9 @@ void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
 
 static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
 {
-	if (bcm->shutting_down) {
-		bcm430x_radio_turn_off(bcm);
-		bcm430x_write16(bcm, 0x03E6, 0x00F4);
-		bcm430x_core_disable(bcm, 0);
-	} else {
-		if (bcm->current_core->radio->enabled) {
-			bcm430x_radio_turn_off(bcm);
-		} else {
-			if ((bcm->current_core->rev >= 3) && (bcm430x_read32(bcm, 0x0158) & (1 << 16)))
-				bcm430x_radio_turn_off(bcm);
-			if ((bcm->current_core->rev < 3) && !(bcm430x_read16(bcm, 0x049A) & (1 << 4)))
-				bcm430x_radio_turn_off(bcm);
-		}
-	}
+	bcm430x_radio_turn_off(bcm);
+	bcm430x_write16(bcm, 0x03E6, 0x00F4);
+	bcm430x_core_disable(bcm, 0);
 }
 
 /* Mark the current 80211 core inactive.
