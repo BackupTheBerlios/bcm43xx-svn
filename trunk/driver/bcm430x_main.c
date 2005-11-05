@@ -3313,6 +3313,7 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	void __iomem *ioaddr;
 	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
 	int num_80211_cores;
+	u32 coremask;
 
 	err = pci_enable_device(pci_dev);
 	if (err) {
@@ -3384,6 +3385,19 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_chipset_detach;
+	num_80211_cores = bcm430x_num_80211_cores(bcm);
+
+	/* Attach all IO cores to the backplane. */
+	coremask = 0;
+	for (i = 0; i < num_80211_cores; i++)
+		coremask |= (1 << bcm->core_80211[i].index);
+	//FIXME: Also attach some non80211 cores?
+	err = bcm430x_setup_backplane_pci_connection(bcm, coremask);
+	if (err) {
+		printk(KERN_ERR PFX "Backplane->PCI connection failed!\n");
+		goto err_chipset_detach;
+	}
+
 	err = bcm430x_read_sprom(bcm);
 	if (err)
 		goto err_chipset_detach;
@@ -3391,7 +3405,6 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	if (err)
 		goto err_chipset_detach;
 
-	num_80211_cores = bcm430x_num_80211_cores(bcm);
 	for (i = 0; i < num_80211_cores; i++) {
 		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
@@ -3402,9 +3415,6 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		if (bcm430x_loopback_test(bcm) != 0)
 			printk(KERN_WARNING PFX "Loopback test FAILED!\n");
 #endif
-
-		/* make the core usable */
-		bcm430x_setup_backplane_pci_connection(bcm, (1 << bcm->current_core->index));
 
 		/* Enable the selected wireless core.
 		 * Connect PHY only on the first core.
