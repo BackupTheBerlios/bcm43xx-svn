@@ -2703,8 +2703,8 @@ static inline void bcm430x_pcicore_broadcast_value(struct bcm430x_private *bcm,
 						   u32 address,
 						   u32 data)
 {
-	bcm430x_write32(bcm, BCM430x_CIR_PCI_BCAST_ADDR, address);
-	bcm430x_write32(bcm, BCM430x_CIR_PCI_BCAST_DATA, data);
+	bcm430x_write32(bcm, BCM430x_PCICORE_BCAST_ADDR, address);
+	bcm430x_write32(bcm, BCM430x_PCICORE_BCAST_DATA, data);
 }
 
 static int bcm430x_pcicore_commit_settings(struct bcm430x_private *bcm)
@@ -2762,9 +2762,9 @@ static int bcm430x_setup_backplane_pci_connection(struct bcm430x_private *bcm,
 		}
 	}
 
-	value = bcm430x_read32(bcm, BCM430x_CIR_PCI_SBTOPCI2);
+	value = bcm430x_read32(bcm, BCM430x_PCICORE_SBTOPCI2);
 	value |= BCM430x_SBTOPCI2_PREFETCH | BCM430x_SBTOPCI2_BURST;
-	bcm430x_write32(bcm, BCM430x_CIR_PCI_SBTOPCI2, value);
+	bcm430x_write32(bcm, BCM430x_PCICORE_SBTOPCI2, value);
 
 	if (bcm->core_pci.rev < 5) {
 		value = bcm430x_read32(bcm, BCM430x_CIR_SBIMCONFIGLOW);
