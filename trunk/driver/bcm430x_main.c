@@ -411,15 +411,17 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
 	const u8 bitrate = phy->default_bitrate;
-	const struct ieee80211_hdr_1addr *wireless_header;
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
+	const struct ieee80211_hdr *wireless_header = (const struct ieee80211_hdr *)fragment_data;
+#else
+	const struct ieee80211_hdr_1addr *wireless_header = (const struct ieee80211_hdr_1addr *)fragment_data;
+#endif
 	int fallback_ofdm_modulation = 0;
 	u8 fallback_bitrate;
 	u16 tmp;
 
 	/* Now contruct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
-
-	wireless_header = (const struct ieee80211_hdr_1addr *)fragment_data;
 
 	//TODO: Some RTS/CTS stuff has to be done.
 	//TODO: Encryption stuff.
@@ -3497,8 +3499,11 @@ static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
 
 /* hard_start_xmit() callback in struct ieee80211_device */
 static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
-					     struct net_device *net_dev,
-					     int pri)
+					     struct net_device *net_dev
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 14)
+					     , int pri
+#endif
+					     )
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err;
