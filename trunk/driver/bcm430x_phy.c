@@ -1165,7 +1165,7 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 			    struct bcm430x_lopair *out_pair,
 			    u16 r27)
 {
-	struct bcm430x_lopair transitions[8] = {
+	static const struct bcm430x_lopair transitions[8] = {
 		{ .high =  1,  .low =  1, },
 		{ .high =  1,  .low =  0, },
 		{ .high =  1,  .low = -1, },
@@ -1175,102 +1175,82 @@ void bcm430x_phy_lo_g_state(struct bcm430x_private *bcm,
 		{ .high = -1,  .low =  1, },
 		{ .high =  0,  .low =  1, },
 	};
-	struct bcm430x_lopair transition;
-	struct bcm430x_lopair result = {
+	struct bcm430x_lopair lowest_transition = {
 		.high = in_pair->high,
 		.low = in_pair->low,
 	};
-	int i = 12, j, lowered = 1, state = 0;
-	int index;
-	u32 deviation, tmp;
+	struct bcm430x_lopair tmp_pair;
+	struct bcm430x_lopair transition;
+	int i = 12;
+	int state = 0;
+	int found_lower;
+	int j, begin, end;
+	u32 lowest_deviation;
+	u32 tmp;
 
 	/* Note that in_pair and out_pair can point to the same pair. Be careful. */
 
 #ifdef BCM430x_DEBUG
 	{
 		/* Revert the poison values. We must begin at 0. */
-		if (result.low == -20) {
-			assert(result.high == -20);
-			result.low = 0;
-			result.high = 0;
+		if (lowest_transition.low == -20) {
+			assert(lowest_transition.high == -20);
+			lowest_transition.low = 0;
+			lowest_transition.high = 0;
 		}
 	}
 #endif /* BCM430x_DEBUG */
 
-	bcm430x_lo_write(bcm, &result);
-	deviation = bcm430x_phy_lo_g_singledeviation(bcm, r27);
-	while ((i--) && (lowered == 1)) {
-		lowered = 0;
+	bcm430x_lo_write(bcm, &lowest_transition);
+	lowest_deviation = bcm430x_phy_lo_g_singledeviation(bcm, r27);
+	do {
+		found_lower = 0;
 		assert(state >= 0 && state <= 8);
 		if (state == 0) {
-			/* Initial state */
-			for (j = 0; j < 8; j++) {
-				index = j;
-				transition.high = result.high + transitions[index].high;
-				transition.low = result.low + transitions[index].low;
-				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
-					bcm430x_lo_write(bcm, &transition);
-					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
-					if (tmp < deviation) {
-						deviation = tmp;
-						state = index + 1;
-						lowered = 1;
-
-						result.high = transition.high;
-						result.low = transition.low;
-					}
-				}
-			}
+			begin = 1;
+			end = 8;
 		} else if (state % 2 == 0) {
-			for (j = -1; j < 2; j += 2) {
-				index = state + j;
-				assert(index >= 1 && index <= 9);
-				if (index > 8)
-					index = 1;
-				index -= 1;
-				transition.high = result.high + transitions[index].high;
-				transition.low = result.low + transitions[index].low;
-				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
-					bcm430x_lo_write(bcm, &transition);
-					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
-					if (tmp < deviation) {
-						deviation = tmp;
-						state = index + 1;
-						lowered = 1;
+			begin = state - 1;
+			end = state + 1;
+		} else {
+			begin = state - 2;
+			end = state + 2;
+		}
+		if (begin < 1)
+			begin += 8;
+		if (end > 8)
+			end -= 8;
 
-						result.high = transition.high;
-						result.low = transition.low;
-					}
+		j = begin;
+		tmp_pair.high = lowest_transition.high;
+		tmp_pair.low = lowest_transition.low;
+		while (1) {
+			assert(j >= 1 && j <= 8);
+			transition.high = tmp_pair.high + transitions[j - 1].high;
+			transition.low = tmp_pair.low + transitions[j - 1].low;
+			if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
+				bcm430x_lo_write(bcm, &transition);
+				tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
+				if (tmp < lowest_deviation) {
+					lowest_deviation = tmp;
+					state = j;
+					found_lower = 1;
+
+					lowest_transition.high = transition.high;
+					lowest_transition.low = transition.low;
 				}
 			}
-		} else {
-			for (j = -2; j < 3; j += 4) {
-				index = state + j;
-				assert(index >= -1 && index <= 9);
-				if (index > 8)
-					index = 1;
-				else if (index < 1)
-					index = 7;
-				index -= 1;
-				transition.high = result.high + transitions[index].high;
-				transition.low = result.low + transitions[index].low;
-				if ((abs(transition.low) < 9) && (abs(transition.high) < 9)) {
-					bcm430x_lo_write(bcm, &transition);
-					tmp = bcm430x_phy_lo_g_singledeviation(bcm, r27);
-					if (tmp < deviation) {
-						deviation = tmp;
-						state = index + 1;
-						lowered = 1;
-
-						result.high = transition.high;
-						result.low = transition.low;
-					}
-				}
-			}	
+			if (j == end)
+				break;
+			if (j == 8)
+				j = 1;
+			else
+				j++;
 		}
-	}
-	out_pair->high = result.high;
-	out_pair->low = result.low;
+	} while (i-- && found_lower);
+
+	out_pair->high = lowest_transition.high;
+	out_pair->low = lowest_transition.low;
 }
 
 /* Set the baseband attenuation value on chip. */
