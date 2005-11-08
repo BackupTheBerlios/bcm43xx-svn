@@ -1069,7 +1069,7 @@ u16 bcm430x_phy_lo_g_deviation_subval(struct bcm430x_private *bcm, u16 control)
 		udelay(5);
 		bcm430x_phy_write(bcm, 0x0812, control | 0x00B2);
 		udelay(2);
-		bcm430x_phy_write(bcm, 0x0812, control | 0x00B4);
+		bcm430x_phy_write(bcm, 0x0812, control | 0x00B3);
 		udelay(4);
 		bcm430x_phy_write(bcm, 0x0015, 0xF300);
 		udelay(8);
