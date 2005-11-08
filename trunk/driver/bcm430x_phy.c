@@ -1280,8 +1280,8 @@ void bcm430x_phy_set_baseband_attenuation(struct bcm430x_private *bcm,
 void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 {
 	struct bcm430x_phyinfo *phy = bcm->current_core->phy;
-	u16 h, i, oldi, j;
-	const struct bcm430x_lopair *control;
+	u16 h, i, oldi = 0, j;
+	struct bcm430x_lopair control;
 	struct bcm430x_lopair *tmp_control;
 	const u8 pairorder[10] = { 3, 1, 5, 7, 9, 2, 0, 4, 6, 8 };
 	u16 tmp;
@@ -1354,21 +1354,26 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 #endif /* BCM430x_DEBUG */
 
 	/* Measure */
+	control.low = 0;
+	control.high = 0;
 	for (h = 0; h < 10; h++) {
 		/* Loop over each possible RadioAttenuation (0-9) */
 		i = pairorder[h];
-		if (bcm430x_is_initializing(bcm)) {//FIXME: This all seems very useless, as it is overridden at the j loop.
-			if (i == 3)
-				control = bcm430x_get_lopair(phy, 0, 0);
-			else if (((i % 2 == 1) && (oldi % 2 == 1)) ||
-				 ((i % 2 == 0) && (oldi % 2 == 0)))//FIXME: what for the oldi uninitialized case?
-				control = bcm430x_get_lopair(phy, i, 0);
-			else
-				control = bcm430x_get_lopair(phy, 3, 0);
+		if (bcm430x_is_initializing(bcm)) {
+			if (i == 3) {
+				control.low = 0;
+				control.high = 0;
+			} else if (((i % 2 == 1) && (oldi % 2 == 1)) ||
+				  ((i % 2 == 0) && (oldi % 2 == 0))) {
+				control.low = bcm430x_get_lopair(phy, oldi, 0)->low;
+				control.high = bcm430x_get_lopair(phy, oldi, 0)->high;
+			} else {
+				control.low = bcm430x_get_lopair(phy, 3, 0)->low;
+				control.high = bcm430x_get_lopair(phy, 3, 0)->high;
+			}
 		}
 		/* Loop over each possible BasebandAttenuation/2 */
 		for (j = 0; j < 4; j++) {
-			control = bcm430x_get_lopair(phy, i, j * 2);
 			if (bcm430x_is_initializing(bcm)) {
 				tmp = i * 2 + j;
 				r27 = 0;
@@ -1381,6 +1386,8 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 				} else
 					r31 = 0;
 			} else {
+				control.low = bcm430x_get_lopair(phy, i, j * 2)->low;
+				control.high = bcm430x_get_lopair(phy, i, j * 2)->high;
 				r27 = 3;
 				r31 = 1;
 			}
@@ -1397,7 +1404,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 			bcm430x_radio_write16(bcm, 0x007A, tmp);
 
 			tmp_control = bcm430x_get_lopair(phy, i, j * 2);
-			bcm430x_phy_lo_g_state(bcm, control, tmp_control, r27);
+			bcm430x_phy_lo_g_state(bcm, &control, tmp_control, r27);
 		}
 		oldi = i;
 	}
@@ -1406,7 +1413,9 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		/* Loop over each possible BasebandAttenuation/2 */
 		for (j = 0; j < 4; j++) {
 			if (bcm430x_is_initializing(bcm)) {
-				tmp = i * 2 + j - 5;
+				control.low = bcm430x_get_lopair(phy, i - 9, j * 2)->low;
+				control.high = bcm430x_get_lopair(phy, i - 9, j * 2)->high;
+				tmp = (i - 9) * 2 + j - 5;
 				r27 = 0;
 				r31 = 0;
 				if (tmp > 14) {
@@ -1417,11 +1426,12 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 						r27 = 2;
 				}
 			} else {
-				control = bcm430x_get_lopair(phy, i, j * 2);
+				control.low = bcm430x_get_lopair(phy, i - 9, j * 2)->low;
+				control.high = bcm430x_get_lopair(phy, i - 9, j * 2)->high;
 				r27 = 3;
 				r31 = 1;
 			}
-			bcm430x_radio_write16(bcm, 0x43, i);
+			bcm430x_radio_write16(bcm, 0x43, i - 9);
 			bcm430x_radio_write16(bcm, 0x52,
 					      bcm->current_core->radio->txpower[3]
 					      | (3/*txctl1*/ << 4));//FIXME: shouldn't txctl1 be zero here and 3 in the loop above?
@@ -1435,7 +1445,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 			bcm430x_radio_write16(bcm, 0x7A, tmp);
 
 			tmp_control = bcm430x_get_lopair(phy, i, j * 2);
-			bcm430x_phy_lo_g_state(bcm, control, tmp_control, r27);
+			bcm430x_phy_lo_g_state(bcm, &control, tmp_control, r27);
 		}
 	}
 
@@ -1480,12 +1490,12 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	{
 		/* Sanity check for all lopairs. */
 		for (i = 0; i < BCM430x_LO_COUNT; i++) {
-			control = bcm->current_core->phy->_lo_pairs + i;
-			if (control->low < -8 || control->low > 8 ||
-			    control->high < -8 || control->high > 8) {
+			tmp_control = bcm->current_core->phy->_lo_pairs + i;
+			if (tmp_control->low < -8 || tmp_control->low > 8 ||
+			    tmp_control->high < -8 || tmp_control->high > 8) {
 				printk(KERN_WARNING PFX
 				       "WARNING: Invalid LOpair (low: %d, high: %d, index: %d)\n",
-				       control->low, control->high, i);
+				       tmp_control->low, tmp_control->high, i);
 			}
 		}
 	}
