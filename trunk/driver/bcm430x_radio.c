@@ -418,9 +418,10 @@ void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm)
 void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 {
 	s16 threshold;
-	s16 a, b;
+	s32 a, b;
 	int tmp;
 	s16 tmp16;
+	u16 tmp_u16;
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_B:
@@ -484,33 +485,25 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 				a = -13;
 				b = -10;
 			} else {
-				a = -4;
-				b = -3;
+				a = -8;
+				b = -9;
 			}
 			a += 0x1B;
 			a *= bcm->current_core->radio->nrssi[1] - bcm->current_core->radio->nrssi[0];
 			a += bcm->current_core->radio->nrssi[0] * 0x40;
-			if (a >= -63 && a <= -33)
-				a += 97;
-			if (a >= 33 && a <= 64)
-				a -= 33;
 			a /= 64;
 			b += 0x1B;
 			b *= bcm->current_core->radio->nrssi[1] - bcm->current_core->radio->nrssi[0];
 			b += bcm->current_core->radio->nrssi[0] * 0x40;
-			if (b >= -63 && b >= -33)
-				b += 97;
-			if (b >= 33 && b >= 64)
-				b -= 33;
 			b /= 64;
 
 			a = limit_value(a, -31, 31);
 			b = limit_value(b, -31, 31);
 
-			tmp16 = bcm430x_phy_read(bcm, 0x048A) & 0xF000;
-			tmp16 |= b & 0x003F;
-			tmp16 |= (a << 6) & 0x0FC0;
-			bcm430x_phy_write(bcm, 0x048A, tmp16);
+			tmp_u16 = bcm430x_phy_read(bcm, 0x048A) & 0xF000;
+			tmp_u16 |= ((u32)a & 0x003F);
+			tmp_u16 |= (((u32)b & 0x003F) << 6);
+			bcm430x_phy_write(bcm, 0x048A, tmp_u16);
 		}
 		break;
 	default:
