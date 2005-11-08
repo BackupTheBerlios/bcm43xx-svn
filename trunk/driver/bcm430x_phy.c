@@ -945,15 +945,12 @@ static void bcm430x_phy_initg(struct bcm430x_private *bcm)
 	bcm430x_phy_init_pctl(bcm);
 }
 
-static inline
-u16 bcm430x_phy_lo_b_r15_loop(struct bcm430x_private *bcm)
+static u16 bcm430x_phy_lo_b_r15_loop(struct bcm430x_private *bcm)
 {
 	int i;
 	u16 ret = 0;
 
-	FIXME();
-	//FIXME: Why do we loop from 9 to 0 here, instead of from 0 to 9?
-	for (i = 9; i > -1; i--){
+	for (i = 0; i < 10; i++){
 		bcm430x_phy_write(bcm, 0x0015, 0xAFA0);
 		udelay(1);
 		bcm430x_phy_write(bcm, 0x0015, 0xEFA0);
