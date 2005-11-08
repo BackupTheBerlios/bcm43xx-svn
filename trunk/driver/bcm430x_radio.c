@@ -832,13 +832,18 @@ static u16 bcm430x_radio_calibrationvalue(struct bcm430x_private *bcm)
 
 u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 {
-	u16 backup[13];
+	u16 backup[19] = { 0 };
 	u16 ret;
 	u16 i, j;
 	u32 tmp1 = 0, tmp2 = 0;
 
 	backup[0] = bcm430x_radio_read16(bcm, 0x0043);
+	backup[14] = bcm430x_radio_read16(bcm, 0x0051);
+	backup[15] = bcm430x_radio_read16(bcm, 0x0052);
 	backup[1] = bcm430x_phy_read(bcm, 0x0015);
+	backup[16] = bcm430x_phy_read(bcm, 0x005A);
+	backup[17] = bcm430x_phy_read(bcm, 0x0059);
+	backup[18] = bcm430x_phy_read(bcm, 0x0058);
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
 		backup[2] = bcm430x_phy_read(bcm, 0x0030);
 		backup[3] = bcm430x_read16(bcm, 0x03EC);
@@ -895,7 +900,8 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 	bcm430x_radio_write16(bcm, 0x0051,
 	                      (bcm430x_radio_read16(bcm, 0x0051) | 0x0004));
 	bcm430x_radio_write16(bcm, 0x0052, 0x0000);
-	bcm430x_radio_write16(bcm, 0x0043, 0x0009);
+	bcm430x_radio_write16(bcm, 0x0043,
+			      bcm430x_radio_read16(bcm, 0x0043) | 0x0009);
 	bcm430x_phy_write(bcm, 0x0058, 0x0000);
 
 	for (i = 0; i < 16; i++) {
@@ -960,14 +966,17 @@ u16 bcm430x_radio_init2050(struct bcm430x_private *bcm)
 
 	/* Restore the registers */
 	bcm430x_phy_write(bcm, 0x0015, backup[1]);
-	bcm430x_radio_write16(bcm, 0x0051,
-	                      (bcm430x_radio_read16(bcm, 0x0051) & 0xFFFB));
-	bcm430x_radio_write16(bcm, 0x0052, 0x0009);
+	bcm430x_radio_write16(bcm, 0x0051, backup[14]);
+	bcm430x_radio_write16(bcm, 0x0052, backup[15]);
 	bcm430x_radio_write16(bcm, 0x0043, backup[0]);
+	bcm430x_phy_write(bcm, 0x005A, backup[16]);
+	bcm430x_phy_write(bcm, 0x0059, backup[17]);
+	bcm430x_phy_write(bcm, 0x0058, backup[18]);
 	bcm430x_write16(bcm, 0x03E6, backup[11]);
 	if (bcm->current_core->phy->version != 0)
 		bcm430x_write16(bcm, 0x03F4, backup[12]);
 	bcm430x_phy_write(bcm, 0x0035, backup[10]);
+	bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel, 1);
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
 		bcm430x_phy_write(bcm, 0x0030, backup[2]);
 		bcm430x_write16(bcm, 0x03EC, backup[3]);

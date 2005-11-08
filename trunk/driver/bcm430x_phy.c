@@ -346,7 +346,7 @@ static void bcm430x_phy_setupg(struct bcm430x_private *bcm)
 		for (i = 0; i <= 0x2F; i++)
 			bcm430x_ilt_write16(bcm, 0x1000 + i, 0x0820);
 		bcm430x_phy_agcsetup(bcm);
-		bcm430x_phy_read(bcm, 0x0400);
+		bcm430x_phy_read(bcm, 0x0400); /* dummy read */
 		bcm430x_phy_write(bcm, 0x0403, 0x1000);
 		bcm430x_ilt_write16(bcm, 0x3C02, 0x000F);
 		bcm430x_ilt_write16(bcm, 0x3C03, 0x0014);
