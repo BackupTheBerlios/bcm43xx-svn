@@ -1332,16 +1332,6 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	dma_reason[2] = bcm->dma_reason[2];
 	dma_reason[3] = bcm->dma_reason[3];
 
-	if (unlikely(reason & BCM430x_IRQ_TXFIFO_ERROR)) {
-		/* This is a fatal error. It should never happen.
-		 * We have to reset the chip.
-		 */
-		bcmirq_print_reasons("TX FIFO ERROR");
-		bcm430x_recover_from_fatal(bcm, BCM430x_FATAL_TXFIFO);
-		spin_unlock_irqrestore(&bcm->lock, flags);
-		return;
-	}
-
 	if (unlikely(reason & BCM430x_IRQ_XMIT_ERROR)) {
 		/* TX error. We get this when Template Ram is written in wrong endianess
 		 * in dummy_tx(). We also get this if something is wrong with the TX data
@@ -1354,6 +1344,11 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		 */
 		bcmirq_print_reasons("XMIT ERROR");
 		bcmirq_handled(BCM430x_IRQ_XMIT_ERROR);
+	}
+
+	if (reason & BCM430x_IRQ_RX) {
+		printkl(KERN_INFO PFX "RX IRQ!!!\n");
+		bcmirq_handled(BCM430x_IRQ_RX);
 	}
 
 	if (reason & BCM430x_IRQ_TBTT) {
@@ -2049,11 +2044,10 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
 
 	if (bcm->pio_mode) {
-		//FIXME: write16 correct?
-		bcm430x_write16(bcm, 0x0210, 0x0100);
-		bcm430x_write16(bcm, 0x0230, 0x0100);
-		bcm430x_write16(bcm, 0x0250, 0x0100);
-		bcm430x_write16(bcm, 0x0270, 0x0100);
+		bcm430x_write32(bcm, 0x0210, 0x00000100);
+		bcm430x_write32(bcm, 0x0230, 0x00000100);
+		bcm430x_write32(bcm, 0x0250, 0x00000100);
+		bcm430x_write32(bcm, 0x0270, 0x00000100);
 		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0034, 0x0000);
 	}
 
@@ -2063,11 +2057,11 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 
 	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
 		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
-			bcm430x_write16(bcm, 0x0608, 0x0064);
+			bcm430x_write16(bcm, 0x0612, 0x0064);
 		else
-			bcm430x_write16(bcm, 0x0608, 0x0032);
+			bcm430x_write16(bcm, 0x0612, 0x0032);
 	} else
-		bcm430x_write16(bcm, 0x0608, 0x0002);
+		bcm430x_write16(bcm, 0x0612, 0x0002);
 
 	if (modparam_short_preamble)
 		bcm430x_short_preamble_enable(bcm);
@@ -2681,6 +2675,9 @@ static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 		if (err)
 			goto err_chip_cleanup;
 	}
+	bcm430x_write16(bcm, 0x0612, 0x0050);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0416, 0x0050);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0414, 0x01F4);
 
 	bcm430x_mac_enable(bcm);
 	bcm430x_interrupt_enable(bcm, bcm->irq_savedstate);
