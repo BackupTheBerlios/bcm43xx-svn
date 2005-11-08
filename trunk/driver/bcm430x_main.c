@@ -2552,6 +2552,44 @@ static void bcm430x_gen_bssid(struct bcm430x_private *bcm)
 	}
 }
 
+static void bcm430x_rate_memory_write(struct bcm430x_private *bcm,
+				      u16 double_rate,
+				      int is_ofdm)
+{
+	u16 offset;
+
+	if (is_ofdm)
+		offset = 0x480;
+	else
+		offset = 0x4C0;
+	offset += (double_rate & 0x000F);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, offset + 0x20,
+			    bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, offset));
+}
+
+static void bcm430x_rate_memory_init(struct bcm430x_private *bcm)
+{
+	switch (bcm->current_core->phy->type) {
+	case BCM430x_PHYTYPE_A:
+	case BCM430x_PHYTYPE_G:
+		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_6MB, 1);
+		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_12MB, 1);
+		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_18MB, 1);
+		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_24MB, 1);
+		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_36MB, 1);
+		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_48MB, 1);
+		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_54MB, 1);
+	case BCM430x_PHYTYPE_B:
+		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_1MB, 0);
+		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_2MB, 0);
+		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_5MB, 0);
+		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_11MB, 0);
+		break;
+	default:
+		assert(0);
+	}
+}
+
 static void bcm430x_wireless_core_cleanup(struct bcm430x_private *bcm)
 {
 	bcm430x_chip_cleanup(bcm);
@@ -2617,6 +2655,8 @@ static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
 
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0044, 3);
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0046, 2);
+
+	bcm430x_rate_memory_init(bcm);
 
 	/* Minimum Contention Window */
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B)
