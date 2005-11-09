@@ -293,9 +293,6 @@
 /* Initial default iw_mode */
 #define BCM430x_INITIAL_IWMODE			IW_MODE_INFRA
 
-/* Fatal-error IDs to pass to bcm430x_recover_from_fatal() */
-#define BCM430x_FATAL_TXFIFO			1
-
 /* Values/Masks for the device TX header */
 //TODO: add missing.
 #define BCM430x_TXHDRFLAG_NOMCAST		0x0001

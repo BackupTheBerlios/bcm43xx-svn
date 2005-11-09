@@ -157,7 +157,7 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 };
 
 
-static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, int error);
+static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, const char *error);
 static void bcm430x_free_board(struct bcm430x_private *bcm);
 static int bcm430x_init_board(struct bcm430x_private *bcm);
 
@@ -2711,10 +2711,10 @@ static void bcm430x_chip_reset(void *_bcm)
  * This can be called from interrupt or process context.
  * Make sure to _not_ re-enable device interrupts after this has been called.
  */
-static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, int error)
+static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, const char *error)
 {
 	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-	printk(KERN_ERR PFX "FATAL ERROR (%d): Resetting the chip...\n", error);
+	printk(KERN_ERR PFX "FATAL ERROR (%s): Resetting the chip...\n", error);
 	INIT_WORK(&bcm->fatal_work, bcm430x_chip_reset, bcm);
 	queue_work(bcm->workqueue, &bcm->fatal_work);
 }
@@ -3539,11 +3539,12 @@ static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 					     )
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	int err;
+	int err = -ENODEV;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	err = bcm430x_tx(bcm, txb);
+	if (likely(bcm->initialized))
+		err = bcm430x_tx(bcm, txb);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return err;
@@ -3563,14 +3564,8 @@ static struct net_device_stats * bcm430x_net_get_stats(struct net_device *net_de
 static void bcm430x_net_tx_timeout(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	unsigned long flags;
 
-	spin_lock_irqsave(&bcm->lock, flags);
-	if (bcm->pio_mode)
-		bcm430x_pio_tx_timeout(bcm);
-	else
-		bcm430x_dma_tx_timeout(bcm);
-	spin_unlock_irqrestore(&bcm->lock, flags);
+	bcm430x_recover_from_fatal(bcm, "TX timeout");
 }
 
 static int bcm430x_net_open(struct net_device *net_dev)

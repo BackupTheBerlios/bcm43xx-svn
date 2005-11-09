@@ -223,7 +223,7 @@ static void free_descriptor_buffer(struct bcm430x_dmaring *ring,
 
 /* Free all stuff belonging to a complete TX frame.
  * Begin at slot.
- * This is to be called on tx_timeout and completion IRQ.
+ * This is to be called on completion IRQ.
  */
 static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 				  int slot)
@@ -670,41 +670,6 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	kfree(ring);
 }
 
-static void tx_timeout(struct bcm430x_dmaring *ring)
-{
-	assert(ring->tx);
-
-	dprintk("DMA TX timeout on controller 0x%04x\n", ring->mmio_base);
-	dmacontroller_tx_reset(ring);//FIXME: The controller does not wake up from the reset.
-	cancel_transfers(ring);
-}
-
-void bcm430x_dma_tx_timeout(struct bcm430x_private *bcm)
-{
-	struct bcm430x_dmaring *ring;
-	unsigned long flags;
-
-	ring = bcm->current_core->dma->tx_ring0;
-	spin_lock_irqsave(&ring->lock, flags);
-	tx_timeout(ring);
-	spin_unlock_irqrestore(&ring->lock, flags);
-
-	ring = bcm->current_core->dma->tx_ring1;
-	spin_lock_irqsave(&ring->lock, flags);
-	tx_timeout(ring);
-	spin_unlock_irqrestore(&ring->lock, flags);
-
-	ring = bcm->current_core->dma->tx_ring2;
-	spin_lock_irqsave(&ring->lock, flags);
-	tx_timeout(ring);
-	spin_unlock_irqrestore(&ring->lock, flags);
-
-	ring = bcm->current_core->dma->tx_ring3;
-	spin_lock_irqsave(&ring->lock, flags);
-	tx_timeout(ring);
-	spin_unlock_irqrestore(&ring->lock, flags);
-}
-
 /* Generate a cookie for the TX header. */
 static inline
 u16 generate_cookie(struct bcm430x_dmaring *ring,
@@ -809,7 +774,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		/* This is the first fragment. */
 		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMESTART);
 		/* Save the whole txb for freeing later in 
-		 * completion irq (or timeout work handler)
+		 * completion irq
 		 */
 		meta->txb = txb;
 		/* Save the first slot number for later in tx_xfer() */

@@ -538,11 +538,6 @@ bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 	spin_unlock_irqrestore(&queue->txlock, flags);
 }
 
-void bcm430x_pio_tx_timeout(struct bcm430x_private *bcm)
-{
-	/*TODO*/
-}
-
 void fastcall
 bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
 {

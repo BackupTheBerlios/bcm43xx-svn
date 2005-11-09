@@ -183,6 +183,4 @@ void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 
 void FASTCALL(bcm430x_dma_rx(struct bcm430x_dmaring *ring));
 
-void bcm430x_dma_tx_timeout(struct bcm430x_private *bcm);
-
 #endif /* BCM430x_DMA_H_ */
