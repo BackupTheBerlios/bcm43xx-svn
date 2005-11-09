@@ -1346,11 +1346,6 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		bcmirq_handled(BCM430x_IRQ_XMIT_ERROR);
 	}
 
-	if (reason & BCM430x_IRQ_RX) {
-		printkl(KERN_INFO PFX "RX IRQ!!!\n");
-		bcmirq_handled(BCM430x_IRQ_RX);
-	}
-
 	if (reason & BCM430x_IRQ_TBTT) {
 		/*TODO: some powercontrol/powersave stuff */
 		if (bcm->ieee->iw_mode == IW_MODE_ADHOC)
@@ -1407,6 +1402,7 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		} else
 			assert(0);
 	}
+	bcmirq_handled(BCM430x_IRQ_RX);
 
 	if (reason & BCM430x_IRQ_XMIT_STATUS) {
 		handle_irq_transmit_status(bcm);
