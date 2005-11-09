@@ -157,22 +157,6 @@ static void return_slot(struct bcm430x_dmaring *ring, int slot)
 	}
 }
 
-static inline u32 calc_rx_frameoffset(u16 dmacontroller_mmio_base)
-{
-	u32 offset = 0x00000000;
-
-	switch (dmacontroller_mmio_base) {
-	case BCM430x_MMIO_DMA1_BASE:
-		offset = BCM430x_DMA1_RX_FRAMEOFFSET;
-		break;
-	}
-
-	offset = (offset << BCM430x_DMA_RXCTRL_FRAMEOFF_SHIFT);
-	assert(!(offset & ~BCM430x_DMA_RXCTRL_FRAMEOFF_MASK));
-
-	return offset;
-}
-
 static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
 					 int slot)
 {
@@ -415,8 +399,13 @@ static void map_descbuffer(struct bcm430x_dmaring *ring,
 				       meta->skb->data, meta->skb->len, dir);
 
 	/* Tell the device about the buffer */
-	set_desc_addr(desc, meta->dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
-	set_desc_ctl(desc, get_desc_ctl(desc) | (BCM430x_DMADTOR_BYTECNT_MASK & meta->skb->len));
+	set_desc_addr(desc, meta->dmaaddr + BCM430x_DMA_DMABUSADDROFFSET
+			    + ring->frameoffset);
+	set_desc_ctl(desc, get_desc_ctl(desc)
+		     | (BCM430x_DMADTOR_BYTECNT_MASK
+			& (meta->skb->len - ring->frameoffset)));
+if (!ring->tx)
+printk("mapping len %u\n", meta->skb->len);
 }
 
 /* DMA unmap a descriptor buffer.
@@ -445,17 +434,16 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
 
 /* Allocate the initial descbuffers.
  * This is used for an RX ring only.
- *FIXME: Not sure if we allocate enough buffers with sufficient size, though...
  */
 static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 {
 	size_t buffersize = 0;
-	int i, err = 0, num_buffers = 0;
+	int i, err = 0;
 	struct bcm430x_dmadesc *desc = NULL;
 	struct bcm430x_dmadesc_meta *meta;
+	struct bcm430x_hwrxhdr *rxhdr;
 
 	if (!ring->tx) {
-		num_buffers = BCM430x_DMA_NUM_RXBUFFERS;
 		if (ring->mmio_base == BCM430x_MMIO_DMA1_BASE)
 			buffersize = BCM430x_DMA1_RXBUFFERSIZE;
 		else if (ring->mmio_base == BCM430x_MMIO_DMA4_BASE)
@@ -465,7 +453,8 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 	} else
 		assert(0);
 
-	for (i = 0; i < num_buffers; i++) {
+	ring_sync_for_cpu(ring);
+	for (i = 0; i < ring->nr_slots; i++) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
@@ -473,13 +462,20 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		if (!meta->skb)
 			goto err_unwind;
 		meta->free_skb = 1;
+
+		skb_put(meta->skb, buffersize);
 		map_descbuffer(ring, desc, meta);
+		skb_pull(meta->skb, buffersize);
+
+		skb_reserve(meta->skb, ring->frameoffset);
+		rxhdr = (struct bcm430x_hwrxhdr *)(meta->skb->data - ring->frameoffset);
+		rxhdr->frame_length = 0;
+		rxhdr->flags1 = 0;
 
 		assert(ring->used_slots <= ring->nr_slots);
 		ring->last_used++;
 		ring->used_slots++;
 	}
-	ring_sync_for_cpu(ring);
 	set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
 	ring_sync_for_device(ring);
 
@@ -520,7 +516,7 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		if (err)
 			goto out;
 		/* Set Receive Control "receive enable" and frame offset */
-		value = calc_rx_frameoffset(ring->mmio_base);
+		value = (ring->frameoffset << BCM430x_DMA_RXCTRL_FRAMEOFF_SHIFT);
 		value |= BCM430x_DMA_RXCTRL_ENABLE;
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
@@ -529,6 +525,9 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
 				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
+		bcm430x_write32(ring->bcm,
+				ring->mmio_base + BCM430x_DMA_RX_DESC_INDEX,
+				BCM430x_RXRING_INITIAL_SLOT);
 	}
 
 out:
@@ -603,8 +602,12 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	ring->resume_mark = ring->nr_slots * BCM430x_TXRESUME_PERCENT / 100;
 	assert(ring->suspend_mark < ring->resume_mark);
 	ring->mmio_base = dma_controller_base;
-	if (tx)
+	if (tx) {
 		ring->tx = 1;
+	} else {
+		if (dma_controller_base == BCM430x_MMIO_DMA1_BASE)
+			ring->frameoffset = BCM430x_DMA1_RX_FRAMEOFFSET;
+	}
 
 	err = alloc_ringmemory(ring);
 	if (err)
