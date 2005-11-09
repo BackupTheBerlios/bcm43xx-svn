@@ -1500,7 +1500,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	regstack[11] &= 0x00F0;
 	regstack[11] |= (bcm430x_radio_read16(bcm, 0x52) & 0x000F);
 	bcm430x_radio_write16(bcm, 0x52, regstack[11]);
-	bcm430x_write16(bcm, 0x03E3, regstack[3]);
+	bcm430x_write16(bcm, 0x03E2, regstack[3]);
 	if (phy->connected) {
 		bcm430x_phy_write(bcm, 0x0811, regstack[12]);
 		bcm430x_phy_write(bcm, 0x0812, regstack[13]);
