@@ -404,8 +404,6 @@ static void map_descbuffer(struct bcm430x_dmaring *ring,
 	set_desc_ctl(desc, get_desc_ctl(desc)
 		     | (BCM430x_DMADTOR_BYTECNT_MASK
 			& (meta->skb->len - ring->frameoffset)));
-if (!ring->tx)
-printk("mapping len %u\n", meta->skb->len);
 }
 
 /* DMA unmap a descriptor buffer.
