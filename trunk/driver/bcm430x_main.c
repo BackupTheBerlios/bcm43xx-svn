@@ -1941,7 +1941,7 @@ void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 		printkl(KERN_ERR PFX "Failed to suspend mac!\n");
 }
 
-static void bcm430x_short_preamble_enable(struct bcm430x_private *bcm)
+static void bcm430x_short_slot_timing_enable(struct bcm430x_private *bcm)
 {
 	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
 		return;
@@ -1949,7 +1949,7 @@ static void bcm430x_short_preamble_enable(struct bcm430x_private *bcm)
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 9);
 }
 
-static void bcm430x_short_preamble_disable(struct bcm430x_private *bcm)
+static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
 {
 	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
 		return;
@@ -2058,12 +2058,12 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 			bcm430x_write16(bcm, 0x0612, 0x0032);
 	} else
 		bcm430x_write16(bcm, 0x0612, 0x0002);
-
+/* TODO
 	if (modparam_short_preamble)
-		bcm430x_short_preamble_enable(bcm);
+		
 	else
-		bcm430x_short_preamble_disable(bcm);
-
+*/
+	
 	if (bcm->current_core->rev < 3) {
 		bcm430x_write16(bcm, 0x060E, 0x0000);
 		bcm430x_write16(bcm, 0x0610, 0x8000);
