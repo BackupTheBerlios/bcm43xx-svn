@@ -906,6 +906,7 @@ int fastcall
 bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
 			 struct ieee80211_txb *txb)
 {
+	//TODO: We might want to distribute TX to the 4 engines here.
 	return dma_transfer_txb(bcm->current_core->dma->tx_ring1,
 				txb);
 }
