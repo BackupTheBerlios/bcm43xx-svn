@@ -399,6 +399,7 @@ static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
 	meta->free_skb = 1;
 
 	dmaaddr = map_descbuffer(ring, meta->skb->data, ring->rx_buffersize);
+	meta->dmaaddr = dmaaddr;
 	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
 	desc_ctl = (BCM430x_DMADTOR_BYTECNT_MASK &
 		    (u32)(ring->rx_buffersize - ring->frameoffset));
@@ -791,6 +792,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		meta->free_skb = 0;
 	}
 	dmaaddr = map_descbuffer(ring, skb->data, skb->len);
+	meta->dmaaddr = dmaaddr;
 
 	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
 	desc_ctl |= (BCM430x_DMADTOR_BYTECNT_MASK &
