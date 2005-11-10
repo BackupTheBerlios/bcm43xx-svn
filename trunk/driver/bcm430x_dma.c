@@ -110,14 +110,14 @@ static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
 	}
 }
 
-/* Request a slot for usage.
- * Check if there are free slots, _before_ calling this function.
- */
-static int request_slot(struct bcm430x_dmaring *ring)
+/* Request a slot for usage. */
+static inline
+int request_slot(struct bcm430x_dmaring *ring)
 {
 	int slot;
 
-	assert(free_slots(ring));
+	if (unlikely(free_slots(ring) == 0))
+		return -1;
 
 	slot = next_slot(ring, ring->last_used);
 	ring->last_used = slot;
@@ -135,7 +135,8 @@ static int request_slot(struct bcm430x_dmaring *ring)
 }
 
 /* Return a slot to the free slots. */
-static void return_slot(struct bcm430x_dmaring *ring, int slot)
+static inline
+void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
 	assert(ring->last_used >= 0);
 	if (ring->used_slots == 1)
@@ -757,11 +758,8 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	u32 desc_ctl = 0;
 	u32 desc_addr;
 
-	/* Make sure we have enough free slots.
-	 * We check for frags+2, because we might need an additional
-	 * one, if we do not have enough skb_headroon. (see below)
-	 */
-	if (unlikely(free_slots(ring) < skb_shinfo(skb)->nr_frags + 2)) {
+	slot = request_slot(ring);
+	if (unlikely(slot < 0)) {
 		/* The queue should be stopped,
 		 * if we are low on free slots.
 		 * If this ever triggers, we have to lower the suspend_mark.
@@ -769,13 +767,10 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		printk(KERN_ERR PFX "Out of DMA descriptor slots!\n");
 		return -ENOMEM;
 	}
-
-	ring_sync_for_cpu(ring);
-
-	slot = request_slot(ring);
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
 
+	ring_sync_for_cpu(ring);
 	if (ctx->cur_frag == 0) {
 		/* This is the first fragment. */
 		desc_ctl |= BCM430x_DMADTOR_FRAMESTART;
