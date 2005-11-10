@@ -432,10 +432,12 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		if (err)
 			goto err_unwind;
 
+		meta->used = 1;
 		assert(ring->used_slots <= ring->nr_slots);
 		ring->last_used++;
 		ring->used_slots++;
 	}
+	ring->used_slots = ring->nr_slots;
 
 out:
 	return err;
@@ -632,7 +634,8 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	/* Device IRQs are disabled prior entering this function,
 	 * so no need to take care of concurrency with rx handler stuff.
 	 */
-	cancel_transfers(ring);
+	if (ring->tx)
+		cancel_transfers(ring);
 	dmacontroller_cleanup(ring);
 	/* Free all remaining descriptor buffers
 	 * (For example when this is an RX ring)
