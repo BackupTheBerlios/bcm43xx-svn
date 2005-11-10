@@ -281,8 +281,10 @@ static const struct file * find_file(FILE *fd)
 				printf("Extracting firmware from this file is IMPOSSIBLE. (too old)\n");
 				return 0;
 			}
-			printf("Your driver file is known. It's version %s (MD5: %s)\n",
-			       files[i].version, files[i].md5);
+			printf("fwcutter knows your file:\n");
+			printf("  filename :  %s\n", files[i].name);
+			printf("  version  :  %s\n", files[i].version);
+			printf("  MD5      :  %s\n", files[i].md5);
 			if (files[i].flags & SUPPORT_INCOMPLETE)
 				printf("WARNING: your driver file is not fully supported\n");
 			return &(files[i]);
@@ -322,7 +324,7 @@ static void print_usage(int argc, char *argv[])
 	printf("  -l             List supported driver versions\n");
 	printf("  -i DRIVER.SYS  Identify a driver file (don't extract)\n");
 	printf("  -w DRIVER.SYS  Extract and write firmware to /lib/firmware\n");
-	printf("  -p \".FOO\"    Postfix for firmware filenames (.FOO.fw)\n");
+	printf("  -p \".FOO\"      Postfix for firmware filenames (.FOO.fw)\n");
 	printf("  -v             Print fwcutter version\n");
 	printf("  -h|--help      Print this help\n");
 	printf("\nExample: %s bcmwl5.sys\n"
