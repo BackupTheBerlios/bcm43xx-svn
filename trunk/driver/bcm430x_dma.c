@@ -796,7 +796,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
 	desc_ctl |= (BCM430x_DMADTOR_BYTECNT_MASK &
-		     (meta->skb->len - ring->frameoffset));
+		     (u32)(meta->skb->len - ring->frameoffset));
 	if (slot == ring->nr_slots - 1)
 		desc_ctl |= BCM430x_DMADTOR_DTABLEEND;
 
