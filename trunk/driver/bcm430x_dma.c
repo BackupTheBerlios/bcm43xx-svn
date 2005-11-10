@@ -205,6 +205,28 @@ void unmap_descbuffer(struct bcm430x_dmaring *ring,
 			 addr, len, dir);
 }
 
+static inline
+void sync_descbuffer_for_cpu(struct bcm430x_dmaring *ring,
+			     dma_addr_t addr,
+			     size_t len)
+{
+	assert(!ring->tx);
+
+	dma_sync_single_for_cpu(&ring->bcm->pci_dev->dev,
+				addr, len, DMA_FROM_DEVICE);
+}
+
+static inline
+void sync_descbuffer_for_device(struct bcm430x_dmaring *ring,
+				dma_addr_t addr,
+				size_t len)
+{
+	assert(!ring->tx);
+
+	dma_sync_single_for_device(&ring->bcm->pci_dev->dev,
+				   addr, len, DMA_FROM_DEVICE);
+}
+
 /* Unmap and free a descriptor buffer. */
 static void free_descriptor_buffer(struct bcm430x_dmaring *ring,
 				   struct bcm430x_dmadesc *desc,
@@ -935,7 +957,7 @@ void dma_rx(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
 	struct bcm430x_rxhdr *rxhdr;
-	struct sk_buff *skb;
+	struct sk_buff *skb, *new_skb;
 	struct ieee80211_rx_stats rx_stats;
 	u16 len;
 	int err;
@@ -951,7 +973,7 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
 
-	unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
+	sync_descbuffer_for_cpu(ring, meta->dmaaddr, ring->rx_buffersize);
 	skb = meta->skb;
 	rxhdr = (struct bcm430x_rxhdr *)skb->data;
 	len = cpu_to_le16(rxhdr->frame_length);
@@ -973,10 +995,26 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 		dprintkl(KERN_ERR PFX "DMA RX: invalid length\n");
 		goto drop;
 	}
-	skb_put(skb, len);
-	skb_pull(skb, ring->frameoffset);
+	len -= IEEE80211_FCS_LEN;
 
 	//TODO: interpret more rxhdr stuff.
+
+	if (1/*len > BCM430x_DMA_RX_COPYTHRESHOLD*/) {
+		slot = next_slot(ring, slot);
+		desc = ring->vbase + slot;
+		meta = ring->meta + slot;
+		err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
+		if (unlikely(err)) {
+			dprintkl(KERN_ERR PFX "DMA RX: setup_rx_descbuffer() failed\n");
+			goto drop;
+		}
+
+		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize);
+		skb_put(skb, len);
+		skb_pull(skb, ring->frameoffset);
+	} else {
+		//TODO
+	}
 
 	err = ieee80211_rx(ring->bcm->ieee, skb, &rx_stats);
 	if (unlikely(err == 0)) {
@@ -984,15 +1022,12 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 		goto drop;
 	}
 
-setup_new:
-	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
-	if (unlikely(err)) {
-		//TODO: What to do here?
-	}
-
+drop:
 	return;
 
-drop:
+
+
+	
 	dev_kfree_skb_irq(skb);
 	goto setup_new;
 }
