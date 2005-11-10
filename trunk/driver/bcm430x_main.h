@@ -100,33 +100,22 @@ void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 				     const u16 cookie));
 
 /* RX header as received from the hardware. */
-struct bcm430x_hwrxhdr {
-	u16 frame_length;
-	PAD_BYTES(2);
-	u16 flags1;
-	u8 rssi;
-	u8 signal_quality;
-	PAD_BYTES(2);
-	u16 rssi_encoding;
-	u16 flags2;
-	u16 mactime;
-	PAD_BYTES(14);
-} __attribute__((__packed__));
-
-/* RX header in CPU byteorder. */
 struct bcm430x_rxhdr {
 	/* Frame Length. Must be generated explicitely in PIO mode. */
 	u16 frame_length;
+	PAD_BYTES(2);
 	/* Flags field 1 */
 	u16 flags1;
 	u8 rssi;
 	u8 signal_quality;
+	PAD_BYTES(2);
 	u16 rssi_encoding;
 	/* Flags field 2 */
 	u16 flags2;
 	/* Lower 16bits of the TSF at the time the frame started. */
 	u16 mactime;
-};
+	PAD_BYTES(14);
+} __attribute__((__packed__));
 
 #define BCM430x_RXHDR_FLAGS1_OFDM		(1 << 0)
 /*#define BCM430x_RXHDR_FLAGS1_SIGNAL???	(1 << 3) FIXME */
@@ -136,19 +125,6 @@ struct bcm430x_rxhdr {
 #define BCM430x_RXHDR_FLAGS2_INVALIDFRAME	(1 << 0)
 #define BCM430x_RXHDR_FLAGS2_TYPE2FRAME		(1 << 2)
 /*FIXME: WEP related flags */
-
-static inline
-void bcm430x_rxhdr_to_cpuorder(struct bcm430x_rxhdr *rxhdr,
-			       struct bcm430x_hwrxhdr *hw)
-{
-	rxhdr->frame_length = le16_to_cpu(hw->frame_length);
-	rxhdr->flags1 = le16_to_cpu(hw->flags1);
-	rxhdr->rssi = hw->rssi;
-	rxhdr->signal_quality = hw->signal_quality;
-	rxhdr->rssi_encoding = le16_to_cpu(hw->rssi_encoding);
-	rxhdr->flags2 = le16_to_cpu(hw->flags2);
-	rxhdr->mactime = le16_to_cpu(hw->mactime);
-}
 
 /* Transmit Status as received from the hardware. */
 struct bcm430x_hwxmitstatus {

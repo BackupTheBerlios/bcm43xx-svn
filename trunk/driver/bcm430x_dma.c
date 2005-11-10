@@ -6,6 +6,10 @@
 
   Copyright (c) 2005 Michael Buesch <mbuesch@freenet.de>
 
+  Some code in this file is derived from the b44.c driver
+  Copyright (C) 2002 David S. Miller
+  Copyright (C) Pekka Pietikainen
+
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
@@ -35,10 +39,6 @@
 #include <linux/skbuff.h>
 #include <asm/semaphore.h>
 
-
-static void unmap_descbuffer(struct bcm430x_dmaring *ring,
-			     struct bcm430x_dmadesc *desc,
-			     struct bcm430x_dmadesc_meta *meta);
 
 static inline
 void ring_sync_for_cpu(struct bcm430x_dmaring *ring)
@@ -111,7 +111,6 @@ static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
 }
 
 /* Request a slot for usage.
- * Make sure to have the ring synced for CPU, before calling this.
  * Check if there are free slots, _before_ calling this function.
  */
 static int request_slot(struct bcm430x_dmaring *ring)
@@ -122,11 +121,6 @@ static int request_slot(struct bcm430x_dmaring *ring)
 
 	slot = next_slot(ring, ring->last_used);
 	ring->last_used = slot;
-	if (slot == ring->nr_slots - 1) {
-		set_desc_ctl(ring->vbase + slot,
-			     get_desc_ctl(ring->vbase + slot)
-			     | BCM430x_DMADTOR_DTABLEEND);
-	}
 	ring->meta[slot].used = 1;
 	ring->used_slots++;
 
@@ -201,13 +195,48 @@ void dump_ringmemory(struct bcm430x_dmaring *ring)
 }
 #endif /* BCM430x_DEBUG */
 
+static inline
+dma_addr_t map_descbuffer(struct bcm430x_dmaring *ring,
+			  unsigned char *buf,
+			  size_t len)
+{
+	dma_addr_t dmaaddr;
+	enum dma_data_direction dir;
+
+	if (ring->tx)
+		dir = DMA_TO_DEVICE;
+	else
+		dir = DMA_FROM_DEVICE;
+
+	dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
+				 buf, len, dir);
+
+	return dmaaddr;
+}
+
+static inline
+void unmap_descbuffer(struct bcm430x_dmaring *ring,
+		      dma_addr_t addr,
+		      size_t len)
+{
+	enum dma_data_direction dir;
+
+	if (ring->tx)
+		dir = DMA_TO_DEVICE;
+	else
+		dir = DMA_FROM_DEVICE;
+
+	dma_unmap_single(&ring->bcm->pci_dev->dev,
+			 addr, len, dir);
+}
+
 /* Unmap and free a descriptor buffer. */
 static void free_descriptor_buffer(struct bcm430x_dmaring *ring,
 				   struct bcm430x_dmadesc *desc,
 				   struct bcm430x_dmadesc_meta *meta,
 				   int irq_context)
 {
-	unmap_descbuffer(ring, desc, meta);
+	unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
 	if (meta->free_skb) {
 		if (irq_context)
 			dev_kfree_skb_irq(meta->skb);
@@ -380,54 +409,40 @@ static inline int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
 	return bcm430x_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 }
 
-/* DMA map a descriptor buffer.
- * The descriptor buffer is the skb contained as reference
- * in the descriptor meta data structure.
- * Make sure to have the ring synced for CPU before calling this.
- */
-static void map_descbuffer(struct bcm430x_dmaring *ring,
-			   struct bcm430x_dmadesc *desc,
-			   struct bcm430x_dmadesc_meta *meta)
+static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
+			       struct bcm430x_dmadesc *desc,
+			       struct bcm430x_dmadesc_meta *meta,
+			       gfp_t gfp_flags)
 {
-	enum dma_data_direction dir;
+	struct bcm430x_rxhdr *rxhdr;
+	dma_addr_t dmaaddr;
+	u32 desc_addr;
+	u32 desc_ctl;
+	const int slot = (int)(desc - ring->vbase);
 
-	if (ring->tx)
-		dir = DMA_TO_DEVICE;
-	else
-		dir = DMA_FROM_DEVICE;
-	meta->dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
-				       meta->skb->data, meta->skb->len, dir);
+	assert(slot >= 0 && slot < ring->nr_slots);
+	assert(!ring->tx);
 
-	/* Tell the device about the buffer */
-	set_desc_addr(desc, meta->dmaaddr + BCM430x_DMA_DMABUSADDROFFSET
-			    + ring->frameoffset);
-	set_desc_ctl(desc, get_desc_ctl(desc)
-		     | (BCM430x_DMADTOR_BYTECNT_MASK
-			& (meta->skb->len - ring->frameoffset)));
-}
+	meta->skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+	if (!meta->skb)
+		return -ENOMEM;
+	meta->skb->dev = ring->bcm->net_dev;
+	meta->free_skb = 1;
 
-/* DMA unmap a descriptor buffer.
- * The descriptor buffer is the skb contained as reference
- * in the descriptor meta data structure.
- * Make sure to have the ring synced for CPU before calling this.
- */
-static void unmap_descbuffer(struct bcm430x_dmaring *ring,
-			     struct bcm430x_dmadesc *desc,
-			     struct bcm430x_dmadesc_meta *meta)
-{
-	enum dma_data_direction dir;
+	dmaaddr = map_descbuffer(ring, meta->skb->data, ring->rx_buffersize);
+	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
+	desc_ctl = (BCM430x_DMADTOR_BYTECNT_MASK &
+		    (u32)(ring->rx_buffersize - ring->frameoffset));
+	if (slot == ring->nr_slots - 1)
+		desc_ctl |= BCM430x_DMADTOR_DTABLEEND;
+	set_desc_addr(desc, desc_addr);
+	set_desc_ctl(desc, desc_ctl);
 
-	if (ring->tx)
-		dir = DMA_TO_DEVICE;
-	else
-		dir = DMA_FROM_DEVICE;
+	rxhdr = (struct bcm430x_rxhdr *)(meta->skb->data);
+	rxhdr->frame_length = cpu_to_le16(0x0000);
+	rxhdr->flags1 = cpu_to_le16(0x0000);
 
-	set_desc_ctl(desc, 0x00000000);
-	set_desc_addr(desc, 0x00000000);
-
-	dma_unmap_single(&ring->bcm->pci_dev->dev,
-			 meta->dmaaddr, meta->skb->len, dir);
-	meta->dmaaddr = 0x00000000;
+	return 0;
 }
 
 /* Allocate the initial descbuffers.
@@ -435,46 +450,23 @@ static void unmap_descbuffer(struct bcm430x_dmaring *ring,
  */
 static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 {
-	size_t buffersize = 0;
 	int i, err = 0;
 	struct bcm430x_dmadesc *desc = NULL;
 	struct bcm430x_dmadesc_meta *meta;
-	struct bcm430x_hwrxhdr *rxhdr;
-
-	if (!ring->tx) {
-		if (ring->mmio_base == BCM430x_MMIO_DMA1_BASE)
-			buffersize = BCM430x_DMA1_RXBUFFERSIZE;
-		else if (ring->mmio_base == BCM430x_MMIO_DMA4_BASE)
-			buffersize = BCM430x_DMA4_RXBUFFERSIZE;
-		else
-			assert(0);
-	} else
-		assert(0);
 
 	ring_sync_for_cpu(ring);
 	for (i = 0; i < ring->nr_slots; i++) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
-		meta->skb = __dev_alloc_skb(buffersize, GFP_KERNEL);
-		if (!meta->skb)
+		err = setup_rx_descbuffer(ring, desc, meta, GFP_KERNEL);
+		if (err)
 			goto err_unwind;
-		meta->free_skb = 1;
-
-		skb_put(meta->skb, buffersize);
-		map_descbuffer(ring, desc, meta);
-		skb_pull(meta->skb, buffersize);
-
-		skb_reserve(meta->skb, ring->frameoffset);
-		rxhdr = (struct bcm430x_hwrxhdr *)(meta->skb->data - ring->frameoffset);
-		rxhdr->frame_length = 0;
-		rxhdr->flags1 = 0;
 
 		assert(ring->used_slots <= ring->nr_slots);
 		ring->last_used++;
 		ring->used_slots++;
 	}
-	set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_DTABLEEND);
 	ring_sync_for_device(ring);
 
 out:
@@ -485,7 +477,7 @@ err_unwind:
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
-		unmap_descbuffer(ring, desc, meta);
+		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
 		dev_kfree_skb(meta->skb);
 	}
 	goto out;
@@ -523,9 +515,10 @@ static int dmacontroller_setup(struct bcm430x_dmaring *ring)
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
 				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
+		/* Init the descriptor pointer. */
 		bcm430x_write32(ring->bcm,
 				ring->mmio_base + BCM430x_DMA_RX_DESC_INDEX,
-				BCM430x_RXRING_INITIAL_SLOT);
+				200);
 	}
 
 out:
@@ -569,7 +562,7 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 		if (!meta->used)
 			continue;
 
-		unmap_descbuffer(ring, desc, meta);
+		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
 		free_descriptor_buffer(ring, desc, meta, 0);
 	}
 }
@@ -603,8 +596,18 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	if (tx) {
 		ring->tx = 1;
 	} else {
-		if (dma_controller_base == BCM430x_MMIO_DMA1_BASE)
+		switch (dma_controller_base) {
+		case BCM430x_MMIO_DMA1_BASE:
+			ring->rx_buffersize = BCM430x_DMA1_RXBUFFERSIZE;
 			ring->frameoffset = BCM430x_DMA1_RX_FRAMEOFFSET;
+			break;
+		case BCM430x_MMIO_DMA4_BASE:
+			ring->rx_buffersize = BCM430x_DMA4_RXBUFFERSIZE;
+			ring->frameoffset = BCM430x_DMA4_RX_FRAMEOFFSET;
+			break;
+		default:
+			assert(0);
+		}
 	}
 
 	err = alloc_ringmemory(ring);
@@ -750,6 +753,9 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	int slot;
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
+	dma_addr_t dmaaddr;
+	u32 desc_ctl = 0;
+	u32 desc_addr;
 
 	/* Make sure we have enough free slots.
 	 * We check for frags+2, because we might need an additional
@@ -772,7 +778,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	if (ctx->cur_frag == 0) {
 		/* This is the first fragment. */
-		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMESTART);
+		desc_ctl |= BCM430x_DMADTOR_FRAMESTART;
 		/* Save the whole txb for freeing later in 
 		 * completion irq
 		 */
@@ -827,7 +833,13 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		 */
 		meta->free_skb = 0;
 	}
-	map_descbuffer(ring, desc, meta);
+	dmaaddr = map_descbuffer(ring, skb->data, skb->len);
+
+	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
+	desc_ctl |= (BCM430x_DMADTOR_BYTECNT_MASK &
+		     (meta->skb->len - ring->frameoffset));
+	if (slot == ring->nr_slots - 1)
+		desc_ctl |= BCM430x_DMADTOR_DTABLEEND;
 
 	if (skb_shinfo(skb)->nr_frags != 0) {
 		/* Map the remaining Scatter/Gather fragments */
@@ -842,8 +854,9 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	if (ctx->cur_frag == ctx->nr_frags - 1) {
 		/* This is the last fragment */
-		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_FRAMEEND);
-		set_desc_ctl(desc, get_desc_ctl(desc) | BCM430x_DMADTOR_COMPIRQ);
+		desc_ctl |= BCM430x_DMADTOR_FRAMEEND | BCM430x_DMADTOR_COMPIRQ;
+		set_desc_addr(desc, desc_addr);
+		set_desc_ctl(desc, desc_ctl);
 		assert(ctx->first_slot != -1);
 		ring_sync_for_device(ring);
 		/* Now transfer the whole frame. */
@@ -910,6 +923,7 @@ void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 		printk(KERN_ERR PFX "Out of memory!\n");
 		return;
 	}
+	skb->dev = ring->bcm->net_dev;
 	if (!ring->bcm->no_txhdr)
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb_put(skb, size), buf, size);
@@ -955,21 +969,69 @@ void dma_rx(struct bcm430x_dmaring *ring,
 {
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
-	struct bcm430x_rxhdr rxhdr;
-	unsigned char *data;
+	struct bcm430x_rxhdr *rxhdr;
+	struct sk_buff *skb;
+	struct ieee80211_rx_stats rx_stats;
+	u16 len;
+	int err;
 
+	//TODO: This can be optimized a lot.
+#if 1
 printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
        ring->mmio_base, slot);
+#endif
+
+	memset(&rx_stats, 0, sizeof(rx_stats));
 
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
 
-	unmap_descbuffer(ring, desc, meta);
-	data = meta->skb->data;
-	bcm430x_rxhdr_to_cpuorder(&rxhdr, (struct bcm430x_hwrxhdr *)data);
+	ring_sync_for_cpu(ring);
+	unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
+	skb = meta->skb;
+	rxhdr = (struct bcm430x_rxhdr *)skb->data;
+	len = cpu_to_le16(rxhdr->frame_length);
+	if (len == 0) {
+		int i = 0;
 
-	//TODO: Interpret the rxhdr.
-	//TODO: map the descbuffer again and make the device ready for new rx.
+		do {
+			udelay(2);
+			barrier();
+			len = cpu_to_le16(rxhdr->frame_length);
+		} while (len == 0 && i++ < 5);
+		if (unlikely(len == 0)) {
+			dprintkl(KERN_ERR PFX "DMA RX: len zero, dropping...\n");
+			goto drop;
+		}
+	}
+	if (unlikely(len > ring->rx_buffersize)) {
+		//FIXME: Can this trigger, if we span multiple descbuffers?
+		dprintkl(KERN_ERR PFX "DMA RX: invalid length\n");
+		goto drop;
+	}
+	skb_put(skb, len);
+	skb_pull(skb, ring->frameoffset);
+
+	//TODO: interpret more rxhdr stuff.
+
+	err = ieee80211_rx(ring->bcm->ieee, skb, &rx_stats);
+	if (unlikely(err == 0)) {
+		dprintkl(KERN_ERR PFX "ieee80211_rx() failed with %d\n", err);
+		goto drop;
+	}
+
+setup_new:
+	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
+	if (unlikely(err)) {
+		//TODO: What to do here?
+	}
+	ring_sync_for_device(ring);
+
+	return;
+
+drop:
+	dev_kfree_skb_irq(skb);
+	goto setup_new;
 }
 
 void fastcall
@@ -977,14 +1039,20 @@ bcm430x_dma_rx(struct bcm430x_dmaring *ring)
 {
 	u32 status;
 	u16 descptr;
-	int slot;
+	int slot, current_slot;
 
 	assert(!ring->tx);
 	status = bcm430x_read32(ring->bcm, ring->mmio_base + BCM430x_DMA_RX_STATUS);
 	descptr = (status & BCM430x_DMA_RXSTAT_DPTR_MASK);
-	slot = descptr / sizeof(struct bcm430x_dmadesc);
-	assert(slot >= 0 && slot < ring->nr_slots);
-	dma_rx(ring, slot);
+	current_slot = descptr / sizeof(struct bcm430x_dmadesc);
+	assert(current_slot >= 0 && current_slot < ring->nr_slots);
+	slot = ring->cur_rx_slot;
+	for ( ; slot != current_slot; slot = next_slot(ring, slot))
+		dma_rx(ring, slot);
+	bcm430x_write32(ring->bcm,
+			ring->mmio_base + BCM430x_DMA_RX_DESC_INDEX,
+			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
+	ring->cur_rx_slot = slot;
 }
 
 /* vim: set ts=8 sw=8 sts=8: */
