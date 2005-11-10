@@ -40,32 +40,6 @@
 #include <asm/semaphore.h>
 
 
-static inline
-void ring_sync_for_cpu(struct bcm430x_dmaring *ring)
-{
-	struct device *dev = &(ring->bcm->pci_dev->dev);
-
-	/*XXX: I am not sure, if usage of coherent memory would
-	 *     be better, performace wise. Syncing streaming mem
-	 *     might mean copying the whole memory around (On which
-	 *     platforms? Does the bcm430x support these platforms?)
-	 *     On PPC and i386 this operation should be cheap, though.
-	 */
-	dma_sync_single_for_cpu(dev, ring->dmabase,
-				BCM430x_DMA_RINGMEMSIZE,
-				DMA_TO_DEVICE);
-}
-
-static inline
-void ring_sync_for_device(struct bcm430x_dmaring *ring)
-{
-	struct device *dev = &(ring->bcm->pci_dev->dev);
-
-	dma_sync_single_for_device(dev, ring->dmabase,
-				   BCM430x_DMA_RINGMEMSIZE,
-				   DMA_TO_DEVICE);
-}
-
 static inline int free_slots(struct bcm430x_dmaring *ring)
 {
 	return (ring->nr_slots - ring->used_slots);
@@ -262,7 +236,6 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc_meta *meta;
 	int is_last_fragment;
 
-	ring_sync_for_cpu(ring);
 	assert(get_desc_ctl(ring->vbase + slot) & BCM430x_DMADTOR_FRAMESTART);
 
 	while (1) {
@@ -281,7 +254,6 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 			break;
 		slot++;
 	}
-	ring_sync_for_device(ring);
 }
 
 static int alloc_ringmemory(struct bcm430x_dmaring *ring)
@@ -289,43 +261,39 @@ static int alloc_ringmemory(struct bcm430x_dmaring *ring)
 	int err = -ENOMEM;
 	struct device *dev = &(ring->bcm->pci_dev->dev);
 
-	ring->vbase = (struct bcm430x_dmadesc *)__get_free_page(GFP_KERNEL);
+	ring->vbase = dma_alloc_coherent(dev, BCM430x_DMA_RINGMEMSIZE,
+					 &(ring->dmabase), GFP_KERNEL);
 	if (!ring->vbase) {
 		printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
 		goto out;
 	}
 	memset(ring->vbase, 0, BCM430x_DMA_RINGMEMSIZE);
-	ring->dmabase = dma_map_single(dev, ring->vbase,
-				       BCM430x_DMA_RINGMEMSIZE,
-				       DMA_TO_DEVICE);
+
 	/* sanity checks... */
 	if (ring->dmabase & 0x000003FF) {
 		printk(KERN_ERR PFX "Error: DMA ringmemory not 1024 byte aligned!\n");
-		goto err_unmap;
+		goto err_free;
 	}
 	if (ring->dmabase & ~BCM430x_DMA_DMABUSADDRMASK) {
 		printk(KERN_ERR PFX "Error: DMA ringmemory above 1G mark!\n");
-		goto err_unmap;
+		goto err_free;
 	}
 	err = 0;
 out:
 	return err;
 
-err_unmap:
-	dma_unmap_single(dev, ring->dmabase,
-			 BCM430x_DMA_RINGMEMSIZE,
-			 DMA_TO_DEVICE);
-	free_page((unsigned long)(ring->vbase));
+err_free:
+	dma_free_coherent(dev, BCM430x_DMA_RINGMEMSIZE,
+			  ring->vbase, ring->dmabase);
 	goto out;
 }
 
 static void free_ringmemory(struct bcm430x_dmaring *ring)
 {
-	dma_unmap_single(&(ring->bcm->pci_dev->dev),
-			 ring->dmabase,
-			 BCM430x_DMA_RINGMEMSIZE,
-			 DMA_TO_DEVICE);
-	free_page((unsigned long)(ring->vbase));
+	struct device *dev = &(ring->bcm->pci_dev->dev);
+
+	dma_free_coherent(dev, BCM430x_DMA_RINGMEMSIZE,
+			  ring->vbase, ring->dmabase);
 }
 
 /* Reset the RX DMA channel */
@@ -455,7 +423,6 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 	struct bcm430x_dmadesc *desc = NULL;
 	struct bcm430x_dmadesc_meta *meta;
 
-	ring_sync_for_cpu(ring);
 	for (i = 0; i < ring->nr_slots; i++) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
@@ -468,7 +435,6 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		ring->last_used++;
 		ring->used_slots++;
 	}
-	ring_sync_for_device(ring);
 
 out:
 	return err;
@@ -641,7 +607,6 @@ static void cancel_transfers(struct bcm430x_dmaring *ring)
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
 
-	ring_sync_for_cpu(ring);
 	for (slot = 0; slot < ring->nr_slots; slot++) {
 		desc = ring->vbase + slot;
 		meta = ring->meta + slot;
@@ -650,7 +615,6 @@ static void cancel_transfers(struct bcm430x_dmaring *ring)
 			continue;
 		free_descriptor_frame(ring, slot);
 	}
-	ring_sync_for_device(ring);
 }
 
 /* Main cleanup function. */
@@ -770,7 +734,6 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
 
-	ring_sync_for_cpu(ring);
 	if (ctx->cur_frag == 0) {
 		/* This is the first fragment. */
 		desc_ctl |= BCM430x_DMADTOR_FRAMESTART;
@@ -791,7 +754,6 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 			err = skb_cow(skb, sizeof(struct bcm430x_txhdr));
 			if (unlikely(err)) {
 				return_slot(ring, slot);
-				ring_sync_for_device(ring);
 				printk(KERN_ERR PFX "DMA: Not enough skb headroom!\n");
 				return err;
 			}
@@ -853,11 +815,8 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		set_desc_addr(desc, desc_addr);
 		set_desc_ctl(desc, desc_ctl);
 		assert(ctx->first_slot != -1);
-		ring_sync_for_device(ring);
 		/* Now transfer the whole frame. */
 		dmacontroller_poke_tx(ring, ctx->first_slot);
-	} else {
-		ring_sync_for_device(ring);
 	}
 out:
 	return err;
@@ -981,7 +940,6 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
 
-	ring_sync_for_cpu(ring);
 	unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
 	skb = meta->skb;
 	rxhdr = (struct bcm430x_rxhdr *)skb->data;
@@ -1020,7 +978,6 @@ setup_new:
 	if (unlikely(err)) {
 		//TODO: What to do here?
 	}
-	ring_sync_for_device(ring);
 
 	return;
 
