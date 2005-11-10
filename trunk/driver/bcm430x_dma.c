@@ -957,10 +957,11 @@ void dma_rx(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
 	struct bcm430x_rxhdr *rxhdr;
-	struct sk_buff *skb, *new_skb;
+	struct sk_buff *skb;
 	struct ieee80211_rx_stats rx_stats;
 	u16 len;
 	int err;
+	dma_addr_t dmaaddr;
 
 	//TODO: This can be optimized a lot.
 #if 1
@@ -1000,16 +1001,14 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 	//TODO: interpret more rxhdr stuff.
 
 	if (1/*len > BCM430x_DMA_RX_COPYTHRESHOLD*/) {
-		slot = next_slot(ring, slot);
-		desc = ring->vbase + slot;
-		meta = ring->meta + slot;
+		dmaaddr = meta->dmaaddr;
 		err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
 		if (unlikely(err)) {
 			dprintkl(KERN_ERR PFX "DMA RX: setup_rx_descbuffer() failed\n");
 			goto drop;
 		}
 
-		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize);
+		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize);
 		skb_put(skb, len);
 		skb_pull(skb, ring->frameoffset);
 	} else {
@@ -1018,18 +1017,13 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 
 	err = ieee80211_rx(ring->bcm->ieee, skb, &rx_stats);
 	if (unlikely(err == 0)) {
+		dev_kfree_skb_irq(skb);
 		dprintkl(KERN_ERR PFX "ieee80211_rx() failed with %d\n", err);
 		goto drop;
 	}
 
 drop:
 	return;
-
-
-
-	
-	dev_kfree_skb_irq(skb);
-	goto setup_new;
 }
 
 void fastcall
