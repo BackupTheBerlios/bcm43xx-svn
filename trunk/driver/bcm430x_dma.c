@@ -211,7 +211,6 @@ static void free_descriptor_buffer(struct bcm430x_dmaring *ring,
 				   struct bcm430x_dmadesc_meta *meta,
 				   int irq_context)
 {
-	unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
 	if (meta->free_skb) {
 		if (irq_context)
 			dev_kfree_skb_irq(meta->skb);
@@ -244,6 +243,7 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 		meta = ring->meta + slot;
 
 		is_last_fragment = !!(get_desc_ctl(desc) & BCM430x_DMADTOR_FRAMEEND);
+		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
 		free_descriptor_buffer(ring, desc, meta, 1);
 		/* Everything belonging to the slot is unmapped
 		 * and freed, so we can return it.
@@ -445,7 +445,7 @@ err_unwind:
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
-		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
+		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize);
 		dev_kfree_skb(meta->skb);
 	}
 	goto out;
@@ -520,6 +520,7 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
 	int i;
+	size_t len;
 
 	if (!ring->used_slots)
 		return;
@@ -530,7 +531,11 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 		if (!meta->used)
 			continue;
 
-		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
+		if (ring->tx)
+			len = meta->skb->len;
+		else
+			len = ring->rx_buffersize;
+		unmap_descbuffer(ring, meta->dmaaddr, len);
 		free_descriptor_buffer(ring, desc, meta, 0);
 	}
 }
