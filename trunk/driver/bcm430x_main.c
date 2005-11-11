@@ -486,6 +486,8 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	tmp = 0;
 	if (ofdm_modulation)
 		tmp |= BCM430x_TXHDRCTL_OFDM;
+	if (bcm->short_preamble) //FIXME: could be the other way around, please test
+		tmp |= BCM430x_TXHDRCTL_SHORT_PREAMBLE;
 	tmp |= (phy->antenna_diversity << BCM430x_TXHDRCTL_ANTENNADIV_SHIFT)
 		& BCM430x_TXHDRCTL_ANTENNADIV_MASK;
 	txhdr->control = cpu_to_le16(tmp);
@@ -2061,11 +2063,11 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 			bcm430x_write16(bcm, 0x0612, 0x0032);
 	} else
 		bcm430x_write16(bcm, 0x0612, 0x0002);
-/* TODO
+
 	if (modparam_short_preamble)
-		
+		bcm->short_preamble = 1;
 	else
-*/
+		bcm->short_preamble = 0;
 	
 	if (bcm->current_core->rev < 3) {
 		bcm430x_write16(bcm, 0x060E, 0x0000);

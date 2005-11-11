@@ -302,6 +302,7 @@
 #define BCM430x_TXHDRFLAG_FRAMEBURST		0x0800
 
 #define BCM430x_TXHDRCTL_OFDM			0x0001
+#define BCM430x_TXHDRCTL_SHORT_PREAMBLE		0x0010
 #define BCM430x_TXHDRCTL_ANTENNADIV_MASK	0x0030
 #define BCM430x_TXHDRCTL_ANTENNADIV_SHIFT	8
 
@@ -570,8 +571,9 @@ struct bcm430x_private {
 	    adhoc_on_last_tbtt:1,	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
 	    no_txhdr:1,			/* Do not add a TX header in DMA or PIO code. */
 	    powersaving:1,		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
-	    associated:1;		/* TRUE, of we are associated. */
-
+	    associated:1,		/* TRUE, of we are associated. */
+	    short_preamble:1;		/* TRUE, if short preamble is enabled. */
+	
 	/* Bus type we are connected to.
 	 * This is currently always BCM430x_BUSTYPE_PCI
 	 */
