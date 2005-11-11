@@ -420,7 +420,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	u8 fallback_bitrate;
 	u16 tmp;
 
-	/* Now contruct the TX header. */
+	/* Now construct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
 
 	//TODO: Some RTS/CTS stuff has to be done.
