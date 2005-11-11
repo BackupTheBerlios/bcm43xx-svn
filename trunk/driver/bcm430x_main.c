@@ -565,6 +565,22 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 		bcm430x_ram_write(bcm, 0x478 + i, *((u32 *)(mac_bssid + i)));
 }
 
+static void bcm430x_short_slot_timing_enable(struct bcm430x_private *bcm)
+{
+	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
+		return;
+	bcm430x_write16(bcm, 0x684, 519);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 9);
+}
+
+static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
+{
+	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
+		return;
+	bcm430x_write16(bcm, 0x684, 530);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
+}
+
 static void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
 	if (!bcm->associated)
@@ -1944,22 +1960,6 @@ void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 	}
 	if (!i)
 		printkl(KERN_ERR PFX "Failed to suspend mac!\n");
-}
-
-static void bcm430x_short_slot_timing_enable(struct bcm430x_private *bcm)
-{
-	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
-		return;
-	bcm430x_write16(bcm, 0x684, 519);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 9);
-}
-
-static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
-{
-	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
-		return;
-	bcm430x_write16(bcm, 0x684, 530);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
 }
 
 /* This is the opposite of bcm430x_chip_init() */
