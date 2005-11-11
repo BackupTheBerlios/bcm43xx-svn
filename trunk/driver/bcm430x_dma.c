@@ -963,8 +963,7 @@ void dma_rx(struct bcm430x_dmaring *ring,
 	int err;
 	dma_addr_t dmaaddr;
 
-	//TODO: This can be optimized a lot.
-#if 1
+#if 0
 printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
        ring->mmio_base, slot);
 #endif
@@ -998,8 +997,6 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 	}
 	len -= IEEE80211_FCS_LEN;
 
-	//TODO: interpret more rxhdr stuff.
-
 	if (1/*len > BCM430x_DMA_RX_COPYTHRESHOLD*/) {
 		dmaaddr = meta->dmaaddr;
 		err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
@@ -1015,8 +1012,8 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 		//TODO
 	}
 
-	err = ieee80211_rx(ring->bcm->ieee, skb, &rx_stats);
-	if (unlikely(err == 0)) {
+	err = bcm430x_rx(ring->bcm, skb, rxhdr);
+	if (unlikely(err)) {
 		dev_kfree_skb_irq(skb);
 		dprintkl(KERN_ERR PFX "ieee80211_rx() failed with %d\n", err);
 		goto drop;

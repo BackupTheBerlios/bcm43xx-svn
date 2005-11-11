@@ -149,6 +149,10 @@ struct bcm430x_xmitstatus {
 	u16 unknown; //FIXME
 };
 
+int FASTCALL(bcm430x_rx(struct bcm430x_private *bcm,
+			struct sk_buff *skb,
+			struct bcm430x_rxhdr *rxhdr));
+
 /* write the SHM Control word with a 32bit word offset */
 void bcm430x_shm_control_word(struct bcm430x_private *bcm,
 			      u16 routing, u16 offset);

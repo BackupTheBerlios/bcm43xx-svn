@@ -3516,6 +3516,89 @@ err_pci_disable:
 	goto out;
 }
 
+void bcm430x_register_station(struct bcm430x_private *bcm,
+			      const u8 *addr)
+{
+	//TODO
+}
+
+static inline
+void bcm430x_rx_packet(struct bcm430x_private *bcm,
+		       struct sk_buff *skb,
+		       struct ieee80211_rx_stats *stats)
+{
+	int err;
+
+dprintk("RX data\n");
+	err = ieee80211_rx(bcm->ieee, skb, stats);
+	if (unlikely(err == 0))
+		dprintkl(KERN_ERR PFX "ieee80211_rx() failed with %d\n", err);
+}
+
+int fastcall bcm430x_rx(struct bcm430x_private *bcm,
+			struct sk_buff *skb,
+			struct bcm430x_rxhdr *rxhdr)
+{
+	struct ieee80211_rx_stats stats;
+	struct ieee80211_hdr *wlhdr;
+	u16 tmp;
+	int is_packet_for_us = 0;
+
+	memset(&stats, 0, sizeof(stats));
+	//TODO: Interpret the rxhdr and construct the stats.
+
+	if (bcm->ieee->iw_mode == IW_MODE_MONITOR) {
+		bcm430x_rx_packet(bcm, skb, &stats);
+		return 0;
+	}
+
+	wlhdr = (struct ieee80211_hdr *)(skb->data);
+	switch (bcm->ieee->iw_mode) {
+	case IW_MODE_ADHOC:
+		if (memcmp(wlhdr->addr1, bcm->net_dev->dev_addr, ETH_ALEN) == 0 ||
+		    memcmp(wlhdr->addr3, bcm->ieee->bssid, ETH_ALEN) == 0 ||
+		    is_broadcast_ether_addr(wlhdr->addr1) ||
+		    is_multicast_ether_addr(wlhdr->addr1))
+			is_packet_for_us = 1;
+		break;
+	case IW_MODE_INFRA:
+	default:
+		if (memcmp(wlhdr->addr3, bcm->ieee->bssid, ETH_ALEN) == 0 ||
+		    memcmp(wlhdr->addr1, bcm->net_dev->dev_addr, ETH_ALEN) == 0 ||
+		    is_broadcast_ether_addr(wlhdr->addr1) ||
+		    is_multicast_ether_addr(wlhdr->addr1))
+			is_packet_for_us = 1;
+		break;
+	}
+
+	switch (WLAN_FC_GET_TYPE(wlhdr->frame_ctl)) {
+	case IEEE80211_FTYPE_MGMT:
+		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
+		if (bcm->ieee->iw_mode == IW_MODE_ADHOC) {
+			tmp = WLAN_FC_GET_STYPE(wlhdr->frame_ctl);
+			if (tmp == IEEE80211_STYPE_PROBE_RESP ||
+			    tmp == IEEE80211_STYPE_BEACON) {
+				if (memcmp(bcm->ieee->bssid, wlhdr->addr3, ETH_ALEN) == 0)
+					bcm430x_register_station(bcm, wlhdr->addr2);
+			}
+		}
+		break;
+	case IEEE80211_FTYPE_DATA:
+		if (is_packet_for_us)
+			bcm430x_rx_packet(bcm, skb, &stats);
+		else
+			dprintkl(KERN_ERR PFX "RX packet dropped (not for us)\n");
+		break;
+	case IEEE80211_FTYPE_CTL:
+		break;
+	default:
+		assert(0);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* Do the Hardware IO operations to send the txb */
 static inline int bcm430x_tx(struct bcm430x_private *bcm,
 			     struct ieee80211_txb *txb)
