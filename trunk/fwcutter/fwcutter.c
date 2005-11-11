@@ -463,6 +463,9 @@ int main(int argc, char *argv[])
 	snprintf(fwname, sizeof(fwname), "bcm430x_microcode5%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc5_pos, file->uc5_length);
+	snprintf(fwname, sizeof(fwname), "bcm430x_microcode11%s.fw", cmdargs.postfix);
+	extract_fw(cmdargs.infile, fwname,
+		   file->flags, file->uc11_pos, file->uc11_length);
 	snprintf(fwname, sizeof(fwname), "bcm430x_pcm4%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->pcm4_pos, file->pcm4_length);

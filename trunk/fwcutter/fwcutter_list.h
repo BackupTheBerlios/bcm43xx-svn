@@ -12,6 +12,8 @@ static const struct file {
 	const uint32_t uc4_length;
 	const uint32_t uc5_pos;
 	const uint32_t uc5_length;
+	const uint32_t uc11_pos;
+	const uint32_t uc11_length;
 	const uint32_t pcm4_pos;
 	const uint32_t pcm4_length;
 	const uint32_t pcm5_pos;
@@ -434,6 +436,19 @@ static const struct file {
 		.uc5_pos     = 0x48030,  .uc5_length  = 0x5630,
 		.pcm4_pos    = 0x4d664,  .pcm4_length = 0x478,
 		.pcm5_pos    = 0x4dae0,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl_apsta.o",
+		.version     = "3.130.20.0",                            /* 08/02/2004 */
+		.md5         = "e08665c5c5b66beb9c3b2dd54aa80cb3",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x56020,
+		.uc2_pos     = 0x59ca0,  .uc2_length  = 0x3fe0,
+		.uc4_pos     = 0x5dc84,  .uc4_length  = 0x4e78,
+		.uc5_pos     = 0x62b00,  .uc5_length  = 0x5700,
+		.uc11_pos    = 0x68204,  .uc11_length = 0x54a8,
+		.pcm4_pos    = 0x6d6b0,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x6dbd4,  .pcm5_length = 0x520,
 	},
 };
 

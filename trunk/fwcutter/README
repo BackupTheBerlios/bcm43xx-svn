@@ -76,3 +76,7 @@ wl.o		Link
 3.50.21.0	http://nthill.free.fr/openwrt/sources/wl/wl-2.02.7.tar.bz2
 3.60.13.0	http://nthill.free.fr/openwrt/sources/wl/wl-2.09.1.tar.bz2
 		http://nthill.free.fr/openwrt/sources/wl/wl-3.37.6.tar.bz2
+
+wl_apsta.o
+-------------   -------------------------------------------------------
+3.130.20.0	http://openwrt.inf.fh-brs.de/~nbd/wl_apsta.o
