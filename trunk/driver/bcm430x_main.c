@@ -584,6 +584,8 @@ static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
 
 static void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
+	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
+	
 	if (!bcm->associated)
 		return;
 	bcm430x_mac_suspend(bcm);
@@ -596,7 +598,7 @@ static void bcm430x_disassociate(struct bcm430x_private *bcm)
 		bcm430x_write32(bcm, 0x0188, 0x80000000);
 	//TODO: contention
 	
-	if (0) //FIXME: B compatibility mode (G PHYs only)
+	if (!ofdm_modulation && bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
 		bcm430x_short_slot_timing_enable(bcm);
 	
 	bcm430x_mac_enable(bcm);
