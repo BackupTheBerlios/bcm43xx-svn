@@ -576,7 +576,10 @@ static void bcm430x_disassociate(struct bcm430x_private *bcm)
 	} else
 		bcm430x_write32(bcm, 0x0188, 0x80000000);
 	//TODO: contention
-	//TODO: short slot timing?
+	
+	if (0) //FIXME: B compatibility mode (G PHYs only)
+		bcm430x_short_slot_timing_enable(bcm);
+	
 	bcm430x_mac_enable(bcm);
 }
 
