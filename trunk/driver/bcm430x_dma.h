@@ -154,11 +154,6 @@ struct bcm430x_dmaring {
 	   suspended:1;	/* TRUE, if transfers are suspended on this ring. */
 };
 
-struct bcm430x_dma_txcontext {
-	u8 nr_frags;
-	u8 cur_frag;
-};
-
 
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
@@ -179,8 +174,8 @@ int FASTCALL(bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
 void FASTCALL(bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 					    struct bcm430x_xmitstatus *status));
 
-void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
-			  const char *buf, size_t size);
+int FASTCALL(bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
+				  const char *buf, size_t size));
 
 void FASTCALL(bcm430x_dma_rx(struct bcm430x_dmaring *ring));
 

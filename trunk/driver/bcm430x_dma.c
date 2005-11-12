@@ -61,48 +61,30 @@ static inline int prev_slot(struct bcm430x_dmaring *ring, int slot)
 	return slot - 1;
 }
 
-static inline void try_to_suspend_txqueue(struct bcm430x_dmaring *ring)
-{
-	assert(ring->tx);
-	assert(!ring->suspended);
-
-	if (free_slots(ring) < ring->suspend_mark) {
-		netif_stop_queue(ring->bcm->net_dev);
-		ring->suspended = 1;
-	}
-}
-
-static inline void try_to_resume_txqueue(struct bcm430x_dmaring *ring)
-{
-	assert(ring->tx);
-
-	if (!ring->suspended)
-		return;
-	if (free_slots(ring) >= ring->resume_mark) {
-		ring->suspended = 0;
-		netif_wake_queue(ring->bcm->net_dev);
-	}
-}
-
 /* Request a slot for usage. */
 static inline
 int request_slot(struct bcm430x_dmaring *ring)
 {
 	int slot;
+	int nr_free = free_slots(ring);
 
-	if (unlikely(free_slots(ring) == 0))
-		return -1;
+	assert(ring->tx);
+	assert(!ring->suspended);
+
+	if (unlikely(nr_free == 0))
+		return -ENOSPC;
 
 	slot = next_slot(ring, ring->current_slot);
 	ring->current_slot = slot;
 	ring->meta[slot].used = 1;
 	ring->used_slots++;
 
-	if (ring->tx) {
-		/* Check the number of available slots and suspend TX,
-		 * if we are running low on free slots.
-		 */
-		try_to_suspend_txqueue(ring);
+	/* Check the number of available slots and suspend TX,
+	 * if we are running low on free slots.
+	 */
+	if (unlikely(nr_free - 1 < ring->suspend_mark)) {
+		netif_stop_queue(ring->bcm->net_dev);
+		ring->suspended = 1;
 	}
 
 	return slot;
@@ -112,14 +94,19 @@ int request_slot(struct bcm430x_dmaring *ring)
 static inline
 void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
+	assert(ring->tx);
+
 	ring->meta[slot].used = 0;
 	ring->used_slots--;
 
-	if (ring->tx) {
-		/* Check if TX is suspended and check if we have
-		 * enough free slots to resume it again.
-		 */
-		try_to_resume_txqueue(ring);
+	/* Check if TX is suspended and check if we have
+	 * enough free slots to resume it again.
+	 */
+	if (unlikely(ring->suspended)) {
+		if (free_slots(ring) >= ring->resume_mark) {
+			ring->suspended = 0;
+			netif_wake_queue(ring->bcm->net_dev);
+		}
 	}
 }
 
@@ -131,8 +118,8 @@ static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
 	 * "slot" is the last slot of the new frame we want to transmit.
 	 * Close your seat belts now, please.
 	 */
-	slot = next_slot(ring, slot);
 	wmb();
+	slot = next_slot(ring, slot);
 	bcm430x_write32(ring->bcm,
 			ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
 			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
@@ -168,18 +155,20 @@ void dump_ringmemory(struct bcm430x_dmaring *ring)
 static inline
 dma_addr_t map_descbuffer(struct bcm430x_dmaring *ring,
 			  unsigned char *buf,
-			  size_t len)
+			  size_t len,
+			  int tx)
 {
 	dma_addr_t dmaaddr;
-	enum dma_data_direction dir;
 
-	if (ring->tx)
-		dir = DMA_TO_DEVICE;
-	else
-		dir = DMA_FROM_DEVICE;
-
-	dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
-				 buf, len, dir);
+	if (tx) {
+		dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
+					 buf, len,
+					 DMA_TO_DEVICE);
+	} else {
+		dmaaddr = dma_map_single(&ring->bcm->pci_dev->dev,
+					 buf, len,
+					 DMA_FROM_DEVICE);
+	}
 
 	return dmaaddr;
 }
@@ -187,17 +176,18 @@ dma_addr_t map_descbuffer(struct bcm430x_dmaring *ring,
 static inline
 void unmap_descbuffer(struct bcm430x_dmaring *ring,
 		      dma_addr_t addr,
-		      size_t len)
+		      size_t len,
+		      int tx)
 {
-	enum dma_data_direction dir;
-
-	if (ring->tx)
-		dir = DMA_TO_DEVICE;
-	else
-		dir = DMA_FROM_DEVICE;
-
-	dma_unmap_single(&ring->bcm->pci_dev->dev,
-			 addr, len, dir);
+	if (tx) {
+		dma_unmap_single(&ring->bcm->pci_dev->dev,
+				 addr, len,
+				 DMA_TO_DEVICE);
+	} else {
+		dma_unmap_single(&ring->bcm->pci_dev->dev,
+				 addr, len,
+				 DMA_FROM_DEVICE);
+	}
 }
 
 static inline
@@ -223,10 +213,11 @@ void sync_descbuffer_for_device(struct bcm430x_dmaring *ring,
 }
 
 /* Unmap and free a descriptor buffer. */
-static void free_descriptor_buffer(struct bcm430x_dmaring *ring,
-				   struct bcm430x_dmadesc *desc,
-				   struct bcm430x_dmadesc_meta *meta,
-				   int irq_context)
+static inline
+void free_descriptor_buffer(struct bcm430x_dmaring *ring,
+			    struct bcm430x_dmadesc *desc,
+			    struct bcm430x_dmadesc_meta *meta,
+			    int irq_context)
 {
 	if (meta->free_skb) {
 		if (irq_context)
@@ -252,15 +243,16 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 	struct bcm430x_dmadesc_meta *meta;
 	int is_last_fragment;
 
+	assert(ring->tx);
 	assert(get_desc_ctl(ring->vbase + slot) & BCM430x_DMADTOR_FRAMESTART);
 
 	while (1) {
-		assert(slot < ring->nr_slots);
+		assert(slot >= 0 && slot < ring->nr_slots);
 		desc = ring->vbase + slot;
 		meta = ring->meta + slot;
 
 		is_last_fragment = !!(get_desc_ctl(desc) & BCM430x_DMADTOR_FRAMEEND);
-		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len);
+		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
 		free_descriptor_buffer(ring, desc, meta, 1);
 		/* Everything belonging to the slot is unmapped
 		 * and freed, so we can return it.
@@ -269,7 +261,7 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 
 		if (is_last_fragment)
 			break;
-		slot++;
+		slot = next_slot(ring, slot);
 	}
 }
 
@@ -410,12 +402,12 @@ static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
 	assert(!ring->tx);
 
 	meta->skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
-	if (!meta->skb)
+	if (unlikely(!meta->skb))
 		return -ENOMEM;
 	meta->skb->dev = ring->bcm->net_dev;
 	meta->free_skb = 1;
 
-	dmaaddr = map_descbuffer(ring, meta->skb->data, ring->rx_buffersize);
+	dmaaddr = map_descbuffer(ring, meta->skb->data, ring->rx_buffersize, 0);
 	meta->dmaaddr = dmaaddr;
 	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
 	desc_ctl = (BCM430x_DMADTOR_BYTECNT_MASK &
@@ -437,7 +429,7 @@ static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
  */
 static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 {
-	int i, err = 0;
+	int i, err = -ENOMEM;
 	struct bcm430x_dmadesc *desc = NULL;
 	struct bcm430x_dmadesc_meta *meta;
 
@@ -451,10 +443,10 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 
 		meta->used = 1;
 		assert(ring->used_slots <= ring->nr_slots);
-		ring->used_slots++;
 	}
 	ring->used_slots = ring->nr_slots;
 
+	err = 0;
 out:
 	return err;
 
@@ -463,9 +455,11 @@ err_unwind:
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
-		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize);
+		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize, 0);
 		dev_kfree_skb(meta->skb);
+		meta->used = 0;
 	}
+	ring->used_slots = 0;
 	goto out;
 }
 
@@ -538,7 +532,6 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 	struct bcm430x_dmadesc *desc;
 	struct bcm430x_dmadesc_meta *meta;
 	int i;
-	size_t len;
 
 	if (!ring->used_slots)
 		return;
@@ -549,11 +542,13 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 		if (!meta->used)
 			continue;
 
-		if (ring->tx)
-			len = meta->skb->len;
-		else
-			len = ring->rx_buffersize;
-		unmap_descbuffer(ring, meta->dmaaddr, len);
+		if (ring->tx) {
+			unmap_descbuffer(ring, meta->dmaaddr,
+					 meta->skb->len, 1);
+		} else {
+			unmap_descbuffer(ring, meta->dmaaddr,
+					 ring->rx_buffersize, 0);
+		}
 		free_descriptor_buffer(ring, desc, meta, 0);
 	}
 }
@@ -621,10 +616,6 @@ err_kfree_ring:
 	goto out;
 }
 
-/* Cancel all pending transfers.
- * Called on device shutdown, so make sure no transfers
- * are still running on return from this function.
- */
 static void cancel_transfers(struct bcm430x_dmaring *ring)
 {
 	int slot;
@@ -725,8 +716,7 @@ struct bcm430x_dmaring * parse_cookie(struct bcm430x_private *bcm,
 }
 
 static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
-				     struct sk_buff *skb,
-				     struct bcm430x_dma_txcontext *ctx)
+				     struct sk_buff *skb)
 {
 	/*TODO: Scatter/Gather IO */
 	return -EINVAL;
@@ -736,7 +726,7 @@ static fastcall
 int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		    struct sk_buff *skb,
 		    struct ieee80211_txb *txb,
-		    struct bcm430x_dma_txcontext *ctx,
+		    u8 cur_frag,
 		    const int forcefree_skb)
 {
 	int err = 0;
@@ -748,18 +738,18 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	u32 desc_addr;
 
 	slot = request_slot(ring);
-	if (unlikely(slot < 0)) {
+	if (unlikely(slot == -ENOSPC)) {
 		/* The queue should be stopped,
 		 * if we are low on free slots.
 		 * If this ever triggers, we have to lower the suspend_mark.
 		 */
-		printk(KERN_ERR PFX "Out of DMA descriptor slots!\n");
+		dprintkl(KERN_ERR PFX "Out of DMA descriptor slots!\n");
 		return -ENOMEM;
 	}
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
 
-	if (ctx->cur_frag == 0) {
+	if (cur_frag == 0) {
 		/* This is the first fragment. */
 		desc_ctl |= BCM430x_DMADTOR_FRAMESTART;
 		/* Save the whole txb for freeing later in 
@@ -777,11 +767,10 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 			err = skb_cow(skb, sizeof(struct bcm430x_txhdr));
 			if (unlikely(err)) {
 				return_slot(ring, slot);
-				printk(KERN_ERR PFX "DMA: Not enough skb headroom!\n");
+				printkl(KERN_ERR PFX "DMA: Not enough skb headroom!\n");
 				return err;
 			}
 		}
-		assert(skb_headroom(skb) >= sizeof(struct bcm430x_txhdr));
 		/* Reserve enough headroom for the device tx header. */
 		__skb_push(skb, sizeof(struct bcm430x_txhdr));
 		/* Now calculate and add the tx header.
@@ -791,7 +780,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 				       (struct bcm430x_txhdr *)skb->data,
 				       skb->data + sizeof(struct bcm430x_txhdr),
 				       skb->len - sizeof(struct bcm430x_txhdr),
-				       (ctx->cur_frag == 0),
+				       (cur_frag == 0),
 				       generate_cookie(ring, slot));
 	} else {
 		struct bcm430x_txhdr *txhdr;
@@ -801,9 +790,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		txhdr = (struct bcm430x_txhdr *)skb->data;
 		txhdr->cookie = cpu_to_le16(generate_cookie(ring, slot));
 	}
-//bcm430x_printk_dump(skb->data, skb->len, "SKB");
 
-	/* Write the buffer to the descriptor and map it. */
 	meta->skb = skb;
 	if (unlikely(forcefree_skb)) {
 		meta->free_skb = 1;
@@ -813,7 +800,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		 */
 		meta->free_skb = 0;
 	}
-	dmaaddr = map_descbuffer(ring, skb->data, skb->len);
+	dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
 	meta->dmaaddr = dmaaddr;
 
 	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
@@ -824,20 +811,20 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	if (skb_shinfo(skb)->nr_frags != 0) {
 		/* Map the remaining Scatter/Gather fragments */
-		err = dma_tx_fragment_sg(ring, skb, ctx);
-		if (err) {
-			/*TODO: error handling: unmap, other stuff? */
+		err = dma_tx_fragment_sg(ring, skb);
+		if (unlikely(err)) {
+			unmap_descbuffer(ring, meta->dmaaddr, skb->len, 1);
 			return_slot(ring, slot);
 			goto out;
 		}
 		/*TODO: modify desc and meta to point to the last SC buffer */
 	}
 
-	if (ctx->cur_frag == ctx->nr_frags - 1) {
+	if (txb == NULL || cur_frag == txb->nr_frags - 1) {
 		/* This is the last fragment */
 		desc_ctl |= BCM430x_DMADTOR_FRAMEEND | BCM430x_DMADTOR_COMPIRQ;
-		set_desc_addr(desc, desc_addr);
 		set_desc_ctl(desc, desc_ctl);
+		set_desc_addr(desc, desc_addr);
 		/* Now transfer the whole frame. */
 		dmacontroller_poke_tx(ring, slot);
 	}
@@ -849,65 +836,84 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 				   struct ieee80211_txb *txb)
 {
 	/* We just received a packet from the kernel network subsystem.
-	 * Reformat and write it to some DMA buffers. Poke
+	 * Add headers and DMA map the memory. Poke
 	 * the device to send the stuff.
 	 * Note that this is called from atomic context.
 	 */
 
-	int i, err = -EINVAL;
+	int err = -EINVAL;
+	u8 i;
 	struct sk_buff *skb;
-	struct bcm430x_dma_txcontext ctx;
 	unsigned long flags;
 
 	assert(ring->tx);
 
-	ctx.nr_frags = txb->nr_frags;
-	ctx.cur_frag = 0;
-
 	spin_lock_irqsave(&ring->lock, flags);
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
-		err = dma_tx_fragment(ring, skb, txb, &ctx, 0);
-		if (err)
-			break;//TODO: correct error handling.
-		ctx.cur_frag++;
+		err = dma_tx_fragment(ring, skb, txb, i, 0);
+		if (unlikely(err))
+			goto err_unwind;
 	}
+out_unlock:
 	spin_unlock_irqrestore(&ring->lock, flags);
 
 	return err;
+
+err_unwind:
+	{
+		struct bcm430x_dmadesc *desc;
+		struct bcm430x_dmadesc_meta *meta;
+		int slot;
+		int is_first;
+
+		slot = ring->current_slot;
+		while (1) {
+			assert(slot >= 0 && slot < ring->nr_slots);
+			desc = ring->vbase + slot;
+			meta = ring->meta + slot;
+
+			is_first = (i-- == 0);
+
+			unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
+			free_descriptor_buffer(ring, desc, meta, 1);
+			return_slot(ring, slot);
+
+			slot = prev_slot(ring, slot);
+			if (is_first)
+				break;
+		}
+		ring->current_slot = slot;
+	}
+	goto out_unlock;
 }
 
-/* Write a frame directly to the ring. */
-void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
-			  const char *buf, size_t size)
+/* Transfer a frame from a char buffer. */
+int fastcall bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
+				  const char *buf, size_t size)
 {
 	struct sk_buff *skb;
-	struct bcm430x_dma_txcontext ctx;
 	int err;
 	size_t skb_size = size;
 	unsigned long flags;
 
 	assert(ring->tx);
 
-	if (!ring->bcm->no_txhdr)
+	if (likely(ring->bcm->no_txhdr == 0))
 		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(skb_size);
-	if (!skb) {
-		printk(KERN_ERR PFX "Out of memory!\n");
-		return;
-	}
+	if (unlikely(!skb))
+		return -ENOMEM;
 	skb->dev = ring->bcm->net_dev;
-	if (!ring->bcm->no_txhdr)
+	if (likely(ring->bcm->no_txhdr == 0))
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb_put(skb, size), buf, size);
 
-	ctx.nr_frags = 1;
-	ctx.cur_frag = 0;
 	spin_lock_irqsave(&ring->lock, flags);
-	err = dma_tx_fragment(ring, skb, NULL, &ctx, 1);
+	err = dma_tx_fragment(ring, skb, NULL, 0, 1);
 	spin_unlock_irqrestore(&ring->lock, flags);
-	if (err)
-		printk(KERN_ERR PFX "TX FRAME failed!\n");
+
+	return err;
 }
 
 int fastcall
@@ -949,11 +955,6 @@ void dma_rx(struct bcm430x_dmaring *ring,
 	int err;
 	dma_addr_t dmaaddr;
 
-#if 0
-printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
-       ring->mmio_base, slot);
-#endif
-
 	memset(&rx_stats, 0, sizeof(rx_stats));
 
 	desc = ring->vbase + slot;
@@ -991,7 +992,7 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 			goto drop;
 		}
 
-		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize);
+		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
 		skb_put(skb, len + ring->frameoffset);
 		skb_pull(skb, ring->frameoffset);
 	} else {
