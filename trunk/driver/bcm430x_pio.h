@@ -92,7 +92,7 @@ void FASTCALL(bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 
 void FASTCALL(bcm430x_pio_rx(struct bcm430x_pioqueue *queue));
 
-void bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
-			  const char *buf, size_t size);
+int FASTCALL(bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
+				  const char *buf, size_t size));
 
 #endif /* BCM430x_PIO_H_ */

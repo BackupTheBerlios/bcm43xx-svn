@@ -582,8 +582,9 @@ static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
 }
 
-static void bcm430x_send_assoc_request(struct bcm430x_private *bcm)
+static int bcm430x_send_assoc_request(struct bcm430x_private *bcm)
 {
+	int err;
 	u8 *ssid_rates;
 	size_t i = 0, req_len;
 	struct bcm430x_assoc_req req;
@@ -635,15 +636,15 @@ static void bcm430x_send_assoc_request(struct bcm430x_private *bcm)
 	req_len = sizeof(req.wlhdr) + sizeof(req.capability)
 		+ sizeof(req.listen_interval) + i;
 	if (bcm->pio_mode) {
-		bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
-				     (const char *)(&req), req_len);
+		err = bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
+					   (const char *)(&req), req_len);
 	} else {
-		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
-				     (const char *)(&req), req_len);
+		err = bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
+					   (const char *)(&req), req_len);
 	}
 
 printk(KERN_INFO PFX "assoc sent\n");
-	return;
+	return err;
 }
 
 static void bcm430x_disassociate(struct bcm430x_private *bcm)

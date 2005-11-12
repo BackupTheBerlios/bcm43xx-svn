@@ -485,22 +485,20 @@ int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
 	return err;
 }
 
-void bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
-			  const char *buf, size_t size)
+int fastcall bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
+				  const char *buf, size_t size)
 {
 	struct sk_buff *skb;
 	size_t skb_size;
 	struct ieee80211_txb *dummy_txb;
 
 	skb_size = size;
-	if (!queue->bcm->no_txhdr)
+	if (likely(queue->bcm->no_txhdr == 0))
 		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(skb_size);
-	if (!skb) {
-		printk(KERN_ERR PFX "Out of memory!\n");
-		return;
-	}
-	if (!queue->bcm->no_txhdr)
+	if (unlikely(!skb))
+		return -ENOMEM;
+	if (likely(!queue->bcm->no_txhdr))
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb_put(skb, size), buf, size);
 
@@ -509,15 +507,14 @@ void bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 	 */
 	dummy_txb = kzalloc(sizeof(*dummy_txb) + sizeof(u8 *),
 			    GFP_ATOMIC);
-	if (!dummy_txb) {
+	if (unlikely(!dummy_txb)) {
 		dev_kfree_skb_any(skb);
-		printk(KERN_ERR PFX "Out of memory!\n");
-		return;
+		return -ENOMEM;
 	}
 	dummy_txb->nr_frags = 1;
 	dummy_txb->fragments[0] = skb;
 
-	pio_transfer_txb(queue, dummy_txb, 1);
+	return pio_transfer_txb(queue, dummy_txb, 1);
 }
 
 void fastcall
