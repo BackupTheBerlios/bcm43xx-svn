@@ -3591,11 +3591,18 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 		break;
 	}
 
-	switch (WLAN_FC_GET_TYPE(wlhdr->frame_ctl)) {
+	switch (WLAN_FC_GET_TYPE(le16_to_cpu(wlhdr->frame_ctl))) {
 	case IEEE80211_FTYPE_MGMT:
+#if LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 14)
+		/* Workaround for broken ieee80211_rx_mgt() in 2.6.14 */
+		wlhdr->frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
 		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
+		wlhdr->frame_ctl = cpu_to_le16(wlhdr->frame_ctl);
+#else
+		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
+#endif
 		if (bcm->ieee->iw_mode == IW_MODE_ADHOC) {
-			tmp = WLAN_FC_GET_STYPE(wlhdr->frame_ctl);
+			tmp = WLAN_FC_GET_STYPE(le16_to_cpu(wlhdr->frame_ctl));
 			if (tmp == IEEE80211_STYPE_PROBE_RESP ||
 			    tmp == IEEE80211_STYPE_BEACON) {
 				if (memcmp(bcm->ieee->bssid, wlhdr->addr3, ETH_ALEN) == 0)
