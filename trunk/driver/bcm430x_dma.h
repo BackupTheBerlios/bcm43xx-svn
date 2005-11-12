@@ -137,8 +137,8 @@ struct bcm430x_dmaring {
 	int nr_slots;
 	/* Number of used descriptor slots. */
 	int used_slots;
-	/* last used slot in the ring. */
-	int last_used;
+	/* Currently used slot in the ring. */
+	int current_slot;
 	/* Marks to suspend/resume the queue. */
 	int suspend_mark;
 	int resume_mark;
@@ -146,8 +146,6 @@ struct bcm430x_dmaring {
 	u32 frameoffset;
 	/* Descriptor buffer size. */
 	u16 rx_buffersize;
-	/* Current RX slot. */
-	int cur_rx_slot;
 	/* The MMIO base register of the DMA controller, this
 	 * ring is posted to.
 	 */
@@ -159,8 +157,6 @@ struct bcm430x_dmaring {
 struct bcm430x_dma_txcontext {
 	u8 nr_frags;
 	u8 cur_frag;
-	/* First slot of the frame. */
-	int first_slot;
 };
 
 

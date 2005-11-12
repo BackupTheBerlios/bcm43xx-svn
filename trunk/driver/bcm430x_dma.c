@@ -93,8 +93,8 @@ int request_slot(struct bcm430x_dmaring *ring)
 	if (unlikely(free_slots(ring) == 0))
 		return -1;
 
-	slot = next_slot(ring, ring->last_used);
-	ring->last_used = slot;
+	slot = next_slot(ring, ring->current_slot);
+	ring->current_slot = slot;
 	ring->meta[slot].used = 1;
 	ring->used_slots++;
 
@@ -112,9 +112,6 @@ int request_slot(struct bcm430x_dmaring *ring)
 static inline
 void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
-	assert(ring->last_used >= 0);
-	if (ring->used_slots == 1)
-		ring->last_used = -1;
 	ring->meta[slot].used = 0;
 	ring->used_slots--;
 
@@ -131,9 +128,10 @@ static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
 {
 	/* Everything is ready to start. Buffers are DMA mapped and
 	 * associated with slots.
-	 * "slot" is the first slot of the new frame we want to transmit.
+	 * "slot" is the last slot of the new frame we want to transmit.
 	 * Close your seat belts now, please.
 	 */
+	slot = next_slot(ring, slot);
 	wmb();
 	bcm430x_write32(ring->bcm,
 			ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
@@ -152,10 +150,7 @@ void dump_ringmemory(struct bcm430x_dmaring *ring)
 	printk(KERN_INFO PFX "*** DMA Ringmemory dump (%s) ***\n",
 	       (ring->tx) ? "tx" : "rx");
 	printk(KERN_INFO PFX "used_slots: 0x%04x\n", ring->used_slots);
-	if (ring->last_used >= 0)
-		printk(KERN_INFO PFX "last_used:  0x%04x\n", ring->last_used);
-	else
-		printk(KERN_INFO PFX "last_used:  NONE\n");
+	printk(KERN_INFO PFX "current_slot:  0x%04x\n", ring->current_slot);
 
 	for (i = 0; i < ring->nr_slots; i++) {
 		desc = ring->vbase + i;
@@ -456,7 +451,6 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 
 		meta->used = 1;
 		assert(ring->used_slots <= ring->nr_slots);
-		ring->last_used++;
 		ring->used_slots++;
 	}
 	ring->used_slots = ring->nr_slots;
@@ -585,13 +579,13 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	spin_lock_init(&ring->lock);
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
-	ring->last_used = -1;
 	ring->suspend_mark = ring->nr_slots * BCM430x_TXSUSPEND_PERCENT / 100;
 	ring->resume_mark = ring->nr_slots * BCM430x_TXRESUME_PERCENT / 100;
 	assert(ring->suspend_mark < ring->resume_mark);
 	ring->mmio_base = dma_controller_base;
 	if (tx) {
 		ring->tx = 1;
+		ring->current_slot = -1;
 	} else {
 		switch (dma_controller_base) {
 		case BCM430x_MMIO_DMA1_BASE:
@@ -772,8 +766,6 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		 * completion irq
 		 */
 		meta->txb = txb;
-		/* Save the first slot number for later in tx_xfer() */
-		ctx->first_slot = slot;
 	}
 
 	if (likely(ring->bcm->no_txhdr == 0)) {
@@ -846,9 +838,8 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		desc_ctl |= BCM430x_DMADTOR_FRAMEEND | BCM430x_DMADTOR_COMPIRQ;
 		set_desc_addr(desc, desc_addr);
 		set_desc_ctl(desc, desc_ctl);
-		assert(ctx->first_slot != -1);
 		/* Now transfer the whole frame. */
-		dmacontroller_poke_tx(ring, ctx->first_slot);
+		dmacontroller_poke_tx(ring, slot);
 	}
 out:
 	return err;
@@ -876,7 +867,6 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 	spin_lock_irqsave(&ring->lock, flags);
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
-		ctx.first_slot = -1;
 		err = dma_tx_fragment(ring, skb, txb, &ctx, 0);
 		if (err)
 			break;//TODO: correct error handling.
@@ -884,13 +874,10 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 	}
 	spin_unlock_irqrestore(&ring->lock, flags);
 
-//dump_ringmemory(ring);
 	return err;
 }
 
-/* Write a frame directly to the ring.
- * This is only to be used for debugging and testing (loopback)
- */
+/* Write a frame directly to the ring. */
 void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 			  const char *buf, size_t size)
 {
@@ -916,7 +903,6 @@ void bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 
 	ctx.nr_frags = 1;
 	ctx.cur_frag = 0;
-	ctx.first_slot = -1;
 	spin_lock_irqsave(&ring->lock, flags);
 	err = dma_tx_fragment(ring, skb, NULL, &ctx, 1);
 	spin_unlock_irqrestore(&ring->lock, flags);
@@ -1035,13 +1021,13 @@ bcm430x_dma_rx(struct bcm430x_dmaring *ring)
 	descptr = (status & BCM430x_DMA_RXSTAT_DPTR_MASK);
 	current_slot = descptr / sizeof(struct bcm430x_dmadesc);
 	assert(current_slot >= 0 && current_slot < ring->nr_slots);
-	slot = ring->cur_rx_slot;
+	slot = ring->current_slot;
 	for ( ; slot != current_slot; slot = next_slot(ring, slot))
 		dma_rx(ring, slot);
 	bcm430x_write32(ring->bcm,
 			ring->mmio_base + BCM430x_DMA_RX_DESC_INDEX,
 			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
-	ring->cur_rx_slot = slot;
+	ring->current_slot = slot;
 }
 
 /* vim: set ts=8 sw=8 sts=8: */
