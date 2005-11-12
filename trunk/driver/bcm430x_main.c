@@ -582,6 +582,70 @@ static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
 }
 
+static void bcm430x_send_assoc_request(struct bcm430x_private *bcm)
+{
+	u8 *ssid_rates;
+	size_t i = 0, req_len;
+	struct bcm430x_assoc_req req;
+
+	memset(&req, 0, sizeof(req));
+
+	req.wlhdr.frame_ctl = cpu_to_le16(IEEE80211_FTYPE_MGMT | 
+					  IEEE80211_STYPE_ASSOC_REQ);
+	req.wlhdr.duration_id = cpu_to_le16(32768);
+
+	memcpy(req.wlhdr.addr1, bcm->ieee->bssid, ETH_ALEN);
+	memcpy(req.wlhdr.addr2, bcm->net_dev->dev_addr, ETH_ALEN);
+	memcpy(req.wlhdr.addr3, bcm->ieee->bssid, ETH_ALEN);
+
+	if (0/*FIXME: WEP*/)
+		req.capability |= cpu_to_le16(WLAN_CAPABILITY_PRIVACY);
+	if (bcm->short_preamble)
+		req.capability |= cpu_to_le16(WLAN_CAPABILITY_SHORT_PREAMBLE);
+
+	//FIXME: Set the listen interval
+	//req.listen_interval = FOO;
+
+	ssid_rates = req.ssid_rates;
+
+	/* Set the SSID. */
+	ssid_rates[i++] = MFIE_TYPE_SSID;
+	ssid_rates[i++] = 0;//FIXME
+
+	/* Set the supported rates. */
+	ssid_rates[i++] = MFIE_TYPE_RATES;
+	if (bcm->ieee->modulation == IEEE80211_CCK_MODULATION) {
+		ssid_rates[i++] = 4;
+		ssid_rates[i++] = IEEE80211_CCK_RATE_1MB;
+		ssid_rates[i++] = IEEE80211_CCK_RATE_2MB;
+		ssid_rates[i++] = IEEE80211_CCK_RATE_5MB;
+		ssid_rates[i++] = IEEE80211_CCK_RATE_11MB;
+	} else {
+		ssid_rates[i++] = 8;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_6MB;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_9MB;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_12MB;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_18MB;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_24MB;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_36MB;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_48MB;
+		ssid_rates[i++] = IEEE80211_OFDM_RATE_54MB;
+	}
+
+	req_len = sizeof(req.wlhdr) + sizeof(req.capability)
+		+ sizeof(req.listen_interval) + i;
+	if (bcm->pio_mode) {
+		bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
+				     (const char *)(&req), req_len);
+	} else {
+		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
+				     (const char *)(&req), req_len);
+	}
+
+printk(KERN_INFO PFX "assoc sent\n");
+	return;
+}
+
 static void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
@@ -627,9 +691,11 @@ static void bcm430x_associate(struct bcm430x_private *bcm,
 	bcm430x_mac_suspend(bcm);
 	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_ASSOC, mac);
 	bcm430x_write_mac_bssid_templates(bcm);
-	//TODO: associate with the AP (send some mgmt frame)
-	bcm->associated = 1;
 	bcm430x_mac_enable(bcm);
+
+	bcm430x_send_assoc_request(bcm);
+
+	bcm->associated = 1;//FIXME: This is not correct. We must set the bit when we receive the response.
 
 	dprintk(KERN_INFO PFX "Associated to " MAC_FMT "\n", MAC_ARG(mac));
 }
@@ -3602,8 +3668,15 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 #else
 		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
 #endif
+		tmp = WLAN_FC_GET_STYPE(le16_to_cpu(wlhdr->frame_ctl));
+
+//XXX: tempoary debugging stuff:
+if (tmp == IEEE80211_STYPE_ASSOC_RESP)
+	printk(KERN_INFO PFX "!!!!! assoc resp\n");
+else if (tmp != IEEE80211_STYPE_BEACON)
+	printk(KERN_INFO PFX "received MGMT 0x%04x\n", tmp);
+
 		if (bcm->ieee->iw_mode == IW_MODE_ADHOC) {
-			tmp = WLAN_FC_GET_STYPE(le16_to_cpu(wlhdr->frame_ctl));
 			if (tmp == IEEE80211_STYPE_PROBE_RESP ||
 			    tmp == IEEE80211_STYPE_BEACON) {
 				if (memcmp(bcm->ieee->bssid, wlhdr->addr3, ETH_ALEN) == 0)

@@ -149,6 +149,14 @@ struct bcm430x_xmitstatus {
 	u16 unknown; //FIXME
 };
 
+struct bcm430x_assoc_req {
+	struct ieee80211_hdr_3addr wlhdr;
+	__le16 capability;
+	__le16 listen_interval;
+	u8 ssid_rates[44];
+} __attribute__((__packed__));
+
+
 int FASTCALL(bcm430x_rx(struct bcm430x_private *bcm,
 			struct sk_buff *skb,
 			struct bcm430x_rxhdr *rxhdr));
