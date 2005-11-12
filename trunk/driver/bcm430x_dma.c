@@ -992,7 +992,7 @@ printk(KERN_INFO PFX "Data received on DMA controller 0x%04x slot %d\n",
 		}
 
 		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize);
-		skb_put(skb, len);
+		skb_put(skb, len + ring->frameoffset);
 		skb_pull(skb, ring->frameoffset);
 	} else {
 		//TODO
