@@ -603,7 +603,8 @@ static void bcm430x_disassociate(struct bcm430x_private *bcm)
 		bcm430x_write16(bcm, 0x060E, 0x0000);
 	} else
 		bcm430x_write32(bcm, 0x0188, 0x80000000);
-	//TODO: contention
+
+	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0004, 0x000003ff);
 
 	if (!ofdm_modulation && bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
 		bcm430x_short_slot_timing_enable(bcm);
@@ -3555,17 +3556,6 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 
 	memset(&stats, 0, sizeof(stats));
 	//TODO: Interpret the rxhdr and construct the stats.
-
-	if (rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_TYPE2FRAME) {
-		/* Skip two unknown bytes and the PLCP header. */
-		skb_pull(skb, 2 + sizeof(struct bcm430x_plcp_hdr6));
-	} else {
-		/* Skip the PLCP header. */
-		skb_pull(skb, sizeof(struct bcm430x_plcp_hdr6));
-	}
-	/* The SKB contains the PAYLOAD (wireless header + data)
-	 * at this point. The FCS at the end is stripped.
-	 */
 
 	if (bcm->ieee->iw_mode == IW_MODE_MONITOR) {
 		bcm430x_rx_packet(bcm, skb, &stats);
