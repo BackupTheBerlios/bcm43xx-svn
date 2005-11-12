@@ -495,9 +495,9 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 
 	/* Set the FLAGS field */
 	tmp = 0;
-	if (!is_multicast_ether_addr(wireless_header->addr1) ||
-	    is_broadcast_ether_addr(wireless_header->addr1))
-		tmp |= BCM430x_TXHDRFLAG_NOMCAST;
+	if (!is_multicast_ether_addr(wireless_header->addr1) &&
+	    !is_broadcast_ether_addr(wireless_header->addr1))
+		tmp |= BCM430x_TXHDRFLAG_EXPECTACK;
 	if (1 /* FIXME: PS poll?? */)
 		tmp |= 0x10; // FIXME: unknown meaning.
 	if (fallback_ofdm_modulation)
