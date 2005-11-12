@@ -3617,7 +3617,11 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 			struct bcm430x_rxhdr *rxhdr)
 {
 	struct ieee80211_rx_stats stats;
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	struct ieee80211_hdr *wlhdr;
+#else
+	struct ieee80211_hdr_4addr *wlhdr;
+#endif
 	u16 tmp;
 	int is_packet_for_us = 0;
 
@@ -3640,7 +3644,12 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 		return 0;
 	}
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	wlhdr = (struct ieee80211_hdr *)(skb->data);
+#else
+	wlhdr = (struct ieee80211_hdr_4addr *)(skb->data);
+#endif
+
 	switch (bcm->ieee->iw_mode) {
 	case IW_MODE_ADHOC:
 		if (memcmp(wlhdr->addr1, bcm->net_dev->dev_addr, ETH_ALEN) == 0 ||
