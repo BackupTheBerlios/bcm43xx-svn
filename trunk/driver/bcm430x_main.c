@@ -177,22 +177,6 @@ static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, oldsbf);
 }
 
-static u32 bcm430x_ram_read(struct bcm430x_private *bcm, u16 offset)
-{
-	u32 oldsbf, ret;
-
-	oldsbf = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-			oldsbf | BCM430x_SBF_XFER_REG_BYTESWAP);
-	
-	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
-	ret = bcm430x_read32(bcm, BCM430x_MMIO_RAM_DATA);
-	
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, oldsbf);
-
-	return ret;
-}
-
 void bcm430x_shm_control_word(struct bcm430x_private *bcm,
 			      u16 routing, u16 offset)
 {
