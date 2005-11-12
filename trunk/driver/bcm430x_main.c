@@ -585,22 +585,29 @@ static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
 static void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
-	
+
 	if (!bcm->associated)
 		return;
 	bcm430x_mac_suspend(bcm);
 	bcm430x_macfilter_clear(bcm, BCM430x_MACFILTER_ASSOC);
-	//TODO: Template RAM
+
+	bcm430x_ram_write(bcm, 0x0026, 0x0000);
+	bcm430x_ram_write(bcm, 0x0028, 0x0000);
+	bcm430x_ram_write(bcm, 0x007E, 0x0000);
+	bcm430x_ram_write(bcm, 0x0080, 0x0000);
+	bcm430x_ram_write(bcm, 0x047E, 0x0000);
+	bcm430x_ram_write(bcm, 0x0480, 0x0000);
+
 	if (bcm->current_core->rev < 3) {
 		bcm430x_write16(bcm, 0x0610, 0x8000);
 		bcm430x_write16(bcm, 0x060E, 0x0000);
 	} else
 		bcm430x_write32(bcm, 0x0188, 0x80000000);
 	//TODO: contention
-	
+
 	if (!ofdm_modulation && bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
 		bcm430x_short_slot_timing_enable(bcm);
-	
+
 	bcm430x_mac_enable(bcm);
 }
 
