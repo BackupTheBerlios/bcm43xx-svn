@@ -3600,16 +3600,19 @@ void bcm430x_register_station(struct bcm430x_private *bcm,
 }
 
 static inline
-void bcm430x_rx_packet(struct bcm430x_private *bcm,
-		       struct sk_buff *skb,
-		       struct ieee80211_rx_stats *stats)
+int bcm430x_rx_packet(struct bcm430x_private *bcm,
+		      struct sk_buff *skb,
+		      struct ieee80211_rx_stats *stats)
 {
 	int err;
 
-dprintk("RX data\n");
 	err = ieee80211_rx(bcm->ieee, skb, stats);
-	if (unlikely(err == 0))
+	if (unlikely(err == 0)) {
 		dprintkl(KERN_ERR PFX "ieee80211_rx() failed with %d\n", err);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 int fastcall bcm430x_rx(struct bcm430x_private *bcm,
@@ -3624,6 +3627,7 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 #endif
 	u16 tmp;
 	int is_packet_for_us = 0;
+	int err = -EINVAL;
 
 	memset(&stats, 0, sizeof(stats));
 	//TODO: Interpret the rxhdr and construct the stats.
@@ -3638,6 +3642,16 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 	/* The SKB contains the PAYLOAD (wireless header + data)
 	 * at this point. The FCS at the end is stripped.
 	 */
+
+#if 0
+{
+static int printed = 0;
+if (printed < 3) {
+	printed++;
+bcm430x_printk_dump(skb->data, skb->len, "RX data");
+}
+}
+#endif
 
 	if (bcm->ieee->iw_mode == IW_MODE_MONITOR) {
 		bcm430x_rx_packet(bcm, skb, &stats);
@@ -3693,10 +3707,11 @@ else if (tmp != IEEE80211_STYPE_BEACON)
 					bcm430x_register_station(bcm, wlhdr->addr2);
 			}
 		}
+		err = 0;
 		break;
 	case IEEE80211_FTYPE_DATA:
 		if (is_packet_for_us)
-			bcm430x_rx_packet(bcm, skb, &stats);
+			err = bcm430x_rx_packet(bcm, skb, &stats);
 		else
 			dprintkl(KERN_ERR PFX "RX packet dropped (not for us)\n");
 		break;
@@ -3707,7 +3722,7 @@ else if (tmp != IEEE80211_STYPE_BEACON)
 		return -EINVAL;
 	}
 
-	return 0;
+	return err;
 }
 
 /* Do the Hardware IO operations to send the txb */
