@@ -3653,10 +3653,8 @@ bcm430x_printk_dump(skb->data, skb->len, "RX data");
 }
 #endif
 
-	if (bcm->ieee->iw_mode == IW_MODE_MONITOR) {
-		bcm430x_rx_packet(bcm, skb, &stats);
-		return 0;
-	}
+	if (bcm->ieee->iw_mode == IW_MODE_MONITOR)
+		return bcm430x_rx_packet(bcm, skb, &stats);
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	wlhdr = (struct ieee80211_hdr *)(skb->data);
