@@ -1,5 +1,4 @@
 
-
 static const struct file {
 	const char *name;
 	const char *version;
@@ -415,6 +414,32 @@ static const struct file {
 	},
 	{
 		.name        = "wl.o",
+		.version     = "3.31.15.0",                            /* 07/28/2003 */
+		.md5         = "a85af65b5ae1d64ee11eab714faab843",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               INIT_VAL_08_MISSING,
+		.iv_pos      = 0x32270,
+		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
+		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
+		.uc5_pos     = 0x3d580,  .uc5_length  = 0x4ec0,
+		.pcm4_pos    = 0x42444,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x428c0,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl.o",
+		.version     = "3.31.15.0",                            /* 07/28/2003 */
+		.md5         = "98dd50a95b02c8bcb3725c770df81dfc",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               INIT_VAL_08_MISSING,
+		.iv_pos      = 0x32270,
+		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
+		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
+		.uc5_pos     = 0x3d580,  .uc5_length  = 0x4ec0,
+		.pcm4_pos    = 0x42444,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x428c0,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl.o",
 		.version     = "3.50.21.0",                            /* 05/11/2003 */
 		.md5         = "f71be0e1d14f68c98d916465a300d835",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
@@ -436,6 +461,18 @@ static const struct file {
 		.uc5_pos     = 0x464e8,  .uc5_length  = 0x5548,
 		.pcm4_pos    = 0x4ba34,  .pcm4_length = 0x478,
 		.pcm5_pos    = 0x4beb0,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl.o",
+		.version     = "3.60.7.0 ? (1.3.2.0)",                   /* 02/04/2004 */
+		.md5         = "7009220d84c445797443aa0221b7d8a4",     /* no bcm version found */
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,               /* but same fw files are also */
+		.iv_pos      = 0x545e0,                                /* in bcmwl5.sys 3.60.7.0, */
+		.uc2_pos     = 0x581d8,  .uc2_length  = 0x3e08,
+		.uc4_pos     = 0x5bfe4,  .uc4_length  = 0x4e58,
+		.uc5_pos     = 0x60e40,  .uc5_length  = 0x5608,
+		.pcm4_pos    = 0x6644c,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x668c8,  .pcm5_length = 0x478,
 	},
 	{
 		.name        = "wl.o",
@@ -463,6 +500,18 @@ static const struct file {
 	},
 	{
 		.name        = "wl.o",
+		.version     = "3.90.7.0",                             /* 14/10/2004 */
+		.md5         = "f15b59ad4d6f6ad2c7f45193d033aff8",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x4d890,
+		.uc2_pos     = 0x51500,  .uc2_length  = 0x3ec0,
+		.uc4_pos     = 0x553c4,  .uc4_length  = 0x4d60,
+		.uc5_pos     = 0x5a128,  .uc5_length  = 0x5750,
+		.pcm4_pos    = 0x5f87c,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x5fda0,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "wl.o",
 		.version     = "3.90.37.0",                            /* 15/02/2005 */
 		.md5         = "984c42947552652d5ab61b78e7d12227",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
@@ -474,7 +523,20 @@ static const struct file {
 		.pcm5_pos    = 0x5f608,  .pcm5_length = 0x520,
 	},
 	{
-		.name        = "wl.o",
+		.name        = "wl_ap.o",
+		.version     = "3.31.16.0",                            /* 08/06/2003 */
+		.md5         = "463633e7bf0efc6c0f8eac2514a71024",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               INIT_VAL_08_MISSING,
+		.iv_pos      = 0x32270,
+		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
+		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
+		.uc5_pos     = 0x3d580,  .uc5_length  = 0x4ec0,
+		.pcm4_pos    = 0x42444,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x428c0,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl_apsta.o",
 		.version     = "3.130.20.0",                           /* 19/05/2005 */
 		.md5         = "e08665c5c5b66beb9c3b2dd54aa80cb3",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
@@ -485,6 +547,19 @@ static const struct file {
 		.uc11_pos    = 0x68204,  .uc11_length = 0x54a8,
 		.pcm4_pos    = 0x6d6b0,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x6dbd4,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "wl_sta.o",
+		.version     = "3.31.16.0",                            /* 08/06/2003 */
+		.md5         = "c3e663cb78b2fc299088de69fc11a9a9",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               INIT_VAL_08_MISSING,
+		.iv_pos      = 0x317b0,
+		.uc2_pos     = 0x34890,  .uc2_length  = 0x3d88,
+		.uc4_pos     = 0x3861c,  .uc4_length  = 0x44a0,
+		.uc5_pos     = 0x3cac0,  .uc5_length  = 0x4ec0,
+		.pcm4_pos    = 0x41984,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x41e00,  .pcm5_length = 0x478,
 	},
 };
 
