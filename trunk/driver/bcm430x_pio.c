@@ -522,7 +522,7 @@ bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
 		dprintkl(KERN_ERR PFX "PIO RX: No data available\n");
 		return;
 	}
-	bcm430x_pio_write(queue, BCM430x_PIO_RXCTL, tmp);
+	bcm430x_pio_write(queue, BCM430x_PIO_RXCTL, BCM430x_PIO_RXCTL_DATAAVAILABLE);
 
 	for (i = 0; i < 5; i++) {
 		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXCTL);
@@ -558,6 +558,10 @@ data_ready:
 	}
 	if (unlikely(rxhdr.flags2 & BCM430x_RXHDR_FLAGS2_INVALIDFRAME)) {
 		pio_rx_error(queue, "invalid frame");
+		if (queue->mmio_base == BCM430x_MMIO_PIO1_BASE) {
+			for (i = 0; i < 15; i++)
+				bcm430x_pio_read(queue, BCM430x_PIO_RXDATA); /* dummy read. */
+		}
 		return;
 	}
 	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE) {
