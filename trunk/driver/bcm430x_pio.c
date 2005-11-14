@@ -535,7 +535,6 @@ data_ready:
 
 	len = le16_to_cpu(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
 	if (unlikely(len > 0x700)) {
-		printk("l %u\n", len);
 		pio_rx_error(queue, "len > 0x700");
 		return;
 	}
