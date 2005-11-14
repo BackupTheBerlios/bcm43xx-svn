@@ -899,6 +899,9 @@ int fastcall bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 
 	assert(ring->tx);
 
+	if (unlikely(ring->suspended))
+		return -EBUSY;
+
 	if (likely(ring->bcm->no_txhdr == 0))
 		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(skb_size);
