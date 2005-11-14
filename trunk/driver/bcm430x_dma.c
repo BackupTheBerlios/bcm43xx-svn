@@ -1002,7 +1002,6 @@ void dma_rx(struct bcm430x_dmaring *ring,
 	err = bcm430x_rx(ring->bcm, skb, rxhdr);
 	if (unlikely(err)) {
 		dev_kfree_skb_irq(skb);
-		dprintkl(KERN_ERR PFX "ieee80211_rx() failed with %d\n", err);
 		goto drop;
 	}
 
