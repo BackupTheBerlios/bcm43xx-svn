@@ -274,6 +274,7 @@ static void txwork_handler(void *d)
 	struct bcm430x_pioqueue *queue = d;
 	unsigned long flags;
 	struct bcm430x_pio_txpacket *packet, *tmp_packet;
+	int err;
 
 	spin_lock_irqsave(&queue->txlock, flags);
 	list_for_each_entry_safe(packet, tmp_packet, &queue->txqueue, list) {
@@ -299,7 +300,9 @@ static void txwork_handler(void *d)
 		/* Now try to transmit the packet.
 		 * This may not completely succeed.
 		 */
-		pio_tx_packet(packet);
+		err = pio_tx_packet(packet);
+		if (err)
+			break;
 next_packet:
 		continue;
 	}
