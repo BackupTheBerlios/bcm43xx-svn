@@ -149,6 +149,11 @@ struct bcm430x_xmitstatus {
 	u16 unknown; //FIXME
 };
 
+struct bcm430x_xmitstatus_queue {
+	struct list_head list;
+	struct bcm430x_hwxmitstatus status;
+};
+
 struct bcm430x_assoc_req {
 	struct ieee80211_hdr_3addr wlhdr;
 	__le16 capability;
@@ -156,6 +161,9 @@ struct bcm430x_assoc_req {
 	u8 ssid_rates[44];
 } __attribute__((__packed__));
 
+
+int FASTCALL(bcm430x_rx_transmitstatus(struct bcm430x_private *bcm,
+				       const struct bcm430x_hwxmitstatus *status));
 
 int FASTCALL(bcm430x_rx(struct bcm430x_private *bcm,
 			struct sk_buff *skb,

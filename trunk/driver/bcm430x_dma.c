@@ -1002,6 +1002,13 @@ void dma_rx(struct bcm430x_dmaring *ring,
 		//TODO
 	}
 
+	if (ring->mmio_base == BCM430x_MMIO_DMA4_BASE) {
+		bcm430x_rx_transmitstatus(ring->bcm,
+					  (const struct bcm430x_hwxmitstatus *)skb->data);
+		dev_kfree_skb_irq(skb);
+		return;
+	}
+
 	err = bcm430x_rx(ring->bcm, skb, rxhdr);
 	if (unlikely(err)) {
 		dev_kfree_skb_irq(skb);

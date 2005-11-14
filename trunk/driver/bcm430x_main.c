@@ -1350,10 +1350,8 @@ static inline void interpret_transmit_status(struct bcm430x_private *bcm,
 	status.seq = le16_to_cpu(hwstatus->seq);
 	status.unknown = le16_to_cpu(hwstatus->unknown);
 
-	if (status.flags & 0x20) {
-printk(KERN_INFO PFX "Transmit Status ignored\n");
+	if (status.flags & 0x20)
 		return;
-	}
 	/* TODO: What is the meaning of the flags? Tested bits are: 0x01, 0x02, 0x10, 0x40, 0x04, 0x08 */
 
 printk(KERN_INFO PFX "Transmit Status received:  flags: 0x%02x,  "
@@ -1369,28 +1367,34 @@ printk(KERN_INFO PFX "Transmit Status received:  flags: 0x%02x,  "
 
 static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 {
-	struct bcm430x_hwxmitstatus transmit_status;
-	int res;
-
 	assert(bcm->current_core->id == BCM430x_COREID_80211);
 
 	//TODO: In AP mode, this also causes sending of powersave responses.
 
-	while (1) {
-		if (bcm->current_core->rev < 5) {
-			TODO(); /* TODO: The status is received via the last DMA controller or PIO queue 3. */
-			if (bcm->pio_mode) {
-				/* XXX */
-			} else {
-				/* XXX */
-			}
-			return;
-		} else {
+	if (bcm->current_core->rev < 5) {
+		struct bcm430x_xmitstatus_queue *q, *tmp;
+
+		/* If we received an xmit status, it is already saved
+		 * in the xmit status queue.
+		 */
+		list_for_each_entry_safe(q, tmp, &bcm->xmitstatus_queue, list) {
+			interpret_transmit_status(bcm, &q->status);
+			list_del(&q->list);
+			bcm->nr_xmitstatus_queued--;
+			kfree(q);
+		}
+		assert(bcm->nr_xmitstatus_queued == 0);
+		assert(list_empty(&bcm->xmitstatus_queue));
+	} else {
+		int res;
+		struct bcm430x_hwxmitstatus transmit_status;
+
+		while (1) {
 			res = build_transmit_status(bcm, &transmit_status);
 			if (res)
 				break;
+			interpret_transmit_status(bcm, &transmit_status);
 		}
-		interpret_transmit_status(bcm, &transmit_status);
 	}
 }
 
@@ -3599,6 +3603,29 @@ void bcm430x_register_station(struct bcm430x_private *bcm,
 	//TODO
 }
 
+int fastcall bcm430x_rx_transmitstatus(struct bcm430x_private *bcm,
+				       const struct bcm430x_hwxmitstatus *status)
+{
+	struct bcm430x_xmitstatus_queue *q;
+
+	/*XXX: This code is untested, as we currently do not have a rev < 5 card. */
+dprintkl("processing received xmitstatus...\n");
+
+	if (unlikely(bcm->nr_xmitstatus_queued >= 50)) {
+		dprintkl(KERN_ERR PFX "Transmit Status Queue full!\n");
+		return -ENOSPC;
+	}
+	q = kmalloc(sizeof(*q), GFP_ATOMIC);
+	if (unlikely(!q))
+		return -ENOMEM;
+	INIT_LIST_HEAD(&q->list);
+	memcpy(&q->status, status, sizeof(*status));
+	list_add_tail(&q->list, &bcm->xmitstatus_queue);
+	bcm->nr_xmitstatus_queued++;
+
+	return 0;
+}
+
 static inline
 int bcm430x_rx_packet(struct bcm430x_private *bcm,
 		      struct sk_buff *skb,
@@ -3859,6 +3886,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	if (modparam_bad_frames_preempt)
 		bcm->bad_frames_preempt = 1;
 	spin_lock_init(&bcm->lock);
+	INIT_LIST_HEAD(&bcm->xmitstatus_queue);
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
 		     (unsigned long)bcm);

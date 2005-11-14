@@ -561,23 +561,25 @@ data_ready:
 		return;
 	}
 	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE) {
-		TODO();
-		//TODO put the txstatus into an skb. We also have to modify bcm430x_rx().
-		skb = NULL;
-	} else {
-		skb = dev_alloc_skb(len);
-		if (unlikely(!skb)) {
-			pio_rx_error(queue, "out of memory");
-			return;
-		}
-		skb_put(skb, len);
-		for (i = 0; i < len - 1; i += 2) {
-			tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
-			tmp = be16_to_cpu(tmp);
-			*((u16 *)(skb->data + i)) = cpu_to_be16(tmp);
-		}
-		if (len % 2) {
-		}
+		u16 *p = (u16 *)(&rxhdr);
+		p++;
+		bcm430x_rx_transmitstatus(queue->bcm,
+					  (const struct bcm430x_hwxmitstatus *)p);
+		return;
+	}
+	skb = dev_alloc_skb(len);
+	if (unlikely(!skb)) {
+		pio_rx_error(queue, "out of memory");
+		return;
+	}
+	skb_put(skb, len);
+	for (i = 0; i < len - 1; i += 2) {
+		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
+		tmp = be16_to_cpu(tmp);
+		*((u16 *)(skb->data + i)) = cpu_to_be16(tmp);
+	}
+	if (len % 2) {
+		TODO();//TODO
 	}
 	err = bcm430x_rx(queue->bcm, skb, &rxhdr);
 	if (unlikely(err))

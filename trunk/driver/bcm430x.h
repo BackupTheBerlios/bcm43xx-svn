@@ -623,6 +623,9 @@ struct bcm430x_private {
 	u32 dma_reason[4];
 	/* saved irq enable/disable state bitfield. */
 	u32 irq_savedstate;
+	/* List of received transmitstatus blobs. (only on core.rev < 5) */
+	struct list_head xmitstatus_queue;
+	int nr_xmitstatus_queued;
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;
