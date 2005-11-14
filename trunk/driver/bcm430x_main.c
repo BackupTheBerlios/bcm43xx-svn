@@ -1546,11 +1546,11 @@ void bcm430x_interrupt_ack(struct bcm430x_private *bcm,
 		/* Apply a PIO specific workaround to the dma_reasons */
 
 #define apply_pio_workaround(BASE, QNUM) \
-	do {										\
-	if (bcm430x_read16(bcm, BASE + BCM430x_PIO_RXCTL) & BCM430x_PIO_RXCTL_INIT)	\
-		bcm->dma_reason[QNUM] |= 0x00010000;					\
-	else										\
-		bcm->dma_reason[QNUM] &= ~0x00010000;					\
+	do {											\
+	if (bcm430x_read16(bcm, BASE + BCM430x_PIO_RXCTL) & BCM430x_PIO_RXCTL_DATAAVAILABLE)	\
+		bcm->dma_reason[QNUM] |= 0x00010000;						\
+	else											\
+		bcm->dma_reason[QNUM] &= ~0x00010000;						\
 	} while (0)
 
 		apply_pio_workaround(BCM430x_MMIO_PIO1_BASE, 0);

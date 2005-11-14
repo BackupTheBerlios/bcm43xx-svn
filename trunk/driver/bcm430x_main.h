@@ -102,18 +102,18 @@ void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 /* RX header as received from the hardware. */
 struct bcm430x_rxhdr {
 	/* Frame Length. Must be generated explicitely in PIO mode. */
-	u16 frame_length;
+	__le16 frame_length;
 	PAD_BYTES(2);
 	/* Flags field 1 */
-	u16 flags1;
+	__le16 flags1;
 	u8 rssi;
 	u8 signal_quality;
 	PAD_BYTES(2);
-	u16 rssi_encoding;
+	__le16 rssi_encoding;
 	/* Flags field 2 */
-	u16 flags2;
+	__le16 flags2;
 	/* Lower 16bits of the TSF at the time the frame started. */
-	u16 mactime;
+	__le16 mactime;
 	PAD_BYTES(14);
 } __attribute__((__packed__));
 

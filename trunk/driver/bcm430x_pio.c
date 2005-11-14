@@ -27,14 +27,8 @@
 #include "bcm430x_pio.h"
 #include "bcm430x_main.h"
 
+#include <linux/delay.h>
 
-static inline
-void assert_hwswap(struct bcm430x_pioqueue *queue)
-{
-	assert(bcm430x_read32(queue->bcm,
-			      BCM430x_MMIO_STATUS_BITFIELD)
-	       & BCM430x_SBF_XFER_REG_BYTESWAP);
-}
 
 static inline
 u16 bcm430x_pio_read(struct bcm430x_pioqueue *queue,
@@ -48,49 +42,6 @@ void bcm430x_pio_write(struct bcm430x_pioqueue *queue,
 		       u16 offset, u16 value)
 {
 	bcm430x_write16(queue->bcm, queue->mmio_base + offset, value);
-}
-
-static inline
-void suspend_txqueue(struct bcm430x_pioqueue *queue)
-{
-	assert(!queue->tx_suspended);
-	netif_stop_queue(queue->bcm->net_dev);
-	queue->tx_suspended = 1;
-}
-
-static inline
-void try_to_suspend_txqueue(struct bcm430x_pioqueue *queue)
-{
-	if (list_empty(&queue->txfree))
-		suspend_txqueue(queue);
-}
-
-static inline
-void resume_txqueue(struct bcm430x_pioqueue *queue)
-{
-	queue->tx_suspended = 0;
-	netif_wake_queue(queue->bcm->net_dev);
-}
-
-static inline
-void try_to_resume_txqueue(struct bcm430x_pioqueue *queue)
-{
-	if (!queue->tx_suspended)
-		return;
-	resume_txqueue(queue);
-}
-
-static inline
-int tx_devq_is_full(struct bcm430x_pioqueue *queue,
-		    u16 tx_octets)
-{
-	assert(queue->tx_devq_packets <= BCM430x_PIO_MAXTXDEVQPACKETS);
-	assert(queue->tx_devq_used <= queue->tx_devq_size);
-	if (queue->tx_devq_packets == BCM430x_PIO_MAXTXDEVQPACKETS)
-		return 1;
-	if (queue->tx_devq_used + tx_octets > queue->tx_devq_size)
-		return 1;
-	return 0;
 }
 
 static inline
@@ -122,7 +73,6 @@ void tx_data(struct bcm430x_pioqueue *queue,
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)packet) );
-		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
 		i += 2;
 	}
@@ -130,7 +80,6 @@ void tx_data(struct bcm430x_pioqueue *queue,
 			  BCM430x_PIO_TXCTL_WRITELO | BCM430x_PIO_TXCTL_WRITEHI);
 	for ( ; i < octets - 1; i += 2) {
 		data = be16_to_cpu( *((u16 *)(packet + i)) );
-		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
 	}
 	if (octets % 2)
@@ -145,7 +94,6 @@ void tx_complete(struct bcm430x_pioqueue *queue,
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)(skb->data + skb->len - 2)) );
-		assert_hwswap(queue);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
 		bcm430x_pio_write(queue, BCM430x_PIO_TXCTL,
 				  BCM430x_PIO_TXCTL_WRITEHI | BCM430x_PIO_TXCTL_COMPLETE);
@@ -219,7 +167,6 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 			   struct sk_buff *skb,
 			   struct bcm430x_pio_txpacket *packet)
 {
-	struct bcm430x_pio_txcontext *ctx = &packet->ctx;
 	unsigned int octets;
 	int err;
 
@@ -233,13 +180,12 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 				return;
 			}
 		}
-		assert(skb_headroom(skb) >= sizeof(struct bcm430x_txhdr));
 		__skb_push(skb, sizeof(struct bcm430x_txhdr));
 		bcm430x_generate_txhdr(queue->bcm,
 				       (struct bcm430x_txhdr *)skb->data,
 				       skb->data + sizeof(struct bcm430x_txhdr),
 				       skb->len - sizeof(struct bcm430x_txhdr),
-				       (ctx->xmitted_frags == 0),
+				       (packet->xmitted_frags == 0),
 				       generate_cookie(queue, pio_txpacket_getindex(packet)));
 	}
 
@@ -260,27 +206,46 @@ int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
 	u16 octets;
 	int i;
 
-	for (i = packet->ctx.xmitted_frags; i < txb->nr_frags; i++) {
+	for (i = packet->xmitted_frags; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
 
 		octets = (u16)skb->len;
 		if (likely(queue->bcm->no_txhdr == 0))
 			octets += sizeof(struct bcm430x_txhdr);
-		if (tx_devq_is_full(queue, octets))
-			return 1;
-		pio_tx_write_fragment(queue, skb, packet);
-		packet->ctx.xmitted_frags++;
-		packet->ctx.xmitted_octets += octets;
 
+		assert(queue->tx_devq_size >= octets);
+		assert(queue->tx_devq_packets <= BCM430x_PIO_MAXTXDEVQPACKETS);
+		assert(queue->tx_devq_used <= queue->tx_devq_size);
+		/* Check if there is sufficient free space on the device
+		 * TX queue. If not, return and let the TX-work-handler
+		 * retry later.
+		 */
+		if (queue->tx_devq_packets == BCM430x_PIO_MAXTXDEVQPACKETS)
+			return -EBUSY;
+		if (queue->tx_devq_used + octets > queue->tx_devq_size)
+			return -EBUSY;
+		/* Now poke the device. */
+		pio_tx_write_fragment(queue, skb, packet);
+
+		/* Account for the packet size.
+		 * (We must not overflow the device TX queue)
+		 */
 		queue->tx_devq_packets++;
 		queue->tx_devq_used += octets;
+
+		assert(packet->xmitted_frags <= packet->txb->nr_frags);
+		packet->xmitted_frags++;
+		packet->xmitted_octets += octets;
 	}
+	list_move(&packet->list, &queue->txrunning);
 
 	return 0;
 }
 
 static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 {
+	struct bcm430x_pioqueue *queue = packet->queue;
+
 	if (unlikely(packet->txb_is_dummy)) {
 		u8 i;
 
@@ -295,40 +260,13 @@ static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 		return;
 	}
 	ieee80211_txb_free(packet->txb);
-}
 
-static void cancel_txpacket(struct bcm430x_pio_txpacket *packet)
-{
-	struct bcm430x_pioqueue *queue = packet->queue;
+	list_move(&packet->list, &packet->queue->txfree);
 
-	if (unlikely(!packet->used))
-		return;
-
-	list_del(&packet->list);
-	free_txpacket(packet);
-	INIT_LIST_HEAD(&packet->list);
-	list_add(&packet->list, &packet->queue->txfree);
-	packet->used = 0;
-
-	assert(queue->tx_devq_used >= packet->ctx.xmitted_octets);
-	queue->tx_devq_used -= packet->ctx.xmitted_octets;
-	assert(queue->tx_devq_packets >= packet->ctx.xmitted_frags);
-	queue->tx_devq_packets -= packet->ctx.xmitted_frags;
-
-	try_to_resume_txqueue(packet->queue);
-}
-
-static void tx_timeout(unsigned long d)
-{
-	struct bcm430x_pio_txpacket *packet = (struct bcm430x_pio_txpacket *)d;
-	unsigned long flags;
-
-	spin_lock_irqsave(&packet->queue->txlock, flags);
-
-	dprintk(KERN_WARNING PFX "PIO packet %d timed out!\n",
-		pio_txpacket_getindex(packet));
-	cancel_txpacket(packet);
-	spin_unlock_irqrestore(&packet->queue->txlock, flags);
+	assert(queue->tx_devq_used >= packet->xmitted_octets);
+	queue->tx_devq_used -= packet->xmitted_octets;
+	assert(queue->tx_devq_packets >= packet->xmitted_frags);
+	queue->tx_devq_packets -= packet->xmitted_frags;
 }
 
 static void txwork_handler(void *d)
@@ -338,26 +276,33 @@ static void txwork_handler(void *d)
 	struct bcm430x_pio_txpacket *packet, *tmp_packet;
 
 	spin_lock_irqsave(&queue->txlock, flags);
-
 	list_for_each_entry_safe(packet, tmp_packet, &queue->txqueue, list) {
+		assert(packet->xmitted_frags < packet->txb->nr_frags);
+		if (packet->xmitted_frags == 0) {
+			int i;
+			struct sk_buff *skb;
 
-		if (packet->ctx.xmitted_frags == 0) {
-			packet->timeout.function = tx_timeout;
-			packet->timeout.data = (unsigned long)packet;
-			packet->timeout.expires = jiffies + BCM430x_PIO_TXTIMEOUT;
-			add_timer(&packet->timeout);
+			/* Check if the device queue is big
+			 * enough for every fragment. If not, drop the
+			 * whole packet.
+			 */
+			for (i = 0; i < packet->txb->nr_frags; i++) {
+				skb = packet->txb->fragments[i];
+				if (unlikely(skb->len > queue->tx_devq_size)) {
+					dprintkl(KERN_ERR PFX "PIO TX device queue too small. "
+							      "Dropping packet...\n");
+					free_txpacket(packet);
+					goto next_packet;
+				}
+			}
 		}
-		assert(packet->ctx.xmitted_frags <= packet->txb->nr_frags);
-		if (packet->ctx.xmitted_frags == packet->txb->nr_frags)
-			continue;
-
 		/* Now try to transmit the packet.
 		 * This may not completely succeed.
 		 */
 		pio_tx_packet(packet);
+next_packet:
+		continue;
 	}
-	//TODO: re-queue ourself, if there are pending frags.
-
 	spin_unlock_irqrestore(&queue->txlock, flags);
 }
 
@@ -370,7 +315,6 @@ static void setup_txqueues(struct bcm430x_pioqueue *queue)
 		packet = queue->__tx_packets_cache + i;
 
 		packet->queue = queue;
-		init_timer(&packet->timeout);
 		INIT_LIST_HEAD(&packet->list);
 
 		list_add(&packet->list, &queue->txfree);
@@ -394,6 +338,7 @@ struct bcm430x_pioqueue * bcm430x_setup_pioqueue(struct bcm430x_private *bcm,
 
 	INIT_LIST_HEAD(&queue->txfree);
 	INIT_LIST_HEAD(&queue->txqueue);
+	INIT_LIST_HEAD(&queue->txrunning);
 	spin_lock_init(&queue->txlock);
 	INIT_WORK(&queue->txwork, txwork_handler, queue);
 
@@ -424,13 +369,15 @@ static void cancel_transfers(struct bcm430x_pioqueue *queue)
 {
 	struct bcm430x_pio_txpacket *packet, *tmp_packet;
 
-	netif_stop_queue(queue->bcm->net_dev);
+	netif_tx_disable(queue->bcm->net_dev);
+	assert(queue->bcm->shutting_down);
+	cancel_delayed_work(&queue->txwork);
 	flush_workqueue(queue->bcm->workqueue);
 
+	list_for_each_entry_safe(packet, tmp_packet, &queue->txrunning, list)
+		free_txpacket(packet);
 	list_for_each_entry_safe(packet, tmp_packet, &queue->txqueue, list)
-		del_timer_sync(&packet->timeout);
-	list_for_each_entry_safe(packet, tmp_packet, &queue->txqueue, list)
-		cancel_txpacket(packet);
+		free_txpacket(packet);
 }
 
 void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue)
@@ -451,23 +398,24 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	unsigned long flags;
 
 	spin_lock_irqsave(&queue->txlock, flags);
+	assert(!queue->tx_suspended);
 	assert(!list_empty(&queue->txfree));
+
 	packet = list_entry(queue->txfree.next, struct bcm430x_pio_txpacket, list);
 
-	packet->queue = queue;
 	packet->txb = txb;
-	list_del(&packet->list);
-	INIT_LIST_HEAD(&packet->list);
-	if (unlikely(txb_is_dummy))
-		packet->txb_is_dummy = 1;
-	if (unlikely(queue->bcm->no_txhdr))
-		packet->no_txhdr = 1;
+	list_move(&packet->list, &queue->txqueue);
+	packet->xmitted_octets = 0;
+	packet->xmitted_frags = 0;
+	packet->txb_is_dummy = txb_is_dummy;
+	packet->no_txhdr = queue->bcm->no_txhdr;
 
-	memset(&packet->ctx, 0, sizeof(packet->ctx));
+	/* Suspend TX, if we are out of packets in the "free" queue. */
+	if (unlikely(list_empty(&queue->txfree))) {
+		netif_stop_queue(queue->bcm->net_dev);
+		queue->tx_suspended = 1;
+	}
 
-	list_add(&packet->list, &queue->txqueue);
-	packet->used = 1;
-	try_to_suspend_txqueue(queue);
 	spin_unlock_irqrestore(&queue->txlock, flags);
 
 	queue_work(queue->bcm->workqueue, &queue->txwork);
@@ -491,6 +439,9 @@ int fastcall bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 	struct sk_buff *skb;
 	size_t skb_size;
 	struct ieee80211_txb *dummy_txb;
+
+	if (unlikely(queue->tx_suspended))
+		return -EBUSY;
 
 	skb_size = size;
 	if (likely(queue->bcm->no_txhdr == 0))
@@ -530,15 +481,105 @@ bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 	assert(queue);
 	spin_lock_irqsave(&queue->txlock, flags);
 	packet = queue->__tx_packets_cache + packetindex;
-	del_timer(&packet->timeout);
-	cancel_txpacket(packet);
+	free_txpacket(packet);
+	if (unlikely(queue->tx_suspended)) {
+		queue->tx_suspended = 0;
+		netif_wake_queue(queue->bcm->net_dev);
+	}
+
+	/* If there are packets on the txqueue,
+	 * start the work handler again.
+	 */
+	if (!list_empty(&queue->txqueue)) {
+		queue_work(queue->bcm->workqueue,
+			   &queue->txwork);
+	}
 	spin_unlock_irqrestore(&queue->txlock, flags);
+}
+
+static void pio_rx_error(struct bcm430x_pioqueue *queue,
+			 const char *error)
+{
+	printk("PIO RX error: %s\n", error);
+	bcm430x_pio_write(queue, BCM430x_PIO_RXCTL, BCM430x_PIO_RXCTL_READY);
 }
 
 void fastcall
 bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
 {
-	/*TODO*/
+	struct bcm430x_rxhdr rxhdr;
+	u16 tmp;
+	u16 len;
+	int i, err;
+	int rxhdr_readwords;
+	struct sk_buff *skb;
+
+	tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXCTL);
+	if (!(tmp & BCM430x_PIO_RXCTL_DATAAVAILABLE)) {
+		dprintkl(KERN_ERR PFX "PIO RX: No data available\n");
+		return;
+	}
+	bcm430x_pio_write(queue, BCM430x_PIO_RXCTL, tmp);
+
+	for (i = 0; i < 5; i++) {
+		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXCTL);
+		if (tmp & BCM430x_PIO_RXCTL_READY)
+			goto data_ready;
+		udelay(2);
+	}
+	dprintkl(KERN_ERR PFX "PIO RX timed out\n");
+	return;
+data_ready:
+
+	memset(&rxhdr, 0, sizeof(rxhdr));
+
+	len = le16_to_cpu(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
+	if (unlikely(len > 0x700)) {
+		printk("l %u\n", len);
+		pio_rx_error(queue, "len > 0x700");
+		return;
+	}
+	if (unlikely(len == 0 && queue->mmio_base != BCM430x_MMIO_PIO4_BASE)) {
+		pio_rx_error(queue, "len == 0");
+		return;
+	}
+	rxhdr.frame_length = cpu_to_le16(len);
+
+	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE)
+		rxhdr_readwords = 16 / sizeof(u16);
+	else
+		rxhdr_readwords = 20 / sizeof(u16);
+	for (i = 0; i < rxhdr_readwords; i++) {
+		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
+		tmp = be16_to_cpu(tmp);
+		((u16 *)(&rxhdr))[i + 1] = tmp;
+	}
+	if (unlikely(rxhdr.flags2 & BCM430x_RXHDR_FLAGS2_INVALIDFRAME)) {
+		pio_rx_error(queue, "invalid frame");
+		return;
+	}
+	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE) {
+		TODO();
+		//TODO put the txstatus into an skb. We also have to modify bcm430x_rx().
+		skb = NULL;
+	} else {
+		skb = dev_alloc_skb(len);
+		if (unlikely(!skb)) {
+			pio_rx_error(queue, "out of memory");
+			return;
+		}
+		skb_put(skb, len);
+		for (i = 0; i < len - 1; i += 2) {
+			tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
+			tmp = be16_to_cpu(tmp);
+			*((u16 *)(skb->data + i)) = cpu_to_be16(tmp);
+		}
+		if (len % 2) {
+		}
+	}
+	err = bcm430x_rx(queue->bcm, skb, &rxhdr);
+	if (unlikely(err))
+		dev_kfree_skb_irq(skb);
 }
 
 /* vim: set ts=8 sw=8 sts=8: */

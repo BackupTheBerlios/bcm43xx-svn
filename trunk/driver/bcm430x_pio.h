@@ -21,33 +21,28 @@
 #define BCM430x_PIO_TXCTL_INIT		(1 << 3)
 #define BCM430x_PIO_TXCTL_SUSPEND	(1 << 7)
 
-#define BCM430x_PIO_RXCTL_INIT		(1 << 0)
+#define BCM430x_PIO_RXCTL_DATAAVAILABLE	(1 << 0)
 #define BCM430x_PIO_RXCTL_READY		(1 << 1)
 
-/* PIO tuning knobs */
-#define BCM430x_PIO_TXTIMEOUT		(HZ * 10) /* jiffies */
-#define BCM430x_PIO_MAXTXPACKETS	20
+/* PIO constants */
 #define BCM430x_PIO_MAXTXDEVQPACKETS	31
 #define BCM430x_PIO_TXQADJUST		80
+
+/* PIO tuning knobs */
+#define BCM430x_PIO_MAXTXPACKETS	256
 
 
 struct bcm430x_pioqueue;
 struct bcm430x_xmitstatus;
 
-struct bcm430x_pio_txcontext {
-	u8 xmitted_frags;
-	u16 xmitted_octets;
-};
-
 struct bcm430x_pio_txpacket {
 	struct bcm430x_pioqueue *queue;
 	struct ieee80211_txb *txb;
 	struct list_head list;
-	struct timer_list timeout;
-	struct bcm430x_pio_txcontext ctx;
 
-	/* TRUE, if this is used (in the txqueue list). */
-	u8 used:1;
+	u8 xmitted_frags;
+	u16 xmitted_octets;
+
 	/* Do not free the txb, but the skb contained in it.
 	 * This is only used for debugging and the
 	 * DebugFS "send" and "sendraw" files.
@@ -70,10 +65,20 @@ struct bcm430x_pioqueue {
 	/* Used octets of the device internal TX buffer. */
 	u16 tx_devq_used;
 	/* Used packet slots in the device internal TX buffer. */
-	int tx_devq_packets;
-
+	u8 tx_devq_packets;
+	/* Packets from the txfree list can
+	 * be taken on incoming TX requests.
+	 */
 	struct list_head txfree;
+	/* Packets on the txqueue are queued,
+	 * but not completely written to the chip, yet.
+	 */
 	struct list_head txqueue;
+	/* Packets on the txrunning queue are completely
+	 * posted to the device. We are waiting for the txstatus.
+	 */
+	struct list_head txrunning;
+	/* Locking of the TX queues and the accounting. */
 	spinlock_t txlock;
 	struct work_struct txwork;
 	struct bcm430x_pio_txpacket __tx_packets_cache[BCM430x_PIO_MAXTXPACKETS];
