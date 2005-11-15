@@ -237,7 +237,7 @@ int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
 		packet->xmitted_frags++;
 		packet->xmitted_octets += octets;
 	}
-	list_move(&packet->list, &queue->txrunning);
+	list_move_tail(&packet->list, &queue->txrunning);
 
 	return 0;
 }
@@ -407,7 +407,7 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	packet = list_entry(queue->txfree.next, struct bcm430x_pio_txpacket, list);
 
 	packet->txb = txb;
-	list_move(&packet->list, &queue->txqueue);
+	list_move_tail(&packet->list, &queue->txqueue);
 	packet->xmitted_octets = 0;
 	packet->xmitted_frags = 0;
 	packet->txb_is_dummy = txb_is_dummy;
