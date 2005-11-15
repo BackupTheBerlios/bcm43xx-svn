@@ -135,9 +135,11 @@ u16 generate_cookie(struct bcm430x_pioqueue *queue,
 
 static inline
 struct bcm430x_pioqueue * parse_cookie(struct bcm430x_private *bcm,
-				       u16 cookie, int *packetindex)
+				       u16 cookie,
+				       struct bcm430x_pio_txpacket **packet)
 {
 	struct bcm430x_pioqueue *queue = NULL;
+	int packetindex;
 
 	switch (cookie & 0xF000) {
 	case 0x0000:
@@ -156,8 +158,9 @@ struct bcm430x_pioqueue * parse_cookie(struct bcm430x_private *bcm,
 		assert(0);
 	}
 
-	*packetindex = (cookie & 0x0FFF);
-	assert(*packetindex >= 0 && *packetindex < BCM430x_PIO_MAXTXPACKETS);
+	packetindex = (cookie & 0x0FFF);
+	assert(packetindex >= 0 && packetindex < BCM430x_PIO_MAXTXPACKETS);
+	*packet = queue->__tx_packets_cache + packetindex;
 
 	return queue;
 }
@@ -477,13 +480,11 @@ bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 {
 	struct bcm430x_pioqueue *queue;
 	struct bcm430x_pio_txpacket *packet;
-	int packetindex;
 	unsigned long flags;
 
-	queue = parse_cookie(bcm, status->cookie, &packetindex);
+	queue = parse_cookie(bcm, status->cookie, &packet);
 	assert(queue);
 	spin_lock_irqsave(&queue->txlock, flags);
-	packet = queue->__tx_packets_cache + packetindex;
 	free_txpacket(packet);
 	if (unlikely(queue->tx_suspended)) {
 		queue->tx_suspended = 0;
