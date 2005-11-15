@@ -726,8 +726,8 @@ static void bcm430x_phy_initb5(struct bcm430x_private *bcm)
 	}
 
 	if (bcm->bad_frames_preempt) {
-		bcm430x_phy_write(bcm, 0x0401,
-				  bcm430x_phy_read(bcm, 0x0401) | (1 << 11));
+		bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD,
+				  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) | (1 << 11));
 	}
 
 	if ((bcm->current_core->phy->version == 1) &&
@@ -1319,9 +1319,9 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	oldchannel = bcm->current_core->radio->channel;
 	/* Setup */
 	if (phy->connected) {
-		regstack[0] = bcm430x_phy_read(bcm, 0x0429);
+		regstack[0] = bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS);
 		regstack[1] = bcm430x_phy_read(bcm, 0x0802);
-		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x7FFF);
+		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS, regstack[0] & 0x7FFF);
 		bcm430x_phy_write(bcm, 0x0802, regstack[1] & 0xFFFC);
 	}
 	regstack[3] = bcm430x_read16(bcm, 0x03E2);
@@ -1342,7 +1342,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	}
 	bcm430x_radio_selectchannel(bcm, 6, 0);
 	if (phy->connected) {
-		bcm430x_phy_write(bcm, 0x0429, regstack[0] & 0x7FFF);
+		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS, regstack[0] & 0x7FFF);
 		bcm430x_phy_write(bcm, 0x0802, regstack[1] & 0xFFFC);
 		bcm430x_dummy_transmission(bcm);
 	}
@@ -1506,7 +1506,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x0812, regstack[13]);
 		bcm430x_phy_write(bcm, 0x0814, regstack[14]);
 		bcm430x_phy_write(bcm, 0x0815, regstack[15]);
-		bcm430x_phy_write(bcm, 0x0429, regstack[0]);
+		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS, regstack[0]);
 		bcm430x_phy_write(bcm, 0x0802, regstack[1]);
 	}
 	bcm430x_radio_selectchannel(bcm, oldchannel, 1);
@@ -1602,7 +1602,7 @@ void bcm430x_phy_xmitpower(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_B:
 	case BCM430x_PHYTYPE_G:
 		if ((bcm->board_type == 0x0416) &&
-		    (bcm->board_vendor == 0x106B/*FIXME: Board Vendor Broadcom*/))
+		    (bcm->board_vendor == PCI_VENDOR_ID_APPLE))
 			return;
 
 		tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x0058);
