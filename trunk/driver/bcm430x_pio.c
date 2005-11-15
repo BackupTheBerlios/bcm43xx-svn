@@ -511,11 +511,12 @@ static void pio_rx_error(struct bcm430x_pioqueue *queue,
 void fastcall
 bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
 {
-	struct bcm430x_rxhdr rxhdr;
+	u16 preamble[21] = { 0 };
+	struct bcm430x_rxhdr *rxhdr;
 	u16 tmp;
 	u16 len;
 	int i, err;
-	int rxhdr_readwords;
+	int preamble_readwords;
 	struct sk_buff *skb;
 
 	tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXCTL);
@@ -535,8 +536,6 @@ bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
 	return;
 data_ready:
 
-	memset(&rxhdr, 0, sizeof(rxhdr));
-
 	len = le16_to_cpu(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
 	if (unlikely(len > 0x700)) {
 		pio_rx_error(queue, "len > 0x700");
@@ -546,18 +545,17 @@ data_ready:
 		pio_rx_error(queue, "len == 0");
 		return;
 	}
-	rxhdr.frame_length = cpu_to_le16(len);
-
+	preamble[0] = cpu_to_le16(len);
 	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE)
-		rxhdr_readwords = 16 / sizeof(u16);
+		preamble_readwords = 16 / sizeof(u16);
 	else
-		rxhdr_readwords = 20 / sizeof(u16);
-	for (i = 0; i < rxhdr_readwords; i++) {
+		preamble_readwords = 20 / sizeof(u16);
+	for (i = 0; i < preamble_readwords; i++) {
 		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
-		tmp = be16_to_cpu(tmp);
-		((u16 *)(&rxhdr))[i + 1] = tmp;
+		preamble[i + 1] = be16_to_cpu(tmp);
 	}
-	if (unlikely(rxhdr.flags2 & BCM430x_RXHDR_FLAGS2_INVALIDFRAME)) {
+	rxhdr = (struct bcm430x_rxhdr *)preamble;
+	if (unlikely(rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_INVALIDFRAME)) {
 		pio_rx_error(queue, "invalid frame");
 		if (queue->mmio_base == BCM430x_MMIO_PIO1_BASE) {
 			for (i = 0; i < 15; i++)
@@ -566,10 +564,8 @@ data_ready:
 		return;
 	}
 	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE) {
-		u16 *p = (u16 *)(&rxhdr);
-		p++;
 		bcm430x_rx_transmitstatus(queue->bcm,
-					  (const struct bcm430x_hwxmitstatus *)p);
+					  (const struct bcm430x_hwxmitstatus *)(preamble + 1));
 		return;
 	}
 	skb = dev_alloc_skb(len);
@@ -578,15 +574,19 @@ data_ready:
 		return;
 	}
 	skb_put(skb, len);
-	for (i = 0; i < len - 1; i += 2) {
+	for (i = 2; i < len - 1; i += 2) {
 		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
-		tmp = be16_to_cpu(tmp);
-		*((u16 *)(skb->data + i)) = cpu_to_be16(tmp);
+		*((u16 *)(skb->data + i)) = tmp;
 	}
 	if (len % 2) {
-		TODO();//TODO
+		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
+		*((u16 *)(skb->data + 0)) = tmp;
+	} else {
+		//FIXME: What are the first two bytes for the even case?
+		skb->data[0] = 0x00;
+		skb->data[1] = 0x00;
 	}
-	err = bcm430x_rx(queue->bcm, skb, &rxhdr);
+	err = bcm430x_rx(queue->bcm, skb, rxhdr);
 	if (unlikely(err))
 		dev_kfree_skb_irq(skb);
 }

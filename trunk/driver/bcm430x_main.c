@@ -3658,7 +3658,7 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 
 	memset(&stats, 0, sizeof(stats));
 	//TODO: Interpret the rxhdr and construct the stats.
-	
+
 	if (rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_TYPE2FRAME) {
 		/* Skip two unknown bytes and the PLCP header. */
 		skb_pull(skb, 2 + sizeof(struct bcm430x_plcp_hdr6));
