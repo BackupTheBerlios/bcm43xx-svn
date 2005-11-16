@@ -524,6 +524,7 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 		meta = ring->meta + i;
 
 		if (!meta->skb) {
+			assert(ring->tx);
 			assert(!meta->txb);
 			continue;
 		}
