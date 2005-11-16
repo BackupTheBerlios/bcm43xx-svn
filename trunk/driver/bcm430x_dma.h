@@ -116,9 +116,8 @@ struct bcm430x_dmadesc_meta {
 	struct sk_buff *skb;
 	/* DMA base bus-address of the descriptor buffer. */
 	dma_addr_t dmaaddr;
-	u8 used:1;	/* TRUE, if this slot contains a used descriptor (request_slot()) */
 	/* Pointer to our txb (can be NULL).
-	 * This should be freed in completion IRQ and timeout handler.
+	 * This should be freed in completion IRQ.
 	 */
 	struct ieee80211_txb *txb;
 };

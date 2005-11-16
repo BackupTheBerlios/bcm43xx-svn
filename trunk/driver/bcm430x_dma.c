@@ -76,7 +76,6 @@ int request_slot(struct bcm430x_dmaring *ring)
 
 	slot = next_slot(ring, ring->current_slot);
 	ring->current_slot = slot;
-	ring->meta[slot].used = 1;
 	ring->used_slots++;
 
 	/* Check the number of available slots and suspend TX,
@@ -96,7 +95,6 @@ void return_slot(struct bcm430x_dmaring *ring, int slot)
 {
 	assert(ring->tx);
 
-	ring->meta[slot].used = 0;
 	ring->used_slots--;
 
 	/* Check if TX is suspended and check if we have
@@ -205,6 +203,7 @@ void free_descriptor_buffer(struct bcm430x_dmaring *ring,
 			    struct bcm430x_dmadesc_meta *meta,
 			    int irq_context)
 {
+	assert(meta->skb);
 	if (skb_mustfree(meta->skb)) {
 		if (irq_context)
 			dev_kfree_skb_irq(meta->skb);
@@ -432,7 +431,6 @@ static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
 		if (err)
 			goto err_unwind;
 
-		meta->used = 1;
 		assert(ring->used_slots <= ring->nr_slots);
 	}
 	ring->used_slots = ring->nr_slots;
@@ -448,7 +446,6 @@ err_unwind:
 
 		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize, 0);
 		dev_kfree_skb(meta->skb);
-		meta->used = 0;
 	}
 	ring->used_slots = 0;
 	goto out;
@@ -514,10 +511,6 @@ static void dmacontroller_cleanup(struct bcm430x_dmaring *ring)
 	}
 }
 
-/* Loop through all used descriptors and free the buffers.
- * This is used on controller shutdown, so no need to return
- * the slots.
- */
 static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 {
 	struct bcm430x_dmadesc *desc;
@@ -530,9 +523,10 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
-		if (!meta->used)
+		if (!meta->skb) {
+			assert(!meta->txb);
 			continue;
-
+		}
 		if (ring->tx) {
 			unmap_descbuffer(ring, meta->dmaaddr,
 					 meta->skb->len, 1);
@@ -607,22 +601,6 @@ err_kfree_ring:
 	goto out;
 }
 
-static void cancel_transfers(struct bcm430x_dmaring *ring)
-{
-	int slot;
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
-
-	for (slot = 0; slot < ring->nr_slots; slot++) {
-		desc = ring->vbase + slot;
-		meta = ring->meta + slot;
-
-		if (!meta->used)
-			continue;
-		free_descriptor_frame(ring, slot);
-	}
-}
-
 /* Main cleanup function. */
 void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 {
@@ -632,12 +610,7 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	/* Device IRQs are disabled prior entering this function,
 	 * so no need to take care of concurrency with rx handler stuff.
 	 */
-	if (ring->tx)
-		cancel_transfers(ring);
 	dmacontroller_cleanup(ring);
-	/* Free all remaining descriptor buffers
-	 * (For example when this is an RX ring)
-	 */
 	free_all_descbuffers(ring);
 	free_ringmemory(ring);
 
