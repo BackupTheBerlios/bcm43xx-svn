@@ -484,7 +484,8 @@ struct bcm430x_radioinfo {
 	s8 nrssi_lt[64];
 
 	/* current channel */
-	u16 channel;
+	u8 channel;
+	u8 initial_channel;
 
 	u16 lofcal;
 

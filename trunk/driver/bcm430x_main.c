@@ -647,7 +647,7 @@ printk(KERN_INFO PFX "assoc sent\n");
 	return err;
 }
 
-static void bcm430x_disassociate(struct bcm430x_private *bcm)
+void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
 
@@ -2429,7 +2429,8 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			core->phy->minlowsigpos[0] = 0;
 			core->phy->minlowsigpos[1] = 0;
 			core->radio = &bcm->radio[i];
-			core->radio->channel = 0xffff;
+			core->radio->channel = 0xFF;
+			core->radio->initial_channel = 0xFF;
 			core->radio->lofcal = 0xFFFF;
 			core->radio->initval = 0xFFFF;
 			core->radio->nrssi[0] = -1000;
@@ -3261,6 +3262,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
+	bcm->initialized = 0;
 	bcm->shutting_down = 0;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
@@ -3323,6 +3325,11 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	bcm->initialized = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
+	if (bcm->current_core->radio->initial_channel != 0xFF) {
+		bcm430x_mac_suspend(bcm);
+		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->initial_channel, 0);
+		bcm430x_mac_enable(bcm);
+	}
 	bcm430x_periodic_tasks_setup(bcm);
 
 	assert(err == 0);

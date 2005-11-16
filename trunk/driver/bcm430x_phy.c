@@ -584,7 +584,7 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 		val -= 0x0202;
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
-	if (bcm->current_core->radio->channel == 0xFFFF)
+	if (bcm->current_core->radio->channel == 0xFF)
 		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
 	else
 		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel, 0);
@@ -634,7 +634,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 		val -= 0x0202;
 	}
 	bcm430x_phy_write(bcm, 0x03E4, 0x3000);
-	if (bcm->current_core->radio->channel == 0xFFFF)
+	if (bcm->current_core->radio->channel == 0xFF)
 		bcm430x_radio_selectchannel(bcm, BCM430x_RADIO_DEFAULT_CHANNEL_BG, 0);
 	else
 		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->channel, 0);

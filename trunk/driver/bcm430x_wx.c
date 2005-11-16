@@ -33,6 +33,8 @@
 
 #include "bcm430x.h"
 #include "bcm430x_wx.h"
+#include "bcm430x_main.h"
+#include "bcm430x_radio.h"
 
 /* Define to enable a printk on each wx handler function invocation */
 //#define BCM430x_WX_DEBUG
@@ -99,6 +101,55 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 	return 0;
 }
 
+//TODO: Use the ieee80211 equivalents for the following three functions in 2.6.15.
+static u8 freq_to_channel(struct bcm430x_private *bcm,
+			  int freq)
+{
+	u8 channel;
+
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+		channel = (freq - 5000) / 5;
+	} else {
+		if (freq == 2484)
+			channel = 14;
+		else
+			channel = (freq - 2407) / 5;
+	}
+
+	return channel;
+}
+
+static int channel_to_freq(struct bcm430x_private *bcm,
+			   u8 channel)
+{
+	int freq;
+
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+		freq = 5000 + (5 * channel);
+	} else {
+		if (channel == 14)
+			freq = 2484;
+		else
+			freq = 2407 + (5 * channel);
+	}
+
+	return freq;
+}
+
+static int is_valid_channel(struct bcm430x_private *bcm,
+			    u8 channel)
+{
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+		if (channel <= 200)
+			return 1;
+	} else {
+		if (channel >= 1 && channel <= 14)
+			return 1;
+	}
+
+	return 0;
+}
+
 static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 				      struct iw_request_info *info,
 				      union iwreq_data *data,
@@ -107,25 +158,30 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	unsigned long flags;
 	u8 channel;
+	int freq;
 
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
-printk("setchannel m=%d, e=%d, i=%u, flags=%u\n", data->freq.m, data->freq.e, data->freq.i, data->freq.flags);
+	if ((data->freq.m >= 0) && (data->freq.m <= 1000)) {
+		channel = data->freq.m;
+		freq = channel_to_freq(bcm, channel);
+	} else {
+		channel = freq_to_channel(bcm, data->freq.m);
+		freq = data->freq.m;
+	}
+	if (!is_valid_channel(bcm, channel))
+		return -EINVAL;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-#if 0
-	if ((data->freq.m == 0) && (data->freq.m <= 1000)) {
-		channel = data->freq.m;
+	if (bcm->initialized) {
+		bcm430x_disassociate(bcm);
+		bcm430x_mac_suspend(bcm);
+		bcm430x_radio_selectchannel(bcm, channel, 0);
+		bcm430x_mac_enable(bcm);
 	} else
-                channel = ieee80211_freq_to_channel(bcm->ieee, data->freq.m);
-
-        if (!ieee80211_is_valid_channel(bcm->ieee, channel))
-                return -EINVAL;
-
-	TODO(); //TODO: Actual channel selection, based on current_core, etc.
-	printk_wx(KERN_INFO PFX "Selected channel: %d\n", channel);
-#endif
+		bcm->current_core->radio->initial_channel = channel;
 	spin_unlock_irqrestore(&bcm->lock, flags);
+	printk_wx(KERN_INFO PFX "Selected channel: %d\n", channel);
 
 	return 0;
 }
