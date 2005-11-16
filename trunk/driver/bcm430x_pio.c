@@ -395,17 +395,24 @@ void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue)
 	kfree(queue);
 }
 
-static inline
+static fastcall
 int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 		     struct ieee80211_txb *txb,
 		     const int txb_is_dummy)
 {
 	struct bcm430x_pio_txpacket *packet;
 	unsigned long flags;
+	u16 tmp;
 
 	spin_lock_irqsave(&queue->txlock, flags);
 	assert(!queue->tx_suspended);
 	assert(!list_empty(&queue->txfree));
+
+	tmp = bcm430x_pio_read(queue, BCM430x_PIO_TXCTL);
+	if (tmp & BCM430x_PIO_TXCTL_SUSPEND) {
+		spin_unlock_irqrestore(&queue->txlock, flags);
+		return -EBUSY;
+	}
 
 	packet = list_entry(queue->txfree.next, struct bcm430x_pio_txpacket, list);
 
@@ -423,8 +430,8 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	}
 
 	spin_unlock_irqrestore(&queue->txlock, flags);
-
 	queue_work(queue->bcm->workqueue, &queue->txwork);
+
 	return 0;
 }
 
@@ -445,6 +452,7 @@ int fastcall bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 	struct sk_buff *skb;
 	size_t skb_size;
 	struct ieee80211_txb *dummy_txb;
+	int err = -ENOMEM;
 
 	if (unlikely(queue->tx_suspended))
 		return -EBUSY;
@@ -454,7 +462,7 @@ int fastcall bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 		skb_size += sizeof(struct bcm430x_txhdr);
 	skb = dev_alloc_skb(skb_size);
 	if (unlikely(!skb))
-		return -ENOMEM;
+		goto out;
 	if (likely(!queue->bcm->no_txhdr))
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb_put(skb, size), buf, size);
@@ -464,14 +472,23 @@ int fastcall bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 	 */
 	dummy_txb = kzalloc(sizeof(*dummy_txb) + sizeof(u8 *),
 			    GFP_ATOMIC);
-	if (unlikely(!dummy_txb)) {
-		dev_kfree_skb_any(skb);
-		return -ENOMEM;
-	}
+	if (unlikely(!dummy_txb))
+		goto err_kfree_skb;
 	dummy_txb->nr_frags = 1;
 	dummy_txb->fragments[0] = skb;
 
-	return pio_transfer_txb(queue, dummy_txb, 1);
+	err = pio_transfer_txb(queue, dummy_txb, 1);
+	if (unlikely(err))
+		goto err_kfree_txb;
+
+out:
+	return err;
+
+err_kfree_txb:
+	kfree(dummy_txb);
+err_kfree_skb:
+	dev_kfree_skb_any(skb);
+	goto out;
 }
 
 void fastcall
