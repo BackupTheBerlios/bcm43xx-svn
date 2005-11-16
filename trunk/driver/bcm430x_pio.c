@@ -526,11 +526,11 @@ bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
 	}
 	bcm430x_pio_write(queue, BCM430x_PIO_RXCTL, BCM430x_PIO_RXCTL_DATAAVAILABLE);
 
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 10; i++) {
 		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXCTL);
 		if (tmp & BCM430x_PIO_RXCTL_READY)
 			goto data_ready;
-		udelay(2);
+		udelay(10);
 	}
 	dprintkl(KERN_ERR PFX "PIO RX timed out\n");
 	return;
@@ -547,12 +547,12 @@ data_ready:
 	}
 	preamble[0] = cpu_to_le16(len);
 	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE)
-		preamble_readwords = 16 / sizeof(u16);
+		preamble_readwords = 14 / sizeof(u16);
 	else
-		preamble_readwords = 20 / sizeof(u16);
+		preamble_readwords = 18 / sizeof(u16);
 	for (i = 0; i < preamble_readwords; i++) {
 		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
-		preamble[i + 1] = be16_to_cpu(tmp);
+		preamble[i + 1] = cpu_to_be16(tmp);
 	}
 	rxhdr = (struct bcm430x_rxhdr *)preamble;
 	if (unlikely(rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_INVALIDFRAME)) {
@@ -574,17 +574,14 @@ data_ready:
 		return;
 	}
 	skb_put(skb, len);
-	for (i = 2; i < len - 1; i += 2) {
-		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
+	for (i = 0; i < len - 1; i += 2) {
+		tmp = cpu_to_be16(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
 		*((u16 *)(skb->data + i)) = tmp;
 	}
 	if (len % 2) {
-		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
-		*((u16 *)(skb->data + 0)) = tmp;
-	} else {
-		//FIXME: What are the first two bytes for the even case?
-		skb->data[0] = 0x00;
-		skb->data[1] = 0x00;
+		tmp = cpu_to_be16(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
+		skb->data[len - 1] = (tmp & 0x00FF);
+		skb->data[0] = (tmp & 0xFF00) >> 8;
 	}
 	err = bcm430x_rx(queue->bcm, skb, rxhdr);
 	if (unlikely(err))
