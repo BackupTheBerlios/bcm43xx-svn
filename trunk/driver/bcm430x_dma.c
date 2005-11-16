@@ -125,33 +125,6 @@ static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
 			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
 }
 
-#ifdef BCM430x_DEBUG
-/* Debugging helper to dump the contents of the ringmemory (slots) */
-static __attribute_used__
-void dump_ringmemory(struct bcm430x_dmaring *ring)
-{
-	int i;
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
-
-	printk(KERN_INFO PFX "*** DMA Ringmemory dump (%s) ***\n",
-	       (ring->tx) ? "tx" : "rx");
-	printk(KERN_INFO PFX "used_slots: 0x%04x\n", ring->used_slots);
-	printk(KERN_INFO PFX "current_slot:  0x%04x\n", ring->current_slot);
-
-	for (i = 0; i < ring->nr_slots; i++) {
-		desc = ring->vbase + i;
-		meta = ring->meta + i;
-
-		printk(KERN_INFO PFX "0x%04x:  ctl: 0x%08x, adr: 0x%08x, "
-				     "txb: 0x%p, skb: 0x%p(%s), bus: 0x%08x\n",
-		       i, get_desc_ctl(desc), get_desc_addr(desc),
-		       meta->txb, meta->skb, (meta->free_skb) ? "f" : " ",
-		       meta->dmaaddr);
-	}
-}
-#endif /* BCM430x_DEBUG */
-
 static inline
 dma_addr_t map_descbuffer(struct bcm430x_dmaring *ring,
 			  unsigned char *buf,
@@ -212,6 +185,19 @@ void sync_descbuffer_for_device(struct bcm430x_dmaring *ring,
 				   addr, len, DMA_FROM_DEVICE);
 }
 
+static inline
+void mark_skb_mustfree(struct sk_buff *skb,
+		       char mustfree)
+{
+	skb->cb[0] = mustfree;
+}
+
+static inline
+int skb_mustfree(struct sk_buff *skb)
+{
+	return (skb->cb[0] != 0);
+}
+
 /* Unmap and free a descriptor buffer. */
 static inline
 void free_descriptor_buffer(struct bcm430x_dmaring *ring,
@@ -219,7 +205,7 @@ void free_descriptor_buffer(struct bcm430x_dmaring *ring,
 			    struct bcm430x_dmadesc_meta *meta,
 			    int irq_context)
 {
-	if (meta->free_skb) {
+	if (skb_mustfree(meta->skb)) {
 		if (irq_context)
 			dev_kfree_skb_irq(meta->skb);
 		else
@@ -405,7 +391,7 @@ static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
 	if (unlikely(!meta->skb))
 		return -ENOMEM;
 	meta->skb->dev = ring->bcm->net_dev;
-	meta->free_skb = 1;
+	mark_skb_mustfree(meta->skb, 1);
 
 #ifdef BCM430x_DEBUG
 	/* Poison the buffer. */
@@ -731,8 +717,7 @@ static fastcall
 int dma_tx_fragment(struct bcm430x_dmaring *ring,
 		    struct sk_buff *skb,
 		    struct ieee80211_txb *txb,
-		    u8 cur_frag,
-		    const int forcefree_skb)
+		    u8 cur_frag)
 {
 	int err = 0;
 	int slot;
@@ -797,14 +782,6 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	}
 
 	meta->skb = skb;
-	if (unlikely(forcefree_skb)) {
-		meta->free_skb = 1;
-	} else {
-		/* We do not free the skb, as it is freed as
-		 * part of the txb freeing.
-		 */
-		meta->free_skb = 0;
-	}
 	dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
 	meta->dmaaddr = dmaaddr;
 
@@ -856,7 +833,11 @@ static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
 	spin_lock_irqsave(&ring->lock, flags);
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
-		err = dma_tx_fragment(ring, skb, txb, i, 0);
+		/* We do not free the skb, as it is freed as
+		 * part of the txb freeing.
+		 */
+		mark_skb_mustfree(skb, 0);
+		err = dma_tx_fragment(ring, skb, txb, i);
 		if (unlikely(err))
 			goto err_unwind;
 	}
@@ -916,9 +897,10 @@ int fastcall bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 	if (likely(ring->bcm->no_txhdr == 0))
 		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
 	memcpy(skb_put(skb, size), buf, size);
+	mark_skb_mustfree(skb, 1);
 
 	spin_lock_irqsave(&ring->lock, flags);
-	err = dma_tx_fragment(ring, skb, NULL, 0, 1);
+	err = dma_tx_fragment(ring, skb, NULL, 0);
 	spin_unlock_irqrestore(&ring->lock, flags);
 
 	return err;
