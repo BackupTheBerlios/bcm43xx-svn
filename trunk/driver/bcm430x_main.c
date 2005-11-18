@@ -527,14 +527,14 @@ void bcm430x_macfilter_set(struct bcm430x_private *bcm,
 	offset |= 0x0020;
 	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_CONTROL, offset);
 
-	data = mac[1];
-	data |= mac[0] << 8;
+	data = mac[0];
+	data |= mac[1] << 8;
 	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
-	data = mac[3];
-	data |= mac[2] << 8;
+	data = mac[2];
+	data |= mac[3] << 8;
 	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
-	data = mac[5];
-	data |= mac[4] << 8;
+	data = mac[4];
+	data |= mac[5] << 8;
 	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
 }
 
