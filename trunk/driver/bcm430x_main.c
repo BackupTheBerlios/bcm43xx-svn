@@ -928,6 +928,51 @@ static int bcm430x_read_sprom(struct bcm430x_private *bcm)
 	return 0;
 }
 
+static void bcm430x_geo_init(struct bcm430x_private *bcm)
+{
+	struct ieee80211_geo geo;
+	struct ieee80211_channel *chan;
+	int have_a = 0, have_bg = 0;
+	int i, num80211;
+	struct bcm430x_phyinfo *phy;
+
+	memset(&geo, 0, sizeof(geo));
+	snprintf(geo.name, ARRAY_SIZE(geo.name),
+		 "%01X", bcm->sprom.countrycode);//FIXME
+	num80211 = bcm430x_num_80211_cores(bcm);
+	for (i = 0; i < num80211; i++) {
+		phy = bcm->phy + i;
+		switch (phy->type) {
+		case BCM430x_PHYTYPE_B:
+		case BCM430x_PHYTYPE_G:
+			have_bg = 1;
+			break;
+		case BCM430x_PHYTYPE_A:
+			have_a = 1;
+			break;
+		default:
+			assert(0);
+		}
+	}
+
+	/* FIXME: Allowed channels for countrycode. */
+	if (have_a) {
+		geo.a_channels = IEEE80211_52GHZ_CHANNELS;
+		//TODO
+	}
+	if (have_bg) {
+		geo.bg_channels = IEEE80211_24GHZ_CHANNELS;
+		for (i = 1; i <= IEEE80211_24GHZ_CHANNELS; i++) {
+			chan = geo.bg + i;
+			chan->freq = 0;//FIXME
+			chan->channel = i;
+			//TODO: maxpower
+		}
+	}
+
+	ieee80211_set_geo(bcm->ieee, &geo);
+}
+
 /* Read and adjust LED infos */
 static int bcm430x_leds_init(struct bcm430x_private *bcm)
 {
@@ -3235,6 +3280,7 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	bcm->shutting_down = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
+	ieee80211_softmac_stop_protocol(bcm->ieee);
 	bcm430x_periodic_tasks_delete(bcm);
 
 	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
@@ -3330,6 +3376,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->initial_channel, 0);
 		bcm430x_mac_enable(bcm);
 	}
+	ieee80211_softmac_start_protocol(bcm->ieee);
 	bcm430x_periodic_tasks_setup(bcm);
 
 	assert(err == 0);
@@ -3585,6 +3632,8 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	else
 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
 
+	bcm430x_geo_init(bcm);
+
 	assert(err == 0);
 out:
 	return err;
@@ -3754,6 +3803,23 @@ static inline int bcm430x_tx(struct bcm430x_private *bcm,
 	return err;
 }
 
+static void bcm430x_ieee80211_link_change(struct net_device *net_dev)
+{/*TODO*/
+}
+
+static void bcm430x_ieee80211_set_chan(struct net_device *net_dev,
+				       u8 channel)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm430x_mac_suspend(bcm);
+	bcm430x_radio_selectchannel(bcm, channel, 0);
+	bcm430x_mac_enable(bcm);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+}
+
 /* set_security() callback in struct ieee80211_device */
 static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
 					   struct ieee80211_security *sec)
@@ -3910,6 +3976,8 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
+	bcm->ieee->set_chan = bcm430x_ieee80211_set_chan;
+	bcm->ieee->link_change = bcm430x_ieee80211_link_change;
 
 	pci_set_drvdata(pdev, net_dev);
 
