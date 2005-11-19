@@ -3915,7 +3915,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	err = bcm430x_attach_board(bcm);
 	if (err)
-		goto err_destroy_wq;
+		goto err_softmac_free;
 
 	err = register_netdev(net_dev);
 	if (err) {
@@ -3933,7 +3933,9 @@ out:
 
 err_detach_board:
 	bcm430x_detach_board(bcm);
-err_destroy_wq:
+err_softmac_free:
+	ieee80211_softmac_free(bcm->ieee);
+/*err_destroy_wq:*/
 	destroy_workqueue(bcm->workqueue);
 err_free_netdev:
 	free_netdev(net_dev);
