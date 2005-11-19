@@ -804,5 +804,9 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
 #  error "Generic IEEE 802.11 Networking Stack (CONFIG_IEEE80211) not available."
 # endif
 #endif
+#ifndef IEEE_SOFTMAC_ASSOCIATE
+# error "The bcm430x driver requires latest SoftMAC ieee80211 patch."
+# error "See ftp://ftp.berlios.de/pub/bcm43xx/"
+#endif
 
 #endif /* BCM430x_H_ */

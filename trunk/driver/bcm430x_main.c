@@ -3604,12 +3604,6 @@ err_pci_disable:
 	goto out;
 }
 
-void bcm430x_register_station(struct bcm430x_private *bcm,
-			      const u8 *addr)
-{
-	//TODO
-}
-
 int fastcall bcm430x_rx_transmitstatus(struct bcm430x_private *bcm,
 				       const struct bcm430x_hwxmitstatus *status)
 {
@@ -3659,7 +3653,7 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 #else
 	struct ieee80211_hdr_4addr *wlhdr;
 #endif
-	u16 tmp;
+	u16 frame_ctl;
 	int is_packet_for_us = 0;
 	int err = -EINVAL;
 
@@ -3714,32 +3708,21 @@ bcm430x_printk_dump(skb->data, skb->len, "RX data");
 		break;
 	}
 
-	switch (WLAN_FC_GET_TYPE(le16_to_cpu(wlhdr->frame_ctl))) {
+	frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
+	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
 	case IEEE80211_FTYPE_MGMT:
-#if LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 14)
-		/* Workaround for broken ieee80211_rx_mgt() in 2.6.14 */
-		wlhdr->frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
 		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
-		wlhdr->frame_ctl = cpu_to_le16(wlhdr->frame_ctl);
-#else
-		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
-#endif
-		tmp = WLAN_FC_GET_STYPE(le16_to_cpu(wlhdr->frame_ctl));
-
-//XXX: tempoary debugging stuff:
-if (tmp == IEEE80211_STYPE_ASSOC_RESP)
-	printk(KERN_INFO PFX "!!!!! assoc resp\n");
-else if (tmp != IEEE80211_STYPE_BEACON)
-	printk(KERN_INFO PFX "received MGMT 0x%04x\n", tmp);
-
-		if (bcm->ieee->iw_mode == IW_MODE_ADHOC) {
-			if (tmp == IEEE80211_STYPE_PROBE_RESP ||
-			    tmp == IEEE80211_STYPE_BEACON) {
-				if (memcmp(bcm->ieee->bssid, wlhdr->addr3, ETH_ALEN) == 0)
-					bcm430x_register_station(bcm, wlhdr->addr2);
-			}
+		err = ieee80211_rx_frame_softmac(bcm->ieee, skb, &stats,
+						 WLAN_FC_GET_TYPE(frame_ctl),
+						 WLAN_FC_GET_STYPE(frame_ctl));
+#if 0
+		if (err) {
+			dprintkl(KERN_ERR PFX "ieee80211_rx_frame_softmac() failed with "
+					      "err %d, type 0x%04x, stype 0x%04x\n",
+				 err, WLAN_FC_GET_TYPE(frame_ctl),
+				 WLAN_FC_GET_STYPE(frame_ctl));
 		}
-		err = 0;
+#endif
 		break;
 	case IEEE80211_FTYPE_DATA:
 		if (is_packet_for_us)
@@ -3914,6 +3897,14 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		}
 	}
 
+	bcm->ieee->wq = bcm->workqueue;
+	ieee80211_softmac_init(bcm->ieee);
+	bcm->ieee->softmac_features |= IEEE_SOFTMAC_SCAN |
+				       IEEE_SOFTMAC_ASSOCIATE |
+				       IEEE_SOFTMAC_PROBERQ |
+				       IEEE_SOFTMAC_PROBERS |
+				       IEEE_SOFTMAC_BEACONS |
+				       IEEE_SOFTMAC_SINGLE_QUEUE;
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
@@ -3957,6 +3948,7 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 	bcm430x_debugfs_remove_device(bcm);
 	unregister_netdev(net_dev);
 	bcm430x_detach_board(bcm);
+	ieee80211_softmac_free(bcm->ieee);
 	destroy_workqueue(bcm->workqueue);
 	free_netdev(net_dev);
 }
