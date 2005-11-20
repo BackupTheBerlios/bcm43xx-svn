@@ -582,71 +582,6 @@ static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
 }
 
-static int bcm430x_send_assoc_request(struct bcm430x_private *bcm)
-{
-	int err;
-	u8 *ssid_rates;
-	size_t i = 0, req_len;
-	struct bcm430x_assoc_req req;
-
-	memset(&req, 0, sizeof(req));
-
-	req.wlhdr.frame_ctl = cpu_to_le16(IEEE80211_FTYPE_MGMT | 
-					  IEEE80211_STYPE_ASSOC_REQ);
-	req.wlhdr.duration_id = cpu_to_le16(32768);
-
-	memcpy(req.wlhdr.addr1, bcm->ieee->bssid, ETH_ALEN);
-	memcpy(req.wlhdr.addr2, bcm->net_dev->dev_addr, ETH_ALEN);
-	memcpy(req.wlhdr.addr3, bcm->ieee->bssid, ETH_ALEN);
-
-	if (0/*FIXME: WEP*/)
-		req.capability |= cpu_to_le16(WLAN_CAPABILITY_PRIVACY);
-	if (bcm->short_preamble)
-		req.capability |= cpu_to_le16(WLAN_CAPABILITY_SHORT_PREAMBLE);
-
-	//FIXME: Set the listen interval
-	//req.listen_interval = FOO;
-
-	ssid_rates = req.ssid_rates;
-
-	/* Set the SSID. */
-	ssid_rates[i++] = MFIE_TYPE_SSID;
-	ssid_rates[i++] = 0;//FIXME
-
-	/* Set the supported rates. */
-	ssid_rates[i++] = MFIE_TYPE_RATES;
-	if (bcm->ieee->modulation == IEEE80211_CCK_MODULATION) {
-		ssid_rates[i++] = 4;
-		ssid_rates[i++] = IEEE80211_CCK_RATE_1MB;
-		ssid_rates[i++] = IEEE80211_CCK_RATE_2MB;
-		ssid_rates[i++] = IEEE80211_CCK_RATE_5MB;
-		ssid_rates[i++] = IEEE80211_CCK_RATE_11MB;
-	} else {
-		ssid_rates[i++] = 8;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_6MB;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_9MB;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_12MB;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_18MB;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_24MB;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_36MB;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_48MB;
-		ssid_rates[i++] = IEEE80211_OFDM_RATE_54MB;
-	}
-
-	req_len = sizeof(req.wlhdr) + sizeof(req.capability)
-		+ sizeof(req.listen_interval) + i;
-	if (bcm->pio_mode) {
-		err = bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
-					   (const char *)(&req), req_len);
-	} else {
-		err = bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
-					   (const char *)(&req), req_len);
-	}
-
-printk(KERN_INFO PFX "assoc sent\n");
-	return err;
-}
-
 void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
 	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
@@ -694,11 +629,11 @@ static void bcm430x_associate(struct bcm430x_private *bcm,
 	bcm430x_write_mac_bssid_templates(bcm);
 	bcm430x_mac_enable(bcm);
 
-	bcm430x_send_assoc_request(bcm);
+//	bcm430x_send_assoc_request(bcm);
 
 	bcm->associated = 1;//FIXME: This is not correct. We must set the bit when we receive the response.
 
-	dprintk(KERN_INFO PFX "Associated to " MAC_FMT "\n", MAC_ARG(mac));
+//	dprintk(KERN_INFO PFX "Associated to " MAC_FMT "\n", MAC_ARG(mac));
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
@@ -3846,6 +3781,44 @@ static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 	return err;
 }
 
+static void bcm430x_ieee80211_softmac_hard_start_xmit(struct sk_buff *skb,
+						      struct net_device *net_dev,
+						      int rate)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
+	/*TODO: rate?*/
+	/*TODO: calling tx_frame is ugly here. */
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (bcm->pio_mode) {
+		bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
+				     skb->data, skb->len);
+	} else {
+		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
+				     skb->data, skb->len);
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	dev_kfree_skb_any(skb);
+}
+
+static void bcm430x_ieee80211_softmac_set_bssid_filter(struct net_device *net_dev,
+						       const u8 *bssid)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
+//u8 t[] = { 0x00, 0x90, 0x4c, 0x67, 0x04, 0x00 };
+//u8 t[] = { 0x00, 0x12, 0x17, 0x70, 0xa7, 0xd4 };
+u8 t[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+	bssid = t;
+	printk("set bssid filter to " MAC_FMT "\n", MAC_ARG(bssid));
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm430x_associate(bcm, bssid);//FIXME
+	spin_unlock_irqrestore(&bcm->lock, flags);
+}
+
 /* reset_port() callback in struct ieee80211_device */
 static int bcm430x_ieee80211_reset_port(struct net_device *net_dev)
 {/*TODO*/
@@ -3975,6 +3948,8 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
+	bcm->ieee->softmac_data_hard_start_xmit = bcm430x_ieee80211_softmac_hard_start_xmit;
+	bcm->ieee->set_bssid_filter = bcm430x_ieee80211_softmac_set_bssid_filter;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
 	bcm->ieee->set_chan = bcm430x_ieee80211_set_chan;
 	bcm->ieee->link_change = bcm430x_ieee80211_link_change;
