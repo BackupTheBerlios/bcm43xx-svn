@@ -1352,7 +1352,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 
 	bcm430x_write16(bcm, 0x03F4, 0x0000);
 	bcm430x_phy_write(bcm, 0x002E, 0x007F);
-	bcm430x_phy_write(bcm, 0x080F, 0x0078);
+	bcm430x_phy_write(bcm, 0x0078, 0x080F);
 	bcm430x_phy_write(bcm, 0x0035, regstack[7] & ~(1 << 7));
 	bcm430x_radio_write16(bcm, 0x007A, regstack[10] & 0xFFF0);
 	bcm430x_phy_write(bcm, 0x002B, 0x0203);
@@ -1475,7 +1475,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	}
 
 	/* Restoration */
-	if (bcm->current_core->phy->connected) {
+	if (phy->connected) {
 		bcm430x_phy_write(bcm, 0x0015, 0xE300);
 		bcm430x_phy_write(bcm, 0x0812, (r27 << 8) | 0xA0);
 		udelay(5);
