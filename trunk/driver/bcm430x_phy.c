@@ -125,9 +125,17 @@ void bcm430x_phy_write(struct bcm430x_private *bcm, u16 offset, u16 val)
 
 void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 {
+	unsigned long flags;
+
 	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD); // Dummy read
 	if (bcm->current_core->phy->calibrated)
 		return;
+
+	/* We do not want to be preempted while calibrating
+	 * the hardware.
+	 */
+	local_irq_save(flags);
+
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
 		bcm430x_radio_set_txpower_a(bcm, 0x0018);
 	if ((bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
@@ -137,6 +145,8 @@ void bcm430x_phy_calibrate(struct bcm430x_private *bcm)
 		bcm430x_wireless_core_reset(bcm, 1);
 	}
 	bcm->current_core->phy->calibrated = 1;
+
+	local_irq_restore(flags);
 }
 
 /* Connect the PHY 
@@ -1764,47 +1774,51 @@ int bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm)
 
 int bcm430x_phy_init(struct bcm430x_private *bcm)
 {
-	int initialized = 0;
+	int err = -ENODEV;
+	unsigned long flags;
+
+	/* We do not want to be preempted while calibrating
+	 * the hardware.
+	 */
+	local_irq_save(flags);
 
 	switch (bcm->current_core->phy->type) {
 	case BCM430x_PHYTYPE_A:
 		if ((bcm->current_core->phy->rev == 2) || (bcm->current_core->phy->rev == 3)) {
 			bcm430x_phy_inita(bcm);
-			initialized = 1;
+			err = 0;
 		}
 		break;
 	case BCM430x_PHYTYPE_B:
 		switch (bcm->current_core->phy->rev) {
 		case 2:
 			bcm430x_phy_initb2(bcm);
-			initialized = 1;
+			err = 0;
 			break;
 		case 4:
 			bcm430x_phy_initb4(bcm);
-			initialized = 1;
+			err = 0;
 			break;
 		case 5:
 			bcm430x_phy_initb5(bcm);
-			initialized = 1;
+			err = 0;
 			break;
 		case 6:
 			bcm430x_phy_initb6(bcm);
-			initialized = 1;
+			err = 0;
 			break;
 		}
 		break;
 	case BCM430x_PHYTYPE_G:
 		bcm430x_phy_initg(bcm);
-		initialized = 1;
+		err = 0;
 		break;
 	}
-
-	if (!initialized) {
+	if (err)
 		printk(KERN_WARNING PFX "Unknown PHYTYPE found!\n");
-		return -1;
-	}
+	local_irq_restore(flags);
 
-	return 0;
+	return err;
 }
 
 void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
