@@ -282,7 +282,10 @@ int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 		err = bcm430x_switch_core(bcm, bcm->active_80211_core);
 		if (err)
 			return err;
-		if (bcm430x_read32(bcm, BCM430x_MMIO_RADIO_HWENABLED_HI) & (1 << 16))
+		if (((bcm->current_core->rev >= 3) &&
+			(bcm430x_read32(bcm, BCM430x_MMIO_RADIO_HWENABLED_LO) & (1 << 16))) ||
+		      ((bcm->current_core->rev < 3) &&
+			!(bcm430x_read16(bcm, 0x049A) & (1 << 4))))
 			return 0;
 		err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
 		if (err)
