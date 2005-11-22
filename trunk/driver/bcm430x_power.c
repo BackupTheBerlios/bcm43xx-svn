@@ -84,7 +84,7 @@ static int bcm430x_pctl_clockfreqlimit(struct bcm430x_private *bcm,
 		} else
 			divisor = 1;
 	} else {
-		tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
+		tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SYSCLKCTL);
 		divisor = 4 * (1 + ((tmp & 0xFFFF0000) >> 16));
 		selection = 1;
 	}
