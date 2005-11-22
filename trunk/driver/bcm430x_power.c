@@ -56,19 +56,25 @@ static int bcm430x_pctl_clockfreqlimit(struct bcm430x_private *bcm,
 		goto out;
 
 	if (bcm->current_core->rev < 6) {
-		err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &tmp);
-		if (err) {
-			printk(KERN_ERR PFX "clockfreqlimit pcicfg read failure\n");
-			goto out_switchback;
-		}
-		if (tmp & 0x10) {
-			/* PCI */
-			selection = 2;
-			divisor = 64;
-		} else {
-			/* XTAL */
+		if ((bcm->bustype == BCM430x_BUSTYPE_PCMCIA) ||
+			(bcm->bustype == BCM430x_BUSTYPE_SB)) {
 			selection = 1;
 			divisor = 32;
+		} else {
+			err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, &tmp);
+			if (err) {
+				printk(KERN_ERR PFX "clockfreqlimit pcicfg read failure\n");
+				goto out_switchback;
+			}
+			if (tmp & 0x10) {
+				/* PCI */
+				selection = 2;
+				divisor = 64;
+			} else {
+				/* XTAL */
+				selection = 1;
+				divisor = 32;
+			}
 		}
 	} else if (bcm->current_core->rev < 10) {
 		selection = (tmp & 0x07);

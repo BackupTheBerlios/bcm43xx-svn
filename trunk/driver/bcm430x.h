@@ -319,7 +319,8 @@
 #define BCM430x_BUSTYPE_PCI	0
 /* Bus type Silicone Backplane Bus. */
 #define BCM430x_BUSTYPE_SB	1
-
+/* Bus type PCMCIA. */
+#define BCM430x_BUSTYPE_PCMCIA	2
 
 #ifdef assert
 # undef assert
