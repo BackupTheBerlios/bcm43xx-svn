@@ -274,15 +274,13 @@ int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 			goto err_pci;
 		udelay(5000);
 	} else {
-		if (0 /*FIXME: radio is hardware-disabled*/)
-			return 0;
-		if (bcm->current_core->rev < 5)
-			return 0;
-		if (bcm->sprom.boardflags & BCM430x_BFL_XTAL_NOSLOW)
-			return 0;
-		err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_SLOW);
-		if (err)
-			goto out;
+		if ((bcm->current_core->rev > 4) &&
+			!(bcm430x_read32(bcm, BCM430x_MMIO_RADIO_HWENABLED_HI) & (1 << 16)) &&
+			!(bcm->sprom.boardflags & BCM430x_BFL_XTAL_NOSLOW)) {
+			err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_SLOW);
+			if (err)
+				goto out;
+		}
 		out &= ~BCM430x_PCTL_XTAL_POWERUP;
 		out |= BCM430x_PCTL_PLL_POWERDOWN;
 		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCTL_OUT, out);
