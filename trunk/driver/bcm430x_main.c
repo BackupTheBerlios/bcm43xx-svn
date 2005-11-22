@@ -2227,6 +2227,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	core_rev = (sb_id_hi & 0xF);
 	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
 
+	printk("probe!");
 
 	/* if present, chipcommon is always core 0; read the chipid from it */
 	if (core_id == BCM430x_COREID_CHIPCOMMON) {
@@ -3282,6 +3283,8 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		if (i != 0)
 			bcm430x_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
 
+		bcm->active_80211_core = &bcm->core_80211[0];
+		
 		err = bcm430x_wireless_core_init(bcm);
 		if (err)
 			goto err_80211_unwind;
@@ -3496,12 +3499,17 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	err = bcm430x_pctl_init(bcm);
 	if (err)
 		goto err_chipset_detach;
-	err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
+/*	err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
 	if (err)
 		goto err_chipset_detach;
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_chipset_detach;
+*/
+	err = bcm430x_probe_cores(bcm);
+	if (err)
+		goto err_chipset_detach;
+	
 	num_80211_cores = bcm430x_num_80211_cores(bcm);
 
 	/* Attach all IO cores to the backplane. */

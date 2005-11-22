@@ -276,10 +276,18 @@ int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 	} else {
 		if (bcm->current_core->rev < 5)
 			return 0;
-		if (bcm430x_read32(bcm, BCM430x_MMIO_RADIO_HWENABLED_HI) & (1 << 16))
-			return 0;
 		if (bcm->sprom.boardflags & BCM430x_BFL_XTAL_NOSLOW)
 			return 0;
+
+		err = bcm430x_switch_core(bcm, bcm->active_80211_core);
+		if (err)
+			return err;
+		if (bcm430x_read32(bcm, BCM430x_MMIO_RADIO_HWENABLED_HI) & (1 << 16))
+			return 0;
+		err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+		if (err)
+			return err;
+
 		err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_SLOW);
 		if (err)
 			goto out;
