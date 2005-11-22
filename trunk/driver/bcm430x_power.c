@@ -70,14 +70,19 @@ static int bcm430x_pctl_clockfreqlimit(struct bcm430x_private *bcm,
 			selection = 1;
 			divisor = 32;
 		}
+	} else if (bcm->current_core->rev < 10) {
+		selection = (tmp & 0x07);
+		if (selection) {
+			tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
+			divisor = 4 * (1 + ((tmp & 0xFFFF0000) >> 16));
+		} else
+			divisor = 1;
 	} else {
 		tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
 		divisor = 4 * (1 + ((tmp & 0xFFFF0000) >> 16));
-		selection = (tmp & 0x07);
-		if (selection == 0)
-			divisor = 1;
+		selection = 1;
 	}
-
+	
 	switch (selection) {
 	case 0:
 		/* LPO */
@@ -180,51 +185,45 @@ int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 	struct bcm430x_coreinfo *old_core;
 	u32 tmp;
 
-	if (mode == BCM430x_PCTL_CLK_SLOW &&
-	    !(bcm->sprom.boardflags & BCM430x_BFL_XTAL_NOSLOW)) {
-		/* Slow clock not supported by chip. */
-		return 0;
-	}
-	if (bcm->bustype != BCM430x_BUSTYPE_PCI)
-		return 0;
-	if (!(bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTL))
+	if (!(bcm->core_chipcommon.flags & BCM430x_COREFLAG_AVAILABLE))
+		/* No ChipCommon available. */
 		return 0;
 
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
-	if (err == -ENODEV) {
-		/* No ChipCommon available. */
-		return 0;
-	}
 	if (err)
 		goto out;
-
-	if (bcm->current_core->rev < 6) {
+	
+	if (bcm->core_chipcommon.rev < 6) {
 		if (mode == BCM430x_PCTL_CLK_FAST) {
 			err = bcm430x_pctl_set_crystal(bcm, 1);
 			if (err)
 				goto out;
 		}
 	} else {
-		switch (mode) {
-		case BCM430x_PCTL_CLK_FAST:
-			tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
-			tmp = (tmp & ~BCM430x_PCTL_FORCE_SLOW) | BCM430x_PCTL_FORCE_PLL;
-			bcm430x_write32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL, tmp);
-			break;
-		case BCM430x_PCTL_CLK_SLOW:
-			tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
-			tmp |= BCM430x_PCTL_FORCE_SLOW;
-			bcm430x_write32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL, tmp);
-			break;
-		case BCM430x_PCTL_CLK_DYNAMIC:
-			tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
-			tmp &= ~BCM430x_PCTL_FORCE_SLOW;
-			tmp &= ~BCM430x_PCTL_FORCE_PLL;
-			tmp |= BCM430x_PCTL_DYN_XTAL;
-			bcm430x_write32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL, tmp);
+		if ((bcm->chipcommon_capabilities & BCM430x_CAPABILITIES_PCTL) &&
+			(bcm->core_chipcommon.rev < 10)) {
+			switch (mode) {
+			case BCM430x_PCTL_CLK_FAST:
+				tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
+				tmp = (tmp & ~BCM430x_PCTL_FORCE_SLOW) | BCM430x_PCTL_FORCE_PLL;
+				bcm430x_write32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL, tmp);
+				break;
+			case BCM430x_PCTL_CLK_SLOW:
+				tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
+				tmp |= BCM430x_PCTL_FORCE_SLOW;
+				bcm430x_write32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL, tmp);
+				break;
+			case BCM430x_PCTL_CLK_DYNAMIC:
+				tmp = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL);
+				tmp &= ~BCM430x_PCTL_FORCE_SLOW;
+				tmp |= BCM430x_PCTL_FORCE_PLL;
+				tmp &= ~BCM430x_PCTL_DYN_XTAL;
+				bcm430x_write32(bcm, BCM430x_CHIPCOMMON_SLOWCLKCTL, tmp);
+			}
 		}
 	}
+	
 	err = bcm430x_switch_core(bcm, old_core);
 	assert(err == 0);
 
