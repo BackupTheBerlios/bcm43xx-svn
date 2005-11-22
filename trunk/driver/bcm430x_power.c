@@ -279,18 +279,20 @@ int bcm430x_pctl_set_crystal(struct bcm430x_private *bcm, int on)
 		if (bcm->sprom.boardflags & BCM430x_BFL_XTAL_NOSLOW)
 			return 0;
 
-		err = bcm430x_switch_core(bcm, bcm->active_80211_core);
-		if (err)
-			return err;
-		if (((bcm->current_core->rev >= 3) &&
-			(bcm430x_read32(bcm, BCM430x_MMIO_RADIO_HWENABLED_HI) & (1 << 16))) ||
-		      ((bcm->current_core->rev < 3) &&
-			!(bcm430x_read16(bcm, BCM430x_MMIO_RADIO_HWENABLED_LO) & (1 << 4))))
-			return 0;
-		err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
-		if (err)
-			return err;
-
+/*		XXX: Why BCM430x_MMIO_RADIO_HWENABLED_xx can't be read at this time?
+ *		err = bcm430x_switch_core(bcm, bcm->active_80211_core);
+ *		if (err)
+ *			return err;
+ *		if (((bcm->current_core->rev >= 3) &&
+ *			(bcm430x_read32(bcm, BCM430x_MMIO_RADIO_HWENABLED_HI) & (1 << 16))) ||
+ *		      ((bcm->current_core->rev < 3) &&
+ *			!(bcm430x_read16(bcm, BCM430x_MMIO_RADIO_HWENABLED_LO) & (1 << 4))))
+ *			return 0;
+ *		err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+ *		if (err)
+ *			return err;
+ */
+		
 		err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_SLOW);
 		if (err)
 			goto out;
