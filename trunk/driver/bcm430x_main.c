@@ -3216,7 +3216,6 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	bcm->shutting_down = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
-	ieee80211_softmac_stop_protocol(bcm->ieee);
 	bcm430x_periodic_tasks_delete(bcm);
 
 	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
@@ -3313,7 +3312,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->initial_channel, 0);
 		bcm430x_mac_enable(bcm);
 	}
-	ieee80211_softmac_start_protocol(bcm->ieee);
 	bcm430x_periodic_tasks_setup(bcm);
 
 	assert(err == 0);
@@ -3700,10 +3698,10 @@ bcm430x_printk_dump(skb->data, skb->len, "RX data");
 	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
 	case IEEE80211_FTYPE_MGMT:
 		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
+#if 0
 		err = ieee80211_rx_frame_softmac(bcm->ieee, skb, &stats,
 						 WLAN_FC_GET_TYPE(frame_ctl),
 						 WLAN_FC_GET_STYPE(frame_ctl));
-#if 0
 		if (err) {
 			dprintkl(KERN_ERR PFX "ieee80211_rx_frame_softmac() failed with "
 					      "err %d, type 0x%04x, stype 0x%04x\n",
@@ -3785,6 +3783,7 @@ static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 	return err;
 }
 
+#if 0
 static void bcm430x_ieee80211_softmac_hard_start_xmit(struct sk_buff *skb,
 						      struct net_device *net_dev,
 						      int rate)
@@ -3822,6 +3821,7 @@ u8 t[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 	bcm430x_associate(bcm, bssid);//FIXME
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
+#endif
 
 /* reset_port() callback in struct ieee80211_device */
 static int bcm430x_ieee80211_reset_port(struct net_device *net_dev)
@@ -3940,29 +3940,17 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		}
 	}
 
-	bcm->ieee->wq = bcm->workqueue;
-	ieee80211_softmac_init(bcm->ieee);
-	bcm->ieee->softmac_features |= IEEE_SOFTMAC_SCAN |
-				       IEEE_SOFTMAC_ASSOCIATE |
-				       IEEE_SOFTMAC_PROBERQ |
-				       IEEE_SOFTMAC_PROBERS |
-				       IEEE_SOFTMAC_BEACONS |
-				       IEEE_SOFTMAC_SINGLE_QUEUE;
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
-	bcm->ieee->softmac_data_hard_start_xmit = bcm430x_ieee80211_softmac_hard_start_xmit;
-	bcm->ieee->set_bssid_filter = bcm430x_ieee80211_softmac_set_bssid_filter;
 	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
-	bcm->ieee->set_chan = bcm430x_ieee80211_set_chan;
-	bcm->ieee->link_change = bcm430x_ieee80211_link_change;
 
 	pci_set_drvdata(pdev, net_dev);
 
 	err = bcm430x_attach_board(bcm);
 	if (err)
-		goto err_softmac_free;
+		goto err_destroy_wq;
 
 	err = register_netdev(net_dev);
 	if (err) {
@@ -3980,9 +3968,7 @@ out:
 
 err_detach_board:
 	bcm430x_detach_board(bcm);
-err_softmac_free:
-	ieee80211_softmac_free(bcm->ieee);
-/*err_destroy_wq:*/
+err_destroy_wq:
 	destroy_workqueue(bcm->workqueue);
 err_free_netdev:
 	free_netdev(net_dev);
@@ -3997,7 +3983,6 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 	bcm430x_debugfs_remove_device(bcm);
 	unregister_netdev(net_dev);
 	bcm430x_detach_board(bcm);
-	ieee80211_softmac_free(bcm->ieee);
 	destroy_workqueue(bcm->workqueue);
 	free_netdev(net_dev);
 }
