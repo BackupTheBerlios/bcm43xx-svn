@@ -191,12 +191,10 @@ int bcm430x_pctl_set_clock(struct bcm430x_private *bcm, u16 mode)
 	struct bcm430x_coreinfo *old_core;
 	u32 tmp;
 
-	if (!(bcm->core_chipcommon.flags & BCM430x_COREFLAG_AVAILABLE))
-		/* No ChipCommon available. */
-		return 0;
-
 	old_core = bcm->current_core;
 	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	if (err == -ENODEV)
+		return 0;
 	if (err)
 		goto out;
 	
