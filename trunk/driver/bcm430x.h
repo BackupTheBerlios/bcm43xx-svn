@@ -327,16 +327,16 @@
 #ifdef assert
 # undef assert
 #endif
-#ifdef BCM430x_NDEBUG
-#define assert(expr) do {} while (0)
-#else
+#ifdef BCM430x_DEBUG
 #define assert(expr) \
 	do {									\
 		if (unlikely(!(expr))) {					\
-		printkl(KERN_ERR PFX "Assertion failed! %s,%s,%s,line=%d\n",	\
-		#expr,__FILE__,__FUNCTION__,__LINE__);				\
+		printk(KERN_ERR PFX "ASSERTION FAILED (%s) at: %s:%d:%s()\n",	\
+			#expr, __FILE__, __LINE__, __FUNCTION__);		\
 		}								\
 	} while (0)
+#else
+#define assert(expr)	do { /* nothing */ } while (0)
 #endif
 
 /* rate limited printk(). */

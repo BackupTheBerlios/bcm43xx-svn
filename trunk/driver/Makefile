@@ -17,7 +17,7 @@ DEBUGFS_OBJ = bcm430x_debugfs.o
 CFLAGS += -O2 -DBCM430x_DEBUG
 else
 DEBUGFS_OBJ =
-CFLAGS += -O2 -DBCM430x_NDEBUG
+CFLAGS += -O2
 endif
 
 CFLAGS += -DBCM430x_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include
