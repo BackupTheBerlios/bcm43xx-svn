@@ -596,17 +596,11 @@ struct bcm430x_private {
 
 	/* The currently active core. NULL if not initialized, yet. */
 	struct bcm430x_coreinfo *current_core;
-	/* Pointer to the preferred 80211 core.
-	 * NOTE: Think twice, before using this.
-	 * Most times you will want current_core.
-	 */
-	struct bcm430x_coreinfo *def_80211_core;
+	struct bcm430x_coreinfo *active_80211_core;
 	/* coreinfo structs for all possible cores follow.
 	 * Note that a core might not exist.
 	 * So check the coreinfo flags before using it.
 	 */
-	struct bcm430x_coreinfo *active_80211_core;
-	/* Pointer to the active 80211 core. */
 	struct bcm430x_coreinfo core_chipcommon;
 	struct bcm430x_coreinfo core_pci;
 	struct bcm430x_coreinfo core_v90;

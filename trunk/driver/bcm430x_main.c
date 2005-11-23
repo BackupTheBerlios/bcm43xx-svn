@@ -3283,8 +3283,6 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		if (i != 0)
 			bcm430x_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
 
-		bcm->active_80211_core = &bcm->core_80211[0];
-		
 		err = bcm430x_wireless_core_init(bcm);
 		if (err)
 			goto err_80211_unwind;
@@ -3295,6 +3293,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 			bcm430x_radio_turn_off(bcm);
 		}
 	}
+	bcm->active_80211_core = &bcm->core_80211[0];
 	if (num_80211_cores >= 2) {
 		bcm430x_switch_core(bcm, &bcm->core_80211[0]);
 		bcm430x_mac_enable(bcm);
@@ -3564,9 +3563,6 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 			goto err_80211_unwind;
 		bcm430x_wireless_core_disable(bcm);
 	}
-
-	/* Use the first 80211 core as default. */
-	bcm->def_80211_core = &bcm->core_80211[0];
 	bcm430x_pctl_set_crystal(bcm, 0);
 
 	/* Set the MAC address in the networking subsystem */
