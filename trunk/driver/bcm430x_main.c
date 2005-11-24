@@ -2897,30 +2897,39 @@ static void bcm430x_periodic_work0_handler(void *d)
 {
 	struct bcm430x_private *bcm = d;
 	unsigned long flags;
+	//TODO: unsigned int aci_average;
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
-		//TODO: Update ACI MA
+		//FIXME: aci_average = bcm430x_update_aci_average(bcm);
+		FIXME();
 		switch (bcm->current_core->radio->interfmode) {
 		case BCM430x_RADIO_INTERFMODE_NONWLAN:
 			if (bcm->current_core->phy->rev == 1) {
-				//TODO: rev1 workaround
+				//FIXME: implement rev1 workaround
+				FIXME();
 			}
 			break;
 		case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
 			bcm430x_mac_suspend(bcm);
 			if (!bcm->current_core->radio->aci_enable &&
 			    1 /*FIXME: We are not scanning? */) {
-				//TODO
+				/*FIXME: First add bcm430x_update_aci_average() before
+				 * uncommenting this: */
+				//if (bcm430x_radio_aci_scan)
+				//	bcm430x_radio_interference_mitigation_enable(bcm,
+				//	                                             BCM430x_RADIO_INTERFMODE_MANUALWLAN);
 			} else if (1/*FIXME*/) {
-				//TODO
+				if ((aci_average > 1000) && !(bcm430x_radio_aci_scan(bcm)))
+				//	bcm430x_radio_interference_mitigation_disable(bcm,
+				//	                                              BCM430x_RADIO_INTERFMODE_MANUALWLAN);
 			}
 			bcm430x_mac_enable(bcm);
 			break;
 		}
 	}
-	bcm430x_phy_xmitpower(bcm);//FIXME: unless scanning?
+	bcm430x_phy_xmitpower(bcm); //FIXME: unless scanning?
 	//TODO for APHY (temperature?)
 
 	if (likely(!bcm->shutting_down)) {

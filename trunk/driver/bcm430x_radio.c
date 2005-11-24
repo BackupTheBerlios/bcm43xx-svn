@@ -62,6 +62,10 @@ static u16 flip_4bit(u16 value)
 	return flipped;
 }
 
+static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
+				  s16 first, s16 second, s16 third);
+static void bcm430x_set_original_gains(struct bcm430x_private *bcm);
+
 void bcm430x_radio_lock(struct bcm430x_private *bcm)
 {
 	u32 status;
@@ -110,6 +114,78 @@ void bcm430x_radio_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
 {
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, offset);
 	bcm430x_write16(bcm, BCM430x_MMIO_RADIO_DATA_LOW, val);
+}
+
+u8 bcm430x_radio_aci_detect(struct bcm430x_private *bcm, u8 channel)
+{
+	u8 ret = 0;
+	u16 saved = bcm430x_phy_read(bcm, 0x0403), rssi, temp;
+	int i, j = 0;
+	bcm430x_radio_selectchannel(bcm, channel, 0);
+	bcm430x_phy_write(bcm, 0x0403, (saved & 0xFFF8) | 5);
+	if (bcm->current_core->radio->aci_hw_rssi)
+		rssi = bcm430x_phy_read(bcm, 0x048A) & 0x3F;
+	else
+		rssi = saved & 0x3F;
+	/* clamp temp to signed 5bit */
+	if (rssi > 32)
+		rssi -= 64;
+	for (i = 0;i < 100; i++) {
+		temp = (bcm430x_phy_read(bcm, 0x047F) >> 8) & 0x3F;
+		if (temp > 32)
+			temp -= 64;
+		if (temp < rssi)
+			j++;
+		if (j >= 20)
+			ret = 1;
+	}
+	bcm430x_phy_write(bcm, 0x0403, saved);
+
+	return ret;
+}
+
+u8 bcm430x_radio_aci_scan(struct bcm430x_private *bcm)
+{
+	u8 ret[13];
+	unsigned int channel = bcm->current_core->radio->channel;
+	unsigned int i, j, start, end;
+
+	if (!((bcm->current_core->phy->type == BCM430x_PHYTYPE_G) && (bcm->current_core->phy->rev > 0)))
+		return 0;
+
+	bcm430x_phy_lock(bcm);
+	bcm430x_radio_lock(bcm);
+	bcm430x_phy_write(bcm, 0x0802,
+	                  bcm430x_phy_read(bcm, 0x0802) & 0xFFFC);
+	bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
+	                  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & 0x7FFF);
+	bcm430x_set_all_gains(bcm, 3, 8, 1);
+
+	start = (channel - 5 > 0) ? channel - 5 : 1;
+	end = (channel + 5 < 14) ? channel + 5 : 13;
+
+	for (i = start; i <= end; i++) {
+		if (abs(channel - i) > 2)
+			ret[i-1] = bcm430x_radio_aci_detect(bcm, i);
+	}
+	bcm430x_radio_selectchannel(bcm, channel, 0);
+	bcm430x_phy_write(bcm, 0x0802,
+	                  (bcm430x_phy_read(bcm, 0x0802) & 0xFFFC) | 0x0003);
+	bcm430x_phy_write(bcm, 0x0403,
+	                  bcm430x_phy_read(bcm, 0x0403) & 0xFFF8);
+	bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
+	                  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) | 0x8000);
+	bcm430x_set_original_gains(bcm);
+	for (i = 0; i < 13; i++) {
+		if (!ret[i])
+			continue;
+		end = (i + 5 < 13) ? i + 5 : 13;
+		for (j = i; j < end; j++)
+			ret[j] = 1;
+	}
+	bcm430x_radio_unlock(bcm);
+	bcm430x_phy_unlock(bcm);
+	return ret[channel - 1];
 }
 
 static void bcm430x_set_all_gains(struct bcm430x_private *bcm,
@@ -530,7 +606,7 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 	 	stack[i++];							\
 	})
 
-static void
+void
 bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 					     int mode)
 {
@@ -680,7 +756,7 @@ bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 	}
 }
 
-static void
+void
 bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 					      int mode)
 {
