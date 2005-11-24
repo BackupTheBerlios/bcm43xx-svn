@@ -675,11 +675,6 @@ bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 		stack_save(bcm430x_phy_read(bcm, 0x04AC));
 		bcm430x_phy_write(bcm, 0x04AC, 0x32F5);
 		break;
-	case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
-		bcm->current_core->radio->aci_wlan_automatic = 1;
-		if (!(bcm->current_core->radio->aci_enable))
-			break;
-		/* now enable manual interfmode ... */
 	case BCM430x_RADIO_INTERFMODE_MANUALWLAN:
 		if (bcm430x_phy_read(bcm, 0x0033) == 0x0800)
 			break;
@@ -814,7 +809,6 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 		bcm430x_phy_write(bcm, 0x04AC, stack_restore());
 		break;
 	case BCM430x_RADIO_INTERFMODE_MANUALWLAN:
-	case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
 		if (bcm430x_phy_read(bcm, 0x0033) != 0x0800)
 			break;
 
