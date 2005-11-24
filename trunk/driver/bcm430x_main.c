@@ -2904,14 +2904,7 @@ static void bcm430x_periodic_work0_handler(void *d)
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
 		//FIXME: aci_average = bcm430x_update_aci_average(bcm);
 		FIXME();
-		switch (bcm->current_core->radio->interfmode) {
-		case BCM430x_RADIO_INTERFMODE_NONWLAN:
-			if (bcm->current_core->phy->rev == 1) {
-				//FIXME: implement rev1 workaround
-				FIXME();
-			}
-			break;
-		case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
+		if (bcm->current_core->radio->aci_enable && bcm->current_core->radio->aci_wlan_automatic) {
 			bcm430x_mac_suspend(bcm);
 			if (!bcm->current_core->radio->aci_enable &&
 			    1 /*FIXME: We are not scanning? */) {
@@ -2926,7 +2919,11 @@ static void bcm430x_periodic_work0_handler(void *d)
 				//	                                          BCM430x_RADIO_INTERFMODE_MANUALWLAN);
 			}
 			bcm430x_mac_enable(bcm);
-			break;
+		} else if  (bcm->current_core->radio->interfmode == BCM430x_RADIO_INTERFMODE_NONWLAN) {
+			if (bcm->current_core->phy->rev == 1) {
+				//FIXME: implement rev1 workaround
+				FIXME();
+			}
 		}
 	}
 	bcm430x_phy_xmitpower(bcm); //FIXME: unless scanning?
