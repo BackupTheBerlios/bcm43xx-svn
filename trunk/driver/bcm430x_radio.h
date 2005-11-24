@@ -71,8 +71,6 @@ u8 bcm430x_radio_aci_detect(struct bcm430x_private *bcm, u8 channel);
 u8 bcm430x_radio_aci_scan(struct bcm430x_private *bcm);
 
 int bcm430x_radio_set_interference_mitigation(struct bcm430x_private *bcm, int mode);
-void bcm430x_radio_interference_mitigation_ensable(struct bcm430x_private *bcm, int mode);
-void bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm, int mode);
 static inline
 int bcm430x_radio_get_interference_mitigation(struct bcm430x_private *bcm)
 {

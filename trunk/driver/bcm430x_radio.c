@@ -606,7 +606,7 @@ void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm)
 	 	stack[i++];							\
 	})
 
-void
+static void
 bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 					     int mode)
 {
@@ -616,7 +616,6 @@ bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 
 	switch (mode) {
 	case BCM430x_RADIO_INTERFMODE_NONWLAN:
-//TODO: review!
 		if (bcm->current_core->phy->rev != 1) {
 			bcm430x_phy_write(bcm, 0x042B,
 			                  bcm430x_phy_read(bcm, 0x042B) & 0x0800);
@@ -676,8 +675,12 @@ bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 		stack_save(bcm430x_phy_read(bcm, 0x04AC));
 		bcm430x_phy_write(bcm, 0x04AC, 0x32F5);
 		break;
+	case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
+		bcm->current_core->radio->aci_wlan_automatic = 1;
+		if (!(bcm->current_core->radio->aci_enable))
+			break;
+		/* now enable manual interfmode ... */
 	case BCM430x_RADIO_INTERFMODE_MANUALWLAN:
-//TODO: review!
 		if (bcm430x_phy_read(bcm, 0x0033) == 0x0800)
 			break;
 
@@ -756,7 +759,7 @@ bcm430x_radio_interference_mitigation_enable(struct bcm430x_private *bcm,
 	}
 }
 
-void
+static void
 bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 					      int mode)
 {
@@ -766,7 +769,7 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 
 	switch (mode) {
 	case BCM430x_RADIO_INTERFMODE_NONWLAN:
-//TODO: review!
+//FIXME: see below
 		if (bcm->current_core->phy->rev != 1) {
 			bcm430x_phy_write(bcm, 0x042B,
 			                  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
@@ -793,7 +796,8 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 
 		if (!bcm->bad_frames_preempt) {
 			bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD,
-					  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) & 0x1000);
+					  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) & 0x0800);
+			//FIXME: Bit eleven (indexed from zero) == 0x0800, or the eleventh bit == 0x0400?
 		}
 		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
 				  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & 0x4000);
@@ -811,7 +815,6 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 		break;
 	case BCM430x_RADIO_INTERFMODE_MANUALWLAN:
 	case BCM430x_RADIO_INTERFMODE_AUTOWLAN:
-//TODO: review!
 		if (bcm430x_phy_read(bcm, 0x0033) != 0x0800)
 			break;
 

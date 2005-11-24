@@ -2918,12 +2918,12 @@ static void bcm430x_periodic_work0_handler(void *d)
 				/*FIXME: First add bcm430x_update_aci_average() before
 				 * uncommenting this: */
 				//if (bcm430x_radio_aci_scan)
-				//	bcm430x_radio_interference_mitigation_enable(bcm,
-				//	                                             BCM430x_RADIO_INTERFMODE_MANUALWLAN);
+				//	bcm430x_radio_set_interference_mitigation(bcm,
+				//	                                          BCM430x_RADIO_INTERFMODE_MANUALWLAN);
 			} else if (1/*FIXME*/) {
-				if ((aci_average > 1000) && !(bcm430x_radio_aci_scan(bcm)))
-				//	bcm430x_radio_interference_mitigation_disable(bcm,
-				//	                                              BCM430x_RADIO_INTERFMODE_MANUALWLAN);
+				//if ((aci_average > 1000) && !(bcm430x_radio_aci_scan(bcm)))
+				//	bcm430x_radio_set_interference_mitigation(bcm,
+				//	                                          BCM430x_RADIO_INTERFMODE_MANUALWLAN);
 			}
 			bcm430x_mac_enable(bcm);
 			break;
