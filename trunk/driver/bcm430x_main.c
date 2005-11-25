@@ -3089,6 +3089,8 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	int connect_phy;
 	unsigned long flags;
 
+	might_sleep();
+
 	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->initialized = 0;
 	bcm->shutting_down = 0;
@@ -3833,39 +3835,43 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 
 static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 {
-/* Untested and wrong:
 	struct net_device *net_dev = pci_get_drvdata(pdev);
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	int err;
-
-	err = bcm430x_disable_interrupts_sync(bcm, NULL);
-	if (err)
-		return -EAGAIN;
+	unsigned long flags;
+	int try_to_shutdown = 0, err;
 
 	dprintk(KERN_INFO PFX "Suspending...\n");
 
-	assert(bcm->initialized);
-	bcm430x_free_board(bcm);
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm->was_initialized = bcm->initialized;
+	if (bcm->initialized) {
+		try_to_shutdown = 1;
+		bcm430x_disassociate(bcm);
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	if (try_to_shutdown) {
+		err = bcm430x_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
+		if (unlikely(err)) {
+			dprintk(KERN_ERR PFX "Suspend failed.\n");
+			return -EAGAIN;
+		}
+		bcm430x_free_board(bcm);
+	}
+
 	netif_device_detach(net_dev);
 
 	pci_save_state(pdev);
 	pci_disable_device(pdev);
 	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-*/
-	TODO();
-	/*TODO: What has to be done is basically:
-	 *	* suspend TX and RX
-	 *	* wait until all running TX and RX operations are completed.
-	 *	* mask chip irqs
-	 *	* bring the chip down.
-	 */
 
-	return -ENOSYS;
+	dprintk(KERN_INFO PFX "Device suspended.\n");
+
+	return 0;
 }
 
 static int bcm430x_resume(struct pci_dev *pdev)
 {
-/* Untested and wrong:
 	struct net_device *net_dev = pci_get_drvdata(pdev);
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
@@ -3876,14 +3882,12 @@ static int bcm430x_resume(struct pci_dev *pdev)
 	pci_restore_state(pdev);
 
 	netif_device_attach(net_dev);
-	bcm430x_init_board(bcm);
-*/
-	TODO();
-	/*TODO: The opposite of bcm430x_suspend() has to be done:
-	 *	* bring the chip up.
-	 *	* resume TX. (?)
-	 */
-	return -ENOSYS;
+	if (bcm->was_initialized)
+		bcm430x_init_board(bcm);
+
+	dprintk(KERN_INFO PFX "Device resumed.\n");
+
+	return 0;
 }
 
 #endif				/* CONFIG_PM */

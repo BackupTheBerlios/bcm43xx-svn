@@ -569,6 +569,7 @@ struct bcm430x_private {
 
 	/* Driver status flags. */
 	u32 initialized:1,		/* init_board() succeed */
+	    was_initialized:1,		/* for PCI suspend/resume. */
 	    shutting_down:1,		/* free_board() in progress */
 	    pio_mode:1,			/* PIO (if true), or DMA (if false) used. */
 	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
