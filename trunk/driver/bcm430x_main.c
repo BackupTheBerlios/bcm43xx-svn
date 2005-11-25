@@ -2227,8 +2227,6 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	core_rev = (sb_id_hi & 0xF);
 	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
 
-	printk("probe!");
-
 	/* if present, chipcommon is always core 0; read the chipid from it */
 	if (core_id == BCM430x_COREID_CHIPCOMMON) {
 		chip_id_32 = bcm430x_read32(bcm, 0);
