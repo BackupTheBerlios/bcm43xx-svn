@@ -359,8 +359,18 @@ static int bcm430x_wx_set_nick(struct net_device *net_dev,
 			       union iwreq_data *data,
 			       char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	size_t len;
+
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	/*TODO*/
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	len =  min((size_t)data->data.length, (size_t)IW_ESSID_MAX_SIZE);
+	memcpy(bcm->nick, extra, len);
+	bcm->nick[len] = '\0';
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return 0;
 }
 
@@ -369,8 +379,19 @@ static int bcm430x_wx_get_nick(struct net_device *net_dev,
 			       union iwreq_data *data,
 			       char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	size_t len;
+
 	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	/*TODO*/
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	len = strlen(bcm->nick) + 1;
+	memcpy(extra, bcm->nick, len);
+	data->data.length = (__u16)len;
+	data->data.flags = 1;
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return 0;
 }
 
@@ -686,8 +707,8 @@ static iw_handler bcm430x_wx_handlers[] = {
 	/* 802.11 specific support */
 //TODO	WX(SIOCSIWESSID)	= bcm430x_wx_set_essid,
 //TODO	WX(SIOCGIWESSID)	= bcm430x_wx_get_essid,
-//TODO	WX(SIOCSIWNICKN)	= bcm430x_wx_set_nick,
-//TODO	WX(SIOCGIWNICKN)	= bcm430x_wx_get_nick,
+	WX(SIOCSIWNICKN)	= bcm430x_wx_set_nick,
+	WX(SIOCGIWNICKN)	= bcm430x_wx_get_nick,
 	/* Other parameters */
 	WX(SIOCSIWRATE)		= bcm430x_wx_set_defaultrate,
 	WX(SIOCGIWRATE)		= bcm430x_wx_get_defaultrate,

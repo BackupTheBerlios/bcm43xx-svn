@@ -644,6 +644,9 @@ struct bcm430x_private {
 	/* Fatal error handling */
 	struct work_struct fatal_work;
 
+	/* Informational stuff. */
+	char nick[IW_ESSID_MAX_SIZE + 1];
+
 	/* Debugging stuff follows. */
 #ifdef BCM430x_DEBUG
 	u16 ucode_size;
