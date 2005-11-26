@@ -566,6 +566,7 @@ struct bcm430x_coreinfo {
 
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
+	struct ieee80211softmac_device *softmac;
 
 	struct net_device *net_dev;
 	struct pci_dev *pci_dev;
@@ -670,7 +671,7 @@ struct bcm430x_private {
 static inline
 struct bcm430x_private * bcm430x_priv(struct net_device *dev)
 {
-	return ieee80211_priv(dev);
+	return ieee80211softmac_priv(dev);
 }
 
 static inline

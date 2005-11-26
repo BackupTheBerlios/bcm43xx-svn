@@ -3727,7 +3727,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		return -ENODEV;
 #endif
 
-	net_dev = alloc_ieee80211(sizeof(*bcm));
+	net_dev = alloc_ieee80211softmac(sizeof(*bcm));
 	if (!net_dev) {
 		printk(KERN_ERR PFX
 		       "could not allocate ieee80211 device %s\n",
@@ -3756,6 +3756,8 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 
 	/* initialize the bcm430x_private struct */
 	bcm = bcm430x_priv(net_dev);
+	bcm->ieee = netdev_priv(net_dev);
+	bcm->softmac = ieee80211_priv(net_dev);
 
 #ifdef DEBUG_ENABLE_MMIO_PRINT
 	bcm430x_mmioprint_initial(bcm, 1);
@@ -3764,7 +3766,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 #endif
 
 	bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
-	bcm->ieee = netdev_priv(net_dev);
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
 	if (modparam_bad_frames_preempt)
@@ -3822,7 +3823,7 @@ err_detach_board:
 err_destroy_wq:
 	destroy_workqueue(bcm->workqueue);
 err_free_netdev:
-	free_netdev(net_dev);
+	free_ieee80211softmac(net_dev);
 	goto out;
 }
 
@@ -3835,7 +3836,7 @@ static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
 	unregister_netdev(net_dev);
 	bcm430x_detach_board(bcm);
 	destroy_workqueue(bcm->workqueue);
-	free_netdev(net_dev);
+	free_ieee80211softmac(net_dev);
 }
 
 #ifdef CONFIG_PM
