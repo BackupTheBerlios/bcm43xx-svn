@@ -3349,13 +3349,6 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	err = bcm430x_pctl_init(bcm);
 	if (err)
 		goto err_chipset_detach;
-/*	err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
-	if (err)
-		goto err_chipset_detach;
-	err = bcm430x_probe_cores(bcm);
-	if (err)
-		goto err_chipset_detach;
-*/
 	err = bcm430x_probe_cores(bcm);
 	if (err)
 		goto err_chipset_detach;
