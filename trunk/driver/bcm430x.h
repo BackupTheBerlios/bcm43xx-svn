@@ -324,6 +324,12 @@
 /* Bus type PCMCIA. */
 #define BCM430x_BUSTYPE_PCMCIA	2
 
+/* Threshold values. */
+#define BCM430x_MIN_RTS_THRESHOLD		1U
+#define BCM430x_MAX_RTS_THRESHOLD		2304U
+#define BCM430x_DEFAULT_RTS_THRESHOLD		BCM430x_MAX_RTS_THRESHOLD
+
+
 #ifdef assert
 # undef assert
 #endif
@@ -627,6 +633,10 @@ struct bcm430x_private {
 	/* List of received transmitstatus blobs. (only on core.rev < 5) */
 	struct list_head xmitstatus_queue;
 	int nr_xmitstatus_queued;
+
+	/* Threshold values. */
+	//TODO: The RTS thr has to be _used_. Currently, it is only set via WX.
+	u32 rts_threshold;
 
 	/* Interrupt Service Routine tasklet (bottom-half) */
 	struct tasklet_struct isr_tasklet;

@@ -550,9 +550,26 @@ static int bcm430x_wx_set_rts(struct net_device *net_dev,
 			      union iwreq_data *data,
 			      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int err = -EINVAL;
+
 	wx_enter();
-	/*TODO*/
-	return 0;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (data->rts.disabled) {
+		bcm->rts_threshold = BCM430x_MAX_RTS_THRESHOLD;
+		err = 0;
+	} else {
+		if (data->rts.value >= BCM430x_MIN_RTS_THRESHOLD &&
+		    data->rts.value <= BCM430x_MAX_RTS_THRESHOLD) {
+			bcm->rts_threshold = data->rts.value;
+			err = 0;
+		}
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	return err;
 }
 
 static int bcm430x_wx_get_rts(struct net_device *net_dev,
@@ -560,8 +577,17 @@ static int bcm430x_wx_get_rts(struct net_device *net_dev,
 			      union iwreq_data *data,
 			      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
 	wx_enter();
-	/*TODO*/
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	data->rts.value = bcm->rts_threshold;
+	data->rts.fixed = 0;
+	data->rts.disabled = (bcm->rts_threshold == BCM430x_MAX_RTS_THRESHOLD);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return 0;
 }
 
@@ -570,9 +596,26 @@ static int bcm430x_wx_set_frag(struct net_device *net_dev,
 			       union iwreq_data *data,
 			       char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int err = -EINVAL;
+
 	wx_enter();
-	/*TODO*/
-	return 0;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (data->frag.disabled) {
+		bcm->ieee->fts = MAX_FRAG_THRESHOLD;
+		err = 0;
+	} else {
+		if (data->frag.value >= MIN_FRAG_THRESHOLD &&
+		    data->frag.value <= MAX_FRAG_THRESHOLD) {
+			bcm->ieee->fts = data->frag.value & ~0x1;
+			err = 0;
+		}
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	return err;
 }
 
 static int bcm430x_wx_get_frag(struct net_device *net_dev,
@@ -580,8 +623,17 @@ static int bcm430x_wx_get_frag(struct net_device *net_dev,
 			       union iwreq_data *data,
 			       char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
 	wx_enter();
-	/*TODO*/
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	data->frag.value = bcm->ieee->fts;
+	data->frag.fixed = 0;
+	data->frag.disabled = (bcm->ieee->fts == MAX_FRAG_THRESHOLD);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return 0;
 }
 
@@ -703,10 +755,10 @@ static iw_handler bcm430x_wx_handlers[] = {
 	/* Other parameters */
 	WX(SIOCSIWRATE)		= bcm430x_wx_set_defaultrate,
 	WX(SIOCGIWRATE)		= bcm430x_wx_get_defaultrate,
-//TODO	WX(SIOCSIWRTS)		= bcm430x_wx_set_rts,
-//TODO	WX(SIOCGIWRTS)		= bcm430x_wx_get_rts,
-//TODO	WX(SIOCSIWFRAG)		= bcm430x_wx_set_frag,
-//TODO	WX(SIOCGIWFRAG)		= bcm430x_wx_get_frag,
+	WX(SIOCSIWRTS)		= bcm430x_wx_set_rts,
+	WX(SIOCGIWRTS)		= bcm430x_wx_get_rts,
+	WX(SIOCSIWFRAG)		= bcm430x_wx_set_frag,
+	WX(SIOCGIWFRAG)		= bcm430x_wx_get_frag,
 //TODO	WX(SIOCSIWTXPOW)	= bcm430x_wx_set_xmitpower,
 //TODO	WX(SIOCGIWTXPOW)	= bcm430x_wx_get_xmitpower,
 //TODO	WX(SIOCSIWRETRY)	= bcm430x_wx_set_retry,

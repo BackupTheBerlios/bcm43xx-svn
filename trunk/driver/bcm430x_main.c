@@ -3770,7 +3770,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		err = -ENOMEM;
 		goto err_free_netdev;
 	}
-
 	if (modparam_pio) {
 		bcm->pio_mode = 1;
 	} else {
@@ -3781,6 +3780,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 			bcm->pio_mode = 1;
 		}
 	}
+	bcm->rts_threshold = BCM430x_DEFAULT_RTS_THRESHOLD;
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
