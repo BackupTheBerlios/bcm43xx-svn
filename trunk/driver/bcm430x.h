@@ -7,8 +7,10 @@
 #include <linux/interrupt.h>
 #include <linux/stringify.h>
 #include <net/ieee80211.h>
+#include <net/ieee80211softmac.h>
 #include <asm/atomic.h>
 #include <asm/io.h>
+
 
 #include "bcm430x_debugfs.h"
 
@@ -816,6 +818,14 @@ void bcm430x_mmioprint_disable(struct bcm430x_private *bcm)
 # if !defined(CONFIG_IEEE80211_MODULE) && !defined(CONFIG_IEEE80211)
 #  error "Generic IEEE 802.11 Networking Stack (CONFIG_IEEE80211) not available."
 # endif
+#endif
+#ifdef IEEE80211SOFTMAC_API
+# if IEEE80211SOFTMAC_API != 0
+#  warning "Incompatible SoftMAC subsystem installed."
+# endif
+#else
+# error "The bcm430x driver requires the SoftMAC subsystem."
+# error "SEE >>>>>>    http://softmac.sipsolutions.net/    <<<<<<"
 #endif
 
 #endif /* BCM430x_H_ */
