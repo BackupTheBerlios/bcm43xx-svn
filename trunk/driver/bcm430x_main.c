@@ -3789,6 +3789,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		}
 	}
 	bcm->rts_threshold = BCM430x_DEFAULT_RTS_THRESHOLD;
+	strncpy(bcm->nick, "Broadcom 43xx", IW_ESSID_MAX_SIZE);
 
 	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
 	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
