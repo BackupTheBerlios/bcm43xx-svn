@@ -310,8 +310,11 @@ static int bcm430x_wx_trigger_scan(struct net_device *net_dev,
 				   union iwreq_data *data,
 				   char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+
 	wx_enter();
-	/*TODO*/
+	//TODO: Trigger a scan via SoftMAC.
+
 	return 0;
 }
 
@@ -320,9 +323,11 @@ static int bcm430x_wx_get_scanresults(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+
 	wx_enter();
-	/*TODO*/
-	return 0;
+
+	return ieee80211_wx_get_scan(bcm->ieee, info, data, extra);
 }
 
 static int bcm430x_wx_set_essid(struct net_device *net_dev,
@@ -776,8 +781,8 @@ static iw_handler bcm430x_wx_handlers[] = {
 	/* Access Point manipulation */
 //TODO	WX(SIOCSIWAP)		= bcm430x_wx_set_apmac,
 //TODO	WX(SIOCGIWAP)		= bcm430x_wx_get_apmac,
-//TODO	WX(SIOCSIWSCAN)		= bcm430x_wx_trigger_scan,
-//TODO	WX(SIOCGIWSCAN)		= bcm430x_wx_get_scanresults,
+	WX(SIOCSIWSCAN)		= bcm430x_wx_trigger_scan,
+	WX(SIOCGIWSCAN)		= bcm430x_wx_get_scanresults,
 	/* 802.11 specific support */
 //TODO	WX(SIOCSIWESSID)	= bcm430x_wx_set_essid,
 //TODO	WX(SIOCGIWESSID)	= bcm430x_wx_get_essid,
