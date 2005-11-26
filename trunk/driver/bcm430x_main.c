@@ -177,10 +177,13 @@ static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
 	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, oldsbf);
 }
 
+static inline
 void bcm430x_shm_control_word(struct bcm430x_private *bcm,
 			      u16 routing, u16 offset)
 {
 	u32 control;
+
+	/* "offset" is the WORD offset. */
 
 	control = routing;
 	control <<= 16;
@@ -196,7 +199,7 @@ u32 bcm430x_shm_read32(struct bcm430x_private *bcm,
 	if (routing == BCM430x_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_byte(bcm, routing, offset);
+			bcm430x_shm_control_word(bcm, routing, offset >> 2);
 			ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED);
 			ret <<= 16;
 			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 1);
@@ -220,7 +223,7 @@ u16 bcm430x_shm_read16(struct bcm430x_private *bcm,
 	if (routing == BCM430x_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_byte(bcm, routing, offset);
+			bcm430x_shm_control_word(bcm, routing, offset >> 2);
 			ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED);
 
 			return ret;
@@ -240,7 +243,7 @@ void bcm430x_shm_write32(struct bcm430x_private *bcm,
 	if (routing == BCM430x_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_byte(bcm, routing, offset);
+			bcm430x_shm_control_word(bcm, routing, offset >> 2);
 			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED,
 					(value >> 16) & 0xffff);
 			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 1);
@@ -261,7 +264,7 @@ void bcm430x_shm_write16(struct bcm430x_private *bcm,
 	if (routing == BCM430x_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_byte(bcm, routing, offset);
+			bcm430x_shm_control_word(bcm, routing, offset >> 2);
 			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED,
 					value);
 			return;

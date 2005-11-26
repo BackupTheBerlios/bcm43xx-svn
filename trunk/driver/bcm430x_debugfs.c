@@ -58,19 +58,6 @@ static int open_file_generic(struct inode *inode, struct file *file)
 }
 
 #define fappend(fmt, x...)	pos += snprintf(buf + pos, len - pos, fmt , ##x)
-#define fappend_ioblock32(length, mmio_offset) \
-	do {									\
-		u32 __d;							\
-		unsigned int __i;						\
-		for (__i = 0; __i < (length); __i++) {				\
-			__d = ioread32(bcm->mmio_addr + (mmio_offset));		\
-			if (__i % 8 == 0)					\
-				fappend("\n0x%04x:  0x%08x, ", __i, __d);	\
-			else							\
-				fappend("0x%08x, ", __d);			\
-		}								\
-	} while (0)
-
 
 static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 				 size_t count, loff_t *ppos)
@@ -175,42 +162,6 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 
 	/* This is where the information is written to the "sprom_dump" file */
 	fappend("boardflags: 0x%04x\n", bcm->sprom.boardflags);
-
-out:
-	spin_unlock_irqrestore(&bcm->lock, flags);
-	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
-	up(&big_buffer_sem);
-	return res;
-}
-
-static ssize_t shmdump_read_file(struct file *file, char __user *userbuf,
-				 size_t count, loff_t *ppos)
-{
-	const size_t len = REALLY_BIG_BUFFER_SIZE;
-
-	struct bcm430x_private *bcm = file->private_data;
-	char *buf = really_big_buffer;
-	size_t pos = 0;
-	ssize_t res;
-	unsigned long flags;
-
-	down(&big_buffer_sem);
-	spin_lock_irqsave(&bcm->lock, flags);
-	if (!bcm->initialized) {
-		fappend("Board not initialized.\n");
-		goto out;
-	}
-
-	/* This is where the information is written to the "shm_dump" file */
-	fappend("PCM data (size: %u bytes):", bcm->pcm_size);
-	bcm430x_shm_control_word(bcm, BCM430x_SHM_PCM, 0x01eb);
-	fappend_ioblock32(bcm->pcm_size / sizeof(u32), BCM430x_MMIO_SHM_DATA);
-	fappend("\nPCM data end\n\n");
-
-	fappend("Microcode (size: %u bytes):", bcm->ucode_size);
-	bcm430x_shm_control_word(bcm, BCM430x_SHM_UCODE, 0x0000);
-	fappend_ioblock32(bcm->ucode_size / sizeof(u32), BCM430x_MMIO_SHM_DATA);
-	fappend("\nMicrocode end\n\n");
 
 out:
 	spin_unlock_irqrestore(&bcm->lock, flags);
@@ -454,12 +405,6 @@ static struct file_operations spromdump_fops = {
 	.open = open_file_generic,
 };
 
-static struct file_operations shmdump_fops = {
-	.read = shmdump_read_file,
-	.write = write_file_dummy,
-	.open = open_file_generic,
-};
-
 static struct file_operations drvinfo_fops = {
 	.read = drvinfo_read_file,
 	.write = write_file_dummy,
@@ -524,10 +469,6 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 						  bcm, &spromdump_fops);
 	if (!e->dentry_spromdump)
 		printk(KERN_ERR PFX "debugfs: creating \"sprom_dump\" for \"%s\" failed!\n", devdir);
-	e->dentry_shmdump = debugfs_create_file("shm_dump", 0444, e->subdir,
-						bcm, &shmdump_fops);
-	if (!e->dentry_shmdump)
-		printk(KERN_ERR PFX "debugfs: creating \"shm_dump\" for \"%s\" failed!\n", devdir);
 	e->dentry_tsf = debugfs_create_file("tsf", 0666, e->subdir,
 	                                    bcm, &tsf_fops);
 	if (!e->dentry_tsf)
@@ -558,7 +499,6 @@ void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm)
 	if (!e)
 		goto out_up;
 	/* Don't forget to remove any file, here. */
-	debugfs_remove(e->dentry_shmdump);
 	debugfs_remove(e->dentry_spromdump);
 	debugfs_remove(e->dentry_devinfo);
 	debugfs_remove(e->dentry_tsf);

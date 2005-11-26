@@ -171,18 +171,6 @@ int FASTCALL(bcm430x_rx(struct bcm430x_private *bcm,
 
 void bcm430x_disassociate(struct bcm430x_private *bcm);
 
-/* write the SHM Control word with a 32bit word offset */
-void bcm430x_shm_control_word(struct bcm430x_private *bcm,
-			      u16 routing, u16 offset);
-
-/* write the SHM Control word with a byte offset */
-static inline
-void bcm430x_shm_control_byte(struct bcm430x_private *bcm,
-			      u16 routing, u16 offset)
-{
-	bcm430x_shm_control_word(bcm, routing, offset >> 2);
-}
-
 u32 bcm430x_shm_read32(struct bcm430x_private *bcm,
 		       u16 routing, u16 offset);
 u16 bcm430x_shm_read16(struct bcm430x_private *bcm,
