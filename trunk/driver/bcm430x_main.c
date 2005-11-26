@@ -63,10 +63,6 @@ static int modparam_pio;
 module_param_named(pio, modparam_pio, int, 0444);
 MODULE_PARM_DESC(pio, "enable(1) / disable(0) PIO mode");
 
-static int modparam_short_preamble;
-module_param_named(short_preamble, modparam_short_preamble, int, 0444);
-MODULE_PARM_DESC(short_preamble, "enable(1) / disable(0) the Short Preamble mode");
-
 static int modparam_bad_frames_preempt;
 module_param_named(bad_frames_preempt, modparam_bad_frames_preempt, int, 0444);
 MODULE_PARM_DESC(bad_frames_preempt, "enable(1) / disable(0) Bad Frames Preemption");
@@ -2133,11 +2129,6 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	} else
 		bcm430x_write16(bcm, 0x0612, 0x0002);
 
-	if (modparam_short_preamble)
-		bcm->short_preamble = 1;
-	else
-		bcm->short_preamble = 0;
-	
 	if (bcm->current_core->rev < 3) {
 		bcm430x_write16(bcm, 0x060E, 0x0000);
 		bcm430x_write16(bcm, 0x0610, 0x8000);

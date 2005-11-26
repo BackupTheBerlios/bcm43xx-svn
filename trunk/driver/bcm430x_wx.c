@@ -850,6 +850,49 @@ static int bcm430x_wx_get_interfmode(struct net_device *net_dev,
 	return 0;
 }
 
+static int bcm430x_wx_set_shortpreamble(struct net_device *net_dev,
+					struct iw_request_info *info,
+					union iwreq_data *data,
+					char *extra)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int on;
+
+	wx_enter();
+
+	on = *((int *)extra);
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm->short_preamble = !!on;
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	return 0;
+}
+
+static int bcm430x_wx_get_shortpreamble(struct net_device *net_dev,
+					struct iw_request_info *info,
+					union iwreq_data *data,
+					char *extra)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int on;
+
+	wx_enter();
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	on = bcm->short_preamble;
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	if (on)
+		strncpy(extra, "1 (Short Preamble enabled)", MAX_WX_STRING);
+	else
+		strncpy(extra, "0 (Short Preamble disabled)", MAX_WX_STRING);
+	data->data.length = strlen(extra) + 1;
+
+	return 0;
+}
+
 
 #ifdef WX
 # undef WX
@@ -900,10 +943,16 @@ static const iw_handler bcm430x_priv_wx_handlers[] = {
 	bcm430x_wx_set_interfmode,
 	/* Get Interference Mitigation Mode. */
 	bcm430x_wx_get_interfmode,
+	/* Enable/Disable Short Preamble mode. */
+	bcm430x_wx_set_shortpreamble,
+	/* Get Short Preamble mode. */
+	bcm430x_wx_get_shortpreamble,
 };
 
 #define PRIV_WX_SET_INTERFMODE		(SIOCIWFIRSTPRIV + 0)
 #define PRIV_WX_GET_INTERFMODE		(SIOCIWFIRSTPRIV + 1)
+#define PRIV_WX_SET_SHORTPREAMBLE	(SIOCIWFIRSTPRIV + 2)
+#define PRIV_WX_GET_SHORTPREAMBLE	(SIOCIWFIRSTPRIV + 3)
 
 static const struct iw_priv_args bcm430x_priv_wx_args[] = {
 	{
@@ -915,6 +964,16 @@ static const struct iw_priv_args bcm430x_priv_wx_args[] = {
 		.cmd		= PRIV_WX_GET_INTERFMODE,
 		.get_args	= IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | MAX_WX_STRING,
 		.name		= "get_interfmode",
+	},
+	{
+		.cmd		= PRIV_WX_SET_SHORTPREAMBLE,
+		.set_args	= IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+		.name		= "set_shortpreambl",
+	},
+	{
+		.cmd		= PRIV_WX_GET_SHORTPREAMBLE,
+		.get_args	= IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | MAX_WX_STRING,
+		.name		= "get_shortpreambl",
 	},
 };
 
