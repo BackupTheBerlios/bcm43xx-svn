@@ -644,11 +644,13 @@ static int bcm430x_wx_set_xmitpower(struct net_device *net_dev,
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	unsigned long flags;
-	int err;
+	int err = -ENODEV;
 
 	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
+	if (!bcm->initialized)
+		goto out_unlock;
 	if (data->power.disabled != (!(bcm->current_core->radio->enabled))) {
 		if (data->power.disabled)
 			err = bcm430x_radio_turn_off(bcm);
