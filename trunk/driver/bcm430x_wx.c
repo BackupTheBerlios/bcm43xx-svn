@@ -47,6 +47,8 @@
 #endif
 #define wx_enter()		printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
+#define MAX_WX_STRING		80
+
 
 static int bcm430x_wx_get_name(struct net_device *net_dev,
                                struct iw_request_info *info,
@@ -763,12 +765,97 @@ static int bcm430x_wx_get_power(struct net_device *net_dev,
 	return 0;
 }
 
+static int bcm430x_wx_set_interfmode(struct net_device *net_dev,
+				     struct iw_request_info *info,
+				     union iwreq_data *data,
+				     char *extra)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int mode, err = 0;
+
+	wx_enter();
+
+	mode = *((int *)extra);
+	switch (mode) {
+	case 0:
+		mode = BCM430x_RADIO_INTERFMODE_NONE;
+		break;
+	case 1:
+		mode = BCM430x_RADIO_INTERFMODE_NONWLAN;
+		break;
+	case 2:
+		mode = BCM430x_RADIO_INTERFMODE_MANUALWLAN;
+		break;
+	case 3:
+		mode = BCM430x_RADIO_INTERFMODE_AUTOWLAN;
+		break;
+	default:
+		printk(KERN_ERR PFX "set_interfmode allowed parameters are: "
+				    "0 => None,  1 => Non-WLAN,  2 => WLAN,  "
+				    "3 => Auto-WLAN\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (bcm->initialized) {
+		err = bcm430x_radio_set_interference_mitigation(bcm, mode);
+		if (err) {
+			printk(KERN_ERR PFX "Interference Mitigation not "
+					    "supported by device\n");
+		}
+	} else {
+		if (mode == BCM430x_RADIO_INTERFMODE_AUTOWLAN) {
+			printk(KERN_ERR PFX "Interference Mitigation mode Auto-WLAN "
+					    "not supported while the interface is down.\n");
+			err = -ENODEV;
+		} else
+			bcm->current_core->radio->interfmode = mode;
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	return err;
+}
+
+static int bcm430x_wx_get_interfmode(struct net_device *net_dev,
+				     struct iw_request_info *info,
+				     union iwreq_data *data,
+				     char *extra)
+{
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int mode;
+
+	wx_enter();
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	mode = bcm->current_core->radio->interfmode;
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	switch (mode) {
+	case BCM430x_RADIO_INTERFMODE_NONE:
+		strncpy(extra, "0 (No Interference Mitigation)", MAX_WX_STRING);
+		break;
+	case BCM430x_RADIO_INTERFMODE_NONWLAN:
+		strncpy(extra, "1 (Non-WLAN Interference Mitigation)", MAX_WX_STRING);
+		break;
+	case BCM430x_RADIO_INTERFMODE_MANUALWLAN:
+		strncpy(extra, "2 (WLAN Interference Mitigation)", MAX_WX_STRING);
+		break;
+	default:
+		assert(0);
+	}
+	data->data.length = strlen(extra) + 1;
+
+	return 0;
+}
+
 
 #ifdef WX
 # undef WX
 #endif
 #define WX(ioctl)  [(ioctl) - SIOCSIWCOMMIT]
-static iw_handler bcm430x_wx_handlers[] = {
+static const iw_handler bcm430x_wx_handlers[] = {
 	/* Wireless Identification */
 	WX(SIOCGIWNAME)		= bcm430x_wx_get_name,
 	/* Basic operations */
@@ -808,7 +895,36 @@ static iw_handler bcm430x_wx_handlers[] = {
 };
 #undef WX
 
-const struct iw_handler_def bcm430x_wx_handlers_def = {
-	.standard = bcm430x_wx_handlers,
-	.num_standard = ARRAY_SIZE(bcm430x_wx_handlers),
+static const iw_handler bcm430x_priv_wx_handlers[] = {
+	/* Set Interference Mitigation Mode. */
+	bcm430x_wx_set_interfmode,
+	/* Get Interference Mitigation Mode. */
+	bcm430x_wx_get_interfmode,
 };
+
+#define PRIV_WX_SET_INTERFMODE		(SIOCIWFIRSTPRIV + 0)
+#define PRIV_WX_GET_INTERFMODE		(SIOCIWFIRSTPRIV + 1)
+
+static const struct iw_priv_args bcm430x_priv_wx_args[] = {
+	{
+		.cmd		= PRIV_WX_SET_INTERFMODE,
+		.set_args	= IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+		.name		= "set_interfmode",
+	},
+	{
+		.cmd		= PRIV_WX_GET_INTERFMODE,
+		.get_args	= IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | MAX_WX_STRING,
+		.name		= "get_interfmode",
+	},
+};
+
+const struct iw_handler_def bcm430x_wx_handlers_def = {
+	.standard		= bcm430x_wx_handlers,
+	.num_standard		= ARRAY_SIZE(bcm430x_wx_handlers),
+	.num_private		= ARRAY_SIZE(bcm430x_priv_wx_handlers),
+	.num_private_args	= ARRAY_SIZE(bcm430x_priv_wx_args),
+	.private		= bcm430x_priv_wx_handlers,
+	.private_args		= bcm430x_priv_wx_args,
+};
+
+/* vim: set ts=8 sw=8 sts=8: */

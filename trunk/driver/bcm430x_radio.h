@@ -71,11 +71,6 @@ u8 bcm430x_radio_aci_detect(struct bcm430x_private *bcm, u8 channel);
 u8 bcm430x_radio_aci_scan(struct bcm430x_private *bcm);
 
 int bcm430x_radio_set_interference_mitigation(struct bcm430x_private *bcm, int mode);
-static inline
-int bcm430x_radio_get_interference_mitigation(struct bcm430x_private *bcm)
-{
-	return bcm->current_core->radio->interfmode;
-}
 
 void bcm430x_calc_nrssi_slope(struct bcm430x_private *bcm);
 void bcm430x_calc_nrssi_threshold(struct bcm430x_private *bcm);

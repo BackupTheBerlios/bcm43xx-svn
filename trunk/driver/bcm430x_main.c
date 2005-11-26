@@ -2042,6 +2042,7 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 {
 	int err;
 	int iw_mode = bcm->ieee->iw_mode;
+	int tmp;
 	u32 value32;
 	u16 value16;
 
@@ -2076,8 +2077,11 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	if (err)
 		goto err_radio_off;
 
-	//FIXME: Calling with NONE for the time being. Let the user set it (later?)
-	bcm430x_radio_set_interference_mitigation(bcm, BCM430x_RADIO_INTERFMODE_NONE);
+	/* Select initial Interference Mitigation. */
+	tmp = bcm->current_core->radio->interfmode;
+	bcm->current_core->radio->interfmode = BCM430x_RADIO_INTERFMODE_NONE;
+	bcm430x_radio_set_interference_mitigation(bcm, tmp);
+
 	bcm430x_phy_set_antenna_diversity(bcm);
 	bcm430x_radio_set_txantenna(bcm, BCM430x_RADIO_DEFAULT_ANTENNA);
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
@@ -2411,6 +2415,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			core->phy->minlowsigpos[0] = 0;
 			core->phy->minlowsigpos[1] = 0;
 			core->radio = &bcm->radio[i];
+			core->radio->interfmode = BCM430x_RADIO_INTERFMODE_NONE; //FIXME: Set to AUTO?
 			core->radio->channel = 0xFF;
 			core->radio->initial_channel = 0xFF;
 			core->radio->lofcal = 0xFFFF;
