@@ -478,9 +478,6 @@ static int bcm430x_wx_set_defaultrate(struct net_device *net_dev,
 		if (bcm->current_core->phy->type != BCM430x_PHYTYPE_A &&
 		    bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
 			goto out_unlock;
-		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION;
-	} else {
-		bcm->ieee->modulation = IEEE80211_CCK_MODULATION;
 	}
 	/* finally set the rate to be used by TX code. */
 	bcm->current_core->phy->default_bitrate = rate;

@@ -3217,7 +3217,7 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_A:
 		if (phy_rev >= 4)
 			phy_rev_ok = 0;
-		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_6MB;
+		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_54MB;
 		/*FIXME: We need to switch the ieee->modulation, etc.. flags,
 		 *       if we switch 80211 cores after init is done.
 		 *       As we do not implement on the fly switching between
@@ -3225,12 +3225,13 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 		 */
 		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION;
 		bcm->ieee->mode = IEEE_A;
-		bcm->ieee->freq_band = IEEE80211_52GHZ_BAND;
+		bcm->ieee->freq_band = IEEE80211_52GHZ_BAND |
+				       IEEE80211_24GHZ_BAND;
 		break;
 	case BCM430x_PHYTYPE_B:
 		if (phy_rev != 2 && phy_rev != 4 && phy_rev != 6 && phy_rev != 7)
 			phy_rev_ok = 0;
-		bcm->current_core->phy->default_bitrate = IEEE80211_CCK_RATE_1MB;
+		bcm->current_core->phy->default_bitrate = IEEE80211_CCK_RATE_11MB;
 		bcm->ieee->modulation = IEEE80211_CCK_MODULATION;
 		bcm->ieee->mode = IEEE_B;
 		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
@@ -3238,8 +3239,9 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_G:
 		if (phy_rev >= 3)
 			phy_rev_ok = 0;
-		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_6MB;
-		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION;
+		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_54MB;
+		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION |
+					IEEE80211_CCK_MODULATION;
 		bcm->ieee->mode = IEEE_G;
 		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
 		break;
