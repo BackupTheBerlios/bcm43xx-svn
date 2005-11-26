@@ -409,7 +409,7 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 		       const u16 cookie)
 {
 	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
-	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
+	int ofdm_modulation = 0;
 	const u8 bitrate = phy->default_bitrate;
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	const struct ieee80211_hdr *wireless_header = (const struct ieee80211_hdr *)fragment_data;
@@ -431,23 +431,28 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	case IEEE80211_OFDM_RATE_6MB:
 	case IEEE80211_OFDM_RATE_9MB:
 	case IEEE80211_OFDM_RATE_12MB:
+		ofdm_modulation = 1;
 		fallback_bitrate = IEEE80211_OFDM_RATE_6MB;
 		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_18MB:
+		ofdm_modulation = 1;
 		fallback_bitrate = IEEE80211_OFDM_RATE_9MB;
 		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_24MB:
+		ofdm_modulation = 1;
 		fallback_bitrate = IEEE80211_OFDM_RATE_12MB;
 		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_36MB:
+		ofdm_modulation = 1;
 		fallback_bitrate = IEEE80211_OFDM_RATE_18MB;
 		fallback_ofdm_modulation = 1;
 		break;
 	case IEEE80211_OFDM_RATE_48MB:
 	case IEEE80211_OFDM_RATE_54MB:
+		ofdm_modulation = 1;
 		fallback_bitrate = IEEE80211_OFDM_RATE_24MB;
 		fallback_ofdm_modulation = 1;
 		break;
