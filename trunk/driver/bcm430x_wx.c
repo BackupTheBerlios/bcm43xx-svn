@@ -664,94 +664,49 @@ static int bcm430x_wx_get_power(struct net_device *net_dev,
 }
 
 
+#ifdef WX
+# undef WX
+#endif
+#define WX(ioctl)  [(ioctl) - SIOCSIWCOMMIT]
 static iw_handler bcm430x_wx_handlers[] = {
-		/* Wireless Identification */
-/* 0x8B00 */	NULL, /* commit pending changes */
-/* 0x8B01 */	bcm430x_wx_get_name,
-
-		/* Basic operations */
-/* 0x8B02 */	NULL, /* set network id (pre-802.11) */
-/* 0x8B03 */	NULL, /* get network id (the cell)  FIXME: Implement? */
-/* 0x8B04 */	bcm430x_wx_set_channelfreq,
-/* 0x8B05 */	bcm430x_wx_get_channelfreq,
-/* 0x8B06 */	bcm430x_wx_set_mode,
-/* 0x8B07 */	bcm430x_wx_get_mode,
-/* 0x8B08 */	NULL,//TODO bcm430x_wx_set_sensitivity,
-/* 0x8B09 */	NULL,//TODO bcm430x_wx_get_sensitivity,
-
-		/* Informative stuff */
-/* 0x8B0A */	NULL, /* unused */
-/* 0x8B0B */	NULL,//TODO bcm430x_wx_get_rangeparams,
-/* 0x8B0C */	NULL, /* unused */
-/* 0x8B0D */	NULL,//TODO bcm430x_wx_get_privinfo,
-/* 0x8B0E */	NULL, /* unused */
-/* 0x8B0F */	NULL, /* get /proc/net/wireless stats */
-
-		/* Spy support */
-/* 0x8B10 */	NULL, /* set spy addresses */
-/* 0x8B11 */	NULL, /* get spy info (quality of link) */
-/* 0x8B12 */	NULL, /* set spy threshold (spy event) */
-/* 0x8B13 */	NULL, /* get spy threshold */
-
-		/* Access Point manipulation */
-/* 0x8B14 */	NULL,//TODO bcm430x_wx_set_apmac,
-/* 0x8B15 */	NULL,//TODO bcm430x_wx_get_apmac,
-
-		/* WPA: IEEE 802.11 MLME requests */
-/* 0x8B16 */	NULL, /* request MLME operation */
-
-		/* Access Point maniputaion (continued) */
-/* 0x8B17 */	NULL, /* deprecated in favour of scanning */
-/* 0x8B18 */	NULL,//TODO bcm430x_wx_trigger_scan,
-/* 0x8B19 */	NULL,//TODO bcm430x_wx_get_scanresults,
-
-		/* 802.11 specific support */
-/* 0x8B1A */	NULL,//TODO bcm430x_wx_set_essid,
-/* 0x8B1B */	NULL,//TODO bcm430x_wx_get_essid,
-/* 0x8B1C */	NULL,//TODO bcm430x_wx_set_nick,
-/* 0x8B1D */	NULL,//TODO bcm430x_wx_get_nick,
-
-/* 0x8B1E */	NULL, /* unused */
-/* 0x8B1F */	NULL, /* unused */
-
-		/* Other parameters */
-/* 0x8B20 */	bcm430x_wx_set_defaultrate,
-/* 0x8B21 */	bcm430x_wx_get_defaultrate,
-/* 0x8B22 */	NULL,//TODO bcm430x_wx_set_rts,
-/* 0x8B23 */	NULL,//TODO bcm430x_wx_get_rts,
-/* 0x8B24 */	NULL,//TODO bcm430x_wx_set_frag,
-/* 0x8B25 */	NULL,//TODO bcm430x_wx_get_frag,
-/* 0x8B26 */	NULL,//TODO bcm430x_wx_set_xmitpower,
-/* 0x8B27 */	NULL,//TODO bcm430x_wx_get_xmitpower,
-/* 0x8B28 */	NULL,//TODO bcm430x_wx_set_retry,
-/* 0x8B29 */	NULL,//TODO bcm430x_wx_get_retry,
-
-		/* Encoding */
-/* 0x8B2A */	bcm430x_wx_set_encoding,
-/* 0x8B2B */	bcm430x_wx_get_encoding,
-
-		/* Power saving */
-/* 0x8B2C */	NULL,//TODO bcm430x_wx_set_power,
-/* 0x8B2D */	NULL,//TODO bcm430x_wx_get_power,
-
-/* 0x8B2E */	NULL, /* unused */
-/* 0x8B2F */	NULL, /* unused */
-
-		/* WPA: Generic IEEE 802.11 information element */
-/* 0x8B30 */	NULL, /* set generic IE */
-/* 0x8B31 */	NULL, /* get generic IE */
-
-		/* WPA: Authentication mode parameters */
-/* 0x8B32 */	NULL, /* set authentication mode params */
-/* 0x8B33 */	NULL, /* get authentication mode params */
-
-		/* WPA: Extended version of encoding configuration */
-/* 0x8B34 */	NULL, /* set encoding token & mode */
-/* 0x8B35 */	NULL, /* get encoding token & mode */
-
-		/* WPA2: PMKSA cache management */
-/* 0x8B36 */	NULL, /* PMKSA cache operation */
+	/* Wireless Identification */
+	WX(SIOCGIWNAME)		= bcm430x_wx_get_name,
+	/* Basic operations */
+	WX(SIOCSIWFREQ)		= bcm430x_wx_set_channelfreq,
+	WX(SIOCGIWFREQ)		= bcm430x_wx_get_channelfreq,
+	WX(SIOCSIWMODE)		= bcm430x_wx_set_mode,
+	WX(SIOCGIWMODE)		= bcm430x_wx_get_mode,
+	/* Informative stuff */
+//TODO	WX(SIOCGIWRANGE)	= bcm430x_wx_get_rangeparams,
+	/* Access Point manipulation */
+//TODO	WX(SIOCSIWAP)		= bcm430x_wx_set_apmac,
+//TODO	WX(SIOCGIWAP)		= bcm430x_wx_get_apmac,
+//TODO	WX(SIOCSIWSCAN)		= bcm430x_wx_trigger_scan,
+//TODO	WX(SIOCGIWSCAN)		= bcm430x_wx_get_scanresults,
+	/* 802.11 specific support */
+//TODO	WX(SIOCSIWESSID)	= bcm430x_wx_set_essid,
+//TODO	WX(SIOCGIWESSID)	= bcm430x_wx_get_essid,
+//TODO	WX(SIOCSIWNICKN)	= bcm430x_wx_set_nick,
+//TODO	WX(SIOCGIWNICKN)	= bcm430x_wx_get_nick,
+	/* Other parameters */
+	WX(SIOCSIWRATE)		= bcm430x_wx_set_defaultrate,
+	WX(SIOCGIWRATE)		= bcm430x_wx_get_defaultrate,
+//TODO	WX(SIOCSIWRTS)		= bcm430x_wx_set_rts,
+//TODO	WX(SIOCGIWRTS)		= bcm430x_wx_get_rts,
+//TODO	WX(SIOCSIWFRAG)		= bcm430x_wx_set_frag,
+//TODO	WX(SIOCGIWFRAG)		= bcm430x_wx_get_frag,
+//TODO	WX(SIOCSIWTXPOW)	= bcm430x_wx_set_xmitpower,
+//TODO	WX(SIOCGIWTXPOW)	= bcm430x_wx_get_xmitpower,
+//TODO	WX(SIOCSIWRETRY)	= bcm430x_wx_set_retry,
+//TODO	WX(SIOCGIWRETRY)	= bcm430x_wx_get_retry,
+	/* Encoding */
+	WX(SIOCSIWENCODE)	= bcm430x_wx_set_encoding,
+	WX(SIOCGIWENCODE)	= bcm430x_wx_get_encoding,
+	/* Power saving */
+//TODO	WX(SIOCSIWPOWER)	= bcm430x_wx_set_power,
+//TODO	WX(SIOCGIWPOWER)	= bcm430x_wx_get_power,
 };
+#undef WX
 
 const struct iw_handler_def bcm430x_wx_handlers_def = {
 	.standard = bcm430x_wx_handlers,
