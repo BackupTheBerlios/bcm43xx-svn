@@ -45,6 +45,7 @@
 #else
 # define printk_wx(x...)	do { /* nothing */ } while (0)
 #endif
+#define wx_enter()		printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
 
 
 static int bcm430x_wx_get_name(struct net_device *net_dev,
@@ -59,7 +60,7 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 	char suffix[7] = { 0 };
 	int have_a = 0, have_b = 0, have_g = 0;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	nr_80211 = bcm430x_num_80211_cores(bcm);
@@ -160,7 +161,7 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 	u8 channel;
 	int freq;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	if ((data->freq.m >= 0) && (data->freq.m <= 1000)) {
 		channel = data->freq.m;
@@ -196,7 +197,7 @@ static int bcm430x_wx_get_channelfreq(struct net_device *net_dev,
 	int err = -ENODEV;
 	u16 channel;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	channel = bcm->current_core->radio->channel;
@@ -221,7 +222,7 @@ static int bcm430x_wx_set_mode(struct net_device *net_dev,
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	unsigned long flags;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (data->mode == IW_MODE_AUTO)
@@ -245,7 +246,7 @@ static int bcm430x_wx_get_mode(struct net_device *net_dev,
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	unsigned long flags;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	data->mode = bcm->ieee->iw_mode;
@@ -259,7 +260,7 @@ static int bcm430x_wx_set_sensitivity(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -269,7 +270,7 @@ static int bcm430x_wx_get_sensitivity(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -279,17 +280,7 @@ static int bcm430x_wx_get_rangeparams(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
-	/*TODO*/
-	return 0;
-}
-
-static int bcm430x_wx_get_privinfo(struct net_device *net_dev,
-				      struct iw_request_info *info,
-				      union iwreq_data *data,
-				      char *extra)
-{
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -299,7 +290,7 @@ static int bcm430x_wx_set_apmac(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -309,7 +300,7 @@ static int bcm430x_wx_get_apmac(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -319,7 +310,7 @@ static int bcm430x_wx_trigger_scan(struct net_device *net_dev,
 				   union iwreq_data *data,
 				   char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -329,7 +320,7 @@ static int bcm430x_wx_get_scanresults(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -339,7 +330,7 @@ static int bcm430x_wx_set_essid(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -349,7 +340,7 @@ static int bcm430x_wx_get_essid(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -363,7 +354,7 @@ static int bcm430x_wx_set_nick(struct net_device *net_dev,
 	unsigned long flags;
 	size_t len;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	len =  min((size_t)data->data.length, (size_t)IW_ESSID_MAX_SIZE);
@@ -383,7 +374,7 @@ static int bcm430x_wx_get_nick(struct net_device *net_dev,
 	unsigned long flags;
 	size_t len;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	len = strlen(bcm->nick) + 1;
@@ -407,7 +398,7 @@ static int bcm430x_wx_set_defaultrate(struct net_device *net_dev,
 	int is_ofdm = 0;
 	int err = -EINVAL;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	if (in_rate == -1) {
 		/* automatic detect */
@@ -503,7 +494,7 @@ static int bcm430x_wx_get_defaultrate(struct net_device *net_dev,
 	unsigned long flags;
 	int err = -EINVAL;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	switch (bcm->current_core->phy->default_bitrate) {
@@ -559,7 +550,7 @@ static int bcm430x_wx_set_rts(struct net_device *net_dev,
 			      union iwreq_data *data,
 			      char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -569,7 +560,7 @@ static int bcm430x_wx_get_rts(struct net_device *net_dev,
 			      union iwreq_data *data,
 			      char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -579,7 +570,7 @@ static int bcm430x_wx_set_frag(struct net_device *net_dev,
 			       union iwreq_data *data,
 			       char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -589,7 +580,7 @@ static int bcm430x_wx_get_frag(struct net_device *net_dev,
 			       union iwreq_data *data,
 			       char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -599,7 +590,7 @@ static int bcm430x_wx_set_xmitpower(struct net_device *net_dev,
 				    union iwreq_data *data,
 				    char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -609,7 +600,7 @@ static int bcm430x_wx_get_xmitpower(struct net_device *net_dev,
 				    union iwreq_data *data,
 				    char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -619,7 +610,7 @@ static int bcm430x_wx_set_retry(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -629,7 +620,7 @@ static int bcm430x_wx_get_retry(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -642,7 +633,7 @@ static int bcm430x_wx_set_encoding(struct net_device *net_dev,
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	err = ieee80211_wx_set_encode(bcm->ieee, info, data, extra);
 
@@ -657,7 +648,7 @@ static int bcm430x_wx_get_encoding(struct net_device *net_dev,
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 	int err;
 
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 
 	err = ieee80211_wx_get_encode(bcm->ieee, info, data, extra);
 
@@ -669,7 +660,7 @@ static int bcm430x_wx_set_power(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
@@ -679,7 +670,7 @@ static int bcm430x_wx_get_power(struct net_device *net_dev,
 				union iwreq_data *data,
 				char *extra)
 {
-	printk_wx(KERN_INFO PFX "WX handler called: %s\n", __FUNCTION__);
+	wx_enter();
 	/*TODO*/
 	return 0;
 }
