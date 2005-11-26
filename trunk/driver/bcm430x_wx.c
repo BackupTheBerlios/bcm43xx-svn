@@ -282,8 +282,92 @@ static int bcm430x_wx_get_rangeparams(struct net_device *net_dev,
 				      union iwreq_data *data,
 				      char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct iw_range *range = (struct iw_range *)extra;
+	const struct ieee80211_geo *geo;
+	unsigned long flags;
+	int i, j;
+
 	wx_enter();
-	/*TODO*/
+
+	data->data.length = sizeof(*range);
+	memset(range, 0, sizeof(*range));
+
+	//TODO: What about 802.11b?
+	/* 54Mb/s == ~27Mb/s payload throughput (802.11g) */
+	range->throughput = 27 * 1000 * 1000;
+
+	range->max_qual.qual = 100;
+	/* TODO: Real max RSSI */
+	range->max_qual.level = 0;
+	range->max_qual.noise = 0;
+	range->max_qual.updated = 7;
+
+	range->avg_qual.qual = 70;
+	range->avg_qual.level = 0;
+	range->avg_qual.noise = 0;
+	range->avg_qual.updated = 7;
+
+	range->min_rts = BCM430x_MIN_RTS_THRESHOLD;
+	range->max_rts = BCM430x_MAX_RTS_THRESHOLD;
+	range->min_frag = MIN_FRAG_THRESHOLD;
+	range->max_frag = MAX_FRAG_THRESHOLD;
+
+	range->encoding_size[0] = 5;
+	range->encoding_size[1] = 13;
+	range->num_encoding_sizes = 2;
+	range->max_encoding_tokens = WEP_KEYS;
+
+	range->we_version_compiled = WIRELESS_EXT;
+	range->we_version_source = 16;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	range->num_bitrates = 0;
+	i = 0;
+	switch (bcm->current_core->phy->type) {
+	case BCM430x_PHYTYPE_A:
+	case BCM430x_PHYTYPE_G:
+		range->num_bitrates += 4;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_1MB;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_2MB;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_5MB;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_11MB;
+	case BCM430x_PHYTYPE_B:
+		range->num_bitrates += 8;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_6MB;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_9MB;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_12MB;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_18MB;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_24MB;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_36MB;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_48MB;
+		range->bitrate[i++] = IEEE80211_OFDM_RATE_54MB;
+	}
+
+	geo = ieee80211_get_geo(bcm->ieee);
+	range->num_channels = geo->a_channels + geo->bg_channels;
+	j = 0;
+	for (i = 0; i < geo->a_channels; i++) {
+		if (j == IW_MAX_FREQUENCIES)
+			break;
+		range->freq[j].i = j + 1;
+		range->freq[j].m = geo->a[i].freq;//FIXME?
+		range->freq[j].e = 1;
+		j++;
+	}
+	for (i = 0; i < geo->bg_channels; i++) {
+		if (j == IW_MAX_FREQUENCIES)
+			break;
+		range->freq[j].i = j + 1;
+		range->freq[j].m = geo->bg[i].freq;//FIXME?
+		range->freq[j].e = 1;
+		j++;
+	}
+	range->num_frequency = j;
+
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return 0;
 }
 
@@ -904,7 +988,7 @@ static const iw_handler bcm430x_wx_handlers[] = {
 	WX(SIOCSIWMODE)		= bcm430x_wx_set_mode,
 	WX(SIOCGIWMODE)		= bcm430x_wx_get_mode,
 	/* Informative stuff */
-//TODO	WX(SIOCGIWRANGE)	= bcm430x_wx_get_rangeparams,
+	WX(SIOCGIWRANGE)	= bcm430x_wx_get_rangeparams,
 	/* Access Point manipulation */
 //TODO	WX(SIOCSIWAP)		= bcm430x_wx_set_apmac,
 //TODO	WX(SIOCGIWAP)		= bcm430x_wx_get_apmac,
