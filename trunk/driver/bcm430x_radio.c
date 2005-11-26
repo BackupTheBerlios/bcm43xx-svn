@@ -1148,14 +1148,36 @@ u16 freq_r3A_value(u16 frequency)
 		value = 0x0040;
 	else if (frequency < 5321)
 		value = 0x0000;
-	else if (frequency < 5701)
-		value = 0x0080;
 	else if (frequency < 5806)
 		value = 0x0080;
 	else
 		value = 0x0040;
 
 	return value;
+}
+
+static inline
+void bcm430x_radio_set_tx_iq(struct bcm430x_private *bcm)
+{
+	static const u8 data_high[5] = { 0x00, 0x40, 0x80, 0x90, 0xD0 };
+	static const u8 data_low[5]  = { 0x00, 0x01, 0x05, 0x06, 0x0A };
+	u16 tmp = bcm430x_radio_read16(bcm, 0x001E);
+	s16 value = 0x00C0;
+	int i,j;
+	
+	for (i = 0; i < 5; i++) {
+		for (j = 0; j < 5; j++) {
+			if (tmp == (data_high[i] | data_low[j])) {
+				//XXX: Byteorder?
+				value |= (i - j) << 8;
+				goto out;
+			}
+		}
+	}
+out:
+	//XXX: Correct byte order of value?
+	tmp = *((u16 *)&value);
+	bcm430x_phy_write(bcm, 0x0069, tmp);
 }
 
 int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
@@ -1174,7 +1196,7 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 		freq = channel2freq_a(channel);
 
 		r8 = bcm430x_radio_read16(bcm, 0x0008);
-		bcm430x_write16(bcm, 0x03F0, channel);
+		bcm430x_write16(bcm, 0x03F0, freq);
 		bcm430x_radio_write16(bcm, 0x0008, r8);
 
 		TODO();//TODO: write max channel TX power? to Radio 0x2D
@@ -1184,10 +1206,11 @@ int bcm430x_radio_selectchannel(struct bcm430x_private *bcm,
 		bcm430x_radio_write16(bcm, 0x002E, tmp);
 
 		if (freq >= 4920 && freq <= 5500) {
-			TODO();
-			//TODO: find the diff between the channel freq and 5500 and
-			//	multiply that by 0.025862069 and mask the result by 0xF.
-			//	Use this as the saved value of r8.
+			/* 
+			 * r8 = (((freq * 15 * 0xE1FC780F) >> 32) / 29) & 0x0F;
+			 *    = (freq * 0.025862069
+			 */
+			r8 = 3 * freq / 116; /* is equal to r8 = freq * 0.025862 */
 		}
 		bcm430x_radio_write16(bcm, 0x0007, (r8 << 4) | r8);
 		bcm430x_radio_write16(bcm, 0x0020, (r8 << 4) | r8);
