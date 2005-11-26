@@ -642,9 +642,28 @@ static int bcm430x_wx_set_xmitpower(struct net_device *net_dev,
 				    union iwreq_data *data,
 				    char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+	int err;
+
 	wx_enter();
-	/*TODO*/
-	return 0;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (data->power.disabled != (!(bcm->current_core->radio->enabled))) {
+		if (data->power.disabled)
+			err = bcm430x_radio_turn_off(bcm);
+		else
+			err = bcm430x_radio_turn_on(bcm);
+		if (err)
+			goto out_unlock;
+	}
+	//TODO: set txpower.
+	err = 0;
+
+out_unlock:
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	return err;
 }
 
 static int bcm430x_wx_get_xmitpower(struct net_device *net_dev,
@@ -652,8 +671,18 @@ static int bcm430x_wx_get_xmitpower(struct net_device *net_dev,
 				    union iwreq_data *data,
 				    char *extra)
 {
+	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	unsigned long flags;
+
 	wx_enter();
-	/*TODO*/
+
+	spin_lock_irqsave(&bcm->lock, flags);
+//TODO	data->power.value = ???
+	data->power.fixed = 1;
+	data->power.flags = IW_TXPOW_DBM;
+	data->power.disabled = !(bcm->current_core->radio->enabled);
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
 	return 0;
 }
 
@@ -759,8 +788,8 @@ static iw_handler bcm430x_wx_handlers[] = {
 	WX(SIOCGIWRTS)		= bcm430x_wx_get_rts,
 	WX(SIOCSIWFRAG)		= bcm430x_wx_set_frag,
 	WX(SIOCGIWFRAG)		= bcm430x_wx_get_frag,
-//TODO	WX(SIOCSIWTXPOW)	= bcm430x_wx_set_xmitpower,
-//TODO	WX(SIOCGIWTXPOW)	= bcm430x_wx_get_xmitpower,
+	WX(SIOCSIWTXPOW)	= bcm430x_wx_set_xmitpower,
+	WX(SIOCGIWTXPOW)	= bcm430x_wx_get_xmitpower,
 //TODO	WX(SIOCSIWRETRY)	= bcm430x_wx_set_retry,
 //TODO	WX(SIOCGIWRETRY)	= bcm430x_wx_get_retry,
 	/* Encoding */
