@@ -201,7 +201,7 @@ static int bcm430x_wx_get_channelfreq(struct net_device *net_dev,
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	channel = bcm->current_core->radio->channel;
-	if (channel == 0xFFFF)
+	if (channel == 0xFF)
 		goto out_unlock;
 	assert(channel > 0 && channel <= 1000);
 	data->freq.e = 0;
