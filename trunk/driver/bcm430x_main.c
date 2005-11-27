@@ -901,10 +901,10 @@ static void bcm430x_geo_init(struct bcm430x_private *bcm)
 	}
 	if (have_bg) {
 		geo.bg_channels = IEEE80211_24GHZ_CHANNELS;
-		for (i = 1; i <= IEEE80211_24GHZ_CHANNELS; i++) {
+		for (i = 0; i < IEEE80211_24GHZ_CHANNELS; i++) {
 			chan = geo.bg + i;
 			chan->freq = 0;//FIXME
-			chan->channel = i;
+			chan->channel = i + 1;
 			//TODO: maxpower
 		}
 	}
@@ -3751,6 +3751,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm = bcm430x_priv(net_dev);
 	bcm->ieee = netdev_priv(net_dev);
 	bcm->softmac = ieee80211_priv(net_dev);
+	bcm->softmac->set_channel = bcm430x_ieee80211_set_chan;
 
 #ifdef DEBUG_ENABLE_MMIO_PRINT
 	bcm430x_mmioprint_initial(bcm, 1);

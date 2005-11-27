@@ -30,6 +30,7 @@
 
 #include <linux/wireless.h>
 #include <net/iw_handler.h>
+#include <net/ieee80211softmac_wx.h>
 
 #include "bcm430x.h"
 #include "bcm430x_wx.h"
@@ -388,19 +389,6 @@ static int bcm430x_wx_get_apmac(struct net_device *net_dev,
 {
 	wx_enter();
 	/*TODO*/
-	return 0;
-}
-
-static int bcm430x_wx_trigger_scan(struct net_device *net_dev,
-				   struct iw_request_info *info,
-				   union iwreq_data *data,
-				   char *extra)
-{
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-
-	wx_enter();
-	//TODO: Trigger a scan via SoftMAC.
-
 	return 0;
 }
 
@@ -992,7 +980,7 @@ static const iw_handler bcm430x_wx_handlers[] = {
 	/* Access Point manipulation */
 //TODO	WX(SIOCSIWAP)		= bcm430x_wx_set_apmac,
 //TODO	WX(SIOCGIWAP)		= bcm430x_wx_get_apmac,
-	WX(SIOCSIWSCAN)		= bcm430x_wx_trigger_scan,
+	WX(SIOCSIWSCAN)		= ieee80211softmac_wx_trigger_scan,
 	WX(SIOCGIWSCAN)		= bcm430x_wx_get_scanresults,
 	/* 802.11 specific support */
 //TODO	WX(SIOCSIWESSID)	= bcm430x_wx_set_essid,
