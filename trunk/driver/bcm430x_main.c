@@ -3701,6 +3701,10 @@ static int bcm430x_net_stop(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
+	if (bcm->softmac->scaninfo.started) {
+		bcm->softmac->stop_scan(net_dev);
+		bcm->softmac->wait_for_scan(net_dev);
+	}
 	bcm430x_disassociate(bcm);
 	bcm430x_disable_interrupts_sync(bcm, NULL);
 	bcm430x_free_board(bcm);
