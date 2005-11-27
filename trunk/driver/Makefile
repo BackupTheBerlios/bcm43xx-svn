@@ -3,6 +3,10 @@
 VERSION		:= 0.0.1
 RELEASE_NAME	:= bcm430x-$(VERSION)
 
+# Optional path, where the SoftMAC subsystem is located.
+# You may set SOFTMAC_DIR in your bashrc, for example.
+SOFTMAC_DIR	?= 
+
 KVER		:= $(shell uname -r)
 KDIR		?= /lib/modules/$(KVER)/build
 PWD		:= $(shell pwd)
@@ -20,7 +24,7 @@ DEBUGFS_OBJ =
 CFLAGS += -O2
 endif
 
-CFLAGS += -DBCM430x_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include
+CFLAGS += -DBCM430x_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include -I$(SOFTMAC_DIR)
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
