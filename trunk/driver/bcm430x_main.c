@@ -324,6 +324,65 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 }
 
 static inline
+u8 bcm430x_plcp_get_bitrate(struct bcm430x_plcp_hdr4 *plcp,
+			    const int ofdm_modulation)
+{
+	u8 rate;
+
+	if (ofdm_modulation) {
+		switch (plcp->data & 0xF) {
+		case 0xB:
+			rate = IEEE80211_OFDM_RATE_6MB;
+			break;
+		case 0xF:
+			rate = IEEE80211_OFDM_RATE_9MB;
+			break;
+		case 0xA:
+			rate = IEEE80211_OFDM_RATE_12MB;
+			break;
+		case 0xE:
+			rate = IEEE80211_OFDM_RATE_18MB;
+			break;
+		case 0x9:
+			rate = IEEE80211_OFDM_RATE_24MB;
+			break;
+		case 0xD:
+			rate = IEEE80211_OFDM_RATE_36MB;
+			break;
+		case 0x8:
+			rate = IEEE80211_OFDM_RATE_48MB;
+			break;
+		case 0xC:
+			rate = IEEE80211_OFDM_RATE_54MB;
+			break;
+		default:
+			rate = 0;
+			assert(0);
+		}
+	} else {
+		switch (plcp->raw[0]) {
+		case 0x0A:
+			rate = IEEE80211_CCK_RATE_1MB;
+			break;
+		case 0x14:
+			rate = IEEE80211_CCK_RATE_2MB;
+			break;
+		case 0x37:
+			rate = IEEE80211_CCK_RATE_5MB;
+			break;
+		case 0x6E:
+			rate = IEEE80211_CCK_RATE_11MB;
+			break;
+		default:
+			rate = 0;
+			assert(0);
+		}
+	}
+
+	return rate;
+}
+
+static inline
 void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 				  u16 octets, const u8 bitrate,
 				  const int ofdm_modulation)
@@ -3477,6 +3536,8 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 			struct sk_buff *skb,
 			struct bcm430x_rxhdr *rxhdr)
 {
+	struct bcm430x_plcp_hdr4 *plcp;
+	const int is_ofdm = !!(rxhdr->flags1 & BCM430x_RXHDR_FLAGS1_OFDM);
 	struct ieee80211_rx_stats stats;
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	struct ieee80211_hdr *wlhdr;
@@ -3488,9 +3549,11 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 	int err = -EINVAL;
 
 	if (rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_TYPE2FRAME) {
+		plcp = (struct bcm430x_plcp_hdr4 *)(skb->data + 2);
 		/* Skip two unknown bytes and the PLCP header. */
 		skb_pull(skb, 2 + sizeof(struct bcm430x_plcp_hdr6));
 	} else {
+		plcp = (struct bcm430x_plcp_hdr4 *)(skb->data);
 		/* Skip the PLCP header. */
 		skb_pull(skb, sizeof(struct bcm430x_plcp_hdr6));
 	}
@@ -3503,12 +3566,13 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 	stats.rssi = rxhdr->rssi;		//FIXME
 	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
-//TODO	stats.rate = 
+	stats.rate = bcm430x_plcp_get_bitrate(plcp, is_ofdm);
+//printk("RX ofdm %d, rate == %u\n", is_ofdm, stats.rate);
 	stats.received_channel = bcm->current_core->radio->channel;
 //TODO	stats.control = 
 	stats.mask = IEEE80211_STATMASK_SIGNAL |
 //TODO		     IEEE80211_STATMASK_NOISE |
-//TODO		     IEEE80211_STATMASK_RATE |
+		     IEEE80211_STATMASK_RATE |
 		     IEEE80211_STATMASK_RSSI;
 	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
 		stats.freq = IEEE80211_52GHZ_BAND;
