@@ -194,7 +194,7 @@ int bcm430x_channel_to_freq(struct bcm430x_private *bcm,
 }
 
 /* Lightweight function to check if a channel number is valid.
- * Note that this does _NOT_ check for geological restrictions!
+ * Note that this does _NOT_ check for geographical restrictions!
  */
 static inline
 int bcm430x_is_valid_channel(struct bcm430x_private *bcm,
