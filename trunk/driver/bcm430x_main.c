@@ -3500,8 +3500,8 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 
 	memset(&stats, 0, sizeof(stats));
 	stats.mac_time = rxhdr->mactime;
-	stats.rssi = rxhdr->rssi;
-	stats.signal = rxhdr->signal_quality;
+	stats.rssi = rxhdr->rssi;		//FIXME
+	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
 //TODO	stats.rate = 
 	stats.received_channel = bcm->current_core->radio->channel;
