@@ -330,7 +330,7 @@ u8 bcm430x_plcp_get_bitrate(struct bcm430x_plcp_hdr4 *plcp,
 	u8 rate;
 
 	if (ofdm_modulation) {
-		switch (plcp->data & 0xF) {
+		switch (le32_to_cpu(plcp->data) & 0xF) {
 		case 0xB:
 			rate = IEEE80211_OFDM_RATE_6MB;
 			break;
