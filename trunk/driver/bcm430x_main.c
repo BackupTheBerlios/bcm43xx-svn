@@ -3487,9 +3487,6 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 	int is_packet_for_us = 0;
 	int err = -EINVAL;
 
-	memset(&stats, 0, sizeof(stats));
-	//TODO: Interpret the rxhdr and construct the stats.
-
 	if (rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_TYPE2FRAME) {
 		/* Skip two unknown bytes and the PLCP header. */
 		skb_pull(skb, 2 + sizeof(struct bcm430x_plcp_hdr6));
@@ -3500,6 +3497,24 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 	/* The SKB contains the PAYLOAD (wireless header + data)
 	 * at this point. The FCS at the end is stripped.
 	 */
+
+	memset(&stats, 0, sizeof(stats));
+	stats.mac_time = rxhdr->mactime;
+	stats.rssi = rxhdr->rssi;
+	stats.signal = rxhdr->signal_quality;
+//TODO	stats.noise = 
+//TODO	stats.rate = 
+	stats.received_channel = bcm->current_core->radio->channel;
+//TODO	stats.control = 
+	stats.mask = IEEE80211_STATMASK_SIGNAL |
+//TODO		     IEEE80211_STATMASK_NOISE |
+//TODO		     IEEE80211_STATMASK_RATE |
+		     IEEE80211_STATMASK_RSSI;
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
+		stats.freq = IEEE80211_52GHZ_BAND;
+	else
+		stats.freq = IEEE80211_24GHZ_BAND;
+	stats.len = skb->len;
 
 #if 0
 {
