@@ -105,55 +105,6 @@ static int bcm430x_wx_get_name(struct net_device *net_dev,
 	return 0;
 }
 
-//TODO: Use the ieee80211 equivalents for the following three functions in 2.6.15.
-static u8 freq_to_channel(struct bcm430x_private *bcm,
-			  int freq)
-{
-	u8 channel;
-
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
-		channel = (freq - 5000) / 5;
-	} else {
-		if (freq == 2484)
-			channel = 14;
-		else
-			channel = (freq - 2407) / 5;
-	}
-
-	return channel;
-}
-
-static int channel_to_freq(struct bcm430x_private *bcm,
-			   u8 channel)
-{
-	int freq;
-
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
-		freq = 5000 + (5 * channel);
-	} else {
-		if (channel == 14)
-			freq = 2484;
-		else
-			freq = 2407 + (5 * channel);
-	}
-
-	return freq;
-}
-
-static int is_valid_channel(struct bcm430x_private *bcm,
-			    u8 channel)
-{
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
-		if (channel <= 200)
-			return 1;
-	} else {
-		if (channel >= 1 && channel <= 14)
-			return 1;
-	}
-
-	return 0;
-}
-
 static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 				      struct iw_request_info *info,
 				      union iwreq_data *data,
@@ -168,12 +119,12 @@ static int bcm430x_wx_set_channelfreq(struct net_device *net_dev,
 
 	if ((data->freq.m >= 0) && (data->freq.m <= 1000)) {
 		channel = data->freq.m;
-		freq = channel_to_freq(bcm, channel);
+		freq = bcm430x_channel_to_freq(bcm, channel);
 	} else {
-		channel = freq_to_channel(bcm, data->freq.m);
+		channel = bcm430x_freq_to_channel(bcm, data->freq.m);
 		freq = data->freq.m;
 	}
-	if (!is_valid_channel(bcm, channel))
+	if (!bcm430x_is_valid_channel(bcm, channel))
 		return -EINVAL;
 
 	spin_lock_irqsave(&bcm->lock, flags);

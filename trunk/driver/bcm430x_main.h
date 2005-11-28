@@ -154,13 +154,62 @@ struct bcm430x_xmitstatus_queue {
 	struct bcm430x_hwxmitstatus status;
 };
 
-struct bcm430x_assoc_req {
-	struct ieee80211_hdr_3addr wlhdr;
-	__le16 capability;
-	__le16 listen_interval;
-	u8 ssid_rates[44];
-} __attribute__((__packed__));
 
+/* Lightweight function to convert a frequency (in Mhz) to a channel number. */
+static inline
+u8 bcm430x_freq_to_channel(struct bcm430x_private *bcm,
+			   int freq)
+{
+	u8 channel;
+
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+		channel = (freq - 5000) / 5;
+	} else {
+		if (freq == 2484)
+			channel = 14;
+		else
+			channel = (freq - 2407) / 5;
+	}
+
+	return channel;
+}
+
+/* Lightweight function to convert a channel number to a frequency (in Mhz). */
+static inline
+int bcm430x_channel_to_freq(struct bcm430x_private *bcm,
+			    u8 channel)
+{
+	int freq;
+
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+		freq = 5000 + (5 * channel);
+	} else {
+		if (channel == 14)
+			freq = 2484;
+		else
+			freq = 2407 + (5 * channel);
+	}
+
+	return freq;
+}
+
+/* Lightweight function to check if a channel number is valid.
+ * Note that this does _NOT_ check for geological restrictions!
+ */
+static inline
+int bcm430x_is_valid_channel(struct bcm430x_private *bcm,
+			    u8 channel)
+{
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+		if (channel <= 200)
+			return 1;
+	} else {
+		if (channel >= 1 && channel <= 14)
+			return 1;
+	}
+
+	return 0;
+}
 
 int FASTCALL(bcm430x_rx_transmitstatus(struct bcm430x_private *bcm,
 				       const struct bcm430x_hwxmitstatus *status));
