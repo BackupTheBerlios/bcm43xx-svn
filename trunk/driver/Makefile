@@ -24,7 +24,10 @@ DEBUGFS_OBJ =
 CFLAGS += -O2
 endif
 
-CFLAGS += -DBCM430x_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include -I$(SOFTMAC_DIR)
+CFLAGS += -DBCM430x_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include
+ifneq ($(SOFTMAC_DIR),)
+CFLAGS += -I$(SOFTMAC_DIR)
+endif
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
