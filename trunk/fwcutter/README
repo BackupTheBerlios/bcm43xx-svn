@@ -16,16 +16,17 @@ Usage
 
 fwcutter FILE		extracts the firmware from a source FILE to .
 fwcutter -i FILE        identify the driver file. Print information, but don't extract.
-fwcutter -w FILE	extract and write firmware to /lib/firmware.
+fwcutter -w /tmp FILE	extract and write firmware to /tmp.
 fwcutter -l		prints a list of supported driver source files.
 
 After extraction, run make installfw which will copy bcm430x_*.fw to 
-/lib/firmware for usage by the bcm43xx driver.
+FIRMWARE_INSTALL_DIR (which defaults to /lib/firmware) for
+usage by the bcm43xx driver.
 
 Different distributions use different target directories for the firmware 
 files. If the driver complains about missing firmware files look for the 
 correct directory. For some distributions you have to use 
-/lib/hotplug/firmware or /usr/lib/hotplug/firmware instead of /lib/firmware,
+/lib/hotplug/firmware or /usr/lib/hotplug/firmware for FIRMWARE_INSTALL_DIR,
 but other directories are also possible.
 
 
@@ -36,6 +37,7 @@ AppleAirPort2
 -------------
 You can find the Apple Airport Extreme driver in your Mac OS X system at
 /System/Library/Extensions/AppleAirPort2.kext/Contents/MacOS/AppleAirPort2
+(Note that not all versions of the MacOSX driver are supported.)
 
 bcmwl5.sys	Link
 -------------   -------------------------------------------------------
