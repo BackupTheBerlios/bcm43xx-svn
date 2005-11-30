@@ -331,90 +331,124 @@ static void print_usage(int argc, char *argv[])
 	       "         to extract the firmware blobs from bcmwl5.sys\n", argv[0]);
 }
 
-static int cmp_arg(char *arg, const char *template, char **param)
+#define ARG_MATCH	0
+#define ARG_NOMATCH	1
+#define ARG_ERROR	-1
+
+static int do_cmp_arg(char **argv, int *pos,
+		      const char *template,
+		      int allow_merged,
+		      char **param)
 {
+	char *arg;
+	char *next_arg;
 	size_t arg_len, template_len;
 
+	arg = argv[*pos];
+	next_arg = argv[*pos + 1];
+	arg_len = strlen(arg);
+	template_len = strlen(template);
+
 	if (param) {
-		arg_len = strlen(arg);
-		template_len = strlen(template);
-		/* maybe we have a merged parameter here. */
-		if (arg_len > template_len) {
+		/* Maybe we have a merged parameter here.
+		 * A merged parameter is "-pfoobar" for example.
+		 */
+		if (allow_merged && arg_len > template_len) {
 			if (memcmp(arg, template, template_len) == 0) {
 				*param = arg + template_len;
-				return 0;
+				return ARG_MATCH;
 			}
-			return -1;
+			return ARG_NOMATCH;
 		} else if (arg_len != template_len)
-			return -1;
+			return ARG_NOMATCH;
+		*param = next_arg;
 	}
-	if (strcmp(arg, template) == 0)
-		return 0;
+	if (strcmp(arg, template) == 0) {
+		if (param) {
+			/* Skip the parameter on the next iteration. */
+			(*pos)++;
+			if (*param == 0) {
+				printf("%s needs a parameter\n", arg);
+				return ARG_ERROR;
+			}
+		}
+		return ARG_MATCH;
+	}
 
-	return -1;
+	return ARG_NOMATCH;
+}
+
+/* Simple and lean command line argument parsing. */
+static int cmp_arg(char **argv, int *pos,
+		   const char *long_template,
+		   const char *short_template,
+		   char **param)
+{
+	int err;
+
+	if (long_template) {
+		err = do_cmp_arg(argv, pos, long_template, 0, param);
+		if (err == ARG_MATCH || err == ARG_ERROR)
+			return err;
+	}
+	err = ARG_NOMATCH;
+	if (short_template)
+		err = do_cmp_arg(argv, pos, short_template, 1, param);
+	return err;
 }
 
 static int parse_args(int argc, char *argv[])
 {
-	int i;
-	char *arg;
-	char *next_arg;
+	int i, res;
 	char *param;
 
 	if (argc < 2)
 		goto out_usage;
 	for (i = 1; i < argc; i++) {
-		param = 0;
-		arg = argv[i];
-		if (i + 1 < argc)
-			next_arg = argv[i + 1];
-		else
-			next_arg = 0;
-		if (cmp_arg(arg, "-l", 0) == 0) {
+		res = cmp_arg(argv, &i, "--list", "-l", 0);
+		if (res == ARG_MATCH) {
 			print_supported_files();
 			return 1;
-		} else if (cmp_arg(arg, "-v", 0) == 0) {
+		} else if (res == ARG_ERROR)
+			goto out;
+
+		res = cmp_arg(argv, &i, "--version", "-v", 0);
+		if (res == ARG_MATCH) {
 			print_banner();
 			return 1;
-		} else if (cmp_arg(arg, "-h", 0) == 0 ||
-			   cmp_arg(arg, "--help", 0) == 0) {
+		} else if (res == ARG_ERROR)
+			goto out;
+
+		res = cmp_arg(argv, &i, "--help", "-h", 0);
+		if (res == ARG_MATCH)
 			goto out_usage;
-		} else if (cmp_arg(arg, "-i", &param) == 0) {
-			if (param)
-				next_arg = param;
-			else
-				i++;
-			if (!next_arg) {
-				printf("-i needs a parameter\n");
-				return -1;
-			}
-			identify_file(next_arg);
+		else if (res == ARG_ERROR)
+			goto out;
+
+		res = cmp_arg(argv, &i, "--identify", "-i", &param);
+		if (res == ARG_MATCH) {
+			identify_file(param);
 			return 1;
-		} else if (cmp_arg(arg, "-w", &param) == 0) {
-			if (param)
-				next_arg = param;
-			else
-				i++;
-			if (!next_arg) {
-				printf("-w needs a parameter\n");
-				return -1;
-			}
+		} else if (res == ARG_ERROR)
+			goto out;
+
+		res = cmp_arg(argv, &i, 0, "-w", &param);
+		if (res == ARG_MATCH) {
 			target_dir = "/lib/firmware";
-			cmdargs.infile = next_arg;
-		} else if (cmp_arg(arg, "-p", &param) == 0) {
-			if (param)
-				next_arg = param;
-			else
-				i++;
-			if (!next_arg) {
-				printf("-p needs a parameter\n");
-				return -1;
-			}
-			cmdargs.postfix = next_arg;
-		} else {
-			cmdargs.infile = arg;
-			break;
-		}
+			cmdargs.infile = param;
+			continue;
+		} else if (res == ARG_ERROR)
+			goto out;
+
+		res = cmp_arg(argv, &i, "--postfix", "-p", &param);
+		if (res == ARG_MATCH) {
+			cmdargs.postfix = param;
+			continue;
+		} else if (res == ARG_ERROR)
+			goto out;
+
+		cmdargs.infile = argv[i];
+		break;
 	}
 
 	if (!cmdargs.infile)
@@ -423,6 +457,7 @@ static int parse_args(int argc, char *argv[])
 
 out_usage:
 	print_usage(argc, argv);
+out:
 	return -1;	
 }
 
