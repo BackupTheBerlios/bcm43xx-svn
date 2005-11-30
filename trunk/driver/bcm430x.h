@@ -288,7 +288,7 @@
 #define BCM430x_IRQ_XMIT_ERROR		(1 << 11)
 #define BCM430x_IRQ_RX			(1 << 15)
 #define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
-#define BCM430x_IRQ_BGNOISE		(1 << 18)
+#define BCM430x_IRQ_NOISE		(1 << 18)
 #define BCM430x_IRQ_XMIT_STATUS		(1 << 29)
 
 #define BCM430x_IRQ_ALL			0xffffffff
@@ -564,6 +564,20 @@ struct bcm430x_coreinfo {
 #define BCM430x_LED_INACTIVE			11
 #define BCM430x_LED_ACTIVELOW			(1 << 7)
 
+
+/* Context information for a noise calculation (Link Quality). */
+struct bcm430x_noise_calculation {
+	struct bcm430x_coreinfo *core_at_start;
+	u8 channel_at_start;
+	u8 calculation_running:1;
+	u8 nr_samples;
+	s8 samples[8][4];
+};
+
+struct bcm430x_stats {
+	u8 link_quality;
+};
+
 struct bcm430x_private {
 	struct ieee80211_device *ieee;
 	struct ieee80211softmac_device *softmac;
@@ -587,7 +601,9 @@ struct bcm430x_private {
 	    powersaving:1,		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
 	    associated:1,		/* TRUE, if we are associated. */
 	    short_preamble:1;		/* TRUE, if short preamble is enabled. */
-	
+
+	struct bcm430x_stats stats;
+
 	/* Bus type we are connected to.
 	 * This is currently always BCM430x_BUSTYPE_PCI
 	 */
@@ -636,6 +652,8 @@ struct bcm430x_private {
 	/* List of received transmitstatus blobs. (only on core.rev < 5) */
 	struct list_head xmitstatus_queue;
 	int nr_xmitstatus_queued;
+	/* Link Quality calculation context. */
+	struct bcm430x_noise_calculation noisecalc;
 
 	/* Threshold values. */
 	//TODO: The RTS thr has to be _used_. Currently, it is only set via WX.
@@ -653,6 +671,8 @@ struct bcm430x_private {
 #define BCM430x_PERIODIC_1_DELAY		((HZ * 60) + HZ / 2)
 	struct work_struct periodic_work2;
 #define BCM430x_PERIODIC_2_DELAY		((HZ * 120) + HZ)
+	struct work_struct periodic_work3;
+#define BCM430x_PERIODIC_3_DELAY		((HZ * 30) + HZ / 5)
 
 	/* Fatal error handling */
 	struct work_struct fatal_work;

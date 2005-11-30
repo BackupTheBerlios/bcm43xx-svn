@@ -1441,6 +1441,105 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 	}
 }
 
+static inline void bcm430x_generate_noise_sample(struct bcm430x_private *bcm)
+{
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x408, 0x7F7F);
+	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x40A, 0x7F7F);
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS2_BITFIELD,
+			bcm430x_read32(bcm, BCM430x_MMIO_STATUS2_BITFIELD) | (1 << 4));
+	assert(bcm->noisecalc.core_at_start == bcm->current_core);
+	assert(bcm->noisecalc.channel_at_start == bcm->current_core->radio->channel);
+}
+
+static void bcm430x_calculate_link_quality(struct bcm430x_private *bcm)
+{
+	/* Top half of Link Quality calculation. */
+
+	if (bcm->noisecalc.calculation_running)
+		return;
+	bcm->noisecalc.core_at_start = bcm->current_core;
+	bcm->noisecalc.channel_at_start = bcm->current_core->radio->channel;
+	bcm->noisecalc.calculation_running = 1;
+	bcm->noisecalc.nr_samples = 0;
+
+	bcm430x_generate_noise_sample(bcm);
+}
+
+static inline void handle_irq_noise(struct bcm430x_private *bcm)
+{
+	struct bcm430x_radioinfo *radio = bcm->current_core->radio;
+	u16 tmp;
+	u8 noise[4];
+	u8 i, j;
+	s32 average;
+
+	/* Bottom half of Link Quality calculation. */
+
+	assert(bcm->noisecalc.calculation_running);
+	if (bcm->noisecalc.core_at_start != bcm->current_core ||
+	    bcm->noisecalc.channel_at_start != radio->channel)
+		goto drop_calculation;
+	tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x408);
+	noise[0] = (tmp & 0x00FF);
+	noise[1] = (tmp & 0xFF00) >> 8;
+	tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x40A);
+	noise[2] = (tmp & 0x00FF);
+	noise[3] = (tmp & 0xFF00) >> 8;
+	if (noise[0] == 0x7F || noise[1] == 0x7F ||
+	    noise[2] == 0x7F || noise[3] == 0x7F)
+		goto generate_new;
+
+	/* Get the noise samples. */
+	assert(bcm->noisecalc.nr_samples <= 8);
+	i = bcm->noisecalc.nr_samples;
+	assert(noise[0] < sizeof(radio->nrssi_lt));
+	assert(noise[1] < sizeof(radio->nrssi_lt));
+	assert(noise[2] < sizeof(radio->nrssi_lt));
+	assert(noise[3] < sizeof(radio->nrssi_lt));
+	bcm->noisecalc.samples[i][0] = radio->nrssi_lt[noise[0]];
+	bcm->noisecalc.samples[i][1] = radio->nrssi_lt[noise[1]];
+	bcm->noisecalc.samples[i][2] = radio->nrssi_lt[noise[2]];
+	bcm->noisecalc.samples[i][3] = radio->nrssi_lt[noise[3]];
+	bcm->noisecalc.nr_samples++;
+	if (bcm->noisecalc.nr_samples == 8) {
+		/* Calculate the Link Quality by the noise samples. */
+		average = 0;
+		for (i = 0; i < 8; i++) {
+			for (j = 0; j < 4; j++)
+				average += bcm->noisecalc.samples[i][j];
+		}
+		average /= (8 + 4);
+		average *= 125;
+		average += 64;
+		average /= 128;
+		tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x40C);
+		tmp = (tmp / 128) & 0x1F;
+		if (tmp >= 8)
+			average += 2;
+		else
+			average -= 25;
+		if (tmp == 8)
+			average -= 72;
+		else
+			average -= 48;
+
+		if (average > -65)
+			bcm->stats.link_quality = 0;
+		else if (average > -75)
+			bcm->stats.link_quality = 1;
+		else if (average > -85)
+			bcm->stats.link_quality = 2;
+		else
+			bcm->stats.link_quality = 3;
+//		dprintkl(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
+drop_calculation:
+		bcm->noisecalc.calculation_running = 0;
+		return;
+	}
+generate_new:
+	bcm430x_generate_noise_sample(bcm);
+}
+
 /* Debug helper for irq bottom-half to print all reason registers. */
 #define bcmirq_print_reasons(description) \
 	do {											\
@@ -1480,13 +1579,9 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 
 	if (unlikely(reason & BCM430x_IRQ_XMIT_ERROR)) {
 		/* TX error. We get this when Template Ram is written in wrong endianess
-		 * in dummy_tx(). We also get this if something is wrong with the TX data
-		 * on DMA or PIO queues (tx header issue??).
-		 * It seems like we do not always have to reset the chip here. If the error
-		 * is triggered by dummy_tx(), we should reset the chip. Do not reset, if it was
-		 * triggered by a normal transmission.
-		 * At least this is what we figured out by testing.
-		 * FIXME
+		 * in dummy_tx(). We also get this if something is wrong with the TX header
+		 * on DMA or PIO queues.
+		 * Maybe we get this in other error conditions, too.
 		 */
 		bcmirq_print_reasons("XMIT ERROR");
 		bcmirq_handled(BCM430x_IRQ_XMIT_ERROR);
@@ -1525,9 +1620,9 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		//bcmirq_handled(BCM430x_IRQ_SCAN);
 	}
 
-	if (reason & BCM430x_IRQ_BGNOISE) {
-		/*TODO*/
-		//bcmirq_handled(BCM430x_IRQ_BGNOISE);
+	if (reason & BCM430x_IRQ_NOISE) {
+		handle_irq_noise(bcm);
+		bcmirq_handled(BCM430x_IRQ_NOISE);
 	}
 
 	/* Check the DMA reason registers for received data. */
@@ -3039,6 +3134,23 @@ static void bcm430x_periodic_work2_handler(void *d)
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
+static void bcm430x_periodic_work3_handler(void *d)
+{
+	struct bcm430x_private *bcm = d;
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	/* Update device statistics. */
+	bcm430x_calculate_link_quality(bcm);
+
+	if (likely(!bcm->shutting_down)) {
+		queue_delayed_work(bcm->workqueue, &bcm->periodic_work3,
+				   BCM430x_PERIODIC_3_DELAY);
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+}
+
 /* Delete all periodic tasks and make
  * sure they are not running any longer
  */
@@ -3047,6 +3159,7 @@ static void bcm430x_periodic_tasks_delete(struct bcm430x_private *bcm)
 	cancel_delayed_work(&bcm->periodic_work0);
 	cancel_delayed_work(&bcm->periodic_work1);
 	cancel_delayed_work(&bcm->periodic_work2);
+	cancel_delayed_work(&bcm->periodic_work3);
 	flush_workqueue(bcm->workqueue);
 }
 
@@ -3056,6 +3169,7 @@ static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
 	INIT_WORK(&bcm->periodic_work0, bcm430x_periodic_work0_handler, bcm);
 	INIT_WORK(&bcm->periodic_work1, bcm430x_periodic_work1_handler, bcm);
 	INIT_WORK(&bcm->periodic_work2, bcm430x_periodic_work2_handler, bcm);
+	INIT_WORK(&bcm->periodic_work3, bcm430x_periodic_work3_handler, bcm);
 
 	/* Periodic task 0: Delay ~15sec */
 	queue_delayed_work(bcm->workqueue, &bcm->periodic_work0,
@@ -3071,6 +3185,10 @@ static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work2,
 				   BCM430x_PERIODIC_2_DELAY);
 	}
+
+	/* Periodic task 3: Delay ~30sec */
+	queue_delayed_work(bcm->workqueue, &bcm->periodic_work3,
+			   BCM430x_PERIODIC_3_DELAY);
 }
 
 #ifdef BCM430x_DEBUG
