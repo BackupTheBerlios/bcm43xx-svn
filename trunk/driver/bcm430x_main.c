@@ -1508,7 +1508,7 @@ static inline void handle_irq_noise(struct bcm430x_private *bcm)
 			for (j = 0; j < 4; j++)
 				average += bcm->noisecalc.samples[i][j];
 		}
-		average /= (8 + 4);
+		average /= (8 * 4);
 		average *= 125;
 		average += 64;
 		average /= 128;
@@ -1531,7 +1531,7 @@ static inline void handle_irq_noise(struct bcm430x_private *bcm)
 			bcm->stats.link_quality = 2;
 		else
 			bcm->stats.link_quality = 3;
-//		dprintkl(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
+//		dprintk(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
 drop_calculation:
 		bcm->noisecalc.calculation_running = 0;
 		return;
