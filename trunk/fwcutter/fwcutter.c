@@ -47,11 +47,12 @@ typedef unsigned char byte;
 struct cmdline_args {
 	const char *infile;
 	const char *postfix;
+	const char *target_dir;
+	int identify_only;
 };
 
 static struct cmdline_args cmdargs;
 int big_endian_cpu;
-char* target_dir;
 
 
 static void write_little_endian(FILE *f, byte *buffer, int len) 
@@ -79,9 +80,10 @@ static void write_big_endian(FILE *f, byte *buffer, int len)
 static void write_fw(const char *infilename, const char *outfilename, uint8_t flags, byte *data, int len)
 {
 	FILE* fw;
-	char outfile[40];
+	char outfile[2048];
 
-	sprintf(outfile, "%s/%s", target_dir, outfilename);
+	snprintf(outfile, sizeof(outfile),
+		 "%s/%s", cmdargs.target_dir, outfilename);
 
 	fw = fopen(outfile, "w");
 	if (!fw) {
@@ -116,7 +118,7 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 
 		snprintf(ivfilename, sizeof(ivfilename),
 			 "%s/bcm430x_initval%02d%s.fw",
-			 target_dir, i, cmdargs.postfix);
+			 cmdargs.target_dir, i, cmdargs.postfix);
 		fw = fopen(ivfilename, "w");
 
 		if (!fw) {
@@ -295,19 +297,6 @@ static const struct file * find_file(FILE *fd)
 	return 0;
 }
 
-static void identify_file(const char *file)
-{
-	FILE *fd;
-
-	fd = fopen(file, "rb");
-	if (!fd) {
-		fprintf(stderr, "Cannot open input file %s\n", file);
-		return;
-	}
-	find_file(fd);
-	fclose(fd);
-}
-
 static void get_endianess(void)
 {
 	const unsigned char x[] = { 0xde, 0xad, 0xbe, 0xef, };
@@ -327,12 +316,12 @@ static void print_usage(int argc, char *argv[])
 {
 	print_banner();
 	printf("\nUsage: %s [OPTION] [driver.sys]\n", argv[0]);
-	printf("  -l             List supported driver versions\n");
-	printf("  -i DRIVER.SYS  Identify a driver file (don't extract)\n");
-	printf("  -w DRIVER.SYS  Extract and write firmware to /lib/firmware\n");
-	printf("  -p \".FOO\"      Postfix for firmware filenames (.FOO.fw)\n");
-	printf("  -v             Print fwcutter version\n");
-	printf("  -h|--help      Print this help\n");
+	printf("  -l|--list             List supported driver versions\n");
+	printf("  -i|--identify         Only identify the driver file (don't extract)\n");
+	printf("  -w|--target-dir DIR   Extract and write firmware to DIR\n");
+	printf("  -p|--postfix \".FOO\"   Postfix for firmware filenames (.FOO.fw)\n");
+	printf("  -v|--version          Print fwcutter version\n");
+	printf("  -h|--help             Print this help\n");
 	printf("\nExample: %s bcmwl5.sys\n"
 	       "         to extract the firmware blobs from bcmwl5.sys\n", argv[0]);
 }
@@ -431,17 +420,16 @@ static int parse_args(int argc, char *argv[])
 		else if (res == ARG_ERROR)
 			goto out;
 
-		res = cmp_arg(argv, &i, "--identify", "-i", &param);
+		res = cmp_arg(argv, &i, "--identify", "-i", 0);
 		if (res == ARG_MATCH) {
-			identify_file(param);
-			return 1;
+			cmdargs.identify_only = 1;
+			continue;
 		} else if (res == ARG_ERROR)
 			goto out;
 
-		res = cmp_arg(argv, &i, 0, "-w", &param);
+		res = cmp_arg(argv, &i, "--target-dir", "-w", &param);
 		if (res == ARG_MATCH) {
-			target_dir = "/lib/firmware";
-			cmdargs.infile = param;
+			cmdargs.target_dir = param;
 			continue;
 		} else if (res == ARG_ERROR)
 			goto out;
@@ -476,7 +464,7 @@ int main(int argc, char *argv[])
 
 	get_endianess();
 
-	target_dir = ".";
+	cmdargs.target_dir = ".";
 	cmdargs.postfix = "";
 	err = parse_args(argc, argv);
 	if (err == 1)
@@ -492,7 +480,7 @@ int main(int argc, char *argv[])
 
 	err = -1;
 	file = find_file(fd);
-	if (!file)
+	if (!file || cmdargs.identify_only)
 		goto out_close;
 
 	snprintf(fwname, sizeof(fwname), "bcm430x_microcode2%s.fw", cmdargs.postfix);
