@@ -480,8 +480,12 @@ int main(int argc, char *argv[])
 
 	err = -1;
 	file = find_file(fd);
-	if (!file || cmdargs.identify_only)
+	if (!file)
 		goto out_close;
+	if (cmdargs.identify_only) {
+		err = 0;
+		goto out_close;
+	}
 
 	snprintf(fwname, sizeof(fwname), "bcm430x_microcode2%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
