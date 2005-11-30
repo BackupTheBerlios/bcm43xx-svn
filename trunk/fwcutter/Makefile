@@ -1,5 +1,7 @@
 VERSION = 0.0.1
 
+FIRMWARE_INSTALL_DIR ?= /lib/firmware
+
 CC = cc
 PREFIX = /usr/local
 CFLAGS = -std=c99 -O2 -fomit-frame-pointer -Wall -pedantic -D_BSD_SOURCE
@@ -22,8 +24,8 @@ clean:
 	-rm -f *~ *.o *.orig *.rej *.fw fwcutter
 
 installfw:
-	-if ! [ -d /lib/firmware ]; then mkdir /lib/firmware; fi
-	-install -o 0 -g 0 -m 600 bcm430x_*.fw /lib/firmware/
+	-if ! [ -d $(FIRMWARE_INSTALL_DIR) ]; then mkdir $(FIRMWARE_INSTALL_DIR); fi
+	-install -o 0 -g 0 -m 600 bcm430x_*.fw $(FIRMWARE_INSTALL_DIR)
 
 # dependencies
 fwcutter.o: md5.h fwcutter_list.h
