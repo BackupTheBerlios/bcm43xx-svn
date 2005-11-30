@@ -313,8 +313,14 @@ static void get_endianess(void)
 	const unsigned char x[] = { 0xde, 0xad, 0xbe, 0xef, };
 	const uint32_t *p = (uint32_t *)x;
 
-	if (*p == 0xdeadbeef)
+	if (*p == 0xdeadbeef) {
 		big_endian_cpu = 1;
+	} else if (*p == 0xefbeadde) {
+		big_endian_cpu = 0;
+	} else {
+		printf("Confused: NUXI endian machine??\n");
+		exit(-1);
+	}
 }
 
 static void print_usage(int argc, char *argv[])
