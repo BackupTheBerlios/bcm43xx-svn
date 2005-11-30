@@ -343,18 +343,6 @@ static int bcm430x_wx_get_apmac(struct net_device *net_dev,
 	return 0;
 }
 
-static int bcm430x_wx_get_scanresults(struct net_device *net_dev,
-				      struct iw_request_info *info,
-				      union iwreq_data *data,
-				      char *extra)
-{
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-
-	wx_enter();
-
-	return ieee80211_wx_get_scan(bcm->ieee, info, data, extra);
-}
-
 static int bcm430x_wx_set_essid(struct net_device *net_dev,
 				struct iw_request_info *info,
 				union iwreq_data *data,
@@ -932,7 +920,7 @@ static const iw_handler bcm430x_wx_handlers[] = {
 //TODO	WX(SIOCSIWAP)		= bcm430x_wx_set_apmac,
 //TODO	WX(SIOCGIWAP)		= bcm430x_wx_get_apmac,
 	WX(SIOCSIWSCAN)		= ieee80211softmac_wx_trigger_scan,
-	WX(SIOCGIWSCAN)		= bcm430x_wx_get_scanresults,
+	WX(SIOCGIWSCAN)		= ieee80211softmac_wx_get_scan_results,
 	/* 802.11 specific support */
 //TODO	WX(SIOCSIWESSID)	= bcm430x_wx_set_essid,
 //TODO	WX(SIOCGIWESSID)	= bcm430x_wx_get_essid,
