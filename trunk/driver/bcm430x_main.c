@@ -71,9 +71,6 @@ MODULE_PARM_DESC(bad_frames_preempt, "enable(1) / disable(0) Bad Frames Preempti
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
 MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
-static char modparam_assoc[18];
-module_param_string(assoc, modparam_assoc, 18, 0x444);
-MODULE_PARM_DESC(assoc, "Associate with this MAC on ifup. Format: XX:XX:XX:XX:XX:XX");
 #else
 # define modparam_fwpostfix  ""
 #endif /* BCM430x_DEBUG */
@@ -606,12 +603,9 @@ static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
 	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
 }
 
+//FIXME: rename this func? This func has still invalid callers in wx.c. This func should be static.
 void bcm430x_disassociate(struct bcm430x_private *bcm)
 {
-	const int ofdm_modulation = (bcm->ieee->modulation == IEEE80211_OFDM_MODULATION);
-
-	if (!bcm->associated)
-		return;
 	bcm430x_mac_suspend(bcm);
 	bcm430x_macfilter_clear(bcm, BCM430x_MACFILTER_ASSOC);
 
@@ -630,34 +624,23 @@ void bcm430x_disassociate(struct bcm430x_private *bcm)
 
 	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0004, 0x000003ff);
 
-	if (!ofdm_modulation && bcm->current_core->phy->type == BCM430x_PHYTYPE_G)
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G &&
+	    ieee80211_is_ofdm_rate(bcm->softmac->txrates.default_rate))
 		bcm430x_short_slot_timing_enable(bcm);
 
 	bcm430x_mac_enable(bcm);
 }
 
+//FIXME: rename this func?
 static void bcm430x_associate(struct bcm430x_private *bcm,
 			      const u8 *mac)
 {
-	if (bcm->associated)
-		bcm430x_disassociate(bcm);
-	if (bcm->ieee->iw_mode == IW_MODE_MASTER ||
-	    bcm->ieee->iw_mode == IW_MODE_ADHOC) {
-		printk(KERN_ERR PFX "Can not associate in AP or Ad-Hoc mode.\n");
-		return;
-	}
 	memcpy(bcm->ieee->bssid, mac, ETH_ALEN);
 
 	bcm430x_mac_suspend(bcm);
 	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_ASSOC, mac);
 	bcm430x_write_mac_bssid_templates(bcm);
 	bcm430x_mac_enable(bcm);
-
-//	bcm430x_send_assoc_request(bcm);
-
-	bcm->associated = 1;//FIXME: This is not correct. We must set the bit when we receive the response.
-
-//	dprintk(KERN_INFO PFX "Associated to " MAC_FMT "\n", MAC_ARG(mac));
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
@@ -3152,46 +3135,6 @@ static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
 			   BCM430x_PERIODIC_3_DELAY);
 }
 
-#ifdef BCM430x_DEBUG
-static int bcm430x_parse_mac(const char *in,
-			     u8 *out)
-{
-	int i;
-	char *delim;
-
-	for (i = 0; ; i++) {
-		out[i] = simple_strtol(in, NULL, 16);
-		if (i == 5)
-			break;
-		delim = strchr(in, ':');
-		if (!delim)
-			return -EINVAL;
-		in = delim + 1;
-	}
-
-	return 0;
-}
-
-static void bcm430x_initial_association(struct bcm430x_private *bcm)
-{
-	u8 mac[ETH_ALEN];
-
-	if (modparam_assoc[0] == 0)
-		return;
-
-	if (bcm430x_parse_mac(modparam_assoc, mac)) {
-		printk(KERN_ERR PFX "Wrong format in module parameter \"assoc\". "
-				    "Must be XX:XX:XX:XX:XX:XX\n");
-		return;
-	}
-	bcm430x_associate(bcm, mac);
-}
-#else /* BCM430x_DEBUG */
-static inline void bcm430x_initial_association(struct bcm430x_private *bcm)
-{
-}
-#endif /* BCM430x_DEBUG */
-
 /* This is the opposite of bcm430x_init_board() */
 static void bcm430x_free_board(struct bcm430x_private *bcm)
 {
@@ -3857,7 +3800,6 @@ static int bcm430x_net_stop(struct net_device *net_dev)
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
 
 	ieee80211softmac_stop(net_dev);
-	bcm430x_disassociate(bcm);
 	bcm430x_disable_interrupts_sync(bcm, NULL);
 	bcm430x_free_board(bcm);
 
@@ -4004,7 +3946,7 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 	bcm->was_initialized = bcm->initialized;
 	if (bcm->initialized) {
 		try_to_shutdown = 1;
-		bcm430x_disassociate(bcm);
+		ieee80211softmac_stop(net_dev);
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
