@@ -468,15 +468,15 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 		       const u16 cookie)
 {
 	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
-	int ofdm_modulation = 0;
-	const u8 bitrate = phy->default_bitrate;
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	const struct ieee80211_hdr *wireless_header = (const struct ieee80211_hdr *)fragment_data;
 #else
 	const struct ieee80211_hdr_1addr *wireless_header = (const struct ieee80211_hdr_1addr *)fragment_data;
 #endif
-	int fallback_ofdm_modulation = 0;
+	u8 bitrate;
+	int ofdm_modulation;
 	u8 fallback_bitrate;
+	int fallback_ofdm_modulation;
 	u16 tmp;
 
 	/* Now construct the TX header. */
@@ -486,49 +486,10 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	//TODO: Encryption stuff.
 	//TODO: others?
 
-	switch (bitrate) {
-	case IEEE80211_OFDM_RATE_6MB:
-	case IEEE80211_OFDM_RATE_9MB:
-	case IEEE80211_OFDM_RATE_12MB:
-		ofdm_modulation = 1;
-		fallback_bitrate = IEEE80211_OFDM_RATE_6MB;
-		fallback_ofdm_modulation = 1;
-		break;
-	case IEEE80211_OFDM_RATE_18MB:
-		ofdm_modulation = 1;
-		fallback_bitrate = IEEE80211_OFDM_RATE_9MB;
-		fallback_ofdm_modulation = 1;
-		break;
-	case IEEE80211_OFDM_RATE_24MB:
-		ofdm_modulation = 1;
-		fallback_bitrate = IEEE80211_OFDM_RATE_12MB;
-		fallback_ofdm_modulation = 1;
-		break;
-	case IEEE80211_OFDM_RATE_36MB:
-		ofdm_modulation = 1;
-		fallback_bitrate = IEEE80211_OFDM_RATE_18MB;
-		fallback_ofdm_modulation = 1;
-		break;
-	case IEEE80211_OFDM_RATE_48MB:
-	case IEEE80211_OFDM_RATE_54MB:
-		ofdm_modulation = 1;
-		fallback_bitrate = IEEE80211_OFDM_RATE_24MB;
-		fallback_ofdm_modulation = 1;
-		break;
-	case IEEE80211_CCK_RATE_1MB:
-	case IEEE80211_CCK_RATE_2MB:
-		fallback_bitrate = IEEE80211_CCK_RATE_1MB;
-		break;
-	case IEEE80211_CCK_RATE_5MB:
-		fallback_bitrate = IEEE80211_CCK_RATE_2MB;
-		break;
-	case IEEE80211_CCK_RATE_11MB:
-		fallback_bitrate = IEEE80211_CCK_RATE_5MB;
-		break;
-	default:
-		assert(0);
-		fallback_bitrate = 0;
-	}
+	bitrate = bcm->softmac->txrates.default_rate;
+	ofdm_modulation = !(ieee80211_is_cck_rate(bitrate));
+	fallback_bitrate = bcm->softmac->txrates.default_fallback;
+	fallback_ofdm_modulation = !(ieee80211_is_cck_rate(fallback_bitrate));
 
 	/* Set Frame Control from 80211 header. */
 	txhdr->frame_control = wireless_header->frame_ctl;
@@ -3399,7 +3360,6 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_A:
 		if (phy_rev >= 4)
 			phy_rev_ok = 0;
-		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_54MB;
 		/*FIXME: We need to switch the ieee->modulation, etc.. flags,
 		 *       if we switch 80211 cores after init is done.
 		 *       As we do not implement on the fly switching between
@@ -3413,7 +3373,6 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_B:
 		if (phy_rev != 2 && phy_rev != 4 && phy_rev != 6 && phy_rev != 7)
 			phy_rev_ok = 0;
-		bcm->current_core->phy->default_bitrate = IEEE80211_CCK_RATE_11MB;
 		bcm->ieee->modulation = IEEE80211_CCK_MODULATION;
 		bcm->ieee->mode = IEEE_B;
 		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
@@ -3421,7 +3380,6 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	case BCM430x_PHYTYPE_G:
 		if (phy_rev >= 3)
 			phy_rev_ok = 0;
-		bcm->current_core->phy->default_bitrate = IEEE80211_OFDM_RATE_54MB;
 		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION |
 					IEEE80211_CCK_MODULATION;
 		bcm->ieee->mode = IEEE_G;
@@ -3888,8 +3846,8 @@ static int bcm430x_net_open(struct net_device *net_dev)
 	int err;
 
 	err = bcm430x_init_board(bcm);
-	if (err == 0)
-		bcm430x_initial_association(bcm);
+	if (!err)
+		ieee80211softmac_start(net_dev);
 
 	return err;
 }
