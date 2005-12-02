@@ -44,6 +44,7 @@
 #define BCM430x_MMIO_GEN_IRQ_MASK	0x12C
 #define BCM430x_MMIO_RAM_CONTROL	0x130
 #define BCM430x_MMIO_RAM_DATA		0x134
+#define BCM430x_MMIO_PS_STATUS		0x140
 #define BCM430x_MMIO_RADIO_HWENABLED_HI	0x158
 #define BCM430x_MMIO_SHM_CONTROL	0x160
 #define BCM430x_MMIO_SHM_DATA		0x164
@@ -278,21 +279,28 @@
 #define BCM430x_UCODEFLAG_JAPAN		0x0080
 
 /* Generic-Interrupt reasons. */
-/*TODO: add the missing ones. */
 #define BCM430x_IRQ_READY		(1 << 0)
 #define BCM430x_IRQ_BEACON		(1 << 1)
-#define BCM430x_IRQ_TBTT		(1 << 2) /*FIXME: purpose? */
-#define BCM430x_IRQ_REG124		(1 << 5) /*FIXME: purpose? */
-#define BCM430x_IRQ_PMQ			(1 << 6) /*FIXME: purpose? */
+#define BCM430x_IRQ_PS			(1 << 2)
+#define BCM430x_IRQ_REG124		(1 << 5)
+#define BCM430x_IRQ_PMQ			(1 << 6)
 #define BCM430x_IRQ_PIO_WORKAROUND	(1 << 8)
 #define BCM430x_IRQ_XMIT_ERROR		(1 << 11)
 #define BCM430x_IRQ_RX			(1 << 15)
-#define BCM430x_IRQ_SCAN		(1 << 16) /*FIXME: purpose? */
+#define BCM430x_IRQ_SCAN		(1 << 16)
 #define BCM430x_IRQ_NOISE		(1 << 18)
 #define BCM430x_IRQ_XMIT_STATUS		(1 << 29)
 
 #define BCM430x_IRQ_ALL			0xffffffff
-#define BCM430x_IRQ_INITIAL		0x20058864
+#define BCM430x_IRQ_INITIAL		(BCM430x_IRQ_PS |		\
+					 BCM430x_IRQ_REG124 |		\
+					 BCM430x_IRQ_PMQ |		\
+					 BCM430x_IRQ_XMIT_ERROR |	\
+					 BCM430x_IRQ_RX |		\
+					 BCM430x_IRQ_SCAN |		\
+					 BCM430x_IRQ_NOISE |		\
+					 BCM430x_IRQ_XMIT_STATUS)
+					 
 
 /* Initial default iw_mode */
 #define BCM430x_INITIAL_IWMODE			IW_MODE_INFRA
@@ -595,7 +603,7 @@ struct bcm430x_private {
 	    shutting_down:1,		/* free_board() in progress */
 	    pio_mode:1,			/* PIO (if true), or DMA (if false) used. */
 	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
-	    adhoc_on_last_tbtt:1,	/* Last time a TBTT IRQ happened, the device was in ad-hoc mode. */
+	    reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
 	    no_txhdr:1,			/* Do not add a TX header in DMA or PIO code. */
 	    powersaving:1,		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
 	    short_preamble:1;		/* TRUE, if short preamble is enabled. */

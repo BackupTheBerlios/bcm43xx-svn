@@ -1484,6 +1484,55 @@ generate_new:
 	bcm430x_generate_noise_sample(bcm);
 }
 
+static inline
+void handle_irq_ps(struct bcm430x_private *bcm)
+{
+	if (bcm->ieee->iw_mode == IW_MODE_MASTER) {
+		///TODO: PS TBTT
+	} else {
+		if (1/*FIXME: the last PSpoll frame was sent successfully */)
+			bcm430x_power_saving_ctl_bits(bcm, -1, -1);
+	}
+	if (bcm->ieee->iw_mode == IW_MODE_ADHOC)
+		bcm->reg124_set_0x4 = 1;
+	//FIXME else set to false?
+}
+
+static inline
+void handle_irq_reg124(struct bcm430x_private *bcm)
+{
+	if (!bcm->reg124_set_0x4)
+		return;
+	bcm430x_write32(bcm, BCM430x_MMIO_STATUS2_BITFIELD,
+			bcm430x_read32(bcm, BCM430x_MMIO_STATUS2_BITFIELD)
+			| 0x4);
+	//FIXME: reset reg124_set_0x4 to false?
+}
+
+static inline
+void handle_irq_pmq(struct bcm430x_private *bcm)
+{
+	u32 tmp;
+
+	//TODO: AP mode.
+
+	while (1) {
+		tmp = bcm430x_read32(bcm, BCM430x_MMIO_PS_STATUS);
+		if (!(tmp & 0x00000008))
+			break;
+	}
+	/* 16bit write is odd, but correct. */
+	bcm430x_write16(bcm, BCM430x_MMIO_PS_STATUS, 0x0002);
+}
+
+static inline
+void handle_irq_beacon(struct bcm430x_private *bcm)
+{
+	if (bcm->ieee->iw_mode != IW_MODE_MASTER)
+		return;
+	//TODO: UpdateBeaconPacket
+}
+
 /* Debug helper for irq bottom-half to print all reason registers. */
 #define bcmirq_print_reasons(description) \
 	do {											\
@@ -1531,32 +1580,24 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		bcmirq_handled(BCM430x_IRQ_XMIT_ERROR);
 	}
 
-	if (reason & BCM430x_IRQ_TBTT) {
-		/*TODO: some powercontrol/powersave stuff */
-		if (bcm->ieee->iw_mode == IW_MODE_ADHOC)
-			bcm->adhoc_on_last_tbtt = 1;
-		else
-			bcm->adhoc_on_last_tbtt = 0;
-		bcmirq_handled(BCM430x_IRQ_TBTT);
+	if (reason & BCM430x_IRQ_PS) {
+		handle_irq_ps(bcm);
+		bcmirq_handled(BCM430x_IRQ_PS);
 	}
 
 	if (reason & BCM430x_IRQ_REG124) {
-		if (bcm->adhoc_on_last_tbtt /* FIXME: || bcm->ieee->iw_mode == IW_MODE_ADHOC */) {
-			bcm430x_write32(bcm, BCM430x_MMIO_STATUS2_BITFIELD,
-					bcm430x_read32(bcm, BCM430x_MMIO_STATUS2_BITFIELD)
-					| 0x00000004);
-		}
+		handle_irq_reg124(bcm);
 		bcmirq_handled(BCM430x_IRQ_REG124);
 	}
 
 	if (reason & BCM430x_IRQ_BEACON) {
-		/*TODO*/
-		//bcmirq_handled(BCM430x_IRQ_BEACON);
+		handle_irq_beacon(bcm);
+		bcmirq_handled(BCM430x_IRQ_BEACON);
 	}
 
 	if (reason & BCM430x_IRQ_PMQ) {
-		/*TODO*/
-		//bcmirq_handled(BCM430x_IRQ_PMQ);
+		handle_irq_pmq(bcm);
+		bcmirq_handled(BCM430x_IRQ_PMQ);
 	}
 
 	if (reason & BCM430x_IRQ_SCAN) {
