@@ -1635,7 +1635,10 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 		bcmirq_handled(BCM430x_IRQ_XMIT_STATUS);
 	}
 
-	bcmirq_handled(BCM430x_IRQ_PIO_WORKAROUND); /* handled in top-half */
+	/* We get these IRQs, although they masked. Assume they are void. */
+	bcmirq_handled(0x4080);
+	/* IRQ_PIO_WORKAROUND is handled in the top-half. */
+	bcmirq_handled(BCM430x_IRQ_PIO_WORKAROUND);
 #ifdef BCM430x_DEBUG
 	if (reason & ~_handled) {
 		printkl(KERN_WARNING PFX
