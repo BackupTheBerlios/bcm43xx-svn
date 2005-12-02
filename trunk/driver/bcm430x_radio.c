@@ -764,7 +764,6 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 
 	switch (mode) {
 	case BCM430x_RADIO_INTERFMODE_NONWLAN:
-//FIXME: see below
 		if (bcm->current_core->phy->rev != 1) {
 			bcm430x_phy_write(bcm, 0x042B,
 			                  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
@@ -789,11 +788,9 @@ bcm430x_radio_interference_mitigation_disable(struct bcm430x_private *bcm,
 		bcm430x_phy_write(bcm, 0x042B,
 				  bcm430x_phy_read(bcm, 0x042B) & ~0x0800);
 
-		if (!bcm->bad_frames_preempt) {
+		if (!bcm->bad_frames_preempt)
 			bcm430x_phy_write(bcm, BCM430x_PHY_RADIO_BITFIELD,
-					  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) & 0x0800);
-			//FIXME: Bit eleven (indexed from zero) == 0x0800, or the eleventh bit == 0x0400?
-		}
+					  bcm430x_phy_read(bcm, BCM430x_PHY_RADIO_BITFIELD) & ~(1 << 11));
 		bcm430x_phy_write(bcm, BCM430x_PHY_G_CRS,
 				  bcm430x_phy_read(bcm, BCM430x_PHY_G_CRS) & 0x4000);
 		bcm430x_phy_write(bcm, 0x04A0, stack_restore());
