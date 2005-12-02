@@ -633,7 +633,7 @@ static void bcm430x_phy_initb2(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x0026, 0xCC00);
 	if (bcm->current_core->radio->version != 0x2050)
 		bcm430x_phy_write(bcm, 0x0026, 0xCE00);
-	bcm430x_write16(bcm, 0x03F4, 0x1000);
+	bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT, 0x1000);
 	bcm430x_phy_write(bcm, 0x002A, 0x88A3);
 	if (bcm->current_core->radio->version != 0x2050)
 		bcm430x_phy_write(bcm, 0x002A, 0x88C2);
@@ -686,7 +686,7 @@ static void bcm430x_phy_initb4(struct bcm430x_private *bcm)
 	bcm430x_phy_write(bcm, 0x0026, 0xCC00);
 	if (bcm->current_core->radio->version == 0x2050)
 		bcm430x_phy_write(bcm, 0x0026, 0xCE00);
-	bcm430x_write16(bcm, 0x03F4, 0x1100);
+	bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT, 0x1100);
 	bcm430x_phy_write(bcm, 0x002A, 0x88A3);
 	if (bcm->current_core->radio->version == 0x2050)
 		bcm430x_phy_write(bcm, 0x002A, 0x88C2);
@@ -1419,7 +1419,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 	}
 	regstack[3] = bcm430x_read16(bcm, 0x03E2);
 	bcm430x_write16(bcm, 0x03E2, regstack[3] | 0x8000);
-	regstack[4] = bcm430x_read16(bcm, 0x03F4);
+	regstack[4] = bcm430x_read16(bcm, BCM430x_MMIO_CHANNEL_EXT);
 	regstack[5] = bcm430x_phy_read(bcm, 0x15);
 	regstack[6] = bcm430x_phy_read(bcm, 0x2A);
 	regstack[7] = bcm430x_phy_read(bcm, 0x35);
@@ -1443,7 +1443,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 
 	bcm430x_phy_set_baseband_attenuation(bcm, 2);
 
-	bcm430x_write16(bcm, 0x03F4, 0x0000);
+	bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT, 0x0000);
 	bcm430x_phy_write(bcm, 0x002E, 0x007F);
 	bcm430x_phy_write(bcm, 0x0078, 0x080F);
 	bcm430x_phy_write(bcm, 0x0035, regstack[7] & ~(1 << 7));
@@ -1583,7 +1583,7 @@ void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm)
 		bcm430x_phy_write(bcm, 0x002F, 0x0202);
 	else
 		bcm430x_phy_write(bcm, 0x002F, 0x0101);
-	bcm430x_write16(bcm, 0x03F4, regstack[4]);
+	bcm430x_write16(bcm, BCM430x_MMIO_CHANNEL_EXT, regstack[4]);
 	bcm430x_phy_write(bcm, 0x0015, regstack[5]);
 	bcm430x_phy_write(bcm, 0x002A, regstack[6]);
 	bcm430x_phy_write(bcm, 0x0035, regstack[7]);
