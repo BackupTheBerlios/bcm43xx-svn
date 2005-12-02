@@ -1641,7 +1641,7 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	/* IRQ_PIO_WORKAROUND is handled in the top-half. */
 	bcmirq_handled(BCM430x_IRQ_PIO_WORKAROUND);
 #ifdef BCM430x_DEBUG
-	if (reason & ~_handled) {
+	if (unlikely(reason & ~_handled)) {
 		printkl(KERN_WARNING PFX
 			"Unhandled IRQ! Reason: 0x%08x,  Unhandled: 0x%08x,  "
 			"DMA: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
