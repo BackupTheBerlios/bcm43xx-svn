@@ -3695,15 +3695,6 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 		stats.freq = IEEE80211_24GHZ_BAND;
 	stats.len = skb->len;
 
-#if 0
-{
-static int printed = 0;
-if (printed < 3) {
-	printed++;
-bcm430x_printk_dump(skb->data, skb->len, "RX data");
-}
-}
-#endif
 
 	if (bcm->ieee->iw_mode == IW_MODE_MONITOR)
 		return bcm430x_rx_packet(bcm, skb, &stats);
@@ -3736,17 +3727,6 @@ bcm430x_printk_dump(skb->data, skb->len, "RX data");
 	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
 	case IEEE80211_FTYPE_MGMT:
 		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
-#if 0
-		err = ieee80211_rx_frame_softmac(bcm->ieee, skb, &stats,
-						 WLAN_FC_GET_TYPE(frame_ctl),
-						 WLAN_FC_GET_STYPE(frame_ctl));
-		if (err) {
-			dprintkl(KERN_ERR PFX "ieee80211_rx_frame_softmac() failed with "
-					      "err %d, type 0x%04x, stype 0x%04x\n",
-				 err, WLAN_FC_GET_TYPE(frame_ctl),
-				 WLAN_FC_GET_STYPE(frame_ctl));
-		}
-#endif
 		break;
 	case IEEE80211_FTYPE_DATA:
 		if (is_packet_for_us)
@@ -3776,10 +3756,6 @@ static inline int bcm430x_tx(struct bcm430x_private *bcm,
 		err = bcm430x_dma_transfer_txb(bcm, txb);
 
 	return err;
-}
-
-static void bcm430x_ieee80211_link_change(struct net_device *net_dev)
-{/*TODO*/
 }
 
 static void bcm430x_ieee80211_set_chan(struct net_device *net_dev,
@@ -3819,52 +3795,6 @@ static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return err;
-}
-
-#if 0
-static void bcm430x_ieee80211_softmac_hard_start_xmit(struct sk_buff *skb,
-						      struct net_device *net_dev,
-						      int rate)
-{
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	unsigned long flags;
-
-	/*TODO: rate?*/
-	/*TODO: calling tx_frame is ugly here. */
-	spin_lock_irqsave(&bcm->lock, flags);
-	if (bcm->pio_mode) {
-		bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
-				     skb->data, skb->len);
-	} else {
-		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
-				     skb->data, skb->len);
-	}
-	spin_unlock_irqrestore(&bcm->lock, flags);
-	dev_kfree_skb_any(skb);
-}
-
-static void bcm430x_ieee80211_softmac_set_bssid_filter(struct net_device *net_dev,
-						       const u8 *bssid)
-{
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	unsigned long flags;
-
-//u8 t[] = { 0x00, 0x90, 0x4c, 0x67, 0x04, 0x00 };
-//u8 t[] = { 0x00, 0x12, 0x17, 0x70, 0xa7, 0xd4 };
-u8 t[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-	bssid = t;
-	printk("set bssid filter to " MAC_FMT "\n", MAC_ARG(bssid));
-
-	spin_lock_irqsave(&bcm->lock, flags);
-	bcm430x_associate(bcm, bssid);//FIXME
-	spin_unlock_irqrestore(&bcm->lock, flags);
-}
-#endif
-
-/* reset_port() callback in struct ieee80211_device */
-static int bcm430x_ieee80211_reset_port(struct net_device *net_dev)
-{/*TODO*/
-	return 0;
 }
 
 static struct net_device_stats * bcm430x_net_get_stats(struct net_device *net_dev)
@@ -3935,14 +3865,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	net_dev->wireless_handlers = &bcm430x_wx_handlers_def;
 	net_dev->irq = pdev->irq;
 
-/*FIXME: We disable scatter/gather IO until we figure out
- *       how to turn hardware checksumming on.
- */
-#if 0
-	net_dev->features |= NETIF_F_HW_CSUM;	/* hardware packet checksumming */
-	net_dev->features |= NETIF_F_SG;	/* Scatter/gather IO. */
-#endif
-
 	/* initialize the bcm430x_private struct */
 	bcm = bcm430x_priv(net_dev);
 	bcm->ieee = netdev_priv(net_dev);
@@ -3987,7 +3909,6 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
 	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
 	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
-	bcm->ieee->reset_port = bcm430x_ieee80211_reset_port;
 
 	pci_set_drvdata(pdev, net_dev);
 
