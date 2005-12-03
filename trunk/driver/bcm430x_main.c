@@ -3580,6 +3580,57 @@ dprintkl("processing received xmitstatus...\n");
 	return 0;
 }
 
+/* Postprocess the RSSI value in the RX header. */
+static inline
+s8 bcm430x_rssi_postprocess(struct bcm430x_private *bcm, u8 in_rssi)
+{
+	s8 ret = 0;
+	s32 tmp;
+
+	switch (bcm->current_core->phy->type) {
+	case BCM430x_PHYTYPE_A:
+		TODO();//TODO
+		break;
+	case BCM430x_PHYTYPE_B:
+	case BCM430x_PHYTYPE_G:
+		if (bcm->current_core->radio->version == 0x2050) {
+			if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
+				if (in_rssi > 63)
+					in_rssi = 63;
+				tmp = bcm->current_core->radio->nrssi_lt[in_rssi];
+				tmp -= 31;
+				tmp *= 65;
+				tmp /= 128;
+				tmp -= 57;
+				if (tmp < -34)
+					tmp += 15;
+				ret = (s8)tmp;
+			} else {
+				tmp = in_rssi;
+				tmp -= 31;
+				tmp *= -149;
+				tmp /= 128;
+				tmp -= 68;
+				if (tmp < -35)
+					tmp += 15;
+				ret = (s8)tmp;
+			}
+		} else {
+			tmp = in_rssi;
+			tmp *= 103;
+			tmp += 1133;
+			tmp /= 64;
+			tmp -= 1133;
+			ret = (s8)tmp;
+		}
+		break;
+	default:
+		assert(0);
+	}
+
+	return ret;
+}
+
 static inline
 int bcm430x_rx_packet(struct bcm430x_private *bcm,
 		      struct sk_buff *skb,
@@ -3627,7 +3678,7 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 
 	memset(&stats, 0, sizeof(stats));
 	stats.mac_time = rxhdr->mactime;
-	stats.rssi = rxhdr->rssi;		//FIXME
+	stats.rssi = bcm430x_rssi_postprocess(bcm, rxhdr->rssi);
 	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
 	stats.rate = bcm430x_plcp_get_bitrate(plcp, is_ofdm);
