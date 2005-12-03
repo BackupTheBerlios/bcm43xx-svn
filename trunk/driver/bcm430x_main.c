@@ -4027,7 +4027,7 @@ static int __init bcm430x_init(void)
 {
 	printk(KERN_INFO BCM430x_DRIVER_NAME "\n");
 	bcm430x_debugfs_init();
-	return pci_module_init(&bcm430x_pci_driver);
+	return pci_register_driver(&bcm430x_pci_driver);
 }
 
 static void __exit bcm430x_exit(void)
