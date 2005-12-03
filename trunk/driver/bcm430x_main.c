@@ -3232,6 +3232,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	if (err)
 		goto err_crystal_off;
 
+	tasklet_enable(&bcm->isr_tasklet);
 	num_80211_cores = bcm430x_num_80211_cores(bcm);
 	for (i = 0; i < num_80211_cores; i++) {
 		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
@@ -3294,6 +3295,7 @@ out:
 	return err;
 
 err_80211_unwind:
+	tasklet_disable(&bcm->isr_tasklet);
 	/* unwind all 80211 initialization */
 	for (i = 0; i < num_80211_cores; i++) {
 		if (!(bcm->core_80211[i].flags & BCM430x_COREFLAG_INITIALIZED))
@@ -3963,6 +3965,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
 		     (unsigned long)bcm);
+	tasklet_disable_nosync(&bcm->isr_tasklet);
 	bcm->workqueue = create_workqueue(DRV_NAME "_wq");
 	if (!bcm->workqueue) {
 		err = -ENOMEM;
