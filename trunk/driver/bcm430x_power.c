@@ -334,8 +334,9 @@ bit26 = 1;
 		//	and thus is not an AP and we are associated, set bit 25
 	}
 	if (bit26 == -1) {
-		//TODO: If the device is awake or this is an AP, or FIXME, or FIXME,
-		//	or we are associated, or FIXME, or FIXME, set bit26
+		//TODO: If the device is awake or this is an AP, or we are scanning, or FIXME,
+		//	or we are associated, or FIXME, or the latest PS-Poll packet sent was
+		//	successful, set bit26
 	}
 	status = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
 	if (bit25)
