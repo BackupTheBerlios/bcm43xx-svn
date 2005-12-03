@@ -688,6 +688,7 @@ struct bcm430x_private {
 
 	/* Debugging stuff follows. */
 #ifdef BCM430x_DEBUG
+	struct bcm430x_dfsentry *dfsentry;
 	u16 ucode_size;
 	u16 pcm_size;
 	atomic_t mmio_print_cnt;

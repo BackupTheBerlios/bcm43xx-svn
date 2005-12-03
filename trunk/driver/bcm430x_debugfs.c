@@ -389,8 +389,70 @@ out:
 	return res;
 }
 
+static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
+				size_t count, loff_t *ppos)
+{
+	const size_t len = REALLY_BIG_BUFFER_SIZE;
+
+	struct bcm430x_private *bcm = file->private_data;
+	char *buf = really_big_buffer;
+	size_t pos = 0;
+	ssize_t res;
+	unsigned long flags;
+	struct bcm430x_dfsentry *e;
+	struct bcm430x_xmitstatus *status;
+	int i, cnt, j = 0;
+
+	down(&big_buffer_sem);
+	spin_lock_irqsave(&bcm->lock, flags);
+
+	fappend("Last %d logged xmitstatus blobs (Latest first):\n\n",
+		BCM430x_NR_LOGGED_XMITSTATUS);
+	e = bcm->dfsentry;
+	if (e->xmitstatus_printing == 0) {
+		/* At the beginning, make a copy of all data to avoid
+		 * concurrency, as this function is called multiple
+		 * times for big logs. Without copying, the data might
+		 * change between reads. This would result in total trash.
+		 */
+		e->xmitstatus_printing = 1;
+		e->saved_xmitstatus_ptr = e->xmitstatus_ptr;
+		e->saved_xmitstatus_cnt = e->xmitstatus_cnt;
+		memcpy(e->xmitstatus_print_buffer, e->xmitstatus_buffer,
+		       BCM430x_NR_LOGGED_XMITSTATUS * sizeof(*(e->xmitstatus_buffer)));
+	}
+	i = e->saved_xmitstatus_ptr - 1;
+	if (i < 0)
+		i = BCM430x_NR_LOGGED_XMITSTATUS - 1;
+	cnt = e->saved_xmitstatus_cnt;
+	while (cnt) {
+		status = e->xmitstatus_print_buffer + i;
+		fappend("0x%02x:   cookie: 0x%04x,  flags: 0x%02x,  "
+			"cnt1: 0x%02x,  cnt2: 0x%02x,  seq: 0x%04x,  "
+			"unk: 0x%04x\n", j,
+			status->cookie, status->flags,
+			status->cnt1, status->cnt2, status->seq,
+			status->unknown);
+		j++;
+		cnt--;
+		i--;
+		if (i < 0)
+			i = BCM430x_NR_LOGGED_XMITSTATUS - 1;
+	}
+
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
+	spin_lock_irqsave(&bcm->lock, flags);
+	if (*ppos == pos) {
+		/* Done. Drop the copied data. */
+		e->xmitstatus_printing = 0;
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	up(&big_buffer_sem);
+	return res;
+}
+
 #undef fappend
-#undef fappend_ioblock32
 
 
 static struct file_operations devinfo_fops = {
@@ -429,37 +491,46 @@ static struct file_operations sendraw_fops = {
 	.open = open_file_generic,
 };
 
-static struct bcm430x_dfsentry * find_dfsentry(struct bcm430x_private *bcm)
-{
-	struct bcm430x_dfsentry *e;
+static struct file_operations txstat_fops = {
+	.read = txstat_read_file,
+	.write = write_file_dummy,
+	.open = open_file_generic,
+};
 
-	list_for_each_entry(e, &fs.entries, list) {
-		if (e->bcm == bcm)
-			return e;
-	}
-
-	return NULL;
-}
 
 void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 {
 	struct bcm430x_dfsentry *e;
-	char devdir[10];
+	char devdir[IFNAMSIZ];
 
-	if (!bcm)
-		return;
-
-	e = kmalloc(sizeof(*e), GFP_KERNEL);
+	assert(bcm);
+	e = kzalloc(sizeof(*e), GFP_KERNEL);
 	if (!e) {
 		printk(KERN_ERR PFX "out of memory\n");
 		return;
 	}
-	memset(e, 0, sizeof(*e));
-	INIT_LIST_HEAD(&e->list);
 	e->bcm = bcm;
+	e->xmitstatus_buffer = kzalloc(BCM430x_NR_LOGGED_XMITSTATUS
+				       * sizeof(*(e->xmitstatus_buffer)),
+				       GFP_KERNEL);
+	if (!e->xmitstatus_buffer) {
+		printk(KERN_ERR PFX "out of memory\n");
+		kfree(e);
+		return;
+	}
+	e->xmitstatus_print_buffer = kzalloc(BCM430x_NR_LOGGED_XMITSTATUS
+					     * sizeof(*(e->xmitstatus_buffer)),
+					     GFP_KERNEL);
+	if (!e->xmitstatus_print_buffer) {
+		printk(KERN_ERR PFX "out of memory\n");
+		kfree(e);
+		return;
+	}
 
-	down(&fs.sem);
-	snprintf(devdir, ARRAY_SIZE(devdir), "dev%d", fs.nr_entries);
+
+	bcm->dfsentry = e;
+
+	strncpy(devdir, bcm->net_dev->name, ARRAY_SIZE(devdir));
 	e->subdir = debugfs_create_dir(devdir, fs.root);
 	e->dentry_devinfo = debugfs_create_file("devinfo", 0444, e->subdir,
 						bcm, &devinfo_fops);
@@ -481,10 +552,10 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 						bcm, &sendraw_fops);
 	if (!e->dentry_sendraw)
 		printk(KERN_ERR PFX "debugfs: creating \"sendraw\" for \"%s\" failed!\n", devdir);
-	/* Add new files, here. */
-	list_add(&e->list, &fs.entries);
-	fs.nr_entries++;
-	up(&fs.sem);
+	e->dentry_txstat = debugfs_create_file("tx_status", 0444, e->subdir,
+						bcm, &txstat_fops);
+	if (!e->dentry_txstat)
+		printk(KERN_ERR PFX "debugfs: creating \"tx_status\" for \"%s\" failed!\n", devdir);
 }
 
 void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm)
@@ -494,32 +565,41 @@ void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm)
 	if (!bcm)
 		return;
 
-	down(&fs.sem);
-	e = find_dfsentry(bcm);
-	if (!e)
-		goto out_up;
-	/* Don't forget to remove any file, here. */
+	e = bcm->dfsentry;
+	assert(e);
 	debugfs_remove(e->dentry_spromdump);
 	debugfs_remove(e->dentry_devinfo);
 	debugfs_remove(e->dentry_tsf);
 	debugfs_remove(e->dentry_send);
 	debugfs_remove(e->dentry_sendraw);
+	debugfs_remove(e->dentry_txstat);
 	debugfs_remove(e->subdir);
-	list_del(&e->list);
-	fs.nr_entries--;
-	if (fs.nr_entries < 0)
-		printk(KERN_ERR PFX "debugfs: fs.nr_entries went negative!\n");
+	kfree(e->xmitstatus_buffer);
+	kfree(e->xmitstatus_print_buffer);
 	kfree(e);
-out_up:
-	up(&fs.sem);
+}
+
+void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
+				struct bcm430x_xmitstatus *status)
+{
+	struct bcm430x_dfsentry *e;
+	struct bcm430x_xmitstatus *savedstatus;
+
+	assert(spin_is_locked(&bcm->lock));
+	e = bcm->dfsentry;
+	assert(e);
+	savedstatus = e->xmitstatus_buffer + e->xmitstatus_ptr;
+	memcpy(savedstatus, status, sizeof(*status));
+	e->xmitstatus_ptr++;
+	if (e->xmitstatus_ptr >= BCM430x_NR_LOGGED_XMITSTATUS)
+		e->xmitstatus_ptr = 0;
+	if (e->xmitstatus_cnt < BCM430x_NR_LOGGED_XMITSTATUS)
+		e->xmitstatus_cnt++;
 }
 
 void bcm430x_debugfs_init(void)
 {
 	memset(&fs, 0, sizeof(fs));
-	init_MUTEX(&fs.sem);
-	INIT_LIST_HEAD(&fs.entries);
-	fs.nr_entries = 0;
 	fs.root = debugfs_create_dir(DRV_NAME, NULL);
 	if (!fs.root)
 		printk(KERN_ERR PFX "debugfs: creating \"" DRV_NAME "\" subdir failed!\n");
@@ -530,14 +610,8 @@ void bcm430x_debugfs_init(void)
 
 void bcm430x_debugfs_exit(void)
 {
-	down(&fs.sem);
-	if (!list_empty(&fs.entries)) {
-		printk(KERN_ERR PFX "Woops, still %d devices registered on module exit!\n",
-		       fs.nr_entries);
-	}
 	debugfs_remove(fs.dentry_driverinfo);
 	debugfs_remove(fs.root);
-	up(&fs.sem);
 }
 
 void bcm430x_printk_dump(const char *data,

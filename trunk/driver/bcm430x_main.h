@@ -149,6 +149,15 @@ struct bcm430x_xmitstatus {
 	u16 unknown; //FIXME
 };
 
+#define BCM430x_TXSTAT_FLAG_ACK		0x01
+//TODO #define BCM430x_TXSTAT_FLAG_???	0x02
+//TODO #define BCM430x_TXSTAT_FLAG_???	0x04
+//TODO #define BCM430x_TXSTAT_FLAG_???	0x08
+//TODO #define BCM430x_TXSTAT_FLAG_???	0x10
+#define BCM430x_TXSTAT_FLAG_IGNORE	0x20
+//TODO #define BCM430x_TXSTAT_FLAG_???	0x40
+//TODO #define BCM430x_TXSTAT_FLAG_???	0x80
+
 struct bcm430x_xmitstatus_queue {
 	struct list_head list;
 	struct bcm430x_hwxmitstatus status;

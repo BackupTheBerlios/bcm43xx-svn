@@ -1308,14 +1308,12 @@ static inline int build_transmit_status(struct bcm430x_private *bcm,
 		return -1;
 	v174 = bcm430x_read32(bcm, 0x174);
 
-	memset(status, 0, sizeof(*status));
-
 	/* Internal Sending ID. */
 	status->cookie = cpu_to_le16( (v170 >> 16) & 0x0000FFFF );
 	/* 2 counters (both 4 bits) in the upper byte and flags in the lower byte. */
 	*((u16 *)tmp) = cpu_to_le16( (u16)((v170 & 0xfff0) | ((v170 & 0xf) >> 1)) );
 	status->flags = tmp[0];
-	status->cnt1 = (tmp[1] & 0x0f); //FIXME: is cnt1 really the lower counter?
+	status->cnt1 = (tmp[1] & 0x0f);
 	status->cnt2 = (tmp[1] & 0xf0) >> 4;
 	/* FIXME: 802.11 sequence number? */
 	status->seq = cpu_to_le16( (u16)(v174 & 0xffff) );
@@ -1337,14 +1335,14 @@ static inline void interpret_transmit_status(struct bcm430x_private *bcm,
 	status.seq = le16_to_cpu(hwstatus->seq);
 	status.unknown = le16_to_cpu(hwstatus->unknown);
 
-	if (status.flags & 0x20)
-		return;
-	/* TODO: What is the meaning of the flags? Tested bits are: 0x01, 0x02, 0x10, 0x40, 0x04, 0x08 */
+	bcm430x_debugfs_log_txstat(bcm, &status);
 
-printk(KERN_INFO PFX "Transmit Status received:  flags: 0x%02x,  "
-		      "cnt1: 0x%02x,  cnt2: 0x%02x,  cookie: 0x%04x,  "
-		      "seq: 0x%04x,  unk: 0x%04x\n",
-	status.flags, status.cnt1, status.cnt2, status.cookie, status.seq, status.unknown);
+	if (status.flags & BCM430x_TXSTAT_FLAG_IGNORE)
+		return;
+	if (!(status.flags & BCM430x_TXSTAT_FLAG_ACK)) {
+		//TODO: packet was not acked (was lost)
+	}
+	//TODO: There are more (unknown) flags to test. see bcm430x_main.h
 
 	if (bcm->pio_mode)
 		bcm430x_pio_handle_xmitstatus(bcm, &status);

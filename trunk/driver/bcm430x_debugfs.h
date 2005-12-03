@@ -10,32 +10,45 @@ struct bcm430x_private;
 
 struct dentry;
 
-struct bcm430x_dfsentry
-{
+/* limited by the size of the "really_big_buffer" */
+#define BCM430x_NR_LOGGED_XMITSTATUS	100
+
+struct bcm430x_dfsentry {
 	struct dentry *subdir;
 	struct dentry *dentry_devinfo;
 	struct dentry *dentry_spromdump;
 	struct dentry *dentry_tsf;
 	struct dentry *dentry_send;
 	struct dentry *dentry_sendraw;
+	struct dentry *dentry_txstat;
 
 	struct bcm430x_private *bcm;
-	struct list_head list;
+
+	/* saved xmitstatus. */
+	struct bcm430x_xmitstatus *xmitstatus_buffer;
+	int xmitstatus_ptr;
+	int xmitstatus_cnt;
+	/* We need a seperate buffer while printing to avoid
+	 * concurrency issues. (New xmitstatus can arrive
+	 * while we are printing).
+	 */
+	struct bcm430x_xmitstatus *xmitstatus_print_buffer;
+	int saved_xmitstatus_ptr;
+	int saved_xmitstatus_cnt;
+	int xmitstatus_printing;
 };
 
-struct bcm430x_debugfs
-{
-	struct semaphore sem;
+struct bcm430x_debugfs {
 	struct dentry *root;
 	struct dentry *dentry_driverinfo;
-	struct list_head entries;
-	int nr_entries;
 };
 
 void bcm430x_debugfs_init(void);
 void bcm430x_debugfs_exit(void);
 void bcm430x_debugfs_add_device(struct bcm430x_private *bcm);
 void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm);
+void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
+				struct bcm430x_xmitstatus *status);
 
 /* Debug helper: Dump binary data through printk. */
 void bcm430x_printk_dump(const char *data,
@@ -63,6 +76,9 @@ static inline
 void bcm430x_debugfs_add_device(struct bcm430x_private *bcm) { }
 static inline
 void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm) { }
+static inline
+void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
+				struct bcm430x_xmitstatus *status) { }
 
 static inline
 void bcm430x_printk_dump(const char *data,
