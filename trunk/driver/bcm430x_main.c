@@ -681,8 +681,8 @@ static int bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm, u32 *old
 		return -EBUSY;
 	}
 	old = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-	spin_unlock_irqrestore(&bcm->lock, flags);
 	tasklet_disable(&bcm->isr_tasklet);
+	spin_unlock_irqrestore(&bcm->lock, flags);
 	if (oldstate)
 		*oldstate = old;
 
@@ -3892,9 +3892,11 @@ static int bcm430x_net_open(struct net_device *net_dev)
 static int bcm430x_net_stop(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	int err;
 
 	ieee80211softmac_stop(net_dev);
-	bcm430x_disable_interrupts_sync(bcm, NULL);
+	err = bcm430x_disable_interrupts_sync(bcm, NULL);
+	assert(!err);
 	bcm430x_free_board(bcm);
 
 	return 0;
