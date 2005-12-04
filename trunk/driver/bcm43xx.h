@@ -22,6 +22,7 @@
 
 #define BCM43xx_SWITCH_CORE_MAX_RETRIES	10
 #define BCM43xx_IRQWAIT_MAX_RETRIES	50 /* FIXME: need more? 50 == 500usec */
+#define BCM43xx_TX_TIMEOUT		(10 * HZ)
 
 #define BCM43xx_IO_SIZE			8192
 #define BCM43xx_REG_ACTIVE_CORE		0x80
@@ -836,8 +837,8 @@ void bcm43xx_mmioprint_disable(struct bcm43xx_private *bcm)
  * Compatibility stuff follows
  */
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
-# error "The bcm43xx driver does not support kernels < 2.6.14"
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 15)
+# error "The bcm43xx driver does not support kernels < 2.6.15"
 # error "The driver will _NOT_ compile on your kernel. Please upgrade to the latest 2.6 kernel."
 # error "DO NOT COMPLAIN ABOUT BUGS. UPDATE FIRST AND TRY AGAIN."
 #else

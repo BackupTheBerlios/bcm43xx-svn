@@ -3752,6 +3752,7 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
+	bcm->net_dev->watchdog_timeo = BCM43xx_TX_TIMEOUT;
 	if (modparam_bad_frames_preempt)
 		bcm->bad_frames_preempt = 1;
 	spin_lock_init(&bcm->lock);
