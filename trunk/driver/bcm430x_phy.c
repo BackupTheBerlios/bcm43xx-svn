@@ -1908,11 +1908,13 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 {
 	u16 antennadiv;
 	u16 offset;
+	u16 value;
 	u32 ucodeflags;
 
 	antennadiv = bcm->current_core->phy->antenna_diversity;
 
-	if ((bcm->current_core->phy->type == BCM430x_PHYTYPE_A) && antennadiv == 3)
+	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A &&
+	    bcm->current_core->phy->rev == 3)
 		antennadiv = 0;
 	if (antennadiv == 0xFFFF)
 		antennadiv = 3;
@@ -1933,34 +1935,32 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 		else
 			offset = 0x0400;
 
-		if (antennadiv == 2) {
-			bcm430x_phy_write(bcm, offset + 1,
-					  (bcm430x_phy_read(bcm, offset + 1)
-					   & 0x7E7F) | (antennadiv << 7));
-		} else {
-			bcm430x_phy_write(bcm, offset + 1,
-					  (bcm430x_phy_read(bcm, offset + 1)
-					   & 0x7E7F) | (3/*automatic*/ << 7));
-		}
-		if (antennadiv == 2) {
+		if (antennadiv == 2)
+			value = (3/*automatic*/ << 7);
+		else
+			value = (antennadiv << 7);
+		bcm430x_phy_write(bcm, offset + 1,
+				  (bcm430x_phy_read(bcm, offset + 1)
+				   & 0x7E7F) | value);
+
+		if (antennadiv >= 2) {
+			if (antennadiv == 2)
+				value = (antennadiv << 7);
+			else
+				value = (0/*force0*/ << 7);
 			bcm430x_phy_write(bcm, offset + 0x2B,
 					  (bcm430x_phy_read(bcm, offset + 0x2B)
-					   & 0xFEFF) | (antennadiv << 7));
-		} else if (antennadiv > 2) {
-			bcm430x_phy_write(bcm, offset + 0x2B,
-					  (bcm430x_phy_read(bcm, offset + 0x2B)
-					   & 0xFEFF) | 0/*force0*/);
+					   & 0xFEFF) | value);
 		}
 
 		if (!bcm->current_core->phy->connected) {
-			if (antennadiv < 2) {
-				bcm430x_phy_write(bcm, 0x048C,
-						  bcm430x_phy_read(bcm, 0x048C) & 0xDFFF);
-			} else {
-				bcm430x_phy_write(bcm, 0x048C,
-						  (bcm430x_phy_read(bcm, 0x048C)
-						   & 0xDFFF) | 0x2000);
-			}
+			if (antennadiv < 2)
+				value = 0;
+			else
+				value = 0x2000;
+			bcm430x_phy_write(bcm, 0x048C,
+					  (bcm430x_phy_read(bcm, 0x048C)
+					   & 0xDFFF) | value);
 			if (bcm->current_core->phy->rev >= 2) {
 				bcm430x_phy_write(bcm, 0x0461,
 						  bcm430x_phy_read(bcm, 0x0461) | 0x0010);
@@ -1971,25 +1971,16 @@ void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm)
 		}
 		break;
 	case BCM430x_PHYTYPE_B:
-		if (bcm->current_core->rev == 2) {
-			bcm430x_phy_write(bcm, 0x03E2,
-					  (bcm430x_phy_read(bcm, 0x03E2)
-					   & 0xFE7F) | (3/*automatic*/ << 7));
-		} else {
-			if (antennadiv == 2) {
-				bcm430x_phy_write(bcm, 0x03E2,
-						  (bcm430x_phy_read(bcm, 0x03E2)
-						   & 0xFE7F) | (3/*automatic*/ << 7));
-			} else {
-				bcm430x_phy_write(bcm, 0x03E2,
-						  (bcm430x_phy_read(bcm, 0x03E2)
-						   & 0xFE7F) | (antennadiv << 7));
-			}
-		}
+		if (bcm->current_core->rev == 2 || antennadiv == 2)
+			value = (3/*automatic*/ << 7);
+		else
+			value = (antennadiv << 7);
+		bcm430x_phy_write(bcm, 0x03E2,
+				  (bcm430x_phy_read(bcm, 0x03E2)
+				   & 0xFE7F) | value);
 		break;
 	default:
-                printk(KERN_WARNING PFX "Unknown PHY Type found.\n");
-		return;
+		assert(0);
 	}
 
 	if (antennadiv >= 2) {
