@@ -3965,13 +3965,12 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->was_initialized = bcm->initialized;
-	if (bcm->initialized) {
+	if (bcm->initialized)
 		try_to_shutdown = 1;
-		ieee80211softmac_stop(net_dev);
-	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	if (try_to_shutdown) {
+		ieee80211softmac_stop(net_dev);
 		err = bcm430x_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
 		if (unlikely(err)) {
 			dprintk(KERN_ERR PFX "Suspend failed.\n");
