@@ -1789,9 +1789,6 @@ static int bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
 		goto out;
 	}
 	bcm43xx_write_microcode(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
-#ifdef BCM43xx_DEBUG
-	bcm->ucode_size = fw->size;
-#endif
 	release_firmware(fw);
 
 	snprintf(buf, ARRAY_SIZE(buf),
@@ -1805,9 +1802,6 @@ static int bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
 		goto out;
 	}
 	bcm43xx_write_pcm(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
-#ifdef BCM43xx_DEBUG
-	bcm->pcm_size = fw->size;
-#endif
 	release_firmware(fw);
 
 	err = 0;
