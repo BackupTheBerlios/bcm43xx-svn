@@ -3060,7 +3060,8 @@ static void bcm43xx_free_board(struct bcm43xx_private *bcm)
 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
 		if (!(bcm->core_80211[i].flags & BCM43xx_COREFLAG_AVAILABLE))
 			continue;
-		assert(bcm->core_80211[i].flags & BCM43xx_COREFLAG_INITIALIZED);
+		if (!(bcm->core_80211[i].flags & BCM43xx_COREFLAG_INITIALIZED))
+			continue;
 
 		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err == 0);
@@ -3688,11 +3689,9 @@ static int bcm43xx_net_open(struct net_device *net_dev)
 static int bcm43xx_net_stop(struct net_device *net_dev)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
-	int err;
 
 	ieee80211softmac_stop(net_dev);
-	err = bcm43xx_disable_interrupts_sync(bcm, NULL);
-	assert(!err);
+	bcm43xx_disable_interrupts_sync(bcm, NULL);
 	bcm43xx_free_board(bcm);
 
 	return 0;
