@@ -2925,7 +2925,6 @@ static void bcm43xx_periodic_work0_handler(void *d)
 
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
 		//FIXME: aci_average = bcm43xx_update_aci_average(bcm);
-		FIXME();
 		if (bcm->current_core->radio->aci_enable && bcm->current_core->radio->aci_wlan_automatic) {
 			bcm43xx_mac_suspend(bcm);
 			if (!bcm->current_core->radio->aci_enable &&
@@ -2944,7 +2943,6 @@ static void bcm43xx_periodic_work0_handler(void *d)
 		} else if  (bcm->current_core->radio->interfmode == BCM43xx_RADIO_INTERFMODE_NONWLAN) {
 			if (bcm->current_core->phy->rev == 1) {
 				//FIXME: implement rev1 workaround
-				FIXME();
 			}
 		}
 	}
