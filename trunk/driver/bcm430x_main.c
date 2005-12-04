@@ -3038,6 +3038,35 @@ out:
 	return err;
 }
 
+static void bcm430x_softmac_init(struct bcm430x_private *bcm)
+{
+	u8 rates[12];
+	u8 cnt = 0;
+
+	switch (bcm->current_core->phy->type) {
+	case BCM430x_PHYTYPE_A:
+	case BCM430x_PHYTYPE_G:
+		rates[cnt++] = IEEE80211_OFDM_RATE_6MB;
+		rates[cnt++] = IEEE80211_OFDM_RATE_9MB;
+		rates[cnt++] = IEEE80211_OFDM_RATE_12MB;
+		rates[cnt++] = IEEE80211_OFDM_RATE_18MB;
+		rates[cnt++] = IEEE80211_OFDM_RATE_24MB;
+		rates[cnt++] = IEEE80211_OFDM_RATE_36MB;
+		rates[cnt++] = IEEE80211_OFDM_RATE_48MB;
+		rates[cnt++] = IEEE80211_OFDM_RATE_54MB;
+	case BCM430x_PHYTYPE_B:
+		rates[cnt++] = IEEE80211_CCK_RATE_1MB;
+		rates[cnt++] = IEEE80211_CCK_RATE_2MB;
+		rates[cnt++] = IEEE80211_CCK_RATE_5MB;
+		rates[cnt++] = IEEE80211_CCK_RATE_11MB;
+		break;
+	default:
+		assert(0);
+	}
+	ieee80211softmac_set_rates(bcm->net_dev, cnt, rates);
+	ieee80211softmac_start(bcm->net_dev);
+}
+
 static void bcm430x_periodic_work0_handler(void *d)
 {
 	struct bcm430x_private *bcm = d;
@@ -3278,6 +3307,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	bcm430x_macfilter_clear(bcm, BCM430x_MACFILTER_ASSOC);
 	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
+	bcm430x_softmac_init(bcm);
 
 	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
 
@@ -3814,13 +3844,10 @@ static void bcm430x_net_tx_timeout(struct net_device *net_dev)
 static int bcm430x_net_open(struct net_device *net_dev)
 {
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
-	int err;
 
-	err = bcm430x_init_board(bcm);
-	if (!err)
-		ieee80211softmac_start(net_dev);
+	bcm430x_init_board(bcm);
 
-	return err;
+	return 0;
 }
 
 static int bcm430x_net_stop(struct net_device *net_dev)
@@ -3995,6 +4022,7 @@ static int bcm430x_resume(struct pci_dev *pdev)
 {
 	struct net_device *net_dev = pci_get_drvdata(pdev);
 	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	int err = 0;
 
 	dprintk(KERN_INFO PFX "Resuming...\n");
 
@@ -4004,9 +4032,12 @@ static int bcm430x_resume(struct pci_dev *pdev)
 
 	netif_device_attach(net_dev);
 	if (bcm->was_initialized)
-		bcm430x_init_board(bcm);
+		err = bcm430x_init_board(bcm);
 
-	dprintk(KERN_INFO PFX "Device resumed.\n");
+	if (err)
+		printk(KERN_ERR PFX "Resume failed!\n");
+	else
+		dprintk(KERN_INFO PFX "Device resumed.\n");
 
 	return 0;
 }
