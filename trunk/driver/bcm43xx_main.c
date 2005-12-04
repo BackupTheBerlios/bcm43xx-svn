@@ -1769,7 +1769,7 @@ static inline void bcm43xx_write_pcm(struct bcm43xx_private *bcm,
 
 static int bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
 {
-	int err = -ENODEV;
+	int err = -ENOENT;
 	const struct firmware *fw;
 	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
 
@@ -1838,7 +1838,7 @@ static void bcm43xx_write_initvals(struct bcm43xx_private *bcm,
 
 static int bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
 {
-	int err = -ENODEV;
+	int err = -ENOENT;
 	u32 sbtmstatehigh;
 	const struct firmware *fw;
 	char buf[21 + sizeof(modparam_fwpostfix) - 1] = { 0 };
@@ -3675,9 +3675,7 @@ static int bcm43xx_net_open(struct net_device *net_dev)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	bcm43xx_init_board(bcm);
-
-	return 0;
+	return bcm43xx_init_board(bcm);
 }
 
 static int bcm43xx_net_stop(struct net_device *net_dev)
