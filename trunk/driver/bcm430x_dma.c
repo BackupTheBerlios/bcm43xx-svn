@@ -392,11 +392,6 @@ static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
 	meta->skb->dev = ring->bcm->net_dev;
 	mark_skb_mustfree(meta->skb, 1);
 
-#ifdef BCM430x_DEBUG
-	/* Poison the buffer. */
-	memset(meta->skb->data, 0xF1, ring->rx_buffersize);
-#endif /* BCM430x_DEBUG */
-
 	dmaaddr = map_descbuffer(ring, meta->skb->data, ring->rx_buffersize, 0);
 	meta->dmaaddr = dmaaddr;
 	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
