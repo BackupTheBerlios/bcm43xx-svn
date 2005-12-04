@@ -3832,6 +3832,7 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 		try_to_shutdown = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
+	netif_device_detach(net_dev);
 	if (try_to_shutdown) {
 		ieee80211softmac_stop(net_dev);
 		err = bcm430x_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
@@ -3841,8 +3842,7 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 		}
 		bcm430x_free_board(bcm);
 	}
-
-	netif_device_detach(net_dev);
+	bcm430x_chipset_detach(bcm);
 
 	pci_save_state(pdev);
 	pci_disable_device(pdev);
@@ -3865,14 +3865,19 @@ static int bcm430x_resume(struct pci_dev *pdev)
 	pci_enable_device(pdev);
 	pci_restore_state(pdev);
 
-	netif_device_attach(net_dev);
-	if (bcm->was_initialized)
+	bcm430x_chipset_attach(bcm);
+	if (bcm->was_initialized) {
+		bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
 		err = bcm430x_init_board(bcm);
-
-	if (err)
+	}
+	if (err) {
 		printk(KERN_ERR PFX "Resume failed!\n");
-	else
-		dprintk(KERN_INFO PFX "Device resumed.\n");
+		return err;
+	}
+
+	netif_device_attach(net_dev);
+
+	dprintk(KERN_INFO PFX "Device resumed.\n");
 
 	return 0;
 }
