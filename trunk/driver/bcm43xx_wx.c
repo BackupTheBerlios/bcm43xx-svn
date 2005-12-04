@@ -182,18 +182,16 @@ static int bcm43xx_wx_set_mode(struct net_device *net_dev,
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 	unsigned long flags;
+	int mode;
 
 	wx_enter();
 
+	mode = data->mode;
+	if (mode == IW_MODE_AUTO)
+		mode = BCM43xx_INITIAL_IWMODE;
+
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (data->mode == IW_MODE_AUTO)
-		bcm->ieee->iw_mode = BCM43xx_INITIAL_IWMODE;
-	else
-		bcm->ieee->iw_mode = data->mode;
-	if (bcm->initialized) {
-		/*TODO: commit the new mode to the device (StatusBitField?) */
-		printk(KERN_ERR PFX "TODO: mode not committed!\n");
-	}
+	bcm43xx_set_iwmode(bcm, mode);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return 0;

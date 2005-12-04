@@ -227,7 +227,8 @@ int FASTCALL(bcm43xx_rx(struct bcm43xx_private *bcm,
 			struct sk_buff *skb,
 			struct bcm43xx_rxhdr *rxhdr));
 
-void bcm43xx_disassociate(struct bcm43xx_private *bcm);
+void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
+			int iw_mode);
 
 u32 bcm43xx_shm_read32(struct bcm43xx_private *bcm,
 		       u16 routing, u16 offset);

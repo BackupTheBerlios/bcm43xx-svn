@@ -2164,6 +2164,25 @@ void bcm43xx_mac_suspend(struct bcm43xx_private *bcm)
 		printkl(KERN_ERR PFX "Failed to suspend mac!\n");
 }
 
+void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
+			int iw_mode)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&bcm->ieee->lock, flags);
+	bcm->ieee->iw_mode = iw_mode;
+	spin_unlock_irqrestore(&bcm->ieee->lock, flags);
+	if (iw_mode == IW_MODE_MONITOR)
+		bcm->net_dev->type = ARPHRD_IEEE80211;
+	else
+		bcm->net_dev->type = ARPHRD_ETHER;
+
+	if (!bcm->initialized)
+		return;
+
+	TODO();//TODO
+}
+
 /* This is the opposite of bcm43xx_chip_init() */
 static void bcm43xx_chip_cleanup(struct bcm43xx_private *bcm)
 {
