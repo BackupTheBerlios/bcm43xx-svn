@@ -2899,30 +2899,6 @@ out:
 
 static void bcm430x_softmac_init(struct bcm430x_private *bcm)
 {
-	u8 rates[12];
-	u8 cnt = 0;
-
-	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
-	case BCM430x_PHYTYPE_G:
-		rates[cnt++] = IEEE80211_OFDM_RATE_6MB;
-		rates[cnt++] = IEEE80211_OFDM_RATE_9MB;
-		rates[cnt++] = IEEE80211_OFDM_RATE_12MB;
-		rates[cnt++] = IEEE80211_OFDM_RATE_18MB;
-		rates[cnt++] = IEEE80211_OFDM_RATE_24MB;
-		rates[cnt++] = IEEE80211_OFDM_RATE_36MB;
-		rates[cnt++] = IEEE80211_OFDM_RATE_48MB;
-		rates[cnt++] = IEEE80211_OFDM_RATE_54MB;
-	case BCM430x_PHYTYPE_B:
-		rates[cnt++] = IEEE80211_CCK_RATE_1MB;
-		rates[cnt++] = IEEE80211_CCK_RATE_2MB;
-		rates[cnt++] = IEEE80211_CCK_RATE_5MB;
-		rates[cnt++] = IEEE80211_CCK_RATE_11MB;
-		break;
-	default:
-		assert(0);
-	}
-	ieee80211softmac_set_rates(bcm->net_dev, cnt, rates);
 	ieee80211softmac_start(bcm->net_dev);
 }
 
