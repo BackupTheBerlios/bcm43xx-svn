@@ -2908,6 +2908,7 @@ static void bcm430x_chip_reset(void *_bcm)
 	int err;
 
 	netif_tx_disable(bcm->net_dev);
+	tasklet_disable(&bcm->isr_tasklet);
 	bcm430x_free_board(bcm);
 	bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
 	err = bcm430x_init_board(bcm);
