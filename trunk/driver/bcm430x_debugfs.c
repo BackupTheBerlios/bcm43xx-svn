@@ -585,7 +585,7 @@ void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
 	struct bcm430x_dfsentry *e;
 	struct bcm430x_xmitstatus *savedstatus;
 
-	assert(spin_is_locked(&bcm->lock));
+	/* This is protected by bcm->lock */
 	e = bcm->dfsentry;
 	assert(e);
 	savedstatus = e->xmitstatus_buffer + e->xmitstatus_ptr;
