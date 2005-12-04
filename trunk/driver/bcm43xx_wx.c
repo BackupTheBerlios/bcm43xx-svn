@@ -114,6 +114,7 @@ static int bcm43xx_wx_set_channelfreq(struct net_device *net_dev,
 	unsigned long flags;
 	u8 channel;
 	int freq;
+	int err = 0;
 
 	wx_enter();
 
@@ -131,14 +132,15 @@ static int bcm43xx_wx_set_channelfreq(struct net_device *net_dev,
 	if (bcm->initialized) {
 		bcm43xx_disassociate(bcm);
 		bcm43xx_mac_suspend(bcm);
-		bcm43xx_radio_selectchannel(bcm, channel, 0);
+		err = bcm43xx_radio_selectchannel(bcm, channel, 0);
 		bcm43xx_mac_enable(bcm);
 	} else
 		bcm->current_core->radio->initial_channel = channel;
 	spin_unlock_irqrestore(&bcm->lock, flags);
-	printk_wx(KERN_INFO PFX "Selected channel: %d\n", channel);
+	if (!err)
+		printk_wx(KERN_INFO PFX "Selected channel: %d\n", channel);
 
-	return 0;
+	return err;
 }
 
 static int bcm43xx_wx_get_channelfreq(struct net_device *net_dev,
@@ -155,11 +157,16 @@ static int bcm43xx_wx_get_channelfreq(struct net_device *net_dev,
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	channel = bcm->current_core->radio->channel;
-	if (channel == 0xFF)
-		goto out_unlock;
+	if (channel == 0xFF) {
+		assert(!bcm->initialized);
+		channel = bcm->current_core->radio->initial_channel;
+		if (channel == 0xFF)
+			goto out_unlock;
+	}
 	assert(channel > 0 && channel <= 1000);
-	data->freq.e = 0;
-	data->freq.m = channel;
+	data->freq.e = 1;
+	data->freq.m = bcm43xx_channel_to_freq(bcm, channel) * 100000;
+	data->freq.flags = 1;
 
 	err = 0;
 out_unlock:
