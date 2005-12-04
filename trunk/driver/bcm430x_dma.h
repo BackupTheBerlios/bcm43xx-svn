@@ -153,25 +153,18 @@ struct bcm430x_dmaring {
 };
 
 
-struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
-					       u16 dma_controller_base,
-					       int nr_descriptor_slots,
-					       int tx);
-
-void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring);
+int bcm430x_dma_init(struct bcm430x_private *bcm);
+void bcm430x_dma_free(struct bcm430x_private *bcm);
 
 int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 				   u16 dmacontroller_mmio_base);
-
 int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
 				   u16 dmacontroller_mmio_base);
 
 int FASTCALL(bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
 				      struct ieee80211_txb *txb));
-
 void FASTCALL(bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 					    struct bcm430x_xmitstatus *status));
-
 int FASTCALL(bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 				  const char *buf, size_t size));
 

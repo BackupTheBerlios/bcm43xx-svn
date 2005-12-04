@@ -84,20 +84,15 @@ struct bcm430x_pioqueue {
 	struct bcm430x_pio_txpacket __tx_packets_cache[BCM430x_PIO_MAXTXPACKETS];
 };
 
-struct bcm430x_pioqueue * bcm430x_setup_pioqueue(struct bcm430x_private *bcm,
-						 u16 pio_mmio_base);
+int bcm430x_pio_init(struct bcm430x_private *bcm);
+void bcm430x_pio_free(struct bcm430x_private *bcm);
 
-void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue);
-
-int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
-			     struct ieee80211_txb *txb);
-
+int FASTCALL(bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
+				      struct ieee80211_txb *txb));
 void FASTCALL(bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 					    struct bcm430x_xmitstatus *status));
-
-void FASTCALL(bcm430x_pio_rx(struct bcm430x_pioqueue *queue));
-
 int FASTCALL(bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 				  const char *buf, size_t size));
 
+void FASTCALL(bcm430x_pio_rx(struct bcm430x_pioqueue *queue));
 #endif /* BCM430x_PIO_H_ */

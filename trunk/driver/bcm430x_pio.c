@@ -327,6 +327,7 @@ static void setup_txqueues(struct bcm430x_pioqueue *queue)
 	}
 }
 
+static
 struct bcm430x_pioqueue * bcm430x_setup_pioqueue(struct bcm430x_private *bcm,
 						 u16 pio_mmio_base)
 {
@@ -386,13 +387,70 @@ static void cancel_transfers(struct bcm430x_pioqueue *queue)
 		free_txpacket(packet);
 }
 
-void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue)
+static void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue)
 {
 	if (!queue)
 		return;
 
 	cancel_transfers(queue);
 	kfree(queue);
+}
+
+void bcm430x_pio_free(struct bcm430x_private *bcm)
+{
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue3);
+	bcm->current_core->pio->queue3 = NULL;
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
+	bcm->current_core->pio->queue2 = NULL;
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
+	bcm->current_core->pio->queue1 = NULL;
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
+	bcm->current_core->pio->queue0 = NULL;
+}
+
+int bcm430x_pio_init(struct bcm430x_private *bcm)
+{
+	struct bcm430x_pioqueue *queue;
+	int err = -ENOMEM;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO1_BASE);
+	if (!queue)
+		goto out;
+	bcm->current_core->pio->queue0 = queue;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO2_BASE);
+	if (!queue)
+		goto err_destroy0;
+	bcm->current_core->pio->queue1 = queue;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO3_BASE);
+	if (!queue)
+		goto err_destroy1;
+	bcm->current_core->pio->queue2 = queue;
+
+	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO4_BASE);
+	if (!queue)
+		goto err_destroy2;
+	bcm->current_core->pio->queue3 = queue;
+
+	if (bcm->current_core->rev < 3)
+		bcm->irq_savedstate |= BCM430x_IRQ_PIO_WORKAROUND;
+
+	dprintk(KERN_INFO PFX "PIO initialized\n");
+	err = 0;
+out:
+	return err;
+
+err_destroy2:
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
+	bcm->current_core->pio->queue2 = NULL;
+err_destroy1:
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
+	bcm->current_core->pio->queue1 = NULL;
+err_destroy0:
+	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
+	bcm->current_core->pio->queue0 = NULL;
+	goto out;
 }
 
 static fastcall
@@ -435,8 +493,8 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	return 0;
 }
 
-int bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
-			     struct ieee80211_txb *txb)
+int fastcall bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
+				      struct ieee80211_txb *txb)
 {
 	int err;
 

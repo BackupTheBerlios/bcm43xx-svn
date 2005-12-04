@@ -535,6 +535,7 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 }
 
 /* Main initialization function. */
+static
 struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 					       u16 dma_controller_base,
 					       int nr_descriptor_slots,
@@ -598,7 +599,7 @@ err_kfree_ring:
 }
 
 /* Main cleanup function. */
-void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
+static void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 {
 	if (!ring)
 		return;
@@ -612,6 +613,90 @@ void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 
 	kfree(ring->meta);
 	kfree(ring);
+}
+
+void bcm430x_dma_free(struct bcm430x_private *bcm)
+{
+	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring1);
+	bcm->current_core->dma->rx_ring1 = NULL;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
+	bcm->current_core->dma->rx_ring0 = NULL;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
+	bcm->current_core->dma->tx_ring3 = NULL;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
+	bcm->current_core->dma->tx_ring2 = NULL;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
+	bcm->current_core->dma->tx_ring1 = NULL;
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
+	bcm->current_core->dma->tx_ring0 = NULL;
+}
+
+int bcm430x_dma_init(struct bcm430x_private *bcm)
+{
+	struct bcm430x_dmaring *ring;
+	int err = -ENOMEM;
+
+	/* setup TX DMA channels. */
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
+		goto out;
+	bcm->current_core->dma->tx_ring0 = ring;
+
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA2_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
+		goto err_destroy_tx0;
+	bcm->current_core->dma->tx_ring1 = ring;
+
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA3_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
+		goto err_destroy_tx1;
+	bcm->current_core->dma->tx_ring2 = ring;
+
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
+				     BCM430x_TXRING_SLOTS, 1);
+	if (!ring)
+		goto err_destroy_tx2;
+	bcm->current_core->dma->tx_ring3 = ring;
+
+	/* setup RX DMA channels. */
+	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
+				     BCM430x_RXRING_SLOTS, 0);
+	if (!ring)
+		goto err_destroy_tx3;
+	bcm->current_core->dma->rx_ring0 = ring;
+
+	if (bcm->current_core->rev < 5) {
+		ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
+					     BCM430x_RXRING_SLOTS, 0);
+		if (!ring)
+			goto err_destroy_rx0;
+		bcm->current_core->dma->rx_ring1 = ring;
+	}
+
+	dprintk(KERN_INFO PFX "DMA initialized\n");
+	err = 0;
+out:
+	return err;
+
+err_destroy_rx0:
+	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
+	bcm->current_core->dma->rx_ring0 = NULL;
+err_destroy_tx3:
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
+	bcm->current_core->dma->tx_ring3 = NULL;
+err_destroy_tx2:
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
+	bcm->current_core->dma->tx_ring2 = NULL;
+err_destroy_tx1:
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
+	bcm->current_core->dma->tx_ring1 = NULL;
+err_destroy_tx0:
+	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
+	bcm->current_core->dma->tx_ring0 = NULL;
+	goto out;
 }
 
 /* Generate a cookie for the TX header. */
@@ -879,7 +964,6 @@ int fastcall
 bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
 			 struct ieee80211_txb *txb)
 {
-	//TODO: We might want to distribute TX to the 4 engines here.
 	return dma_transfer_txb(bcm->current_core->dma->tx_ring1,
 				txb);
 }
@@ -891,8 +975,6 @@ bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 	struct bcm430x_dmaring *ring;
 	int slot;
 	unsigned long flags;
-
-	//FIXME: Can an xmitstatus indicate a failed tx?
 
 	ring = parse_cookie(bcm, status->cookie, &slot);
 	assert(ring);
