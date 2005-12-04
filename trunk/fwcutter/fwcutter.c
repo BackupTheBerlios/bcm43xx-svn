@@ -117,7 +117,7 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 		}
 
 		snprintf(ivfilename, sizeof(ivfilename),
-			 "%s/bcm430x_initval%02d%s.fw",
+			 "%s/bcm43xx_initval%02d%s.fw",
 			 cmdargs.target_dir, i, cmdargs.postfix);
 		fw = fopen(ivfilename, "w");
 
@@ -126,7 +126,7 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 			exit(1);
 		}
 
-		printf("extracting bcm430x_initval%02d%s.fw ...\n", i, cmdargs.postfix);
+		printf("extracting bcm43xx_initval%02d%s.fw ...\n", i, cmdargs.postfix);
 
 		while (1) {
 
@@ -487,22 +487,22 @@ int main(int argc, char *argv[])
 		goto out_close;
 	}
 
-	snprintf(fwname, sizeof(fwname), "bcm430x_microcode2%s.fw", cmdargs.postfix);
+	snprintf(fwname, sizeof(fwname), "bcm43xx_microcode2%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc2_pos, file->uc2_length);
-	snprintf(fwname, sizeof(fwname), "bcm430x_microcode4%s.fw", cmdargs.postfix);
+	snprintf(fwname, sizeof(fwname), "bcm43xx_microcode4%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc4_pos, file->uc4_length);
-	snprintf(fwname, sizeof(fwname), "bcm430x_microcode5%s.fw", cmdargs.postfix);
+	snprintf(fwname, sizeof(fwname), "bcm43xx_microcode5%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc5_pos, file->uc5_length);
-	snprintf(fwname, sizeof(fwname), "bcm430x_microcode11%s.fw", cmdargs.postfix);
+	snprintf(fwname, sizeof(fwname), "bcm43xx_microcode11%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->uc11_pos, file->uc11_length);
-	snprintf(fwname, sizeof(fwname), "bcm430x_pcm4%s.fw", cmdargs.postfix);
+	snprintf(fwname, sizeof(fwname), "bcm43xx_pcm4%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->pcm4_pos, file->pcm4_length);
-	snprintf(fwname, sizeof(fwname), "bcm430x_pcm5%s.fw", cmdargs.postfix);
+	snprintf(fwname, sizeof(fwname), "bcm43xx_pcm5%s.fw", cmdargs.postfix);
 	extract_fw(cmdargs.infile, fwname,
 		   file->flags, file->pcm5_pos, file->pcm5_length);
 	extract_iv(cmdargs.infile, file->flags, file->iv_pos);

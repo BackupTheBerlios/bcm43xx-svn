@@ -1,9 +1,9 @@
-#ifndef BCM430x_DEBUGFS_H_
-#define BCM430x_DEBUGFS_H_
+#ifndef BCM43xx_DEBUGFS_H_
+#define BCM43xx_DEBUGFS_H_
 
-struct bcm430x_private;
+struct bcm43xx_private;
 
-#ifdef BCM430x_DEBUG
+#ifdef BCM43xx_DEBUG
 
 #include <linux/list.h>
 #include <asm/semaphore.h>
@@ -11,9 +11,9 @@ struct bcm430x_private;
 struct dentry;
 
 /* limited by the size of the "really_big_buffer" */
-#define BCM430x_NR_LOGGED_XMITSTATUS	100
+#define BCM43xx_NR_LOGGED_XMITSTATUS	100
 
-struct bcm430x_dfsentry {
+struct bcm43xx_dfsentry {
 	struct dentry *subdir;
 	struct dentry *dentry_devinfo;
 	struct dentry *dentry_spromdump;
@@ -22,79 +22,79 @@ struct bcm430x_dfsentry {
 	struct dentry *dentry_sendraw;
 	struct dentry *dentry_txstat;
 
-	struct bcm430x_private *bcm;
+	struct bcm43xx_private *bcm;
 
 	/* saved xmitstatus. */
-	struct bcm430x_xmitstatus *xmitstatus_buffer;
+	struct bcm43xx_xmitstatus *xmitstatus_buffer;
 	int xmitstatus_ptr;
 	int xmitstatus_cnt;
 	/* We need a seperate buffer while printing to avoid
 	 * concurrency issues. (New xmitstatus can arrive
 	 * while we are printing).
 	 */
-	struct bcm430x_xmitstatus *xmitstatus_print_buffer;
+	struct bcm43xx_xmitstatus *xmitstatus_print_buffer;
 	int saved_xmitstatus_ptr;
 	int saved_xmitstatus_cnt;
 	int xmitstatus_printing;
 };
 
-struct bcm430x_debugfs {
+struct bcm43xx_debugfs {
 	struct dentry *root;
 	struct dentry *dentry_driverinfo;
 };
 
-void bcm430x_debugfs_init(void);
-void bcm430x_debugfs_exit(void);
-void bcm430x_debugfs_add_device(struct bcm430x_private *bcm);
-void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm);
-void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
-				struct bcm430x_xmitstatus *status);
+void bcm43xx_debugfs_init(void);
+void bcm43xx_debugfs_exit(void);
+void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm);
+void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm);
+void bcm43xx_debugfs_log_txstat(struct bcm43xx_private *bcm,
+				struct bcm43xx_xmitstatus *status);
 
 /* Debug helper: Dump binary data through printk. */
-void bcm430x_printk_dump(const char *data,
+void bcm43xx_printk_dump(const char *data,
 			 size_t size,
 			 const char *description);
 /* Debug helper: Dump bitwise binary data through printk. */
-void bcm430x_printk_bitdump(const unsigned char *data,
+void bcm43xx_printk_bitdump(const unsigned char *data,
 			    size_t bytes, int msb_to_lsb,
 			    const char *description);
-#define bcm430x_printk_bitdumpt(pointer, msb_to_lsb, description) \
+#define bcm43xx_printk_bitdumpt(pointer, msb_to_lsb, description) \
 	do {									\
-		bcm430x_printk_bitdump((const unsigned char *)(pointer),	\
+		bcm43xx_printk_bitdump((const unsigned char *)(pointer),	\
 				       sizeof(*(pointer)),			\
 				       (msb_to_lsb),				\
 				       (description));				\
 	} while (0)
 
-#else /* BCM430x_DEBUG */
+#else /* BCM43xx_DEBUG */
 
 static inline
-void bcm430x_debugfs_init(void) { }
+void bcm43xx_debugfs_init(void) { }
 static inline
-void bcm430x_debugfs_exit(void) { }
+void bcm43xx_debugfs_exit(void) { }
 static inline
-void bcm430x_debugfs_add_device(struct bcm430x_private *bcm) { }
+void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm) { }
 static inline
-void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm) { }
+void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm) { }
 static inline
-void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
-				struct bcm430x_xmitstatus *status) { }
+void bcm43xx_debugfs_log_txstat(struct bcm43xx_private *bcm,
+				struct bcm43xx_xmitstatus *status) { }
 
 static inline
-void bcm430x_printk_dump(const char *data,
+void bcm43xx_printk_dump(const char *data,
 			 size_t size,
 			 const char *description)
 {
 }
 static inline
-void bcm430x_printk_bitdump(const unsigned char *data,
+void bcm43xx_printk_bitdump(const unsigned char *data,
 			    size_t bytes, int msb_to_lsb,
 			    const char *description)
 {
 }
-#define bcm430x_printk_bitdumpt(pointer, msb_to_lsb, description)  do { /* nothing */ } while (0)
+#define bcm43xx_printk_bitdumpt(pointer, msb_to_lsb, description)  do { /* nothing */ } while (0)
 
-#endif /* BCM430x_DEBUG */
+#endif /* BCM43xx_DEBUG */
 
 /* Ugly helper macros to make incomplete code more verbose on runtime */
 #ifdef TODO
@@ -115,4 +115,4 @@ void bcm430x_printk_bitdump(const unsigned char *data,
 		       __FUNCTION__, __FILE__, __LINE__);				\
 	} while (0)
 
-#endif /* BCM430x_DEBUGFS_H_ */
+#endif /* BCM43xx_DEBUGFS_H_ */

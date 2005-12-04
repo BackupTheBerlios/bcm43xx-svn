@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
                      Stefano Brivio <st3@riseup.net>
@@ -25,14 +25,14 @@
 
 */
 
-#include "bcm430x.h"
-#include "bcm430x_ilt.h"
-#include "bcm430x_phy.h"
+#include "bcm43xx.h"
+#include "bcm43xx_ilt.h"
+#include "bcm43xx_phy.h"
 
 
 /**** Initial Internal Lookup Tables ****/
 
-const u32 bcm430x_ilt_rotor[BCM430x_ILT_ROTOR_SIZE] = {
+const u32 bcm43xx_ilt_rotor[BCM43xx_ILT_ROTOR_SIZE] = {
 	0xFEB93FFD, 0xFEC63FFD, /* 0 */
 	0xFED23FFD, 0xFEDF3FFD,
 	0xFEEC3FFE, 0xFEF83FFE,
@@ -62,7 +62,7 @@ const u32 bcm430x_ilt_rotor[BCM430x_ILT_ROTOR_SIZE] = {
 	0x01473FFD,
 };
 
-const u32 bcm430x_ilt_retard[BCM430x_ILT_RETARD_SIZE] = {
+const u32 bcm43xx_ilt_retard[BCM43xx_ILT_RETARD_SIZE] = {
 	0xDB93CB87, 0xD666CF64, /* 0 */
 	0xD1FDD358, 0xCDA6D826,
 	0xCA38DD9F, 0xC729E2B4,
@@ -92,7 +92,7 @@ const u32 bcm430x_ilt_retard[BCM430x_ILT_RETARD_SIZE] = {
 	0x246DCB87,
 };
 
-const u16 bcm430x_ilt_finefreqa[BCM430x_ILT_FINEFREQA_SIZE] = {
+const u16 bcm43xx_ilt_finefreqa[BCM43xx_ILT_FINEFREQA_SIZE] = {
 	0x0082, 0x0082, 0x0102, 0x0182, /* 0 */
  	0x0202, 0x0282, 0x0302, 0x0382,
  	0x0402, 0x0482, 0x0502, 0x0582,
@@ -159,7 +159,7 @@ const u16 bcm430x_ilt_finefreqa[BCM430x_ILT_FINEFREQA_SIZE] = {
  	0x2A40, 0x2A60, 0x2A60, 0x2A60,
 };
 
-const u16 bcm430x_ilt_finefreqg[BCM430x_ILT_FINEFREQG_SIZE] = {
+const u16 bcm43xx_ilt_finefreqg[BCM43xx_ILT_FINEFREQG_SIZE] = {
 	0x0089, 0x02E9, 0x0409, 0x04E9, /* 0 */
 	0x05A9, 0x0669, 0x0709, 0x0789,
 	0x0829, 0x08A9, 0x0929, 0x0989,
@@ -226,27 +226,27 @@ const u16 bcm430x_ilt_finefreqg[BCM430x_ILT_FINEFREQG_SIZE] = {
 	0x5EE0, 0x5FA0, 0x6080, 0x61C0,
 };
 
-const u16 bcm430x_ilt_noisea2[BCM430x_ILT_NOISEA2_SIZE] = {
+const u16 bcm43xx_ilt_noisea2[BCM43xx_ILT_NOISEA2_SIZE] = {
 	0x0001, 0x0001, 0x0001, 0xFFFE,
 	0xFFFE, 0x3FFF, 0x1000, 0x0393,
 };
 
-const u16 bcm430x_ilt_noisea3[BCM430x_ILT_NOISEA3_SIZE] = {
+const u16 bcm43xx_ilt_noisea3[BCM43xx_ILT_NOISEA3_SIZE] = {
 	0x4C4C, 0x4C4C, 0x4C4C, 0x2D36,
 	0x4C4C, 0x4C4C, 0x4C4C, 0x2D36,
 };
 
-const u16 bcm430x_ilt_noiseg1[BCM430x_ILT_NOISEG1_SIZE] = {
+const u16 bcm43xx_ilt_noiseg1[BCM43xx_ILT_NOISEG1_SIZE] = {
 	0x013C, 0x01F5, 0x031A, 0x0631,
 	0x0001, 0x0001, 0x0001, 0x0001,
 };
 
-const u16 bcm430x_ilt_noiseg2[BCM430x_ILT_NOISEG2_SIZE] = {
+const u16 bcm43xx_ilt_noiseg2[BCM43xx_ILT_NOISEG2_SIZE] = {
 	0x5484, 0x3C40, 0x0000, 0x0000,
 	0x0000, 0x0000, 0x0000, 0x0000,
 };
 
-const u16 bcm430x_ilt_noisescaleg[BCM430x_ILT_NOISESCALEG_SIZE] = {
+const u16 bcm43xx_ilt_noisescaleg[BCM43xx_ILT_NOISESCALEG_SIZE] = {
 	0x6C77, 0x5162, 0x3B40, 0x3335, /* 0 */
 	0x2F2D, 0x2A2A, 0x2527, 0x1F21,
 	0x1A1D, 0x1719, 0x1616, 0x1414,
@@ -256,7 +256,7 @@ const u16 bcm430x_ilt_noisescaleg[BCM430x_ILT_NOISESCALEG_SIZE] = {
 	0x5140, 0x6C62, 0x0077,
 };
 
-const u16 bcm430x_ilt_sigmasqr[BCM430x_ILT_SIGMASQR_SIZE] = {
+const u16 bcm43xx_ilt_sigmasqr[BCM43xx_ILT_SIGMASQR_SIZE] = {
 	0x007A, 0x0075, 0x0071, 0x006C, /* 0 */
 	0x0067, 0x0063, 0x005E, 0x0059,
 	0x0054, 0x0050, 0x004B, 0x0046,
@@ -276,55 +276,55 @@ const u16 bcm430x_ilt_sigmasqr[BCM430x_ILT_SIGMASQR_SIZE] = {
 
 /**** Helper functions to access the device Internal Lookup Tables ****/
 
-void bcm430x_ilt_write16(struct bcm430x_private *bcm, u16 offset, u16 val)
+void bcm43xx_ilt_write16(struct bcm43xx_private *bcm, u16 offset, u16 val)
 {
-	if ( bcm->current_core->phy->type == BCM430x_PHYTYPE_A ) {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_A_CTRL, offset);
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_A_DATA1, val);
+	if ( bcm->current_core->phy->type == BCM43xx_PHYTYPE_A ) {
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_A_CTRL, offset);
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_A_DATA1, val);
 	} else {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_G_CTRL, offset);
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_G_DATA1, val);
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_G_CTRL, offset);
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_G_DATA1, val);
 	}
 }
 
-u16 bcm430x_ilt_read16(struct bcm430x_private *bcm, u16 offset)
+u16 bcm43xx_ilt_read16(struct bcm43xx_private *bcm, u16 offset)
 {
-	if ( bcm->current_core->phy->type == BCM430x_PHYTYPE_A ) {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_A_CTRL, offset);
-		return bcm430x_phy_read(bcm, BCM430x_PHY_ILT_A_DATA1);
+	if ( bcm->current_core->phy->type == BCM43xx_PHYTYPE_A ) {
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_A_CTRL, offset);
+		return bcm43xx_phy_read(bcm, BCM43xx_PHY_ILT_A_DATA1);
 	} else {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_G_CTRL, offset);
-		return bcm430x_phy_read(bcm, BCM430x_PHY_ILT_G_DATA1);
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_G_CTRL, offset);
+		return bcm43xx_phy_read(bcm, BCM43xx_PHY_ILT_G_DATA1);
 	}
 }
 
-void bcm430x_ilt_write32(struct bcm430x_private *bcm, u16 offset, u32 val)
+void bcm43xx_ilt_write32(struct bcm43xx_private *bcm, u16 offset, u32 val)
 {
-	if ( bcm->current_core->phy->type == BCM430x_PHYTYPE_A ) {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_A_CTRL, offset);
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_A_DATA2, (u16)(val >> 16));
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_A_DATA1, (u16)(val & 0x0000FFFF));
+	if ( bcm->current_core->phy->type == BCM43xx_PHYTYPE_A ) {
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_A_CTRL, offset);
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_A_DATA2, (u16)(val >> 16));
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_A_DATA1, (u16)(val & 0x0000FFFF));
 	} else {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_G_CTRL, offset);
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_G_DATA2, (u16)(val >> 16));
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_G_DATA1, (u16)(val & 0x0000FFFF));
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_G_CTRL, offset);
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_G_DATA2, (u16)(val >> 16));
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_G_DATA1, (u16)(val & 0x0000FFFF));
 	}
 }
 
-u32 bcm430x_ilt_read32(struct bcm430x_private *bcm, u16 offset)
+u32 bcm43xx_ilt_read32(struct bcm43xx_private *bcm, u16 offset)
 {
 	u32 ret;
 
-	if ( bcm->current_core->phy->type == BCM430x_PHYTYPE_A ) {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_A_CTRL, offset);
-		ret = bcm430x_phy_read(bcm, BCM430x_PHY_ILT_A_DATA2);
+	if ( bcm->current_core->phy->type == BCM43xx_PHYTYPE_A ) {
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_A_CTRL, offset);
+		ret = bcm43xx_phy_read(bcm, BCM43xx_PHY_ILT_A_DATA2);
 		ret <<= 16;
-		ret |= bcm430x_phy_read(bcm, BCM430x_PHY_ILT_A_DATA1);
+		ret |= bcm43xx_phy_read(bcm, BCM43xx_PHY_ILT_A_DATA1);
 	} else {
-		bcm430x_phy_write(bcm, BCM430x_PHY_ILT_G_CTRL, offset);
-		ret = bcm430x_phy_read(bcm, BCM430x_PHY_ILT_G_DATA2);
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_ILT_G_CTRL, offset);
+		ret = bcm43xx_phy_read(bcm, BCM43xx_PHY_ILT_G_DATA2);
 		ret <<= 16;
-		ret |= bcm430x_phy_read(bcm, BCM430x_PHY_ILT_G_DATA1);
+		ret |= bcm43xx_phy_read(bcm, BCM43xx_PHY_ILT_G_DATA1);
 	}
 
 	return ret;

@@ -19,7 +19,7 @@ fwcutter -i FILE        identify the driver file. Print information, but don't e
 fwcutter -w /tmp FILE	extract and write firmware to /tmp.
 fwcutter -l		prints a list of supported driver source files.
 
-After extraction, run make installfw which will copy bcm430x_*.fw to 
+After extraction, run make installfw which will copy bcm43xx_*.fw to 
 FIRMWARE_INSTALL_DIR (which defaults to /lib/firmware) for
 usage by the bcm43xx driver.
 

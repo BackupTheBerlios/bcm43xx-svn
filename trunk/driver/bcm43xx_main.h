@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
                      Stefano Brivio <st3@riseup.net>
@@ -28,26 +28,26 @@
 
 */
 
-#ifndef BCM430x_MAIN_H_
-#define BCM430x_MAIN_H_
+#ifndef BCM43xx_MAIN_H_
+#define BCM43xx_MAIN_H_
 
-#include "bcm430x.h"
+#include "bcm43xx.h"
 
 
-#define _bcm430x_declare_plcp_hdr(size) \
-	struct bcm430x_plcp_hdr##size {			\
+#define _bcm43xx_declare_plcp_hdr(size) \
+	struct bcm43xx_plcp_hdr##size {			\
 		union {					\
 			u32 data;			\
 			unsigned char raw[size];	\
 		} __attribute__((__packed__));		\
 	} __attribute__((__packed__))
 
-/* struct bcm430x_plcp_hdr4 */
-_bcm430x_declare_plcp_hdr(4);
+/* struct bcm43xx_plcp_hdr4 */
+_bcm43xx_declare_plcp_hdr(4);
 /* struct bcm430c_plcp_hdr6 */
-_bcm430x_declare_plcp_hdr(6);
+_bcm43xx_declare_plcp_hdr(6);
 
-#undef _bcm430x_declare_plcp_hdr
+#undef _bcm43xx_declare_plcp_hdr
 
 
 #define P4D_BYT3S(magic, nr_bytes)	u8 __p4dding##magic[nr_bytes]
@@ -57,7 +57,7 @@ _bcm430x_declare_plcp_hdr(6);
 
 
 /* Device specific TX header. To be prepended to TX frames. */
-struct bcm430x_txhdr {
+struct bcm43xx_txhdr {
 	union {
 		struct {
 			u16 flags;
@@ -70,20 +70,20 @@ struct bcm430x_txhdr {
 			PAD_BYTES(3);
 			unsigned char mac1[6];
 			u16 unknown_zeroed_1;
-			struct bcm430x_plcp_hdr4 rts_cts_fallback_plcp;
+			struct bcm43xx_plcp_hdr4 rts_cts_fallback_plcp;
 			u16 rts_cts_dur_fallback;
-			struct bcm430x_plcp_hdr4 fallback_plcp;
+			struct bcm43xx_plcp_hdr4 fallback_plcp;
 			u16 fallback_dur_id;
 			PAD_BYTES(2);
 			u16 cookie;
 			u16 unknown_scb_stuff; //FIXME
-			struct bcm430x_plcp_hdr6 rts_cts_plcp;
+			struct bcm43xx_plcp_hdr6 rts_cts_plcp;
 			u16 rts_cts_frame_type;
 			u16 rts_cts_dur;
 			unsigned char rts_cts_mac1[6];
 			unsigned char rts_cts_mac2[6];
 			PAD_BYTES(2);
-			struct bcm430x_plcp_hdr6 plcp;
+			struct bcm43xx_plcp_hdr6 plcp;
 		} __attribute__((__packed__));
 
 		unsigned char raw[82];
@@ -92,15 +92,15 @@ struct bcm430x_txhdr {
 
 struct sk_buff;
 
-void FASTCALL(bcm430x_generate_txhdr(struct bcm430x_private *bcm,
-				     struct bcm430x_txhdr *txhdr,
+void FASTCALL(bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
+				     struct bcm43xx_txhdr *txhdr,
 				     const unsigned char *fragment_data,
 				     const unsigned int fragment_len,
 				     const int is_first_fragment,
 				     const u16 cookie));
 
 /* RX header as received from the hardware. */
-struct bcm430x_rxhdr {
+struct bcm43xx_rxhdr {
 	/* Frame Length. Must be generated explicitely in PIO mode. */
 	__le16 frame_length;
 	PAD_BYTES(2);
@@ -117,17 +117,17 @@ struct bcm430x_rxhdr {
 	PAD_BYTES(14);
 } __attribute__((__packed__));
 
-#define BCM430x_RXHDR_FLAGS1_OFDM		(1 << 0)
-/*#define BCM430x_RXHDR_FLAGS1_SIGNAL???	(1 << 3) FIXME */
-#define BCM430x_RXHDR_FLAGS1_SHORTPREAMBLE	(1 << 7)
-#define BCM430x_RXHDR_FLAGS1_RSSIADJUST		(1 << 14)
+#define BCM43xx_RXHDR_FLAGS1_OFDM		(1 << 0)
+/*#define BCM43xx_RXHDR_FLAGS1_SIGNAL???	(1 << 3) FIXME */
+#define BCM43xx_RXHDR_FLAGS1_SHORTPREAMBLE	(1 << 7)
+#define BCM43xx_RXHDR_FLAGS1_RSSIADJUST		(1 << 14)
 
-#define BCM430x_RXHDR_FLAGS2_INVALIDFRAME	(1 << 0)
-#define BCM430x_RXHDR_FLAGS2_TYPE2FRAME		(1 << 2)
+#define BCM43xx_RXHDR_FLAGS2_INVALIDFRAME	(1 << 0)
+#define BCM43xx_RXHDR_FLAGS2_TYPE2FRAME		(1 << 2)
 /*FIXME: WEP related flags */
 
 /* Transmit Status as received from the hardware. */
-struct bcm430x_hwxmitstatus {
+struct bcm43xx_hwxmitstatus {
 	PAD_BYTES(2);
 	PAD_BYTES(2);
 	u16 cookie;
@@ -140,7 +140,7 @@ struct bcm430x_hwxmitstatus {
 } __attribute__((__packed__));
 
 /* Transmit Status in CPU byteorder. */
-struct bcm430x_xmitstatus {
+struct bcm43xx_xmitstatus {
 	u16 cookie;
 	u8 flags;
 	u8 cnt1:4,
@@ -149,29 +149,29 @@ struct bcm430x_xmitstatus {
 	u16 unknown; //FIXME
 };
 
-#define BCM430x_TXSTAT_FLAG_ACK		0x01
-//TODO #define BCM430x_TXSTAT_FLAG_???	0x02
-//TODO #define BCM430x_TXSTAT_FLAG_???	0x04
-//TODO #define BCM430x_TXSTAT_FLAG_???	0x08
-//TODO #define BCM430x_TXSTAT_FLAG_???	0x10
-#define BCM430x_TXSTAT_FLAG_IGNORE	0x20
-//TODO #define BCM430x_TXSTAT_FLAG_???	0x40
-//TODO #define BCM430x_TXSTAT_FLAG_???	0x80
+#define BCM43xx_TXSTAT_FLAG_ACK		0x01
+//TODO #define BCM43xx_TXSTAT_FLAG_???	0x02
+//TODO #define BCM43xx_TXSTAT_FLAG_???	0x04
+//TODO #define BCM43xx_TXSTAT_FLAG_???	0x08
+//TODO #define BCM43xx_TXSTAT_FLAG_???	0x10
+#define BCM43xx_TXSTAT_FLAG_IGNORE	0x20
+//TODO #define BCM43xx_TXSTAT_FLAG_???	0x40
+//TODO #define BCM43xx_TXSTAT_FLAG_???	0x80
 
-struct bcm430x_xmitstatus_queue {
+struct bcm43xx_xmitstatus_queue {
 	struct list_head list;
-	struct bcm430x_hwxmitstatus status;
+	struct bcm43xx_hwxmitstatus status;
 };
 
 
 /* Lightweight function to convert a frequency (in Mhz) to a channel number. */
 static inline
-u8 bcm430x_freq_to_channel(struct bcm430x_private *bcm,
+u8 bcm43xx_freq_to_channel(struct bcm43xx_private *bcm,
 			   int freq)
 {
 	u8 channel;
 
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A) {
 		channel = (freq - 5000) / 5;
 	} else {
 		if (freq == 2484)
@@ -185,12 +185,12 @@ u8 bcm430x_freq_to_channel(struct bcm430x_private *bcm,
 
 /* Lightweight function to convert a channel number to a frequency (in Mhz). */
 static inline
-int bcm430x_channel_to_freq(struct bcm430x_private *bcm,
+int bcm43xx_channel_to_freq(struct bcm43xx_private *bcm,
 			    u8 channel)
 {
 	int freq;
 
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A) {
 		freq = 5000 + (5 * channel);
 	} else {
 		if (channel == 14)
@@ -206,10 +206,10 @@ int bcm430x_channel_to_freq(struct bcm430x_private *bcm,
  * Note that this does _NOT_ check for geographical restrictions!
  */
 static inline
-int bcm430x_is_valid_channel(struct bcm430x_private *bcm,
+int bcm43xx_is_valid_channel(struct bcm43xx_private *bcm,
 			    u8 channel)
 {
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A) {
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A) {
 		if (channel <= 200)
 			return 1;
 	} else {
@@ -220,38 +220,38 @@ int bcm430x_is_valid_channel(struct bcm430x_private *bcm,
 	return 0;
 }
 
-int FASTCALL(bcm430x_rx_transmitstatus(struct bcm430x_private *bcm,
-				       const struct bcm430x_hwxmitstatus *status));
+int FASTCALL(bcm43xx_rx_transmitstatus(struct bcm43xx_private *bcm,
+				       const struct bcm43xx_hwxmitstatus *status));
 
-int FASTCALL(bcm430x_rx(struct bcm430x_private *bcm,
+int FASTCALL(bcm43xx_rx(struct bcm43xx_private *bcm,
 			struct sk_buff *skb,
-			struct bcm430x_rxhdr *rxhdr));
+			struct bcm43xx_rxhdr *rxhdr));
 
-void bcm430x_disassociate(struct bcm430x_private *bcm);
+void bcm43xx_disassociate(struct bcm43xx_private *bcm);
 
-u32 bcm430x_shm_read32(struct bcm430x_private *bcm,
+u32 bcm43xx_shm_read32(struct bcm43xx_private *bcm,
 		       u16 routing, u16 offset);
-u16 bcm430x_shm_read16(struct bcm430x_private *bcm,
+u16 bcm43xx_shm_read16(struct bcm43xx_private *bcm,
 		       u16 routing, u16 offset);
-void bcm430x_shm_write32(struct bcm430x_private *bcm,
+void bcm43xx_shm_write32(struct bcm43xx_private *bcm,
 			 u16 routing, u16 offset,
 			 u32 value);
-void bcm430x_shm_write16(struct bcm430x_private *bcm,
+void bcm43xx_shm_write16(struct bcm43xx_private *bcm,
 			 u16 routing, u16 offset,
 			 u16 value);
 
-void bcm430x_dummy_transmission(struct bcm430x_private *bcm);
+void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm);
 
-int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core);
+int bcm43xx_switch_core(struct bcm43xx_private *bcm, struct bcm43xx_coreinfo *new_core);
 
-void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy);
+void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy);
 
-int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset, u16 *val);
-int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset, u32 *val);
-int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset, u16 val);
-int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset, u32 val);
+int bcm43xx_pci_read_config_16(struct pci_dev *pdev, u16 offset, u16 *val);
+int bcm43xx_pci_read_config_32(struct pci_dev *pdev, u16 offset, u32 *val);
+int bcm43xx_pci_write_config_16(struct pci_dev *pdev, int offset, u16 val);
+int bcm43xx_pci_write_config_32(struct pci_dev *pdev, int offset, u32 val);
 
-void bcm430x_mac_suspend(struct bcm430x_private *bcm);
-void bcm430x_mac_enable(struct bcm430x_private *bcm);
+void bcm43xx_mac_suspend(struct bcm43xx_private *bcm);
+void bcm43xx_mac_enable(struct bcm43xx_private *bcm);
 
-#endif /* BCM430x_MAIN_H_ */
+#endif /* BCM43xx_MAIN_H_ */

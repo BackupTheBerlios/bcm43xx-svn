@@ -1,7 +1,7 @@
-# Makefile for bcm430x driver
+# Makefile for bcm43xx driver
 
 VERSION		:= 0.0.1
-RELEASE_NAME	:= bcm430x-$(VERSION)
+RELEASE_NAME	:= bcm43xx-$(VERSION)
 
 # Optional path, where the SoftMAC subsystem is located.
 # You may set SOFTMAC_DIR in your bashrc, for example.
@@ -17,14 +17,14 @@ DEBUG = y
 
 
 ifeq ($(DEBUG),y)
-DEBUGFS_OBJ = bcm430x_debugfs.o
-CFLAGS += -O2 -DBCM430x_DEBUG
+DEBUGFS_OBJ = bcm43xx_debugfs.o
+CFLAGS += -O2 -DBCM43xx_DEBUG
 else
 DEBUGFS_OBJ =
 CFLAGS += -O2
 endif
 
-CFLAGS += -DBCM430x_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include
+CFLAGS += -DBCM43xx_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include
 ifneq ($(SOFTMAC_DIR),)
 CFLAGS += -I$(SOFTMAC_DIR)
 endif
@@ -32,11 +32,11 @@ endif
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-obj-m := bcm430x.o
-bcm430x-objs := bcm430x_main.o bcm430x_dma.o $(DEBUGFS_OBJ) \
-		bcm430x_radio.o bcm430x_phy.o \
-		bcm430x_power.o bcm430x_wx.o \
-		bcm430x_pio.o bcm430x_ilt.o
+obj-m := bcm43xx.o
+bcm43xx-objs := bcm43xx_main.o bcm43xx_dma.o $(DEBUGFS_OBJ) \
+		bcm43xx_radio.o bcm43xx_phy.o \
+		bcm43xx_power.o bcm43xx_wx.o \
+		bcm43xx_pio.o bcm43xx_ilt.o
 
 else
 
@@ -45,9 +45,9 @@ default: modules
 modules:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
-install: bcm430x.ko
+install: bcm43xx.ko
 	install -d $(MODPATH)
-	install -m 644 -c bcm430x.ko $(MODPATH)
+	install -m 644 -c bcm43xx.ko $(MODPATH)
 	/sbin/depmod -a
 
 uninstall:

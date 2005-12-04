@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
                      Stefano Brivio <st3@riseup.net>
@@ -28,37 +28,37 @@
 
 */
 
-#ifndef BCM430x_PHY_H_
-#define BCM430x_PHY_H_
+#ifndef BCM43xx_PHY_H_
+#define BCM43xx_PHY_H_
 
 #include <linux/types.h>
 
-struct bcm430x_private;
+struct bcm43xx_private;
 
-void bcm430x_phy_lock(struct bcm430x_private *bcm);
-void bcm430x_phy_unlock(struct bcm430x_private *bcm);
+void bcm43xx_phy_lock(struct bcm43xx_private *bcm);
+void bcm43xx_phy_unlock(struct bcm43xx_private *bcm);
 
-u16 bcm430x_phy_read(struct bcm430x_private *bcm, u16 offset);
-void bcm430x_phy_write(struct bcm430x_private *bcm, u16 offset, u16 val);
+u16 bcm43xx_phy_read(struct bcm43xx_private *bcm, u16 offset);
+void bcm43xx_phy_write(struct bcm43xx_private *bcm, u16 offset, u16 val);
 
-int bcm430x_phy_init_tssi2dbm_table(struct bcm430x_private *bcm);
-int bcm430x_phy_init(struct bcm430x_private *bcm);
+int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm);
+int bcm43xx_phy_init(struct bcm43xx_private *bcm);
 
-void bcm430x_phy_set_antenna_diversity(struct bcm430x_private *bcm);
-void bcm430x_phy_calibrate(struct bcm430x_private *bcm);
-int bcm430x_phy_connect(struct bcm430x_private *bcm, int connect);
+void bcm43xx_phy_set_antenna_diversity(struct bcm43xx_private *bcm);
+void bcm43xx_phy_calibrate(struct bcm43xx_private *bcm);
+int bcm43xx_phy_connect(struct bcm43xx_private *bcm, int connect);
 
-void bcm430x_phy_lo_b_measure(struct bcm430x_private *bcm);
-void bcm430x_phy_lo_g_measure(struct bcm430x_private *bcm);
-void bcm430x_phy_xmitpower(struct bcm430x_private *bcm);
+void bcm43xx_phy_lo_b_measure(struct bcm43xx_private *bcm);
+void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm);
+void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm);
 
 /* Adjust the LocalOscillator to the saved values.
  * "fixed" is only set to 1 once in initialization. Set to 0 otherwise.
  */
-void bcm430x_phy_lo_adjust(struct bcm430x_private *bcm, int fixed);
-void bcm430x_phy_lo_mark_all_unused(struct bcm430x_private *bcm);
+void bcm43xx_phy_lo_adjust(struct bcm43xx_private *bcm, int fixed);
+void bcm43xx_phy_lo_mark_all_unused(struct bcm43xx_private *bcm);
 
-void bcm430x_phy_set_baseband_attenuation(struct bcm430x_private *bcm,
+void bcm43xx_phy_set_baseband_attenuation(struct bcm43xx_private *bcm,
 					  u16 baseband_attenuation);
 
-#endif /* BCM430x_PHY_H_ */
+#endif /* BCM43xx_PHY_H_ */

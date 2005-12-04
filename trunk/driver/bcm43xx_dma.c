@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   DMA ringbuffer and descriptor allocation/management
 
@@ -27,11 +27,11 @@
 
 */
 
-#include "bcm430x.h"
-#include "bcm430x_dma.h"
-#include "bcm430x_main.h"
-#include "bcm430x_debugfs.h"
-#include "bcm430x_power.h"
+#include "bcm43xx.h"
+#include "bcm43xx_dma.h"
+#include "bcm43xx_main.h"
+#include "bcm43xx_debugfs.h"
+#include "bcm43xx_power.h"
 
 #include <linux/dmapool.h>
 #include <linux/pci.h>
@@ -40,12 +40,12 @@
 #include <asm/semaphore.h>
 
 
-static inline int free_slots(struct bcm430x_dmaring *ring)
+static inline int free_slots(struct bcm43xx_dmaring *ring)
 {
 	return (ring->nr_slots - ring->used_slots);
 }
 
-static inline int next_slot(struct bcm430x_dmaring *ring, int slot)
+static inline int next_slot(struct bcm43xx_dmaring *ring, int slot)
 {
 	assert(slot >= -1 && slot <= ring->nr_slots - 1);
 	if (slot == ring->nr_slots - 1)
@@ -53,7 +53,7 @@ static inline int next_slot(struct bcm430x_dmaring *ring, int slot)
 	return slot + 1;
 }
 
-static inline int prev_slot(struct bcm430x_dmaring *ring, int slot)
+static inline int prev_slot(struct bcm43xx_dmaring *ring, int slot)
 {
 	assert(slot >= 0 && slot <= ring->nr_slots - 1);
 	if (slot == 0)
@@ -63,7 +63,7 @@ static inline int prev_slot(struct bcm430x_dmaring *ring, int slot)
 
 /* Request a slot for usage. */
 static inline
-int request_slot(struct bcm430x_dmaring *ring)
+int request_slot(struct bcm43xx_dmaring *ring)
 {
 	int slot;
 	int nr_free = free_slots(ring);
@@ -91,7 +91,7 @@ int request_slot(struct bcm430x_dmaring *ring)
 
 /* Return a slot to the free slots. */
 static inline
-void return_slot(struct bcm430x_dmaring *ring, int slot)
+void return_slot(struct bcm43xx_dmaring *ring, int slot)
 {
 	assert(ring->tx);
 
@@ -108,7 +108,7 @@ void return_slot(struct bcm430x_dmaring *ring, int slot)
 	}
 }
 
-static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
+static inline void dmacontroller_poke_tx(struct bcm43xx_dmaring *ring,
 					 int slot)
 {
 	/* Everything is ready to start. Buffers are DMA mapped and
@@ -118,13 +118,13 @@ static inline void dmacontroller_poke_tx(struct bcm430x_dmaring *ring,
 	 */
 	wmb();
 	slot = next_slot(ring, slot);
-	bcm430x_write32(ring->bcm,
-			ring->mmio_base + BCM430x_DMA_TX_DESC_INDEX,
-			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
+	bcm43xx_write32(ring->bcm,
+			ring->mmio_base + BCM43xx_DMA_TX_DESC_INDEX,
+			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
 }
 
 static inline
-dma_addr_t map_descbuffer(struct bcm430x_dmaring *ring,
+dma_addr_t map_descbuffer(struct bcm43xx_dmaring *ring,
 			  unsigned char *buf,
 			  size_t len,
 			  int tx)
@@ -145,7 +145,7 @@ dma_addr_t map_descbuffer(struct bcm430x_dmaring *ring,
 }
 
 static inline
-void unmap_descbuffer(struct bcm430x_dmaring *ring,
+void unmap_descbuffer(struct bcm43xx_dmaring *ring,
 		      dma_addr_t addr,
 		      size_t len,
 		      int tx)
@@ -162,7 +162,7 @@ void unmap_descbuffer(struct bcm430x_dmaring *ring,
 }
 
 static inline
-void sync_descbuffer_for_cpu(struct bcm430x_dmaring *ring,
+void sync_descbuffer_for_cpu(struct bcm43xx_dmaring *ring,
 			     dma_addr_t addr,
 			     size_t len)
 {
@@ -173,7 +173,7 @@ void sync_descbuffer_for_cpu(struct bcm430x_dmaring *ring,
 }
 
 static inline
-void sync_descbuffer_for_device(struct bcm430x_dmaring *ring,
+void sync_descbuffer_for_device(struct bcm43xx_dmaring *ring,
 				dma_addr_t addr,
 				size_t len)
 {
@@ -198,9 +198,9 @@ int skb_mustfree(struct sk_buff *skb)
 
 /* Unmap and free a descriptor buffer. */
 static inline
-void free_descriptor_buffer(struct bcm430x_dmaring *ring,
-			    struct bcm430x_dmadesc *desc,
-			    struct bcm430x_dmadesc_meta *meta,
+void free_descriptor_buffer(struct bcm43xx_dmaring *ring,
+			    struct bcm43xx_dmadesc *desc,
+			    struct bcm43xx_dmadesc_meta *meta,
 			    int irq_context)
 {
 	assert(meta->skb);
@@ -221,22 +221,22 @@ void free_descriptor_buffer(struct bcm430x_dmaring *ring,
  * Begin at slot.
  * This is to be called on completion IRQ.
  */
-static void free_descriptor_frame(struct bcm430x_dmaring *ring,
+static void free_descriptor_frame(struct bcm43xx_dmaring *ring,
 				  int slot)
 {
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
+	struct bcm43xx_dmadesc *desc;
+	struct bcm43xx_dmadesc_meta *meta;
 	int is_last_fragment;
 
 	assert(ring->tx);
-	assert(get_desc_ctl(ring->vbase + slot) & BCM430x_DMADTOR_FRAMESTART);
+	assert(get_desc_ctl(ring->vbase + slot) & BCM43xx_DMADTOR_FRAMESTART);
 
 	while (1) {
 		assert(slot >= 0 && slot < ring->nr_slots);
 		desc = ring->vbase + slot;
 		meta = ring->meta + slot;
 
-		is_last_fragment = !!(get_desc_ctl(desc) & BCM430x_DMADTOR_FRAMEEND);
+		is_last_fragment = !!(get_desc_ctl(desc) & BCM43xx_DMADTOR_FRAMEEND);
 		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
 		free_descriptor_buffer(ring, desc, meta, 1);
 		/* Everything belonging to the slot is unmapped
@@ -250,25 +250,25 @@ static void free_descriptor_frame(struct bcm430x_dmaring *ring,
 	}
 }
 
-static int alloc_ringmemory(struct bcm430x_dmaring *ring)
+static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
 {
 	int err = -ENOMEM;
 	struct device *dev = &(ring->bcm->pci_dev->dev);
 
-	ring->vbase = dma_alloc_coherent(dev, BCM430x_DMA_RINGMEMSIZE,
+	ring->vbase = dma_alloc_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
 					 &(ring->dmabase), GFP_KERNEL);
 	if (!ring->vbase) {
 		printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
 		goto out;
 	}
-	memset(ring->vbase, 0, BCM430x_DMA_RINGMEMSIZE);
+	memset(ring->vbase, 0, BCM43xx_DMA_RINGMEMSIZE);
 
 	/* sanity checks... */
 	if (ring->dmabase & 0x000003FF) {
 		printk(KERN_ERR PFX "Error: DMA ringmemory not 1024 byte aligned!\n");
 		goto err_free;
 	}
-	if (ring->dmabase & ~BCM430x_DMA_DMABUSADDRMASK) {
+	if (ring->dmabase & ~BCM43xx_DMA_DMABUSADDRMASK) {
 		printk(KERN_ERR PFX "Error: DMA ringmemory above 1G mark!\n");
 		goto err_free;
 	}
@@ -277,34 +277,34 @@ out:
 	return err;
 
 err_free:
-	dma_free_coherent(dev, BCM430x_DMA_RINGMEMSIZE,
+	dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
 			  ring->vbase, ring->dmabase);
 	goto out;
 }
 
-static void free_ringmemory(struct bcm430x_dmaring *ring)
+static void free_ringmemory(struct bcm43xx_dmaring *ring)
 {
 	struct device *dev = &(ring->bcm->pci_dev->dev);
 
-	dma_free_coherent(dev, BCM430x_DMA_RINGMEMSIZE,
+	dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
 			  ring->vbase, ring->dmabase);
 }
 
 /* Reset the RX DMA channel */
-int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
+int bcm43xx_dmacontroller_rx_reset(struct bcm43xx_private *bcm,
 				   u16 mmio_base)
 {
 	int i;
 	u32 value;
 
-	bcm430x_write32(bcm,
-			mmio_base + BCM430x_DMA_RX_CONTROL,
+	bcm43xx_write32(bcm,
+			mmio_base + BCM43xx_DMA_RX_CONTROL,
 			0x00000000);
 	for (i = 0; i < 1000; i++) {
-		value = bcm430x_read32(bcm,
-				       mmio_base + BCM430x_DMA_RX_STATUS);
-		value &= BCM430x_DMA_RXSTAT_STAT_MASK;
-		if (value == BCM430x_DMA_RXSTAT_STAT_DISABLED) {
+		value = bcm43xx_read32(bcm,
+				       mmio_base + BCM43xx_DMA_RX_STATUS);
+		value &= BCM43xx_DMA_RXSTAT_STAT_MASK;
+		if (value == BCM43xx_DMA_RXSTAT_STAT_DISABLED) {
 			i = -1;
 			break;
 		}
@@ -318,38 +318,38 @@ int bcm430x_dmacontroller_rx_reset(struct bcm430x_private *bcm,
 	return 0;
 }
 
-static inline int dmacontroller_rx_reset(struct bcm430x_dmaring *ring)
+static inline int dmacontroller_rx_reset(struct bcm43xx_dmaring *ring)
 {
 	assert(!ring->tx);
 
-	return bcm430x_dmacontroller_rx_reset(ring->bcm, ring->mmio_base);
+	return bcm43xx_dmacontroller_rx_reset(ring->bcm, ring->mmio_base);
 }
 
 /* Reset the RX DMA channel */
-int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
+int bcm43xx_dmacontroller_tx_reset(struct bcm43xx_private *bcm,
 				   u16 mmio_base)
 {
 	int i;
 	u32 value;
 
 	for (i = 0; i < 1000; i++) {
-		value = bcm430x_read32(bcm,
-				       mmio_base + BCM430x_DMA_TX_STATUS);
-		value &= BCM430x_DMA_TXSTAT_STAT_MASK;
-		if (value == BCM430x_DMA_TXSTAT_STAT_DISABLED ||
-		    value == BCM430x_DMA_TXSTAT_STAT_IDLEWAIT ||
-		    value == BCM430x_DMA_TXSTAT_STAT_STOPPED)
+		value = bcm43xx_read32(bcm,
+				       mmio_base + BCM43xx_DMA_TX_STATUS);
+		value &= BCM43xx_DMA_TXSTAT_STAT_MASK;
+		if (value == BCM43xx_DMA_TXSTAT_STAT_DISABLED ||
+		    value == BCM43xx_DMA_TXSTAT_STAT_IDLEWAIT ||
+		    value == BCM43xx_DMA_TXSTAT_STAT_STOPPED)
 			break;
 		udelay(10);
 	}
-	bcm430x_write32(bcm,
-			mmio_base + BCM430x_DMA_TX_CONTROL,
+	bcm43xx_write32(bcm,
+			mmio_base + BCM43xx_DMA_TX_CONTROL,
 			0x00000000);
 	for (i = 0; i < 1000; i++) {
-		value = bcm430x_read32(bcm,
-				       mmio_base + BCM430x_DMA_TX_STATUS);
-		value &= BCM430x_DMA_TXSTAT_STAT_MASK;
-		if (value == BCM430x_DMA_TXSTAT_STAT_DISABLED) {
+		value = bcm43xx_read32(bcm,
+				       mmio_base + BCM43xx_DMA_TX_STATUS);
+		value &= BCM43xx_DMA_TXSTAT_STAT_MASK;
+		if (value == BCM43xx_DMA_TXSTAT_STAT_DISABLED) {
 			i = -1;
 			break;
 		}
@@ -365,19 +365,19 @@ int bcm430x_dmacontroller_tx_reset(struct bcm430x_private *bcm,
 	return 0;
 }
 
-static inline int dmacontroller_tx_reset(struct bcm430x_dmaring *ring)
+static inline int dmacontroller_tx_reset(struct bcm43xx_dmaring *ring)
 {
 	assert(ring->tx);
 
-	return bcm430x_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
+	return bcm43xx_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 }
 
-static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
-			       struct bcm430x_dmadesc *desc,
-			       struct bcm430x_dmadesc_meta *meta,
+static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
+			       struct bcm43xx_dmadesc *desc,
+			       struct bcm43xx_dmadesc_meta *meta,
 			       gfp_t gfp_flags)
 {
-	struct bcm430x_rxhdr *rxhdr;
+	struct bcm43xx_rxhdr *rxhdr;
 	dma_addr_t dmaaddr;
 	u32 desc_addr;
 	u32 desc_ctl;
@@ -394,15 +394,15 @@ static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
 
 	dmaaddr = map_descbuffer(ring, meta->skb->data, ring->rx_buffersize, 0);
 	meta->dmaaddr = dmaaddr;
-	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
-	desc_ctl = (BCM430x_DMADTOR_BYTECNT_MASK &
+	desc_addr = (u32)(dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
+	desc_ctl = (BCM43xx_DMADTOR_BYTECNT_MASK &
 		    (u32)(ring->rx_buffersize - ring->frameoffset));
 	if (slot == ring->nr_slots - 1)
-		desc_ctl |= BCM430x_DMADTOR_DTABLEEND;
+		desc_ctl |= BCM43xx_DMADTOR_DTABLEEND;
 	set_desc_addr(desc, desc_addr);
 	set_desc_ctl(desc, desc_ctl);
 
-	rxhdr = (struct bcm430x_rxhdr *)(meta->skb->data);
+	rxhdr = (struct bcm43xx_rxhdr *)(meta->skb->data);
 	rxhdr->frame_length = cpu_to_le16(0x0000);
 	rxhdr->flags1 = cpu_to_le16(0x0000);
 
@@ -412,11 +412,11 @@ static int setup_rx_descbuffer(struct bcm430x_dmaring *ring,
 /* Allocate the initial descbuffers.
  * This is used for an RX ring only.
  */
-static int alloc_initial_descbuffers(struct bcm430x_dmaring *ring)
+static int alloc_initial_descbuffers(struct bcm43xx_dmaring *ring)
 {
 	int i, err = -ENOMEM;
-	struct bcm430x_dmadesc *desc = NULL;
-	struct bcm430x_dmadesc_meta *meta;
+	struct bcm43xx_dmadesc *desc = NULL;
+	struct bcm43xx_dmadesc_meta *meta;
 
 	for (i = 0; i < ring->nr_slots; i++) {
 		desc = ring->vbase + i;
@@ -450,37 +450,37 @@ err_unwind:
  * Reset the controller, write the ring busaddress
  * and switch the "enable" bit on.
  */
-static int dmacontroller_setup(struct bcm430x_dmaring *ring)
+static int dmacontroller_setup(struct bcm43xx_dmaring *ring)
 {
 	int err = 0;
 	u32 value;
 
 	if (ring->tx) {
 		/* Set Transmit Control register to "transmit enable" */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_CONTROL,
-				BCM430x_DMA_TXCTRL_ENABLE);
+		bcm43xx_write32(ring->bcm,
+				ring->mmio_base + BCM43xx_DMA_TX_CONTROL,
+				BCM43xx_DMA_TXCTRL_ENABLE);
 		/* Set Transmit Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
-				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
+		bcm43xx_write32(ring->bcm,
+				ring->mmio_base + BCM43xx_DMA_TX_DESC_RING,
+				ring->dmabase + BCM43xx_DMA_DMABUSADDROFFSET);
 	} else {
 		err = alloc_initial_descbuffers(ring);
 		if (err)
 			goto out;
 		/* Set Receive Control "receive enable" and frame offset */
-		value = (ring->frameoffset << BCM430x_DMA_RXCTRL_FRAMEOFF_SHIFT);
-		value |= BCM430x_DMA_RXCTRL_ENABLE;
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_CONTROL,
+		value = (ring->frameoffset << BCM43xx_DMA_RXCTRL_FRAMEOFF_SHIFT);
+		value |= BCM43xx_DMA_RXCTRL_ENABLE;
+		bcm43xx_write32(ring->bcm,
+				ring->mmio_base + BCM43xx_DMA_RX_CONTROL,
 				value);
 		/* Set Receive Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
-				ring->dmabase + BCM430x_DMA_DMABUSADDROFFSET);
+		bcm43xx_write32(ring->bcm,
+				ring->mmio_base + BCM43xx_DMA_RX_DESC_RING,
+				ring->dmabase + BCM43xx_DMA_DMABUSADDROFFSET);
 		/* Init the descriptor pointer. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_DESC_INDEX,
+		bcm43xx_write32(ring->bcm,
+				ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
 				200);
 	}
 
@@ -489,27 +489,27 @@ out:
 }
 
 /* Shutdown the DMA controller. */
-static void dmacontroller_cleanup(struct bcm430x_dmaring *ring)
+static void dmacontroller_cleanup(struct bcm43xx_dmaring *ring)
 {
 	if (ring->tx) {
 		dmacontroller_tx_reset(ring);
 		/* Zero out Transmit Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_TX_DESC_RING,
+		bcm43xx_write32(ring->bcm,
+				ring->mmio_base + BCM43xx_DMA_TX_DESC_RING,
 				0x00000000);
 	} else {
 		dmacontroller_rx_reset(ring);
 		/* Zero out Receive Descriptor ring address. */
-		bcm430x_write32(ring->bcm,
-				ring->mmio_base + BCM430x_DMA_RX_DESC_RING,
+		bcm43xx_write32(ring->bcm,
+				ring->mmio_base + BCM43xx_DMA_RX_DESC_RING,
 				0x00000000);
 	}
 }
 
-static void free_all_descbuffers(struct bcm430x_dmaring *ring)
+static void free_all_descbuffers(struct bcm43xx_dmaring *ring)
 {
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
+	struct bcm43xx_dmadesc *desc;
+	struct bcm43xx_dmadesc_meta *meta;
 	int i;
 
 	if (!ring->used_slots)
@@ -536,12 +536,12 @@ static void free_all_descbuffers(struct bcm430x_dmaring *ring)
 
 /* Main initialization function. */
 static
-struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
+struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_private *bcm,
 					       u16 dma_controller_base,
 					       int nr_descriptor_slots,
 					       int tx)
 {
-	struct bcm430x_dmaring *ring;
+	struct bcm43xx_dmaring *ring;
 	int err;
 
 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
@@ -556,8 +556,8 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 	spin_lock_init(&ring->lock);
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
-	ring->suspend_mark = ring->nr_slots * BCM430x_TXSUSPEND_PERCENT / 100;
-	ring->resume_mark = ring->nr_slots * BCM430x_TXRESUME_PERCENT / 100;
+	ring->suspend_mark = ring->nr_slots * BCM43xx_TXSUSPEND_PERCENT / 100;
+	ring->resume_mark = ring->nr_slots * BCM43xx_TXRESUME_PERCENT / 100;
 	assert(ring->suspend_mark < ring->resume_mark);
 	ring->mmio_base = dma_controller_base;
 	if (tx) {
@@ -565,13 +565,13 @@ struct bcm430x_dmaring * bcm430x_setup_dmaring(struct bcm430x_private *bcm,
 		ring->current_slot = -1;
 	} else {
 		switch (dma_controller_base) {
-		case BCM430x_MMIO_DMA1_BASE:
-			ring->rx_buffersize = BCM430x_DMA1_RXBUFFERSIZE;
-			ring->frameoffset = BCM430x_DMA1_RX_FRAMEOFFSET;
+		case BCM43xx_MMIO_DMA1_BASE:
+			ring->rx_buffersize = BCM43xx_DMA1_RXBUFFERSIZE;
+			ring->frameoffset = BCM43xx_DMA1_RX_FRAMEOFFSET;
 			break;
-		case BCM430x_MMIO_DMA4_BASE:
-			ring->rx_buffersize = BCM430x_DMA4_RXBUFFERSIZE;
-			ring->frameoffset = BCM430x_DMA4_RX_FRAMEOFFSET;
+		case BCM43xx_MMIO_DMA4_BASE:
+			ring->rx_buffersize = BCM43xx_DMA4_RXBUFFERSIZE;
+			ring->frameoffset = BCM43xx_DMA4_RX_FRAMEOFFSET;
 			break;
 		default:
 			assert(0);
@@ -599,7 +599,7 @@ err_kfree_ring:
 }
 
 /* Main cleanup function. */
-static void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
+static void bcm43xx_destroy_dmaring(struct bcm43xx_dmaring *ring)
 {
 	if (!ring)
 		return;
@@ -615,62 +615,62 @@ static void bcm430x_destroy_dmaring(struct bcm430x_dmaring *ring)
 	kfree(ring);
 }
 
-void bcm430x_dma_free(struct bcm430x_private *bcm)
+void bcm43xx_dma_free(struct bcm43xx_private *bcm)
 {
-	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring1);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->rx_ring1);
 	bcm->current_core->dma->rx_ring1 = NULL;
-	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->rx_ring0);
 	bcm->current_core->dma->rx_ring0 = NULL;
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring3);
 	bcm->current_core->dma->tx_ring3 = NULL;
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring2);
 	bcm->current_core->dma->tx_ring2 = NULL;
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring1);
 	bcm->current_core->dma->tx_ring1 = NULL;
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring0);
 	bcm->current_core->dma->tx_ring0 = NULL;
 }
 
-int bcm430x_dma_init(struct bcm430x_private *bcm)
+int bcm43xx_dma_init(struct bcm43xx_private *bcm)
 {
-	struct bcm430x_dmaring *ring;
+	struct bcm43xx_dmaring *ring;
 	int err = -ENOMEM;
 
 	/* setup TX DMA channels. */
-	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
-				     BCM430x_TXRING_SLOTS, 1);
+	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA1_BASE,
+				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto out;
 	bcm->current_core->dma->tx_ring0 = ring;
 
-	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA2_BASE,
-				     BCM430x_TXRING_SLOTS, 1);
+	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA2_BASE,
+				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto err_destroy_tx0;
 	bcm->current_core->dma->tx_ring1 = ring;
 
-	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA3_BASE,
-				     BCM430x_TXRING_SLOTS, 1);
+	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA3_BASE,
+				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto err_destroy_tx1;
 	bcm->current_core->dma->tx_ring2 = ring;
 
-	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
-				     BCM430x_TXRING_SLOTS, 1);
+	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA4_BASE,
+				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto err_destroy_tx2;
 	bcm->current_core->dma->tx_ring3 = ring;
 
 	/* setup RX DMA channels. */
-	ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA1_BASE,
-				     BCM430x_RXRING_SLOTS, 0);
+	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA1_BASE,
+				     BCM43xx_RXRING_SLOTS, 0);
 	if (!ring)
 		goto err_destroy_tx3;
 	bcm->current_core->dma->rx_ring0 = ring;
 
 	if (bcm->current_core->rev < 5) {
-		ring = bcm430x_setup_dmaring(bcm, BCM430x_MMIO_DMA4_BASE,
-					     BCM430x_RXRING_SLOTS, 0);
+		ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA4_BASE,
+					     BCM43xx_RXRING_SLOTS, 0);
 		if (!ring)
 			goto err_destroy_rx0;
 		bcm->current_core->dma->rx_ring1 = ring;
@@ -682,26 +682,26 @@ out:
 	return err;
 
 err_destroy_rx0:
-	bcm430x_destroy_dmaring(bcm->current_core->dma->rx_ring0);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->rx_ring0);
 	bcm->current_core->dma->rx_ring0 = NULL;
 err_destroy_tx3:
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring3);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring3);
 	bcm->current_core->dma->tx_ring3 = NULL;
 err_destroy_tx2:
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring2);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring2);
 	bcm->current_core->dma->tx_ring2 = NULL;
 err_destroy_tx1:
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring1);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring1);
 	bcm->current_core->dma->tx_ring1 = NULL;
 err_destroy_tx0:
-	bcm430x_destroy_dmaring(bcm->current_core->dma->tx_ring0);
+	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring0);
 	bcm->current_core->dma->tx_ring0 = NULL;
 	goto out;
 }
 
 /* Generate a cookie for the TX header. */
 static inline
-u16 generate_cookie(struct bcm430x_dmaring *ring,
+u16 generate_cookie(struct bcm43xx_dmaring *ring,
 		    int slot)
 {
 	u16 cookie = 0x0000;
@@ -713,15 +713,15 @@ u16 generate_cookie(struct bcm430x_dmaring *ring,
 	switch (ring->mmio_base) {
 	default:
 		assert(0);
-	case BCM430x_MMIO_DMA1_BASE:
+	case BCM43xx_MMIO_DMA1_BASE:
 		break;
-	case BCM430x_MMIO_DMA2_BASE:
+	case BCM43xx_MMIO_DMA2_BASE:
 		cookie = 0x1000;
 		break;
-	case BCM430x_MMIO_DMA3_BASE:
+	case BCM43xx_MMIO_DMA3_BASE:
 		cookie = 0x2000;
 		break;
-	case BCM430x_MMIO_DMA4_BASE:
+	case BCM43xx_MMIO_DMA4_BASE:
 		cookie = 0x3000;
 		break;
 	}
@@ -733,10 +733,10 @@ u16 generate_cookie(struct bcm430x_dmaring *ring,
 
 /* Inspect a cookie and find out to which controller/slot it belongs. */
 static inline
-struct bcm430x_dmaring * parse_cookie(struct bcm430x_private *bcm,
+struct bcm43xx_dmaring * parse_cookie(struct bcm43xx_private *bcm,
 				      u16 cookie, int *slot)
 {
-	struct bcm430x_dmaring *ring = NULL;
+	struct bcm43xx_dmaring *ring = NULL;
 
 	switch (cookie & 0xF000) {
 	case 0x0000:
@@ -760,7 +760,7 @@ struct bcm430x_dmaring * parse_cookie(struct bcm430x_private *bcm,
 	return ring;
 }
 
-static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
+static inline int dma_tx_fragment_sg(struct bcm43xx_dmaring *ring,
 				     struct sk_buff *skb)
 {
 	/*TODO: Scatter/Gather IO */
@@ -768,15 +768,15 @@ static inline int dma_tx_fragment_sg(struct bcm430x_dmaring *ring,
 }
 
 static fastcall
-int dma_tx_fragment(struct bcm430x_dmaring *ring,
+int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 		    struct sk_buff *skb,
 		    struct ieee80211_txb *txb,
 		    u8 cur_frag)
 {
 	int err = 0;
 	int slot;
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
+	struct bcm43xx_dmadesc *desc;
+	struct bcm43xx_dmadesc_meta *meta;
 	dma_addr_t dmaaddr;
 	u32 desc_ctl = 0;
 	u32 desc_addr;
@@ -795,7 +795,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	if (cur_frag == 0) {
 		/* This is the first fragment. */
-		desc_ctl |= BCM430x_DMADTOR_FRAMESTART;
+		desc_ctl |= BCM43xx_DMADTOR_FRAMESTART;
 		/* Save the whole txb for freeing later in 
 		 * completion irq
 		 */
@@ -804,11 +804,11 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	if (likely(ring->bcm->no_txhdr == 0)) {
 		/* Add a device specific TX header. */
-		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
+		if (unlikely(skb_headroom(skb) < sizeof(struct bcm43xx_txhdr))) {
 			/* SKB has not enough headroom. Blame the ieee80211 subsys for this.
 			 * On latest 80211 subsys this should not trigger.
 			 */
-			err = skb_cow(skb, sizeof(struct bcm430x_txhdr));
+			err = skb_cow(skb, sizeof(struct bcm43xx_txhdr));
 			if (unlikely(err)) {
 				return_slot(ring, slot);
 				printkl(KERN_ERR PFX "DMA: Not enough skb headroom!\n");
@@ -816,22 +816,22 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 			}
 		}
 		/* Reserve enough headroom for the device tx header. */
-		__skb_push(skb, sizeof(struct bcm430x_txhdr));
+		__skb_push(skb, sizeof(struct bcm43xx_txhdr));
 		/* Now calculate and add the tx header.
 		 * The tx header includes the PLCP header.
 		 */
-		bcm430x_generate_txhdr(ring->bcm,
-				       (struct bcm430x_txhdr *)skb->data,
-				       skb->data + sizeof(struct bcm430x_txhdr),
-				       skb->len - sizeof(struct bcm430x_txhdr),
+		bcm43xx_generate_txhdr(ring->bcm,
+				       (struct bcm43xx_txhdr *)skb->data,
+				       skb->data + sizeof(struct bcm43xx_txhdr),
+				       skb->len - sizeof(struct bcm43xx_txhdr),
 				       (cur_frag == 0),
 				       generate_cookie(ring, slot));
 	} else {
-		struct bcm430x_txhdr *txhdr;
+		struct bcm43xx_txhdr *txhdr;
 
 		/* We have to modify the cookie to free buffers later. */
 		dprintk(KERN_INFO PFX "Modifying cookie in given TX header.\n");
-		txhdr = (struct bcm430x_txhdr *)skb->data;
+		txhdr = (struct bcm43xx_txhdr *)skb->data;
 		txhdr->cookie = cpu_to_le16(generate_cookie(ring, slot));
 	}
 
@@ -839,11 +839,11 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 	dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
 	meta->dmaaddr = dmaaddr;
 
-	desc_addr = (u32)(dmaaddr + BCM430x_DMA_DMABUSADDROFFSET);
-	desc_ctl |= (BCM430x_DMADTOR_BYTECNT_MASK &
+	desc_addr = (u32)(dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
+	desc_ctl |= (BCM43xx_DMADTOR_BYTECNT_MASK &
 		     (u32)(meta->skb->len - ring->frameoffset));
 	if (slot == ring->nr_slots - 1)
-		desc_ctl |= BCM430x_DMADTOR_DTABLEEND;
+		desc_ctl |= BCM43xx_DMADTOR_DTABLEEND;
 
 	if (skb_shinfo(skb)->nr_frags != 0) {
 		/* Map the remaining Scatter/Gather fragments */
@@ -858,7 +858,7 @@ int dma_tx_fragment(struct bcm430x_dmaring *ring,
 
 	if (txb == NULL || cur_frag == txb->nr_frags - 1) {
 		/* This is the last fragment */
-		desc_ctl |= BCM430x_DMADTOR_FRAMEEND | BCM430x_DMADTOR_COMPIRQ;
+		desc_ctl |= BCM43xx_DMADTOR_FRAMEEND | BCM43xx_DMADTOR_COMPIRQ;
 		set_desc_ctl(desc, desc_ctl);
 		set_desc_addr(desc, desc_addr);
 		/* Now transfer the whole frame. */
@@ -868,7 +868,7 @@ out:
 	return err;
 }
 
-static inline int dma_transfer_txb(struct bcm430x_dmaring *ring,
+static inline int dma_transfer_txb(struct bcm43xx_dmaring *ring,
 				   struct ieee80211_txb *txb)
 {
 	/* We just received a packet from the kernel network subsystem.
@@ -902,8 +902,8 @@ out_unlock:
 
 err_unwind:
 	{
-		struct bcm430x_dmadesc *desc;
-		struct bcm430x_dmadesc_meta *meta;
+		struct bcm43xx_dmadesc *desc;
+		struct bcm43xx_dmadesc_meta *meta;
 		int slot;
 		int is_first;
 
@@ -929,7 +929,7 @@ err_unwind:
 }
 
 /* Transfer a frame from a char buffer. */
-int fastcall bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
+int fastcall bcm43xx_dma_tx_frame(struct bcm43xx_dmaring *ring,
 				  const char *buf, size_t size)
 {
 	struct sk_buff *skb;
@@ -943,13 +943,13 @@ int fastcall bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 		return -EBUSY;
 
 	if (likely(ring->bcm->no_txhdr == 0))
-		skb_size += sizeof(struct bcm430x_txhdr);
+		skb_size += sizeof(struct bcm43xx_txhdr);
 	skb = dev_alloc_skb(skb_size);
 	if (unlikely(!skb))
 		return -ENOMEM;
 	skb->dev = ring->bcm->net_dev;
 	if (likely(ring->bcm->no_txhdr == 0))
-		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
+		skb_reserve(skb, sizeof(struct bcm43xx_txhdr));
 	memcpy(skb_put(skb, size), buf, size);
 	mark_skb_mustfree(skb, 1);
 
@@ -961,7 +961,7 @@ int fastcall bcm430x_dma_tx_frame(struct bcm430x_dmaring *ring,
 }
 
 int fastcall
-bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
+bcm43xx_dma_transfer_txb(struct bcm43xx_private *bcm,
 			 struct ieee80211_txb *txb)
 {
 	return dma_transfer_txb(bcm->current_core->dma->tx_ring1,
@@ -969,10 +969,10 @@ bcm430x_dma_transfer_txb(struct bcm430x_private *bcm,
 }
 
 void fastcall
-bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
-			      struct bcm430x_xmitstatus *status)
+bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
+			      struct bcm43xx_xmitstatus *status)
 {
-	struct bcm430x_dmaring *ring;
+	struct bcm43xx_dmaring *ring;
 	int slot;
 	unsigned long flags;
 
@@ -984,12 +984,12 @@ bcm430x_dma_handle_xmitstatus(struct bcm430x_private *bcm,
 }
 
 static inline
-void dma_rx(struct bcm430x_dmaring *ring,
+void dma_rx(struct bcm43xx_dmaring *ring,
 	    int slot)
 {
-	struct bcm430x_dmadesc *desc;
-	struct bcm430x_dmadesc_meta *meta;
-	struct bcm430x_rxhdr *rxhdr;
+	struct bcm43xx_dmadesc *desc;
+	struct bcm43xx_dmadesc_meta *meta;
+	struct bcm43xx_rxhdr *rxhdr;
 	struct sk_buff *skb;
 	struct ieee80211_rx_stats rx_stats;
 	u16 len;
@@ -1003,7 +1003,7 @@ void dma_rx(struct bcm430x_dmaring *ring,
 
 	sync_descbuffer_for_cpu(ring, meta->dmaaddr, ring->rx_buffersize);
 	skb = meta->skb;
-	rxhdr = (struct bcm430x_rxhdr *)skb->data;
+	rxhdr = (struct bcm43xx_rxhdr *)skb->data;
 	len = cpu_to_le16(rxhdr->frame_length);
 	if (len == 0) {
 		int i = 0;
@@ -1025,7 +1025,7 @@ void dma_rx(struct bcm430x_dmaring *ring,
 	}
 	len -= IEEE80211_FCS_LEN;
 
-	if (1/*len > BCM430x_DMA_RX_COPYTHRESHOLD*/) {
+	if (1/*len > BCM43xx_DMA_RX_COPYTHRESHOLD*/) {
 		dmaaddr = meta->dmaaddr;
 		err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
 		if (unlikely(err)) {
@@ -1040,14 +1040,14 @@ void dma_rx(struct bcm430x_dmaring *ring,
 		//TODO
 	}
 
-	if (ring->mmio_base == BCM430x_MMIO_DMA4_BASE) {
-		bcm430x_rx_transmitstatus(ring->bcm,
-					  (const struct bcm430x_hwxmitstatus *)skb->data);
+	if (ring->mmio_base == BCM43xx_MMIO_DMA4_BASE) {
+		bcm43xx_rx_transmitstatus(ring->bcm,
+					  (const struct bcm43xx_hwxmitstatus *)skb->data);
 		dev_kfree_skb_irq(skb);
 		return;
 	}
 
-	err = bcm430x_rx(ring->bcm, skb, rxhdr);
+	err = bcm43xx_rx(ring->bcm, skb, rxhdr);
 	if (unlikely(err)) {
 		dev_kfree_skb_irq(skb);
 		goto drop;
@@ -1058,23 +1058,23 @@ drop:
 }
 
 void fastcall
-bcm430x_dma_rx(struct bcm430x_dmaring *ring)
+bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 {
 	u32 status;
 	u16 descptr;
 	int slot, current_slot;
 
 	assert(!ring->tx);
-	status = bcm430x_read32(ring->bcm, ring->mmio_base + BCM430x_DMA_RX_STATUS);
-	descptr = (status & BCM430x_DMA_RXSTAT_DPTR_MASK);
-	current_slot = descptr / sizeof(struct bcm430x_dmadesc);
+	status = bcm43xx_read32(ring->bcm, ring->mmio_base + BCM43xx_DMA_RX_STATUS);
+	descptr = (status & BCM43xx_DMA_RXSTAT_DPTR_MASK);
+	current_slot = descptr / sizeof(struct bcm43xx_dmadesc);
 	assert(current_slot >= 0 && current_slot < ring->nr_slots);
 	slot = ring->current_slot;
 	for ( ; slot != current_slot; slot = next_slot(ring, slot))
 		dma_rx(ring, slot);
-	bcm430x_write32(ring->bcm,
-			ring->mmio_base + BCM430x_DMA_RX_DESC_INDEX,
-			(u32)(slot * sizeof(struct bcm430x_dmadesc)));
+	bcm43xx_write32(ring->bcm,
+			ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
+			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
 	ring->current_slot = slot;
 }
 

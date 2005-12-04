@@ -25,7 +25,7 @@ clean:
 
 installfw:
 	-if ! [ -d $(FIRMWARE_INSTALL_DIR) ]; then mkdir $(FIRMWARE_INSTALL_DIR); fi
-	-install -o 0 -g 0 -m 600 bcm430x_*.fw $(FIRMWARE_INSTALL_DIR)
+	-install -o 0 -g 0 -m 600 bcm43xx_*.fw $(FIRMWARE_INSTALL_DIR)
 
 # dependencies
 fwcutter.o: md5.h fwcutter_list.h

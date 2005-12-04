@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   PIO Transmission
 
@@ -23,48 +23,48 @@
 
 */
 
-#include "bcm430x.h"
-#include "bcm430x_pio.h"
-#include "bcm430x_main.h"
+#include "bcm43xx.h"
+#include "bcm43xx_pio.h"
+#include "bcm43xx_main.h"
 
 #include <linux/delay.h>
 
 
 static inline
-u16 bcm430x_pio_read(struct bcm430x_pioqueue *queue,
+u16 bcm43xx_pio_read(struct bcm43xx_pioqueue *queue,
 		     u16 offset)
 {
-	return bcm430x_read16(queue->bcm, queue->mmio_base + offset);
+	return bcm43xx_read16(queue->bcm, queue->mmio_base + offset);
 }
 
 static inline
-void bcm430x_pio_write(struct bcm430x_pioqueue *queue,
+void bcm43xx_pio_write(struct bcm43xx_pioqueue *queue,
 		       u16 offset, u16 value)
 {
-	bcm430x_write16(queue->bcm, queue->mmio_base + offset, value);
+	bcm43xx_write16(queue->bcm, queue->mmio_base + offset, value);
 }
 
 static inline
-void tx_start(struct bcm430x_pioqueue *queue)
+void tx_start(struct bcm43xx_pioqueue *queue)
 {
-	bcm430x_pio_write(queue, BCM430x_PIO_TXCTL, BCM430x_PIO_TXCTL_INIT);
+	bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL, BCM43xx_PIO_TXCTL_INIT);
 }
 
 static inline
-void tx_octet(struct bcm430x_pioqueue *queue,
+void tx_octet(struct bcm43xx_pioqueue *queue,
 	      u8 octet)
 {
 	if (queue->bcm->current_core->rev < 3) {
-		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, octet);
-		bcm430x_pio_write(queue, BCM430x_PIO_TXCTL, BCM430x_PIO_TXCTL_WRITEHI);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA, octet);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL, BCM43xx_PIO_TXCTL_WRITEHI);
 	} else {
-		bcm430x_pio_write(queue, BCM430x_PIO_TXCTL, BCM430x_PIO_TXCTL_WRITEHI);
-		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, octet);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL, BCM43xx_PIO_TXCTL_WRITEHI);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA, octet);
 	}
 }
 
 static inline
-void tx_data(struct bcm430x_pioqueue *queue,
+void tx_data(struct bcm43xx_pioqueue *queue,
 	     u8 *packet,
 	     unsigned int octets)
 {
@@ -73,37 +73,37 @@ void tx_data(struct bcm430x_pioqueue *queue,
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)packet) );
-		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA, data);
 		i += 2;
 	}
-	bcm430x_pio_write(queue, BCM430x_PIO_TXCTL,
-			  BCM430x_PIO_TXCTL_WRITELO | BCM430x_PIO_TXCTL_WRITEHI);
+	bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
+			  BCM43xx_PIO_TXCTL_WRITELO | BCM43xx_PIO_TXCTL_WRITEHI);
 	for ( ; i < octets - 1; i += 2) {
 		data = be16_to_cpu( *((u16 *)(packet + i)) );
-		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA, data);
 	}
 	if (octets % 2)
 		tx_octet(queue, packet[octets - 1]);
 }
 
 static inline
-void tx_complete(struct bcm430x_pioqueue *queue,
+void tx_complete(struct bcm43xx_pioqueue *queue,
 		 struct sk_buff *skb)
 {
 	u16 data;
 
 	if (queue->bcm->current_core->rev < 3) {
 		data = be16_to_cpu( *((u16 *)(skb->data + skb->len - 2)) );
-		bcm430x_pio_write(queue, BCM430x_PIO_TXDATA, data);
-		bcm430x_pio_write(queue, BCM430x_PIO_TXCTL,
-				  BCM430x_PIO_TXCTL_WRITEHI | BCM430x_PIO_TXCTL_COMPLETE);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXDATA, data);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL,
+				  BCM43xx_PIO_TXCTL_WRITEHI | BCM43xx_PIO_TXCTL_COMPLETE);
 	} else {
-		bcm430x_pio_write(queue, BCM430x_PIO_TXCTL, BCM430x_PIO_TXCTL_COMPLETE);
+		bcm43xx_pio_write(queue, BCM43xx_PIO_TXCTL, BCM43xx_PIO_TXCTL_COMPLETE);
 	}
 }
 
 static inline
-u16 generate_cookie(struct bcm430x_pioqueue *queue,
+u16 generate_cookie(struct bcm43xx_pioqueue *queue,
 		    int packetindex)
 {
 	u16 cookie = 0x0000;
@@ -115,15 +115,15 @@ u16 generate_cookie(struct bcm430x_pioqueue *queue,
 	switch (queue->mmio_base) {
 	default:
 		assert(0);
-	case BCM430x_MMIO_PIO1_BASE:
+	case BCM43xx_MMIO_PIO1_BASE:
 		break;
-	case BCM430x_MMIO_PIO2_BASE:
+	case BCM43xx_MMIO_PIO2_BASE:
 		cookie = 0x1000;
 		break;
-	case BCM430x_MMIO_PIO3_BASE:
+	case BCM43xx_MMIO_PIO3_BASE:
 		cookie = 0x2000;
 		break;
-	case BCM430x_MMIO_PIO4_BASE:
+	case BCM43xx_MMIO_PIO4_BASE:
 		cookie = 0x3000;
 		break;
 	}
@@ -134,11 +134,11 @@ u16 generate_cookie(struct bcm430x_pioqueue *queue,
 }
 
 static inline
-struct bcm430x_pioqueue * parse_cookie(struct bcm430x_private *bcm,
+struct bcm43xx_pioqueue * parse_cookie(struct bcm43xx_private *bcm,
 				       u16 cookie,
-				       struct bcm430x_pio_txpacket **packet)
+				       struct bcm43xx_pio_txpacket **packet)
 {
-	struct bcm430x_pioqueue *queue = NULL;
+	struct bcm43xx_pioqueue *queue = NULL;
 	int packetindex;
 
 	switch (cookie & 0xF000) {
@@ -159,16 +159,16 @@ struct bcm430x_pioqueue * parse_cookie(struct bcm430x_private *bcm,
 	}
 
 	packetindex = (cookie & 0x0FFF);
-	assert(packetindex >= 0 && packetindex < BCM430x_PIO_MAXTXPACKETS);
+	assert(packetindex >= 0 && packetindex < BCM43xx_PIO_MAXTXPACKETS);
 	*packet = queue->__tx_packets_cache + packetindex;
 
 	return queue;
 }
 
 static inline
-void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
+void pio_tx_write_fragment(struct bcm43xx_pioqueue *queue,
 			   struct sk_buff *skb,
-			   struct bcm430x_pio_txpacket *packet)
+			   struct bcm43xx_pio_txpacket *packet)
 {
 	unsigned int octets;
 	int err;
@@ -176,18 +176,18 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 	/*TODO: fragmented skb */
 
 	if (likely(packet->no_txhdr == 0)) {
-		if (unlikely(skb_headroom(skb) < sizeof(struct bcm430x_txhdr))) {
-			err = skb_cow(skb, sizeof(struct bcm430x_txhdr));
+		if (unlikely(skb_headroom(skb) < sizeof(struct bcm43xx_txhdr))) {
+			err = skb_cow(skb, sizeof(struct bcm43xx_txhdr));
 			if (unlikely(err)) {
 				printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
 				return;
 			}
 		}
-		__skb_push(skb, sizeof(struct bcm430x_txhdr));
-		bcm430x_generate_txhdr(queue->bcm,
-				       (struct bcm430x_txhdr *)skb->data,
-				       skb->data + sizeof(struct bcm430x_txhdr),
-				       skb->len - sizeof(struct bcm430x_txhdr),
+		__skb_push(skb, sizeof(struct bcm43xx_txhdr));
+		bcm43xx_generate_txhdr(queue->bcm,
+				       (struct bcm43xx_txhdr *)skb->data,
+				       skb->data + sizeof(struct bcm43xx_txhdr),
+				       skb->len - sizeof(struct bcm43xx_txhdr),
 				       (packet->xmitted_frags == 0),
 				       generate_cookie(queue, pio_txpacket_getindex(packet)));
 	}
@@ -201,9 +201,9 @@ void pio_tx_write_fragment(struct bcm430x_pioqueue *queue,
 }
 
 static inline
-int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
+int pio_tx_packet(struct bcm43xx_pio_txpacket *packet)
 {
-	struct bcm430x_pioqueue *queue = packet->queue;
+	struct bcm43xx_pioqueue *queue = packet->queue;
 	struct ieee80211_txb *txb = packet->txb;
 	struct sk_buff *skb;
 	u16 octets;
@@ -214,16 +214,16 @@ int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
 
 		octets = (u16)skb->len;
 		if (likely(queue->bcm->no_txhdr == 0))
-			octets += sizeof(struct bcm430x_txhdr);
+			octets += sizeof(struct bcm43xx_txhdr);
 
 		assert(queue->tx_devq_size >= octets);
-		assert(queue->tx_devq_packets <= BCM430x_PIO_MAXTXDEVQPACKETS);
+		assert(queue->tx_devq_packets <= BCM43xx_PIO_MAXTXDEVQPACKETS);
 		assert(queue->tx_devq_used <= queue->tx_devq_size);
 		/* Check if there is sufficient free space on the device
 		 * TX queue. If not, return and let the TX-work-handler
 		 * retry later.
 		 */
-		if (queue->tx_devq_packets == BCM430x_PIO_MAXTXDEVQPACKETS)
+		if (queue->tx_devq_packets == BCM43xx_PIO_MAXTXDEVQPACKETS)
 			return -EBUSY;
 		if (queue->tx_devq_used + octets > queue->tx_devq_size)
 			return -EBUSY;
@@ -245,15 +245,15 @@ int pio_tx_packet(struct bcm430x_pio_txpacket *packet)
 	return 0;
 }
 
-static void free_txpacket(struct bcm430x_pio_txpacket *packet)
+static void free_txpacket(struct bcm43xx_pio_txpacket *packet)
 {
-	struct bcm430x_pioqueue *queue = packet->queue;
+	struct bcm43xx_pioqueue *queue = packet->queue;
 
 	if (unlikely(packet->txb_is_dummy)) {
 		u8 i;
 
 		/* This is only a hack for the debugging function
-		 * bcm430x_pio_tx_frame()
+		 * bcm43xx_pio_tx_frame()
 		 */
 		for (i = 0; i < packet->txb->nr_frags; i++)
 			dev_kfree_skb_any(packet->txb->fragments[i]);
@@ -274,9 +274,9 @@ static void free_txpacket(struct bcm430x_pio_txpacket *packet)
 
 static void txwork_handler(void *d)
 {
-	struct bcm430x_pioqueue *queue = d;
+	struct bcm43xx_pioqueue *queue = d;
 	unsigned long flags;
-	struct bcm430x_pio_txpacket *packet, *tmp_packet;
+	struct bcm43xx_pio_txpacket *packet, *tmp_packet;
 	int err;
 
 	spin_lock_irqsave(&queue->txlock, flags);
@@ -312,12 +312,12 @@ next_packet:
 	spin_unlock_irqrestore(&queue->txlock, flags);
 }
 
-static void setup_txqueues(struct bcm430x_pioqueue *queue)
+static void setup_txqueues(struct bcm43xx_pioqueue *queue)
 {
-	struct bcm430x_pio_txpacket *packet;
+	struct bcm43xx_pio_txpacket *packet;
 	int i;
 
-	for (i = 0; i < BCM430x_PIO_MAXTXPACKETS; i++) {
+	for (i = 0; i < BCM43xx_PIO_MAXTXPACKETS; i++) {
 		packet = queue->__tx_packets_cache + i;
 
 		packet->queue = queue;
@@ -328,10 +328,10 @@ static void setup_txqueues(struct bcm430x_pioqueue *queue)
 }
 
 static
-struct bcm430x_pioqueue * bcm430x_setup_pioqueue(struct bcm430x_private *bcm,
+struct bcm43xx_pioqueue * bcm43xx_setup_pioqueue(struct bcm43xx_private *bcm,
 						 u16 pio_mmio_base)
 {
-	struct bcm430x_pioqueue *queue;
+	struct bcm43xx_pioqueue *queue;
 	u32 value;
 	u16 qsize;
 
@@ -349,16 +349,16 @@ struct bcm430x_pioqueue * bcm430x_setup_pioqueue(struct bcm430x_private *bcm,
 	spin_lock_init(&queue->txlock);
 	INIT_WORK(&queue->txwork, txwork_handler, queue);
 
-	value = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	value |= BCM430x_SBF_XFER_REG_BYTESWAP;
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value);
+	value = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	value |= BCM43xx_SBF_XFER_REG_BYTESWAP;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value);
 
-	qsize = bcm430x_read16(bcm, queue->mmio_base + BCM430x_PIO_TXQBUFSIZE);
-	if (qsize <= BCM430x_PIO_TXQADJUST) {
+	qsize = bcm43xx_read16(bcm, queue->mmio_base + BCM43xx_PIO_TXQBUFSIZE);
+	if (qsize <= BCM43xx_PIO_TXQADJUST) {
 		printk(KERN_ERR PFX "PIO tx queue too small (%u)\n", qsize);
 		goto err_freequeue;
 	}
-	qsize -= BCM430x_PIO_TXQADJUST;
+	qsize -= BCM43xx_PIO_TXQADJUST;
 	queue->tx_devq_size = qsize;
 
 	setup_txqueues(queue);
@@ -372,9 +372,9 @@ err_freequeue:
 	goto out;
 }
 
-static void cancel_transfers(struct bcm430x_pioqueue *queue)
+static void cancel_transfers(struct bcm43xx_pioqueue *queue)
 {
-	struct bcm430x_pio_txpacket *packet, *tmp_packet;
+	struct bcm43xx_pio_txpacket *packet, *tmp_packet;
 
 	netif_tx_disable(queue->bcm->net_dev);
 	assert(queue->bcm->shutting_down);
@@ -387,7 +387,7 @@ static void cancel_transfers(struct bcm430x_pioqueue *queue)
 		free_txpacket(packet);
 }
 
-static void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue)
+static void bcm43xx_destroy_pioqueue(struct bcm43xx_pioqueue *queue)
 {
 	if (!queue)
 		return;
@@ -396,45 +396,45 @@ static void bcm430x_destroy_pioqueue(struct bcm430x_pioqueue *queue)
 	kfree(queue);
 }
 
-void bcm430x_pio_free(struct bcm430x_private *bcm)
+void bcm43xx_pio_free(struct bcm43xx_private *bcm)
 {
-	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue3);
+	bcm43xx_destroy_pioqueue(bcm->current_core->pio->queue3);
 	bcm->current_core->pio->queue3 = NULL;
-	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
+	bcm43xx_destroy_pioqueue(bcm->current_core->pio->queue2);
 	bcm->current_core->pio->queue2 = NULL;
-	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
+	bcm43xx_destroy_pioqueue(bcm->current_core->pio->queue1);
 	bcm->current_core->pio->queue1 = NULL;
-	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
+	bcm43xx_destroy_pioqueue(bcm->current_core->pio->queue0);
 	bcm->current_core->pio->queue0 = NULL;
 }
 
-int bcm430x_pio_init(struct bcm430x_private *bcm)
+int bcm43xx_pio_init(struct bcm43xx_private *bcm)
 {
-	struct bcm430x_pioqueue *queue;
+	struct bcm43xx_pioqueue *queue;
 	int err = -ENOMEM;
 
-	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO1_BASE);
+	queue = bcm43xx_setup_pioqueue(bcm, BCM43xx_MMIO_PIO1_BASE);
 	if (!queue)
 		goto out;
 	bcm->current_core->pio->queue0 = queue;
 
-	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO2_BASE);
+	queue = bcm43xx_setup_pioqueue(bcm, BCM43xx_MMIO_PIO2_BASE);
 	if (!queue)
 		goto err_destroy0;
 	bcm->current_core->pio->queue1 = queue;
 
-	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO3_BASE);
+	queue = bcm43xx_setup_pioqueue(bcm, BCM43xx_MMIO_PIO3_BASE);
 	if (!queue)
 		goto err_destroy1;
 	bcm->current_core->pio->queue2 = queue;
 
-	queue = bcm430x_setup_pioqueue(bcm, BCM430x_MMIO_PIO4_BASE);
+	queue = bcm43xx_setup_pioqueue(bcm, BCM43xx_MMIO_PIO4_BASE);
 	if (!queue)
 		goto err_destroy2;
 	bcm->current_core->pio->queue3 = queue;
 
 	if (bcm->current_core->rev < 3)
-		bcm->irq_savedstate |= BCM430x_IRQ_PIO_WORKAROUND;
+		bcm->irq_savedstate |= BCM43xx_IRQ_PIO_WORKAROUND;
 
 	dprintk(KERN_INFO PFX "PIO initialized\n");
 	err = 0;
@@ -442,23 +442,23 @@ out:
 	return err;
 
 err_destroy2:
-	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue2);
+	bcm43xx_destroy_pioqueue(bcm->current_core->pio->queue2);
 	bcm->current_core->pio->queue2 = NULL;
 err_destroy1:
-	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue1);
+	bcm43xx_destroy_pioqueue(bcm->current_core->pio->queue1);
 	bcm->current_core->pio->queue1 = NULL;
 err_destroy0:
-	bcm430x_destroy_pioqueue(bcm->current_core->pio->queue0);
+	bcm43xx_destroy_pioqueue(bcm->current_core->pio->queue0);
 	bcm->current_core->pio->queue0 = NULL;
 	goto out;
 }
 
 static fastcall
-int pio_transfer_txb(struct bcm430x_pioqueue *queue,
+int pio_transfer_txb(struct bcm43xx_pioqueue *queue,
 		     struct ieee80211_txb *txb,
 		     const int txb_is_dummy)
 {
-	struct bcm430x_pio_txpacket *packet;
+	struct bcm43xx_pio_txpacket *packet;
 	unsigned long flags;
 	u16 tmp;
 
@@ -466,13 +466,13 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	assert(!queue->tx_suspended);
 	assert(!list_empty(&queue->txfree));
 
-	tmp = bcm430x_pio_read(queue, BCM430x_PIO_TXCTL);
-	if (tmp & BCM430x_PIO_TXCTL_SUSPEND) {
+	tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_TXCTL);
+	if (tmp & BCM43xx_PIO_TXCTL_SUSPEND) {
 		spin_unlock_irqrestore(&queue->txlock, flags);
 		return -EBUSY;
 	}
 
-	packet = list_entry(queue->txfree.next, struct bcm430x_pio_txpacket, list);
+	packet = list_entry(queue->txfree.next, struct bcm43xx_pio_txpacket, list);
 
 	packet->txb = txb;
 	list_move_tail(&packet->list, &queue->txqueue);
@@ -493,7 +493,7 @@ int pio_transfer_txb(struct bcm430x_pioqueue *queue,
 	return 0;
 }
 
-int fastcall bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
+int fastcall bcm43xx_pio_transfer_txb(struct bcm43xx_private *bcm,
 				      struct ieee80211_txb *txb)
 {
 	int err;
@@ -504,7 +504,7 @@ int fastcall bcm430x_pio_transfer_txb(struct bcm430x_private *bcm,
 	return err;
 }
 
-int fastcall bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
+int fastcall bcm43xx_pio_tx_frame(struct bcm43xx_pioqueue *queue,
 				  const char *buf, size_t size)
 {
 	struct sk_buff *skb;
@@ -517,12 +517,12 @@ int fastcall bcm430x_pio_tx_frame(struct bcm430x_pioqueue *queue,
 
 	skb_size = size;
 	if (likely(queue->bcm->no_txhdr == 0))
-		skb_size += sizeof(struct bcm430x_txhdr);
+		skb_size += sizeof(struct bcm43xx_txhdr);
 	skb = dev_alloc_skb(skb_size);
 	if (unlikely(!skb))
 		goto out;
 	if (likely(!queue->bcm->no_txhdr))
-		skb_reserve(skb, sizeof(struct bcm430x_txhdr));
+		skb_reserve(skb, sizeof(struct bcm43xx_txhdr));
 	memcpy(skb_put(skb, size), buf, size);
 
 	/* Setup a dummy txb. Be careful to not free this
@@ -550,11 +550,11 @@ err_kfree_skb:
 }
 
 void fastcall
-bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
-			      struct bcm430x_xmitstatus *status)
+bcm43xx_pio_handle_xmitstatus(struct bcm43xx_private *bcm,
+			      struct bcm43xx_xmitstatus *status)
 {
-	struct bcm430x_pioqueue *queue;
-	struct bcm430x_pio_txpacket *packet;
+	struct bcm43xx_pioqueue *queue;
+	struct bcm43xx_pio_txpacket *packet;
 	unsigned long flags;
 
 	queue = parse_cookie(bcm, status->cookie, &packet);
@@ -576,34 +576,34 @@ bcm430x_pio_handle_xmitstatus(struct bcm430x_private *bcm,
 	spin_unlock_irqrestore(&queue->txlock, flags);
 }
 
-static void pio_rx_error(struct bcm430x_pioqueue *queue,
+static void pio_rx_error(struct bcm43xx_pioqueue *queue,
 			 const char *error)
 {
 	printk("PIO RX error: %s\n", error);
-	bcm430x_pio_write(queue, BCM430x_PIO_RXCTL, BCM430x_PIO_RXCTL_READY);
+	bcm43xx_pio_write(queue, BCM43xx_PIO_RXCTL, BCM43xx_PIO_RXCTL_READY);
 }
 
 void fastcall
-bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
+bcm43xx_pio_rx(struct bcm43xx_pioqueue *queue)
 {
 	u16 preamble[21] = { 0 };
-	struct bcm430x_rxhdr *rxhdr;
+	struct bcm43xx_rxhdr *rxhdr;
 	u16 tmp;
 	u16 len;
 	int i, err;
 	int preamble_readwords;
 	struct sk_buff *skb;
 
-	tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXCTL);
-	if (!(tmp & BCM430x_PIO_RXCTL_DATAAVAILABLE)) {
+	tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_RXCTL);
+	if (!(tmp & BCM43xx_PIO_RXCTL_DATAAVAILABLE)) {
 		dprintkl(KERN_ERR PFX "PIO RX: No data available\n");
 		return;
 	}
-	bcm430x_pio_write(queue, BCM430x_PIO_RXCTL, BCM430x_PIO_RXCTL_DATAAVAILABLE);
+	bcm43xx_pio_write(queue, BCM43xx_PIO_RXCTL, BCM43xx_PIO_RXCTL_DATAAVAILABLE);
 
 	for (i = 0; i < 10; i++) {
-		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXCTL);
-		if (tmp & BCM430x_PIO_RXCTL_READY)
+		tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_RXCTL);
+		if (tmp & BCM43xx_PIO_RXCTL_READY)
 			goto data_ready;
 		udelay(10);
 	}
@@ -611,36 +611,36 @@ bcm430x_pio_rx(struct bcm430x_pioqueue *queue)
 	return;
 data_ready:
 
-	len = le16_to_cpu(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
+	len = le16_to_cpu(bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA));
 	if (unlikely(len > 0x700)) {
 		pio_rx_error(queue, "len > 0x700");
 		return;
 	}
-	if (unlikely(len == 0 && queue->mmio_base != BCM430x_MMIO_PIO4_BASE)) {
+	if (unlikely(len == 0 && queue->mmio_base != BCM43xx_MMIO_PIO4_BASE)) {
 		pio_rx_error(queue, "len == 0");
 		return;
 	}
 	preamble[0] = cpu_to_le16(len);
-	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE)
+	if (queue->mmio_base == BCM43xx_MMIO_PIO4_BASE)
 		preamble_readwords = 14 / sizeof(u16);
 	else
 		preamble_readwords = 18 / sizeof(u16);
 	for (i = 0; i < preamble_readwords; i++) {
-		tmp = bcm430x_pio_read(queue, BCM430x_PIO_RXDATA);
+		tmp = bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA);
 		preamble[i + 1] = cpu_to_be16(tmp);
 	}
-	rxhdr = (struct bcm430x_rxhdr *)preamble;
-	if (unlikely(rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_INVALIDFRAME)) {
+	rxhdr = (struct bcm43xx_rxhdr *)preamble;
+	if (unlikely(rxhdr->flags2 & BCM43xx_RXHDR_FLAGS2_INVALIDFRAME)) {
 		pio_rx_error(queue, "invalid frame");
-		if (queue->mmio_base == BCM430x_MMIO_PIO1_BASE) {
+		if (queue->mmio_base == BCM43xx_MMIO_PIO1_BASE) {
 			for (i = 0; i < 15; i++)
-				bcm430x_pio_read(queue, BCM430x_PIO_RXDATA); /* dummy read. */
+				bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA); /* dummy read. */
 		}
 		return;
 	}
-	if (queue->mmio_base == BCM430x_MMIO_PIO4_BASE) {
-		bcm430x_rx_transmitstatus(queue->bcm,
-					  (const struct bcm430x_hwxmitstatus *)(preamble + 1));
+	if (queue->mmio_base == BCM43xx_MMIO_PIO4_BASE) {
+		bcm43xx_rx_transmitstatus(queue->bcm,
+					  (const struct bcm43xx_hwxmitstatus *)(preamble + 1));
 		return;
 	}
 	skb = dev_alloc_skb(len);
@@ -650,15 +650,15 @@ data_ready:
 	}
 	skb_put(skb, len);
 	for (i = 0; i < len - 1; i += 2) {
-		tmp = cpu_to_be16(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
+		tmp = cpu_to_be16(bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA));
 		*((u16 *)(skb->data + i)) = tmp;
 	}
 	if (len % 2) {
-		tmp = cpu_to_be16(bcm430x_pio_read(queue, BCM430x_PIO_RXDATA));
+		tmp = cpu_to_be16(bcm43xx_pio_read(queue, BCM43xx_PIO_RXDATA));
 		skb->data[len - 1] = (tmp & 0x00FF);
 		skb->data[0] = (tmp & 0xFF00) >> 8;
 	}
-	err = bcm430x_rx(queue->bcm, skb, rxhdr);
+	err = bcm43xx_rx(queue->bcm, skb, rxhdr);
 	if (unlikely(err))
 		dev_kfree_skb_irq(skb);
 }

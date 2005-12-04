@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   debugfs driver debugging code
 
@@ -32,15 +32,15 @@
 #include <linux/pci.h>
 #include <asm/io.h>
 
-#include "bcm430x.h"
-#include "bcm430x_main.h"
-#include "bcm430x_debugfs.h"
-#include "bcm430x_dma.h"
-#include "bcm430x_pio.h"
+#include "bcm43xx.h"
+#include "bcm43xx_main.h"
+#include "bcm43xx_debugfs.h"
+#include "bcm43xx_dma.h"
+#include "bcm43xx_pio.h"
 
 #define REALLY_BIG_BUFFER_SIZE	(1024*256)
 
-static struct bcm430x_debugfs fs;
+static struct bcm43xx_debugfs fs;
 static char really_big_buffer[REALLY_BIG_BUFFER_SIZE];
 static DECLARE_MUTEX(big_buffer_sem);
 
@@ -64,7 +64,7 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
@@ -91,9 +91,9 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("IRQ: %d\n", pci_dev->irq);
 	fappend("mmio_addr: 0x%p   mmio_len: %u\n", bcm->mmio_addr, bcm->mmio_len);
 	fappend("chip_id: 0x%04x   chip_rev: 0x%02x\n", bcm->chip_id, bcm->chip_rev);
-	if ((bcm->core_80211[0].rev >= 3) && (bcm430x_read32(bcm, 0x0158) & (1 << 16)))
+	if ((bcm->core_80211[0].rev >= 3) && (bcm43xx_read32(bcm, 0x0158) & (1 << 16)))
 		fappend("Radio disabled by hardware!\n");
-	if ((bcm->core_80211[0].rev < 3) && !(bcm430x_read16(bcm, 0x049A) & (1 << 4)))
+	if ((bcm->core_80211[0].rev < 3) && !(bcm43xx_read16(bcm, 0x049A) & (1 << 4)))
 		fappend("Radio disabled by hardware!\n");
 	fappend("board_vendor: 0x%04x   board_type: 0x%04x\n", bcm->board_vendor,
 	        bcm->board_type);
@@ -101,9 +101,9 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend("\nCores:\n");
 #define fappend_core(name, info) fappend("core \"" name "\" %s, %s, id: 0x%04x, "	\
 					 "rev: 0x%02x, index: 0x%02x\n",		\
-					 (info).flags & BCM430x_COREFLAG_AVAILABLE	\
+					 (info).flags & BCM43xx_COREFLAG_AVAILABLE	\
 						? "available" : "nonavailable",		\
-					 (info).flags & BCM430x_COREFLAG_ENABLED	\
+					 (info).flags & BCM43xx_COREFLAG_ENABLED	\
 						? "enabled" : "disabled",		\
 					 (info).id, (info).rev, (info).index)
 	fappend_core("CHIPCOMMON", bcm->core_chipcommon);
@@ -134,7 +134,7 @@ static ssize_t drvinfo_read_file(struct file *file, char __user *userbuf,
 	down(&big_buffer_sem);
 
 	/* This is where the information is written to the "driver" file */
-	fappend(BCM430x_DRIVER_NAME "\n");
+	fappend(BCM43xx_DRIVER_NAME "\n");
 	fappend("Compiled at: %s %s\n", __DATE__, __TIME__);
 
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
@@ -147,7 +147,7 @@ static ssize_t spromdump_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
@@ -175,7 +175,7 @@ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
@@ -188,8 +188,8 @@ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
 		goto out;
 	}
 	fappend("0x%08x%08x\n",
-		ioread32(bcm->mmio_addr + BCM430x_MMIO_REV3PLUS_TSF_HIGH),
-		ioread32(bcm->mmio_addr + BCM430x_MMIO_REV3PLUS_TSF_LOW));
+		ioread32(bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_HIGH),
+		ioread32(bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_LOW));
 	
 out:
 	spin_unlock_irqrestore(&bcm->lock, flags);
@@ -201,7 +201,7 @@ out:
 static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
 			      size_t count, loff_t *ppos)
 {
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	ssize_t buf_size;
 	ssize_t res;
@@ -221,8 +221,8 @@ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
 		goto out_unlock;
 	}
 	if (sscanf(buf, "%lli", &tsf) == 1) {
-		iowrite32(tsf & 0xFFFFFFFF, bcm->mmio_addr + BCM430x_MMIO_REV3PLUS_TSF_LOW);
-		iowrite32((tsf >> 32), bcm->mmio_addr + BCM430x_MMIO_REV3PLUS_TSF_HIGH);
+		iowrite32(tsf & 0xFFFFFFFF, bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_LOW);
+		iowrite32((tsf >> 32), bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_HIGH);
 	} else {
 		printk(KERN_INFO PFX "debugfs: invalid values for \"tsf\"\n");
 		res = -EINVAL;
@@ -242,7 +242,7 @@ static ssize_t send_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
@@ -268,7 +268,7 @@ out:
 static ssize_t send_write_file(struct file *file, const char __user *user_buf,
 			       size_t count, loff_t *ppos)
 {
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	ssize_t buf_size;
 	ssize_t res;
@@ -292,13 +292,13 @@ static ssize_t send_write_file(struct file *file, const char __user *user_buf,
 		goto out_unlock;
 	}
 
-	bcm430x_printk_dump(buf, buf_size, "DebugFS: TX");
+	bcm43xx_printk_dump(buf, buf_size, "DebugFS: TX");
 
 	if (bcm->pio_mode) {
-		bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
+		bcm43xx_pio_tx_frame(bcm->current_core->pio->queue1,
 				     buf, buf_size);
 	} else {
-		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
+		bcm43xx_dma_tx_frame(bcm->current_core->dma->tx_ring1,
 				     buf, buf_size);
 	}
 
@@ -316,7 +316,7 @@ static ssize_t sendraw_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
@@ -342,13 +342,13 @@ out:
 static ssize_t sendraw_write_file(struct file *file, const char __user *user_buf,
 				  size_t count, loff_t *ppos)
 {
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	ssize_t buf_size;
 	ssize_t res;
 	unsigned long flags;
 
-	if (count <= 24 + sizeof(struct bcm430x_txhdr)) {
+	if (count <= 24 + sizeof(struct bcm43xx_txhdr)) {
 		printk(KERN_ERR PFX "Packet too small (No 80211 header, "
 				    "TX header or PLCP header?)\n");
 		res = -EINVAL;
@@ -367,15 +367,15 @@ static ssize_t sendraw_write_file(struct file *file, const char __user *user_buf
 		goto out_unlock;
 	}
 
-	bcm430x_printk_dump(buf, buf_size, "DebugFS: RAW TX");
+	bcm43xx_printk_dump(buf, buf_size, "DebugFS: RAW TX");
 
 	/* Tempoarly disable txheader generation. */
 	bcm->no_txhdr = 1;
 	if (bcm->pio_mode) {
-		bcm430x_pio_tx_frame(bcm->current_core->pio->queue1,
+		bcm43xx_pio_tx_frame(bcm->current_core->pio->queue1,
 				     buf, buf_size);
 	} else {
-		bcm430x_dma_tx_frame(bcm->current_core->dma->tx_ring1,
+		bcm43xx_dma_tx_frame(bcm->current_core->dma->tx_ring1,
 				     buf, buf_size);
 	}
 	bcm->no_txhdr = 0;
@@ -394,20 +394,20 @@ static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
 {
 	const size_t len = REALLY_BIG_BUFFER_SIZE;
 
-	struct bcm430x_private *bcm = file->private_data;
+	struct bcm43xx_private *bcm = file->private_data;
 	char *buf = really_big_buffer;
 	size_t pos = 0;
 	ssize_t res;
 	unsigned long flags;
-	struct bcm430x_dfsentry *e;
-	struct bcm430x_xmitstatus *status;
+	struct bcm43xx_dfsentry *e;
+	struct bcm43xx_xmitstatus *status;
 	int i, cnt, j = 0;
 
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
 
 	fappend("Last %d logged xmitstatus blobs (Latest first):\n\n",
-		BCM430x_NR_LOGGED_XMITSTATUS);
+		BCM43xx_NR_LOGGED_XMITSTATUS);
 	e = bcm->dfsentry;
 	if (e->xmitstatus_printing == 0) {
 		/* At the beginning, make a copy of all data to avoid
@@ -419,11 +419,11 @@ static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
 		e->saved_xmitstatus_ptr = e->xmitstatus_ptr;
 		e->saved_xmitstatus_cnt = e->xmitstatus_cnt;
 		memcpy(e->xmitstatus_print_buffer, e->xmitstatus_buffer,
-		       BCM430x_NR_LOGGED_XMITSTATUS * sizeof(*(e->xmitstatus_buffer)));
+		       BCM43xx_NR_LOGGED_XMITSTATUS * sizeof(*(e->xmitstatus_buffer)));
 	}
 	i = e->saved_xmitstatus_ptr - 1;
 	if (i < 0)
-		i = BCM430x_NR_LOGGED_XMITSTATUS - 1;
+		i = BCM43xx_NR_LOGGED_XMITSTATUS - 1;
 	cnt = e->saved_xmitstatus_cnt;
 	while (cnt) {
 		status = e->xmitstatus_print_buffer + i;
@@ -437,7 +437,7 @@ static ssize_t txstat_read_file(struct file *file, char __user *userbuf,
 		cnt--;
 		i--;
 		if (i < 0)
-			i = BCM430x_NR_LOGGED_XMITSTATUS - 1;
+			i = BCM43xx_NR_LOGGED_XMITSTATUS - 1;
 	}
 
 	spin_unlock_irqrestore(&bcm->lock, flags);
@@ -498,9 +498,9 @@ static struct file_operations txstat_fops = {
 };
 
 
-void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
+void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm)
 {
-	struct bcm430x_dfsentry *e;
+	struct bcm43xx_dfsentry *e;
 	char devdir[IFNAMSIZ];
 
 	assert(bcm);
@@ -510,7 +510,7 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 		return;
 	}
 	e->bcm = bcm;
-	e->xmitstatus_buffer = kzalloc(BCM430x_NR_LOGGED_XMITSTATUS
+	e->xmitstatus_buffer = kzalloc(BCM43xx_NR_LOGGED_XMITSTATUS
 				       * sizeof(*(e->xmitstatus_buffer)),
 				       GFP_KERNEL);
 	if (!e->xmitstatus_buffer) {
@@ -518,7 +518,7 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 		kfree(e);
 		return;
 	}
-	e->xmitstatus_print_buffer = kzalloc(BCM430x_NR_LOGGED_XMITSTATUS
+	e->xmitstatus_print_buffer = kzalloc(BCM43xx_NR_LOGGED_XMITSTATUS
 					     * sizeof(*(e->xmitstatus_buffer)),
 					     GFP_KERNEL);
 	if (!e->xmitstatus_print_buffer) {
@@ -558,9 +558,9 @@ void bcm430x_debugfs_add_device(struct bcm430x_private *bcm)
 		printk(KERN_ERR PFX "debugfs: creating \"tx_status\" for \"%s\" failed!\n", devdir);
 }
 
-void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm)
+void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm)
 {
-	struct bcm430x_dfsentry *e;
+	struct bcm43xx_dfsentry *e;
 
 	if (!bcm)
 		return;
@@ -579,11 +579,11 @@ void bcm430x_debugfs_remove_device(struct bcm430x_private *bcm)
 	kfree(e);
 }
 
-void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
-				struct bcm430x_xmitstatus *status)
+void bcm43xx_debugfs_log_txstat(struct bcm43xx_private *bcm,
+				struct bcm43xx_xmitstatus *status)
 {
-	struct bcm430x_dfsentry *e;
-	struct bcm430x_xmitstatus *savedstatus;
+	struct bcm43xx_dfsentry *e;
+	struct bcm43xx_xmitstatus *savedstatus;
 
 	/* This is protected by bcm->lock */
 	e = bcm->dfsentry;
@@ -591,13 +591,13 @@ void bcm430x_debugfs_log_txstat(struct bcm430x_private *bcm,
 	savedstatus = e->xmitstatus_buffer + e->xmitstatus_ptr;
 	memcpy(savedstatus, status, sizeof(*status));
 	e->xmitstatus_ptr++;
-	if (e->xmitstatus_ptr >= BCM430x_NR_LOGGED_XMITSTATUS)
+	if (e->xmitstatus_ptr >= BCM43xx_NR_LOGGED_XMITSTATUS)
 		e->xmitstatus_ptr = 0;
-	if (e->xmitstatus_cnt < BCM430x_NR_LOGGED_XMITSTATUS)
+	if (e->xmitstatus_cnt < BCM43xx_NR_LOGGED_XMITSTATUS)
 		e->xmitstatus_cnt++;
 }
 
-void bcm430x_debugfs_init(void)
+void bcm43xx_debugfs_init(void)
 {
 	memset(&fs, 0, sizeof(fs));
 	fs.root = debugfs_create_dir(DRV_NAME, NULL);
@@ -608,13 +608,13 @@ void bcm430x_debugfs_init(void)
 		printk(KERN_ERR PFX "debugfs: creating \"" DRV_NAME "/driver\" failed!\n");
 }
 
-void bcm430x_debugfs_exit(void)
+void bcm43xx_debugfs_exit(void)
 {
 	debugfs_remove(fs.dentry_driverinfo);
 	debugfs_remove(fs.root);
 }
 
-void bcm430x_printk_dump(const char *data,
+void bcm43xx_printk_dump(const char *data,
 			 size_t size,
 			 const char *description)
 {
@@ -633,7 +633,7 @@ void bcm430x_printk_dump(const char *data,
 	printk("\n");
 }
 
-void bcm430x_printk_bitdump(const unsigned char *data,
+void bcm43xx_printk_bitdump(const unsigned char *data,
 			    size_t bytes, int msb_to_lsb,
 			    const char *description)
 {

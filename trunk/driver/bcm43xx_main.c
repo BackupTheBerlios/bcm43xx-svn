@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
                      Stefano Brivio <st3@riseup.net>
@@ -41,18 +41,18 @@
 #include <linux/skbuff.h>
 #include <net/iw_handler.h>
 
-#include "bcm430x.h"
-#include "bcm430x_main.h"
-#include "bcm430x_debugfs.h"
-#include "bcm430x_radio.h"
-#include "bcm430x_phy.h"
-#include "bcm430x_dma.h"
-#include "bcm430x_pio.h"
-#include "bcm430x_power.h"
-#include "bcm430x_wx.h"
+#include "bcm43xx.h"
+#include "bcm43xx_main.h"
+#include "bcm43xx_debugfs.h"
+#include "bcm43xx_radio.h"
+#include "bcm43xx_phy.h"
+#include "bcm43xx_dma.h"
+#include "bcm43xx_pio.h"
+#include "bcm43xx_power.h"
+#include "bcm43xx_wx.h"
 
 
-MODULE_DESCRIPTION("Broadcom BCM430x wireless driver");
+MODULE_DESCRIPTION("Broadcom BCM43xx wireless driver");
 MODULE_AUTHOR("Martin Langer");
 MODULE_AUTHOR("Stefano Brivio");
 MODULE_AUTHOR("Michael Buesch");
@@ -67,13 +67,13 @@ static int modparam_bad_frames_preempt;
 module_param_named(bad_frames_preempt, modparam_bad_frames_preempt, int, 0444);
 MODULE_PARM_DESC(bad_frames_preempt, "enable(1) / disable(0) Bad Frames Preemption");
 
-#ifdef BCM430x_DEBUG
+#ifdef BCM43xx_DEBUG
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
 MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
 #else
 # define modparam_fwpostfix  ""
-#endif /* BCM430x_DEBUG */
+#endif /* BCM43xx_DEBUG */
 
 
 /* If you want to debug with just a single device, enable this,
@@ -94,7 +94,7 @@ MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
 //#define DEBUG_ENABLE_PCILOG
 
 
-static struct pci_device_id bcm430x_pci_tbl[] = {
+static struct pci_device_id bcm43xx_pci_tbl[] = {
 
 	/* Broadcom 4303 802.11b */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x1028, 0x0407, 0, 0, 0 }, /* Dell TrueMobile 1180 Mini-PCI Card */
@@ -151,27 +151,27 @@ static struct pci_device_id bcm430x_pci_tbl[] = {
 };
 
 
-static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, const char *error);
-static void bcm430x_free_board(struct bcm430x_private *bcm);
-static int bcm430x_init_board(struct bcm430x_private *bcm);
+static void bcm43xx_recover_from_fatal(struct bcm43xx_private *bcm, const char *error);
+static void bcm43xx_free_board(struct bcm43xx_private *bcm);
+static int bcm43xx_init_board(struct bcm43xx_private *bcm);
 
 
-static void bcm430x_ram_write(struct bcm430x_private *bcm, u16 offset, u32 val)
+static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
 {
 	u32 oldsbf;
 
-	oldsbf = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-			oldsbf | BCM430x_SBF_XFER_REG_BYTESWAP);
+	oldsbf = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+			oldsbf | BCM43xx_SBF_XFER_REG_BYTESWAP);
 
-	bcm430x_write16(bcm, BCM430x_MMIO_RAM_CONTROL, offset);
-	bcm430x_write32(bcm, BCM430x_MMIO_RAM_DATA, val);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_RAM_CONTROL, offset);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_RAM_DATA, val);
 
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, oldsbf);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, oldsbf);
 }
 
 static inline
-void bcm430x_shm_control_word(struct bcm430x_private *bcm,
+void bcm43xx_shm_control_word(struct bcm43xx_private *bcm,
 			      u16 routing, u16 offset)
 {
 	u32 control;
@@ -181,94 +181,94 @@ void bcm430x_shm_control_word(struct bcm430x_private *bcm,
 	control = routing;
 	control <<= 16;
 	control |= offset;
-	bcm430x_write32(bcm, BCM430x_MMIO_SHM_CONTROL, control);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_CONTROL, control);
 }
 
-u32 bcm430x_shm_read32(struct bcm430x_private *bcm,
+u32 bcm43xx_shm_read32(struct bcm43xx_private *bcm,
 		       u16 routing, u16 offset)
 {
 	u32 ret;
 
-	if (routing == BCM430x_SHM_SHARED) {
+	if (routing == BCM43xx_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_word(bcm, routing, offset >> 2);
-			ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED);
+			bcm43xx_shm_control_word(bcm, routing, offset >> 2);
+			ret = bcm43xx_read16(bcm, BCM43xx_MMIO_SHM_DATA_UNALIGNED);
 			ret <<= 16;
-			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 1);
-			ret |= bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA);
+			bcm43xx_shm_control_word(bcm, routing, (offset >> 2) + 1);
+			ret |= bcm43xx_read16(bcm, BCM43xx_MMIO_SHM_DATA);
 
 			return ret;
 		}
 		offset >>= 2;
 	}
-	bcm430x_shm_control_word(bcm, routing, offset);
-	ret = bcm430x_read32(bcm, BCM430x_MMIO_SHM_DATA);
+	bcm43xx_shm_control_word(bcm, routing, offset);
+	ret = bcm43xx_read32(bcm, BCM43xx_MMIO_SHM_DATA);
 
 	return ret;
 }
 
-u16 bcm430x_shm_read16(struct bcm430x_private *bcm,
+u16 bcm43xx_shm_read16(struct bcm43xx_private *bcm,
 		       u16 routing, u16 offset)
 {
 	u16 ret;
 
-	if (routing == BCM430x_SHM_SHARED) {
+	if (routing == BCM43xx_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_word(bcm, routing, offset >> 2);
-			ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED);
+			bcm43xx_shm_control_word(bcm, routing, offset >> 2);
+			ret = bcm43xx_read16(bcm, BCM43xx_MMIO_SHM_DATA_UNALIGNED);
 
 			return ret;
 		}
 		offset >>= 2;
 	}
-	bcm430x_shm_control_word(bcm, routing, offset);
-	ret = bcm430x_read16(bcm, BCM430x_MMIO_SHM_DATA);
+	bcm43xx_shm_control_word(bcm, routing, offset);
+	ret = bcm43xx_read16(bcm, BCM43xx_MMIO_SHM_DATA);
 
 	return ret;
 }
 
-void bcm430x_shm_write32(struct bcm430x_private *bcm,
+void bcm43xx_shm_write32(struct bcm43xx_private *bcm,
 			 u16 routing, u16 offset,
 			 u32 value)
 {
-	if (routing == BCM430x_SHM_SHARED) {
+	if (routing == BCM43xx_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_word(bcm, routing, offset >> 2);
-			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED,
+			bcm43xx_shm_control_word(bcm, routing, offset >> 2);
+			bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA_UNALIGNED,
 					(value >> 16) & 0xffff);
-			bcm430x_shm_control_word(bcm, routing, (offset >> 2) + 1);
-			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA,
+			bcm43xx_shm_control_word(bcm, routing, (offset >> 2) + 1);
+			bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA,
 					value & 0xffff);
 			return;
 		}
 		offset >>= 2;
 	}
-	bcm430x_shm_control_word(bcm, routing, offset);
-	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, value);
+	bcm43xx_shm_control_word(bcm, routing, offset);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA, value);
 }
 
-void bcm430x_shm_write16(struct bcm430x_private *bcm,
+void bcm43xx_shm_write16(struct bcm43xx_private *bcm,
 			 u16 routing, u16 offset,
 			 u16 value)
 {
-	if (routing == BCM430x_SHM_SHARED) {
+	if (routing == BCM43xx_SHM_SHARED) {
 		if (offset & 0x0003) {
 			/* Unaligned access */
-			bcm430x_shm_control_word(bcm, routing, offset >> 2);
-			bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA_UNALIGNED,
+			bcm43xx_shm_control_word(bcm, routing, offset >> 2);
+			bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA_UNALIGNED,
 					value);
 			return;
 		}
 		offset >>= 2;
 	}
-	bcm430x_shm_control_word(bcm, routing, offset);
-	bcm430x_write16(bcm, BCM430x_MMIO_SHM_DATA, value);
+	bcm43xx_shm_control_word(bcm, routing, offset);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA, value);
 }
 
-int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
+int bcm43xx_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 			       u16 *val)
 {
 	int err;
@@ -281,7 +281,7 @@ int bcm430x_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
+int bcm43xx_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 			       u32 *val)
 {
 	int err;
@@ -294,7 +294,7 @@ int bcm430x_pci_read_config_32(struct pci_dev *pdev, u16 offset,
 	return err;
 }
 
-int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
+int bcm43xx_pci_write_config_16(struct pci_dev *pdev, int offset,
 				u16 val)
 {
 	int err;
@@ -307,7 +307,7 @@ int bcm430x_pci_write_config_16(struct pci_dev *pdev, int offset,
 	return err;
 }
 
-int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
+int bcm43xx_pci_write_config_32(struct pci_dev *pdev, int offset,
 				       u32 val)
 {
 	int err;
@@ -321,7 +321,7 @@ int bcm430x_pci_write_config_32(struct pci_dev *pdev, int offset,
 }
 
 static inline
-u8 bcm430x_plcp_get_bitrate(struct bcm430x_plcp_hdr4 *plcp,
+u8 bcm43xx_plcp_get_bitrate(struct bcm43xx_plcp_hdr4 *plcp,
 			    const int ofdm_modulation)
 {
 	u8 rate;
@@ -380,7 +380,7 @@ u8 bcm430x_plcp_get_bitrate(struct bcm430x_plcp_hdr4 *plcp,
 }
 
 static inline
-void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
+void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 				  u16 octets, const u8 bitrate,
 				  const int ofdm_modulation)
 {
@@ -446,25 +446,25 @@ void bcm430x_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		}
 	}
 
-//bcm430x_printk_bitdump(raw, 4, 0, "PLCP");
+//bcm43xx_printk_bitdump(raw, 4, 0, "PLCP");
 }
 
-#define bcm430x_generate_plcp_hdr(plcp, octets, bitrate, ofdm_modulation) \
+#define bcm43xx_generate_plcp_hdr(plcp, octets, bitrate, ofdm_modulation) \
 	do {									\
-		bcm430x_do_generate_plcp_hdr(&((plcp)->data), (plcp)->raw,	\
+		bcm43xx_do_generate_plcp_hdr(&((plcp)->data), (plcp)->raw,	\
 					     (octets), (bitrate),		\
 					     (ofdm_modulation));		\
 	} while (0)
 
 void fastcall
-bcm430x_generate_txhdr(struct bcm430x_private *bcm,
-		       struct bcm430x_txhdr *txhdr,
+bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
+		       struct bcm43xx_txhdr *txhdr,
 		       const unsigned char *fragment_data,
 		       const unsigned int fragment_len,
 		       const int is_first_fragment,
 		       const u16 cookie)
 {
-	const struct bcm430x_phyinfo *phy = bcm->current_core->phy;
+	const struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	const struct ieee80211_hdr *wireless_header = (const struct ieee80211_hdr *)fragment_data;
 #else
@@ -499,45 +499,45 @@ bcm430x_generate_txhdr(struct bcm430x_private *bcm,
 	txhdr->cookie = cpu_to_le16(cookie);
 
 	/* Generate the PLCP header and the fallback PLCP header. */
-	bcm430x_generate_plcp_hdr(&txhdr->plcp, fragment_len,
+	bcm43xx_generate_plcp_hdr(&txhdr->plcp, fragment_len,
 				  bitrate, ofdm_modulation);
-	bcm430x_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_len,
+	bcm43xx_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_len,
 				  fallback_bitrate, fallback_ofdm_modulation);
 
 	/* Set the CONTROL field */
 	tmp = 0;
 	if (ofdm_modulation)
-		tmp |= BCM430x_TXHDRCTL_OFDM;
+		tmp |= BCM43xx_TXHDRCTL_OFDM;
 	if (bcm->short_preamble) //FIXME: could be the other way around, please test
-		tmp |= BCM430x_TXHDRCTL_SHORT_PREAMBLE;
-	tmp |= (phy->antenna_diversity << BCM430x_TXHDRCTL_ANTENNADIV_SHIFT)
-		& BCM430x_TXHDRCTL_ANTENNADIV_MASK;
+		tmp |= BCM43xx_TXHDRCTL_SHORT_PREAMBLE;
+	tmp |= (phy->antenna_diversity << BCM43xx_TXHDRCTL_ANTENNADIV_SHIFT)
+		& BCM43xx_TXHDRCTL_ANTENNADIV_MASK;
 	txhdr->control = cpu_to_le16(tmp);
 
 	/* Set the FLAGS field */
 	tmp = 0;
 	if (!is_multicast_ether_addr(wireless_header->addr1) &&
 	    !is_broadcast_ether_addr(wireless_header->addr1))
-		tmp |= BCM430x_TXHDRFLAG_EXPECTACK;
+		tmp |= BCM43xx_TXHDRFLAG_EXPECTACK;
 	if (1 /* FIXME: PS poll?? */)
 		tmp |= 0x10; // FIXME: unknown meaning.
 	if (fallback_ofdm_modulation)
-		tmp |= BCM430x_TXHDRFLAG_FALLBACKOFDM;
+		tmp |= BCM43xx_TXHDRFLAG_FALLBACKOFDM;
 	if (is_first_fragment)
-		tmp |= BCM430x_TXHDRFLAG_FIRSTFRAGMENT;
+		tmp |= BCM43xx_TXHDRFLAG_FIRSTFRAGMENT;
 	txhdr->flags = cpu_to_le16(tmp);
 
 	/* Set WSEC/RATE field */
 	//TODO: rts, wsec
-	tmp = (txhdr->plcp.raw[0] << BCM430x_TXHDR_RATE_SHIFT)
-	       & BCM430x_TXHDR_RATE_MASK;
+	tmp = (txhdr->plcp.raw[0] << BCM43xx_TXHDR_RATE_SHIFT)
+	       & BCM43xx_TXHDR_RATE_MASK;
 	txhdr->wsec_rate = cpu_to_le16(tmp);
 
-//bcm430x_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
+//bcm43xx_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
 
 static
-void bcm430x_macfilter_set(struct bcm430x_private *bcm,
+void bcm43xx_macfilter_set(struct bcm43xx_private *bcm,
 			   u16 offset,
 			   const u8 *mac)
 {
@@ -546,29 +546,29 @@ void bcm430x_macfilter_set(struct bcm430x_private *bcm,
 	//FIXME: Only for card rev < 3?
 
 	offset |= 0x0020;
-	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_CONTROL, offset);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_CONTROL, offset);
 
 	data = mac[0];
 	data |= mac[1] << 8;
-	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_DATA, data);
 	data = mac[2];
 	data |= mac[3] << 8;
-	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_DATA, data);
 	data = mac[4];
 	data |= mac[5] << 8;
-	bcm430x_write16(bcm, BCM430x_MMIO_MACFILTER_DATA, data);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_DATA, data);
 }
 
 static inline
-void bcm430x_macfilter_clear(struct bcm430x_private *bcm,
+void bcm43xx_macfilter_clear(struct bcm43xx_private *bcm,
 			     u16 offset)
 {
 	const u8 zero_addr[ETH_ALEN] = { 0 };
 
-	bcm430x_macfilter_set(bcm, offset, zero_addr);
+	bcm43xx_macfilter_set(bcm, offset, zero_addr);
 }
 
-static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
+static void bcm43xx_write_mac_bssid_templates(struct bcm43xx_private *bcm)
 {
 	const u8 *mac = (const u8 *)(bcm->net_dev->dev_addr);
 	const u8 *bssid = (const u8 *)(bcm->ieee->bssid);
@@ -580,78 +580,78 @@ static void bcm430x_write_mac_bssid_templates(struct bcm430x_private *bcm)
 
 	/* Write our MAC address and BSSID to template ram */
 	for (i = 0; i < ARRAY_SIZE(mac_bssid); i += sizeof(u32))
-		bcm430x_ram_write(bcm, 0x20 + i, *((u32 *)(mac_bssid + i)));
+		bcm43xx_ram_write(bcm, 0x20 + i, *((u32 *)(mac_bssid + i)));
 	for (i = 0; i < ARRAY_SIZE(mac_bssid); i += sizeof(u32))
-		bcm430x_ram_write(bcm, 0x78 + i, *((u32 *)(mac_bssid + i)));
+		bcm43xx_ram_write(bcm, 0x78 + i, *((u32 *)(mac_bssid + i)));
 	for (i = 0; i < ARRAY_SIZE(mac_bssid); i += sizeof(u32))
-		bcm430x_ram_write(bcm, 0x478 + i, *((u32 *)(mac_bssid + i)));
+		bcm43xx_ram_write(bcm, 0x478 + i, *((u32 *)(mac_bssid + i)));
 }
 
-static void bcm430x_short_slot_timing_enable(struct bcm430x_private *bcm)
+static void bcm43xx_short_slot_timing_enable(struct bcm43xx_private *bcm)
 {
-	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
+	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
 		return;
-	bcm430x_write16(bcm, 0x684, 519);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 9);
+	bcm43xx_write16(bcm, 0x684, 519);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0010, 9);
 }
 
-static void bcm430x_short_slot_timing_disable(struct bcm430x_private *bcm)
+static void bcm43xx_short_slot_timing_disable(struct bcm43xx_private *bcm)
 {
-	if (bcm->current_core->phy->type != BCM430x_PHYTYPE_G)
+	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
 		return;
-	bcm430x_write16(bcm, 0x684, 530);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0010, 20);
+	bcm43xx_write16(bcm, 0x684, 530);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0010, 20);
 }
 
 //FIXME: rename this func? This func has still invalid callers in wx.c. This func should be static.
-void bcm430x_disassociate(struct bcm430x_private *bcm)
+void bcm43xx_disassociate(struct bcm43xx_private *bcm)
 {
-	bcm430x_mac_suspend(bcm);
-	bcm430x_macfilter_clear(bcm, BCM430x_MACFILTER_ASSOC);
+	bcm43xx_mac_suspend(bcm);
+	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
 
-	bcm430x_ram_write(bcm, 0x0026, 0x0000);
-	bcm430x_ram_write(bcm, 0x0028, 0x0000);
-	bcm430x_ram_write(bcm, 0x007E, 0x0000);
-	bcm430x_ram_write(bcm, 0x0080, 0x0000);
-	bcm430x_ram_write(bcm, 0x047E, 0x0000);
-	bcm430x_ram_write(bcm, 0x0480, 0x0000);
+	bcm43xx_ram_write(bcm, 0x0026, 0x0000);
+	bcm43xx_ram_write(bcm, 0x0028, 0x0000);
+	bcm43xx_ram_write(bcm, 0x007E, 0x0000);
+	bcm43xx_ram_write(bcm, 0x0080, 0x0000);
+	bcm43xx_ram_write(bcm, 0x047E, 0x0000);
+	bcm43xx_ram_write(bcm, 0x0480, 0x0000);
 
 	if (bcm->current_core->rev < 3) {
-		bcm430x_write16(bcm, 0x0610, 0x8000);
-		bcm430x_write16(bcm, 0x060E, 0x0000);
+		bcm43xx_write16(bcm, 0x0610, 0x8000);
+		bcm43xx_write16(bcm, 0x060E, 0x0000);
 	} else
-		bcm430x_write32(bcm, 0x0188, 0x80000000);
+		bcm43xx_write32(bcm, 0x0188, 0x80000000);
 
-	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0004, 0x000003ff);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0004, 0x000003ff);
 
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G &&
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G &&
 	    ieee80211_is_ofdm_rate(bcm->softmac->txrates.default_rate))
-		bcm430x_short_slot_timing_enable(bcm);
+		bcm43xx_short_slot_timing_enable(bcm);
 
-	bcm430x_mac_enable(bcm);
+	bcm43xx_mac_enable(bcm);
 }
 
 //FIXME: rename this func?
-static void bcm430x_associate(struct bcm430x_private *bcm,
+static void bcm43xx_associate(struct bcm43xx_private *bcm,
 			      const u8 *mac)
 {
 	memcpy(bcm->ieee->bssid, mac, ETH_ALEN);
 
-	bcm430x_mac_suspend(bcm);
-	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_ASSOC, mac);
-	bcm430x_write_mac_bssid_templates(bcm);
-	bcm430x_mac_enable(bcm);
+	bcm43xx_mac_suspend(bcm);
+	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_ASSOC, mac);
+	bcm43xx_write_mac_bssid_templates(bcm);
+	bcm43xx_mac_enable(bcm);
 }
 
 /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
  * Returns the _previously_ enabled IRQ mask.
  */
-static inline u32 bcm430x_interrupt_enable(struct bcm430x_private *bcm, u32 mask)
+static inline u32 bcm43xx_interrupt_enable(struct bcm43xx_private *bcm, u32 mask)
 {
 	u32 old_mask;
 
-	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask | mask);
+	old_mask = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_MASK);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_MASK, old_mask | mask);
 
 	return old_mask;
 }
@@ -659,28 +659,28 @@ static inline u32 bcm430x_interrupt_enable(struct bcm430x_private *bcm, u32 mask
 /* Disable a Generic IRQ. "mask" is the mask of which IRQs to disable.
  * Returns the _previously_ enabled IRQ mask.
  */
-static inline u32 bcm430x_interrupt_disable(struct bcm430x_private *bcm, u32 mask)
+static inline u32 bcm43xx_interrupt_disable(struct bcm43xx_private *bcm, u32 mask)
 {
 	u32 old_mask;
 
-	old_mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_MASK, old_mask & ~mask);
+	old_mask = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_MASK);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_MASK, old_mask & ~mask);
 
 	return old_mask;
 }
 
 /* Make sure we don't receive more data from the device. */
-static int bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm, u32 *oldstate)
+static int bcm43xx_disable_interrupts_sync(struct bcm43xx_private *bcm, u32 *oldstate)
 {
 	u32 old;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (bcm430x_is_initializing(bcm) || bcm->shutting_down) {
+	if (bcm43xx_is_initializing(bcm) || bcm->shutting_down) {
 		spin_unlock_irqrestore(&bcm->lock, flags);
 		return -EBUSY;
 	}
-	old = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	old = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
 	tasklet_disable(&bcm->isr_tasklet);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	if (oldstate)
@@ -689,7 +689,7 @@ static int bcm430x_disable_interrupts_sync(struct bcm430x_private *bcm, u32 *old
 	return 0;
 }
 
-static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
+static int bcm43xx_read_radioinfo(struct bcm43xx_private *bcm)
 {
 	u32 radio_id;
 	u16 manufact;
@@ -705,11 +705,11 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 		else
 			radio_id = 0x5205017F;
 	} else {
-		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIOCTL_ID);
-		radio_id = bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA_HIGH);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_RADIO_CONTROL, BCM43xx_RADIOCTL_ID);
+		radio_id = bcm43xx_read16(bcm, BCM43xx_MMIO_RADIO_DATA_HIGH);
 		radio_id <<= 16;
-		bcm430x_write16(bcm, BCM430x_MMIO_RADIO_CONTROL, BCM430x_RADIOCTL_ID);
-		radio_id |= bcm430x_read16(bcm, BCM430x_MMIO_RADIO_DATA_LOW);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_RADIO_CONTROL, BCM43xx_RADIOCTL_ID);
+		radio_id |= bcm43xx_read16(bcm, BCM43xx_MMIO_RADIO_DATA_LOW);
 	}
 
 	manufact = (radio_id & 0x00000FFF);
@@ -720,15 +720,15 @@ static int bcm430x_read_radioinfo(struct bcm430x_private *bcm)
 		radio_id, manufact, version, revision);
 
 	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
+	case BCM43xx_PHYTYPE_A:
 		if ((version != 0x2060) || (revision != 1) || (manufact != 0x17f))
 			goto err_unsupported_radio;
 		break;
-	case BCM430x_PHYTYPE_B:
+	case BCM43xx_PHYTYPE_B:
 		if ((version & 0xFFF0) != 0x2050)
 			goto err_unsupported_radio;
 		break;
-	case BCM430x_PHYTYPE_G:
+	case BCM43xx_PHYTYPE_G:
 		if (version != 0x2050)
 			goto err_unsupported_radio;
 		break;
@@ -759,137 +759,137 @@ err_unsupported_radio:
 }
 
 static inline
-u16 sprom_read(struct bcm430x_private *bcm,
+u16 sprom_read(struct bcm43xx_private *bcm,
 	       u16 offset)
 {
-	return bcm430x_read16(bcm, BCM430x_SPROM_BASE + (2 * offset));
+	return bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (2 * offset));
 }
 
 /* Read the SPROM and store its adjusted values in bcm->sprom */
-static int bcm430x_read_sprom(struct bcm430x_private *bcm)
+static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 {
 	u16 value;
 
 	/* boardflags2 */
-	value = sprom_read(bcm, BCM430x_SPROM_BOARDFLAGS2);
+	value = sprom_read(bcm, BCM43xx_SPROM_BOARDFLAGS2);
 	bcm->sprom.boardflags2 = value;
 
 	/* il0macaddr */
-	value = sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 0);
+	value = sprom_read(bcm, BCM43xx_SPROM_IL0MACADDR + 0);
 	*(((u16 *)bcm->sprom.il0macaddr) + 0) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 1);
+	value = sprom_read(bcm, BCM43xx_SPROM_IL0MACADDR + 1);
 	*(((u16 *)bcm->sprom.il0macaddr) + 1) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM430x_SPROM_IL0MACADDR + 2);
+	value = sprom_read(bcm, BCM43xx_SPROM_IL0MACADDR + 2);
 	*(((u16 *)bcm->sprom.il0macaddr) + 2) = cpu_to_be16(value);
 
 	/* et0macaddr */
-	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 0);
+	value = sprom_read(bcm, BCM43xx_SPROM_ET0MACADDR + 0);
 	*(((u16 *)bcm->sprom.et0macaddr) + 0) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 1);
+	value = sprom_read(bcm, BCM43xx_SPROM_ET0MACADDR + 1);
 	*(((u16 *)bcm->sprom.et0macaddr) + 1) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM430x_SPROM_ET0MACADDR + 2);
+	value = sprom_read(bcm, BCM43xx_SPROM_ET0MACADDR + 2);
 	*(((u16 *)bcm->sprom.et0macaddr) + 2) = cpu_to_be16(value);
 
 	/* et1macaddr */
-	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 0);
+	value = sprom_read(bcm, BCM43xx_SPROM_ET1MACADDR + 0);
 	*(((u16 *)bcm->sprom.et1macaddr) + 0) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 1);
+	value = sprom_read(bcm, BCM43xx_SPROM_ET1MACADDR + 1);
 	*(((u16 *)bcm->sprom.et1macaddr) + 1) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM430x_SPROM_ET1MACADDR + 2);
+	value = sprom_read(bcm, BCM43xx_SPROM_ET1MACADDR + 2);
 	*(((u16 *)bcm->sprom.et1macaddr) + 2) = cpu_to_be16(value);
 
 	/* ethernat phy settings */
-	value = sprom_read(bcm, BCM430x_SPROM_ETHPHY);
+	value = sprom_read(bcm, BCM43xx_SPROM_ETHPHY);
 	bcm->sprom.et0phyaddr = (value & 0x001F);
 	bcm->sprom.et1phyaddr = (value & 0x03E0) >> 5;
 	bcm->sprom.et0mdcport = (value & (1 << 14)) >> 14;
 	bcm->sprom.et1mdcport = (value & (1 << 15)) >> 15;
 
 	/* boardrev, antennas, country code */
-	value = sprom_read(bcm, BCM430x_SPROM_BOARDREV);
+	value = sprom_read(bcm, BCM43xx_SPROM_BOARDREV);
 	bcm->sprom.boardrev = (value & 0x000F);
 	bcm->sprom.countrycode = (value & 0x0F00) >> 8;
 	bcm->sprom.antennas_aphy = (value & 0x3000) >> 12;
 	bcm->sprom.antennas_bgphy = (value & 0xC000) >> 14;
 
 	/* pa0b* */
-	value = sprom_read(bcm, BCM430x_SPROM_PA0B0);
+	value = sprom_read(bcm, BCM43xx_SPROM_PA0B0);
 	bcm->sprom.pa0b0 = value;
-	value = sprom_read(bcm, BCM430x_SPROM_PA0B1);
+	value = sprom_read(bcm, BCM43xx_SPROM_PA0B1);
 	bcm->sprom.pa0b1 = value;
-	value = sprom_read(bcm, BCM430x_SPROM_PA0B2);
+	value = sprom_read(bcm, BCM43xx_SPROM_PA0B2);
 	bcm->sprom.pa0b2 = value;
 
 	/* wl0gpio* */
-	value = sprom_read(bcm, BCM430x_SPROM_WL0GPIO0);
+	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO0);
 	if (value == 0xFFFF)
 		value = 0x0000;
 	bcm->sprom.wl0gpio0 = (value & 0x00FF);
 	bcm->sprom.wl0gpio1 = (value & 0xFF00) >> 8;
-	value = sprom_read(bcm, BCM430x_SPROM_WL0GPIO2);
+	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO2);
 	if (value == 0xFFFF)
 		value = 0x0000;
 	bcm->sprom.wl0gpio2 = (value & 0x00FF);
 	bcm->sprom.wl0gpio3 = (value & 0xFF00) >> 8;
 
 	/* maxpower */
-	value = sprom_read(bcm, BCM430x_SPROM_MAXPWR);
+	value = sprom_read(bcm, BCM43xx_SPROM_MAXPWR);
 	bcm->sprom.maxpower_aphy = (value & 0x00FF);
 	bcm->sprom.maxpower_bgphy = (value & 0xFF00) >> 8;
 
 	/* pa1b* */
-	value = sprom_read(bcm, BCM430x_SPROM_PA1B0);
+	value = sprom_read(bcm, BCM43xx_SPROM_PA1B0);
 	bcm->sprom.pa1b0 = value;
-	value = sprom_read(bcm, BCM430x_SPROM_PA1B1);
+	value = sprom_read(bcm, BCM43xx_SPROM_PA1B1);
 	bcm->sprom.pa1b1 = value;
-	value = sprom_read(bcm, BCM430x_SPROM_PA1B2);
+	value = sprom_read(bcm, BCM43xx_SPROM_PA1B2);
 	bcm->sprom.pa1b2 = value;
 
 	/* idle tssi target */
-	value = sprom_read(bcm, BCM430x_SPROM_IDL_TSSI_TGT);
+	value = sprom_read(bcm, BCM43xx_SPROM_IDL_TSSI_TGT);
 	bcm->sprom.idle_tssi_tgt_aphy = (value & 0x00FF);
 	bcm->sprom.idle_tssi_tgt_bgphy = (value & 0xFF00) >> 8;
 
 	/* boardflags */
-	value = sprom_read(bcm, BCM430x_SPROM_BOARDFLAGS);
+	value = sprom_read(bcm, BCM43xx_SPROM_BOARDFLAGS);
 	if (value == 0xFFFF)
 		value = 0x0000;
 	bcm->sprom.boardflags = value;
 
 	/* antenna gain */
-	value = sprom_read(bcm, BCM430x_SPROM_ANTENNA_GAIN);
+	value = sprom_read(bcm, BCM43xx_SPROM_ANTENNA_GAIN);
 	if (value == 0x0000 || value == 0xFFFF)
 		value = 0x0202;
 	bcm->sprom.antennagain_aphy = (value & 0x00FF);
 	bcm->sprom.antennagain_bgphy = (value & 0xFF00) >> 8;
 
 	/* SPROM version, crc8 */
-	value = sprom_read(bcm, BCM430x_SPROM_VERSION);
+	value = sprom_read(bcm, BCM43xx_SPROM_VERSION);
 	bcm->sprom.spromversion = value;
 
 	return 0;
 }
 
-static void bcm430x_geo_init(struct bcm430x_private *bcm)
+static void bcm43xx_geo_init(struct bcm43xx_private *bcm)
 {
 	struct ieee80211_geo geo;
 	struct ieee80211_channel *chan;
 	int have_a = 0, have_bg = 0;
 	int i, num80211;
-	struct bcm430x_phyinfo *phy;
+	struct bcm43xx_phyinfo *phy;
 
 	memset(&geo, 0, sizeof(geo));
 	snprintf(geo.name, ARRAY_SIZE(geo.name),
 		 "%01X", bcm->sprom.countrycode);//FIXME
-	num80211 = bcm430x_num_80211_cores(bcm);
+	num80211 = bcm43xx_num_80211_cores(bcm);
 	for (i = 0; i < num80211; i++) {
 		phy = bcm->phy + i;
 		switch (phy->type) {
-		case BCM430x_PHYTYPE_B:
-		case BCM430x_PHYTYPE_G:
+		case BCM43xx_PHYTYPE_B:
+		case BCM43xx_PHYTYPE_G:
 			have_bg = 1;
 			break;
-		case BCM430x_PHYTYPE_A:
+		case BCM43xx_PHYTYPE_A:
 			have_a = 1;
 			break;
 		default:
@@ -916,7 +916,7 @@ static void bcm430x_geo_init(struct bcm430x_private *bcm)
 }
 
 /* Read and adjust LED infos */
-static int bcm430x_leds_init(struct bcm430x_private *bcm)
+static int bcm43xx_leds_init(struct bcm43xx_private *bcm)
 {
 	int i;
 
@@ -925,8 +925,8 @@ static int bcm430x_leds_init(struct bcm430x_private *bcm)
 	bcm->leds[2] = bcm->sprom.wl0gpio2;
 	bcm->leds[3] = bcm->sprom.wl0gpio3;
 
-	for (i = 0; i < BCM430x_LED_COUNT; i++) {
-		if ((bcm->leds[i] & ~BCM430x_LED_ACTIVELOW) == BCM430x_LED_INACTIVE) {
+	for (i = 0; i < BCM43xx_LED_COUNT; i++) {
+		if ((bcm->leds[i] & ~BCM43xx_LED_ACTIVELOW) == BCM43xx_LED_INACTIVE) {
 			bcm->leds[i] = 0xFF;
 			continue;
 		};
@@ -934,17 +934,17 @@ static int bcm430x_leds_init(struct bcm430x_private *bcm)
 			switch (i) {
 			case 0:
 				bcm->leds[0] = ((bcm->board_vendor == PCI_VENDOR_ID_COMPAQ)
-				                ? BCM430x_LED_RADIO_ALL
-				                : BCM430x_LED_ACTIVITY);
+				                ? BCM43xx_LED_RADIO_ALL
+				                : BCM43xx_LED_ACTIVITY);
 				break;
 			case 1:
-				bcm->leds[1] = BCM430x_LED_RADIO_B;
+				bcm->leds[1] = BCM43xx_LED_RADIO_B;
 				break;
 			case 2:
-				bcm->leds[2] = BCM430x_LED_RADIO_A;
+				bcm->leds[2] = BCM43xx_LED_RADIO_A;
 				break;
 			case 3:
-				bcm->leds[3] = BCM430x_LED_OFF;
+				bcm->leds[3] = BCM43xx_LED_OFF;
 				break;
 			}
 		}
@@ -956,7 +956,7 @@ static int bcm430x_leds_init(struct bcm430x_private *bcm)
 /* DummyTransmission function, as documented on 
  * http://bcm-specs.sipsolutions.net/DummyTransmission
  */
-void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
+void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 {
 	unsigned int i, max_loop;
 	u16 value = 0;
@@ -969,12 +969,12 @@ void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	};
 
 	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
+	case BCM43xx_PHYTYPE_A:
 		max_loop = 0x1E;
 		buffer[0] = 0xCC010200;
 		break;
-	case BCM430x_PHYTYPE_B:
-	case BCM430x_PHYTYPE_G:
+	case BCM43xx_PHYTYPE_B:
+	case BCM43xx_PHYTYPE_G:
 		max_loop = 0xFA;
 		buffer[0] = 0x6E840B00; 
 		break;
@@ -984,35 +984,35 @@ void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
 	}
 
 	for (i = 0; i < 5; i++)
-		bcm430x_ram_write(bcm, i * 4, buffer[i]);
+		bcm43xx_ram_write(bcm, i * 4, buffer[i]);
 
-	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD); /* dummy read */
+	bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* dummy read */
 
-	bcm430x_write16(bcm, 0x0568, 0x0000);
-	bcm430x_write16(bcm, 0x07C0, 0x0000);
-	bcm430x_write16(bcm, 0x050C, ((bcm->current_core->phy->type == BCM430x_PHYTYPE_A) ? 1 : 0));
-	bcm430x_write16(bcm, 0x0508, 0x0000);
-	bcm430x_write16(bcm, 0x050A, 0x0000);
-	bcm430x_write16(bcm, 0x054C, 0x0000);
-	bcm430x_write16(bcm, 0x056A, 0x0014);
-	bcm430x_write16(bcm, 0x0568, 0x0826);
-	bcm430x_write16(bcm, 0x0500, 0x0000);
-	bcm430x_write16(bcm, 0x0502, 0x0030);
+	bcm43xx_write16(bcm, 0x0568, 0x0000);
+	bcm43xx_write16(bcm, 0x07C0, 0x0000);
+	bcm43xx_write16(bcm, 0x050C, ((bcm->current_core->phy->type == BCM43xx_PHYTYPE_A) ? 1 : 0));
+	bcm43xx_write16(bcm, 0x0508, 0x0000);
+	bcm43xx_write16(bcm, 0x050A, 0x0000);
+	bcm43xx_write16(bcm, 0x054C, 0x0000);
+	bcm43xx_write16(bcm, 0x056A, 0x0014);
+	bcm43xx_write16(bcm, 0x0568, 0x0826);
+	bcm43xx_write16(bcm, 0x0500, 0x0000);
+	bcm43xx_write16(bcm, 0x0502, 0x0030);
 
 	for (i = 0x00; i < max_loop; i++) {
-		value = bcm430x_read16(bcm, 0x050E);
+		value = bcm43xx_read16(bcm, 0x050E);
 		if ((value & 0x0080) != 0)
 			break;
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
-		value = bcm430x_read16(bcm, 0x050E);
+		value = bcm43xx_read16(bcm, 0x050E);
 		if ((value & 0x0400) != 0)
 			break;
 		udelay(10);
 	}
 	for (i = 0x00; i < 0x0A; i++) {
-		value = bcm430x_read16(bcm, 0x0690);
+		value = bcm43xx_read16(bcm, 0x0690);
 		if ((value & 0x0100) == 0)
 			break;
 		udelay(10);
@@ -1024,13 +1024,13 @@ void bcm430x_dummy_transmission(struct bcm430x_private *bcm)
  * Almost always you don't want to call this, but use bcm->current_core
  */
 static inline
-int _get_current_core(struct bcm430x_private *bcm, int *core)
+int _get_current_core(struct bcm43xx_private *bcm, int *core)
 {
 	int err;
 
-	err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_REG_ACTIVE_CORE, core);
+	err = bcm43xx_pci_read_config_32(bcm->pci_dev, BCM43xx_REG_ACTIVE_CORE, core);
 	if (unlikely(err)) {
-		dprintk(KERN_ERR PFX "BCM430x_REG_ACTIVE_CORE read failed!\n");
+		dprintk(KERN_ERR PFX "BCM43xx_REG_ACTIVE_CORE read failed!\n");
 		return -ENODEV;
 	}
 	*core = (*core - 0x18000000) / 0x1000;
@@ -1039,9 +1039,9 @@ int _get_current_core(struct bcm430x_private *bcm, int *core)
 }
 
 /* Lowlevel core-switch function. This is only to be used in
- * bcm430x_switch_core() and bcm430x_probe_cores()
+ * bcm43xx_switch_core() and bcm43xx_probe_cores()
  */
-static int _switch_core(struct bcm430x_private *bcm, int core)
+static int _switch_core(struct bcm43xx_private *bcm, int core)
 {
 	int err;
 	int attempts = 0;
@@ -1054,20 +1054,20 @@ static int _switch_core(struct bcm430x_private *bcm, int core)
 		goto out;
 
 	/* Write the computed value to the register. This doesn't always
-	   succeed so we retry BCM430x_SWITCH_CORE_MAX_RETRIES times */
+	   succeed so we retry BCM43xx_SWITCH_CORE_MAX_RETRIES times */
 	while (current_core != core) {
-		if (unlikely(attempts++ > BCM430x_SWITCH_CORE_MAX_RETRIES)) {
+		if (unlikely(attempts++ > BCM43xx_SWITCH_CORE_MAX_RETRIES)) {
 			err = -ENODEV;
 			printk(KERN_ERR PFX
 			       "unable to switch to core %u, retried %i times\n",
 			       core, attempts);
 			goto out;
 		}
-		err = bcm430x_pci_write_config_32(bcm->pci_dev,
-						  BCM430x_REG_ACTIVE_CORE,
+		err = bcm43xx_pci_write_config_32(bcm->pci_dev,
+						  BCM43xx_REG_ACTIVE_CORE,
 						  (core * 0x1000) + 0x18000000);
 		if (unlikely(err)) {
-			dprintk(KERN_ERR PFX "BCM430x_REG_ACTIVE_CORE write failed!\n");
+			dprintk(KERN_ERR PFX "BCM43xx_REG_ACTIVE_CORE write failed!\n");
 			continue;
 		}
 		_get_current_core(bcm, &current_core);
@@ -1078,14 +1078,14 @@ out:
 	return err;
 }
 
-int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *new_core)
+int bcm43xx_switch_core(struct bcm43xx_private *bcm, struct bcm43xx_coreinfo *new_core)
 {
 	int err;
 
 	if (!new_core)
 		return 0;
 
-	if (!(new_core->flags & BCM430x_COREFLAG_AVAILABLE))
+	if (!(new_core->flags & BCM43xx_COREFLAG_AVAILABLE))
 		return -ENODEV;
 	if (bcm->current_core == new_core)
 		return 0;
@@ -1096,39 +1096,39 @@ int bcm430x_switch_core(struct bcm430x_private *bcm, struct bcm430x_coreinfo *ne
 	return err;
 }
 
-static inline int bcm430x_core_enabled(struct bcm430x_private *bcm)
+static inline int bcm43xx_core_enabled(struct bcm43xx_private *bcm)
 {
 	u32 value;
 
-	value = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
-	value &= BCM430x_SBTMSTATELOW_CLOCK | BCM430x_SBTMSTATELOW_RESET
-		 | BCM430x_SBTMSTATELOW_REJECT;
+	value = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+	value &= BCM43xx_SBTMSTATELOW_CLOCK | BCM43xx_SBTMSTATELOW_RESET
+		 | BCM43xx_SBTMSTATELOW_REJECT;
 
-	return (value == BCM430x_SBTMSTATELOW_CLOCK);
+	return (value == BCM43xx_SBTMSTATELOW_CLOCK);
 }
 
 /* disable current core */
-static int bcm430x_core_disable(struct bcm430x_private *bcm, u32 core_flags)
+static int bcm43xx_core_disable(struct bcm43xx_private *bcm, u32 core_flags)
 {
 	u32 sbtmstatelow;
 	u32 sbtmstatehigh;
 	int i;
 
 	/* fetch sbtmstatelow from core information registers */
-	sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
 
 	/* core is already in reset */
-	if (sbtmstatelow & BCM430x_SBTMSTATELOW_RESET)
+	if (sbtmstatelow & BCM43xx_SBTMSTATELOW_RESET)
 		goto out;
 
-	if (sbtmstatelow & BCM430x_SBTMSTATELOW_CLOCK) {
-		sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK |
-			       BCM430x_SBTMSTATELOW_REJECT;
-		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	if (sbtmstatelow & BCM43xx_SBTMSTATELOW_CLOCK) {
+		sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK |
+			       BCM43xx_SBTMSTATELOW_REJECT;
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 
 		for (i = 0; i < 1000; i++) {
-			sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
-			if (sbtmstatelow & BCM430x_SBTMSTATELOW_REJECT) {
+			sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+			if (sbtmstatelow & BCM43xx_SBTMSTATELOW_REJECT) {
 				i = -1;
 				break;
 			}
@@ -1140,8 +1140,8 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, u32 core_flags)
 		}
 
 		for (i = 0; i < 1000; i++) {
-			sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
-			if (!(sbtmstatehigh & BCM430x_SBTMSTATEHIGH_BUSY)) {
+			sbtmstatehigh = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+			if (!(sbtmstatehigh & BCM43xx_SBTMSTATEHIGH_BUSY)) {
 				i = -1;
 				break;
 			}
@@ -1152,143 +1152,143 @@ static int bcm430x_core_disable(struct bcm430x_private *bcm, u32 core_flags)
 			return -EBUSY;
 		}
 
-		sbtmstatelow = BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
-			       BCM430x_SBTMSTATELOW_REJECT |
-			       BCM430x_SBTMSTATELOW_RESET |
-			       BCM430x_SBTMSTATELOW_CLOCK |
+		sbtmstatelow = BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK |
+			       BCM43xx_SBTMSTATELOW_REJECT |
+			       BCM43xx_SBTMSTATELOW_RESET |
+			       BCM43xx_SBTMSTATELOW_CLOCK |
 			       core_flags;
-		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 		udelay(10);
 	}
 
-	sbtmstatelow = BCM430x_SBTMSTATELOW_RESET |
-		       BCM430x_SBTMSTATELOW_REJECT |
+	sbtmstatelow = BCM43xx_SBTMSTATELOW_RESET |
+		       BCM43xx_SBTMSTATELOW_REJECT |
 		       core_flags;
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 
 out:
-	bcm->current_core->flags &= ~ BCM430x_COREFLAG_ENABLED;
+	bcm->current_core->flags &= ~ BCM43xx_COREFLAG_ENABLED;
 	return 0;
 }
 
 /* enable (reset) current core */
-static int bcm430x_core_enable(struct bcm430x_private *bcm, u32 core_flags)
+static int bcm43xx_core_enable(struct bcm43xx_private *bcm, u32 core_flags)
 {
 	u32 sbtmstatelow;
 	u32 sbtmstatehigh;
 	u32 sbimstate;
 	int err;
 
-	err = bcm430x_core_disable(bcm, core_flags);
+	err = bcm43xx_core_disable(bcm, core_flags);
 	if (err)
 		goto out;
 
-	sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK |
-		       BCM430x_SBTMSTATELOW_RESET |
-		       BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+	sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK |
+		       BCM43xx_SBTMSTATELOW_RESET |
+		       BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK |
 		       core_flags;
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
-	if (sbtmstatehigh & BCM430x_SBTMSTATEHIGH_SERROR) {
+	sbtmstatehigh = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+	if (sbtmstatehigh & BCM43xx_SBTMSTATEHIGH_SERROR) {
 		sbtmstatehigh = 0x00000000;
-		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATEHIGH, sbtmstatehigh);
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATEHIGH, sbtmstatehigh);
 	}
 
-	sbimstate = bcm430x_read32(bcm, BCM430x_CIR_SBIMSTATE);
-	if (sbimstate & (BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT)) {
-		sbimstate &= ~(BCM430x_SBIMSTATE_IB_ERROR | BCM430x_SBIMSTATE_TIMEOUT);
-		bcm430x_write32(bcm, BCM430x_CIR_SBIMSTATE, sbimstate);
+	sbimstate = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMSTATE);
+	if (sbimstate & (BCM43xx_SBIMSTATE_IB_ERROR | BCM43xx_SBIMSTATE_TIMEOUT)) {
+		sbimstate &= ~(BCM43xx_SBIMSTATE_IB_ERROR | BCM43xx_SBIMSTATE_TIMEOUT);
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMSTATE, sbimstate);
 	}
 
-	sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK |
-		       BCM430x_SBTMSTATELOW_FORCE_GATE_CLOCK |
+	sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK |
+		       BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK |
 		       core_flags;
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	sbtmstatelow = BCM430x_SBTMSTATELOW_CLOCK | core_flags;
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK | core_flags;
+	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	bcm->current_core->flags |= BCM430x_COREFLAG_ENABLED;
+	bcm->current_core->flags |= BCM43xx_COREFLAG_ENABLED;
 	assert(err == 0);
 out:
 	return err;
 }
 
 /* http://bcm-specs.sipsolutions.net/80211CoreReset */
-void bcm430x_wireless_core_reset(struct bcm430x_private *bcm, int connect_phy)
+void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy)
 {
 	u32 flags = 0x00040000;
 
-	if ((bcm430x_core_enabled(bcm)) && (!bcm->pio_mode)) {
+	if ((bcm43xx_core_enabled(bcm)) && (!bcm->pio_mode)) {
 		/* reset all used DMA controllers. */
-		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
-		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA2_BASE);
-		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA3_BASE);
-		bcm430x_dmacontroller_tx_reset(bcm, BCM430x_MMIO_DMA4_BASE);
-		bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA1_BASE);
+		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA1_BASE);
+		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA2_BASE);
+		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA3_BASE);
+		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA4_BASE);
+		bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA1_BASE);
 		if (bcm->current_core->rev < 5)
-			bcm430x_dmacontroller_rx_reset(bcm, BCM430x_MMIO_DMA4_BASE);
+			bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA4_BASE);
 	}
 	if (bcm->shutting_down) {
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-		                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-				& ~(BCM430x_SBF_MAC_ENABLED | 0x00000002));
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+		                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+				& ~(BCM43xx_SBF_MAC_ENABLED | 0x00000002));
 	} else {
 		if (connect_phy)
 			flags |= 0x20000000;
-		bcm430x_phy_connect(bcm, connect_phy);
-		bcm430x_core_enable(bcm, flags);
-		bcm430x_write16(bcm, 0x03E6, 0x0000);
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-				bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-				| BCM430x_SBF_400);
+		bcm43xx_phy_connect(bcm, connect_phy);
+		bcm43xx_core_enable(bcm, flags);
+		bcm43xx_write16(bcm, 0x03E6, 0x0000);
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+				bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+				| BCM43xx_SBF_400);
 	}
 }
 
-static void bcm430x_wireless_core_disable(struct bcm430x_private *bcm)
+static void bcm43xx_wireless_core_disable(struct bcm43xx_private *bcm)
 {
-	bcm430x_radio_turn_off(bcm);
-	bcm430x_write16(bcm, 0x03E6, 0x00F4);
-	bcm430x_core_disable(bcm, 0);
+	bcm43xx_radio_turn_off(bcm);
+	bcm43xx_write16(bcm, 0x03E6, 0x00F4);
+	bcm43xx_core_disable(bcm, 0);
 }
 
 /* Mark the current 80211 core inactive.
  * "active_80211_core" is the other 80211 core, which is used.
  */
-static int bcm430x_wireless_core_mark_inactive(struct bcm430x_private *bcm,
-					       struct bcm430x_coreinfo *active_80211_core)
+static int bcm43xx_wireless_core_mark_inactive(struct bcm43xx_private *bcm,
+					       struct bcm43xx_coreinfo *active_80211_core)
 {
 	u32 sbtmstatelow;
-	struct bcm430x_coreinfo *old_core;
+	struct bcm43xx_coreinfo *old_core;
 	int err = 0;
 
-	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-	bcm430x_radio_turn_off(bcm);
-	sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+	bcm43xx_radio_turn_off(bcm);
+	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
 	sbtmstatelow &= ~0x200a0000;
 	sbtmstatelow |= 0xa0000;
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
-	sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
 	sbtmstatelow &= ~0xa0000;
 	sbtmstatelow |= 0x80000;
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
+	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
 	udelay(1);
 
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
 		old_core = bcm->current_core;
-		err = bcm430x_switch_core(bcm, active_80211_core);
+		err = bcm43xx_switch_core(bcm, active_80211_core);
 		if (err)
 			goto out;
-		sbtmstatelow = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
 		sbtmstatelow &= ~0x20000000;
 		sbtmstatelow |= 0x20000000;
-		bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, sbtmstatelow);
-		err = bcm430x_switch_core(bcm, old_core);
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+		err = bcm43xx_switch_core(bcm, old_core);
 	}
 
 out:
@@ -1296,17 +1296,17 @@ out:
 }
 
 /* Read the Transmit Status from MMIO and build the Transmit Status array. */
-static inline int build_transmit_status(struct bcm430x_private *bcm,
-					struct bcm430x_hwxmitstatus *status)
+static inline int build_transmit_status(struct bcm43xx_private *bcm,
+					struct bcm43xx_hwxmitstatus *status)
 {
 	u32 v170;
 	u32 v174;
 	u8 tmp[2];
 
-	v170 = bcm430x_read32(bcm, 0x170);
+	v170 = bcm43xx_read32(bcm, 0x170);
 	if (v170 == 0x00000000)
 		return -1;
-	v174 = bcm430x_read32(bcm, 0x174);
+	v174 = bcm43xx_read32(bcm, 0x174);
 
 	/* Internal Sending ID. */
 	status->cookie = cpu_to_le16( (v170 >> 16) & 0x0000FFFF );
@@ -1323,10 +1323,10 @@ static inline int build_transmit_status(struct bcm430x_private *bcm,
 	return 0;
 }
 
-static inline void interpret_transmit_status(struct bcm430x_private *bcm,
-					     struct bcm430x_hwxmitstatus *hwstatus)
+static inline void interpret_transmit_status(struct bcm43xx_private *bcm,
+					     struct bcm43xx_hwxmitstatus *hwstatus)
 {
-	struct bcm430x_xmitstatus status;
+	struct bcm43xx_xmitstatus status;
 
 	status.cookie = le16_to_cpu(hwstatus->cookie);
 	status.flags = hwstatus->flags;
@@ -1335,29 +1335,29 @@ static inline void interpret_transmit_status(struct bcm430x_private *bcm,
 	status.seq = le16_to_cpu(hwstatus->seq);
 	status.unknown = le16_to_cpu(hwstatus->unknown);
 
-	bcm430x_debugfs_log_txstat(bcm, &status);
+	bcm43xx_debugfs_log_txstat(bcm, &status);
 
-	if (status.flags & BCM430x_TXSTAT_FLAG_IGNORE)
+	if (status.flags & BCM43xx_TXSTAT_FLAG_IGNORE)
 		return;
-	if (!(status.flags & BCM430x_TXSTAT_FLAG_ACK)) {
+	if (!(status.flags & BCM43xx_TXSTAT_FLAG_ACK)) {
 		//TODO: packet was not acked (was lost)
 	}
-	//TODO: There are more (unknown) flags to test. see bcm430x_main.h
+	//TODO: There are more (unknown) flags to test. see bcm43xx_main.h
 
 	if (bcm->pio_mode)
-		bcm430x_pio_handle_xmitstatus(bcm, &status);
+		bcm43xx_pio_handle_xmitstatus(bcm, &status);
 	else
-		bcm430x_dma_handle_xmitstatus(bcm, &status);
+		bcm43xx_dma_handle_xmitstatus(bcm, &status);
 }
 
-static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
+static inline void handle_irq_transmit_status(struct bcm43xx_private *bcm)
 {
-	assert(bcm->current_core->id == BCM430x_COREID_80211);
+	assert(bcm->current_core->id == BCM43xx_COREID_80211);
 
 	//TODO: In AP mode, this also causes sending of powersave responses.
 
 	if (bcm->current_core->rev < 5) {
-		struct bcm430x_xmitstatus_queue *q, *tmp;
+		struct bcm43xx_xmitstatus_queue *q, *tmp;
 
 		/* If we received an xmit status, it is already saved
 		 * in the xmit status queue.
@@ -1372,7 +1372,7 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 		assert(list_empty(&bcm->xmitstatus_queue));
 	} else {
 		int res;
-		struct bcm430x_hwxmitstatus transmit_status;
+		struct bcm43xx_hwxmitstatus transmit_status;
 
 		while (1) {
 			res = build_transmit_status(bcm, &transmit_status);
@@ -1383,17 +1383,17 @@ static inline void handle_irq_transmit_status(struct bcm430x_private *bcm)
 	}
 }
 
-static inline void bcm430x_generate_noise_sample(struct bcm430x_private *bcm)
+static inline void bcm43xx_generate_noise_sample(struct bcm43xx_private *bcm)
 {
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x408, 0x7F7F);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x40A, 0x7F7F);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS2_BITFIELD,
-			bcm430x_read32(bcm, BCM430x_MMIO_STATUS2_BITFIELD) | (1 << 4));
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x408, 0x7F7F);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x40A, 0x7F7F);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD,
+			bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD) | (1 << 4));
 	assert(bcm->noisecalc.core_at_start == bcm->current_core);
 	assert(bcm->noisecalc.channel_at_start == bcm->current_core->radio->channel);
 }
 
-static void bcm430x_calculate_link_quality(struct bcm430x_private *bcm)
+static void bcm43xx_calculate_link_quality(struct bcm43xx_private *bcm)
 {
 	/* Top half of Link Quality calculation. */
 
@@ -1404,12 +1404,12 @@ static void bcm430x_calculate_link_quality(struct bcm430x_private *bcm)
 	bcm->noisecalc.calculation_running = 1;
 	bcm->noisecalc.nr_samples = 0;
 
-	bcm430x_generate_noise_sample(bcm);
+	bcm43xx_generate_noise_sample(bcm);
 }
 
-static inline void handle_irq_noise(struct bcm430x_private *bcm)
+static inline void handle_irq_noise(struct bcm43xx_private *bcm)
 {
-	struct bcm430x_radioinfo *radio = bcm->current_core->radio;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	u16 tmp;
 	u8 noise[4];
 	u8 i, j;
@@ -1421,10 +1421,10 @@ static inline void handle_irq_noise(struct bcm430x_private *bcm)
 	if (bcm->noisecalc.core_at_start != bcm->current_core ||
 	    bcm->noisecalc.channel_at_start != radio->channel)
 		goto drop_calculation;
-	tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x408);
+	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x408);
 	noise[0] = (tmp & 0x00FF);
 	noise[1] = (tmp & 0xFF00) >> 8;
-	tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x40A);
+	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x40A);
 	noise[2] = (tmp & 0x00FF);
 	noise[3] = (tmp & 0xFF00) >> 8;
 	if (noise[0] == 0x7F || noise[1] == 0x7F ||
@@ -1454,7 +1454,7 @@ static inline void handle_irq_noise(struct bcm430x_private *bcm)
 		average *= 125;
 		average += 64;
 		average /= 128;
-		tmp = bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, 0x40C);
+		tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x40C);
 		tmp = (tmp / 128) & 0x1F;
 		if (tmp >= 8)
 			average += 2;
@@ -1479,17 +1479,17 @@ drop_calculation:
 		return;
 	}
 generate_new:
-	bcm430x_generate_noise_sample(bcm);
+	bcm43xx_generate_noise_sample(bcm);
 }
 
 static inline
-void handle_irq_ps(struct bcm430x_private *bcm)
+void handle_irq_ps(struct bcm43xx_private *bcm)
 {
 	if (bcm->ieee->iw_mode == IW_MODE_MASTER) {
 		///TODO: PS TBTT
 	} else {
 		if (1/*FIXME: the last PSpoll frame was sent successfully */)
-			bcm430x_power_saving_ctl_bits(bcm, -1, -1);
+			bcm43xx_power_saving_ctl_bits(bcm, -1, -1);
 	}
 	if (bcm->ieee->iw_mode == IW_MODE_ADHOC)
 		bcm->reg124_set_0x4 = 1;
@@ -1497,34 +1497,34 @@ void handle_irq_ps(struct bcm430x_private *bcm)
 }
 
 static inline
-void handle_irq_reg124(struct bcm430x_private *bcm)
+void handle_irq_reg124(struct bcm43xx_private *bcm)
 {
 	if (!bcm->reg124_set_0x4)
 		return;
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS2_BITFIELD,
-			bcm430x_read32(bcm, BCM430x_MMIO_STATUS2_BITFIELD)
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD,
+			bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD)
 			| 0x4);
 	//FIXME: reset reg124_set_0x4 to false?
 }
 
 static inline
-void handle_irq_pmq(struct bcm430x_private *bcm)
+void handle_irq_pmq(struct bcm43xx_private *bcm)
 {
 	u32 tmp;
 
 	//TODO: AP mode.
 
 	while (1) {
-		tmp = bcm430x_read32(bcm, BCM430x_MMIO_PS_STATUS);
+		tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_PS_STATUS);
 		if (!(tmp & 0x00000008))
 			break;
 	}
 	/* 16bit write is odd, but correct. */
-	bcm430x_write16(bcm, BCM430x_MMIO_PS_STATUS, 0x0002);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_PS_STATUS, 0x0002);
 }
 
 static inline
-void handle_irq_beacon(struct bcm430x_private *bcm)
+void handle_irq_beacon(struct bcm43xx_private *bcm)
 {
 	if (bcm->ieee->iw_mode != IW_MODE_MASTER)
 		return;
@@ -1541,25 +1541,25 @@ void handle_irq_beacon(struct bcm430x_private *bcm)
 			 reason,								\
 			 dma_reason[0], dma_reason[1],						\
 			 dma_reason[2], dma_reason[3],						\
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA1_BASE + BCM430x_DMA_TX_STATUS),	\
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA2_BASE + BCM430x_DMA_TX_STATUS),	\
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA3_BASE + BCM430x_DMA_TX_STATUS),	\
-			 bcm430x_read32(bcm, BCM430x_MMIO_DMA4_BASE + BCM430x_DMA_TX_STATUS));	\
+			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA1_BASE + BCM43xx_DMA_TX_STATUS),	\
+			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA2_BASE + BCM43xx_DMA_TX_STATUS),	\
+			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA3_BASE + BCM43xx_DMA_TX_STATUS),	\
+			 bcm43xx_read32(bcm, BCM43xx_MMIO_DMA4_BASE + BCM43xx_DMA_TX_STATUS));	\
 	} while (0)
 
 /* Interrupt handler bottom-half */
-static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
+static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 {
 	u32 reason;
 	u32 dma_reason[4];
 	unsigned long flags;
 
-#ifdef BCM430x_DEBUG
+#ifdef BCM43xx_DEBUG
 	u32 _handled = 0x00000000;
 # define bcmirq_handled(irq)	do { _handled |= (irq); } while (0)
 #else
 # define bcmirq_handled(irq)	do { /* nothing */ } while (0)
-#endif /* BCM430x_DEBUG */
+#endif /* BCM43xx_DEBUG */
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	reason = bcm->irq_reason;
@@ -1568,69 +1568,69 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	dma_reason[2] = bcm->dma_reason[2];
 	dma_reason[3] = bcm->dma_reason[3];
 
-	if (unlikely(reason & BCM430x_IRQ_XMIT_ERROR)) {
+	if (unlikely(reason & BCM43xx_IRQ_XMIT_ERROR)) {
 		/* TX error. We get this when Template Ram is written in wrong endianess
 		 * in dummy_tx(). We also get this if something is wrong with the TX header
 		 * on DMA or PIO queues.
 		 * Maybe we get this in other error conditions, too.
 		 */
 		bcmirq_print_reasons("XMIT ERROR");
-		bcmirq_handled(BCM430x_IRQ_XMIT_ERROR);
+		bcmirq_handled(BCM43xx_IRQ_XMIT_ERROR);
 	}
 
-	if (reason & BCM430x_IRQ_PS) {
+	if (reason & BCM43xx_IRQ_PS) {
 		handle_irq_ps(bcm);
-		bcmirq_handled(BCM430x_IRQ_PS);
+		bcmirq_handled(BCM43xx_IRQ_PS);
 	}
 
-	if (reason & BCM430x_IRQ_REG124) {
+	if (reason & BCM43xx_IRQ_REG124) {
 		handle_irq_reg124(bcm);
-		bcmirq_handled(BCM430x_IRQ_REG124);
+		bcmirq_handled(BCM43xx_IRQ_REG124);
 	}
 
-	if (reason & BCM430x_IRQ_BEACON) {
+	if (reason & BCM43xx_IRQ_BEACON) {
 		handle_irq_beacon(bcm);
-		bcmirq_handled(BCM430x_IRQ_BEACON);
+		bcmirq_handled(BCM43xx_IRQ_BEACON);
 	}
 
-	if (reason & BCM430x_IRQ_PMQ) {
+	if (reason & BCM43xx_IRQ_PMQ) {
 		handle_irq_pmq(bcm);
-		bcmirq_handled(BCM430x_IRQ_PMQ);
+		bcmirq_handled(BCM43xx_IRQ_PMQ);
 	}
 
-	if (reason & BCM430x_IRQ_SCAN) {
+	if (reason & BCM43xx_IRQ_SCAN) {
 		/*TODO*/
-		//bcmirq_handled(BCM430x_IRQ_SCAN);
+		//bcmirq_handled(BCM43xx_IRQ_SCAN);
 	}
 
-	if (reason & BCM430x_IRQ_NOISE) {
+	if (reason & BCM43xx_IRQ_NOISE) {
 		handle_irq_noise(bcm);
-		bcmirq_handled(BCM430x_IRQ_NOISE);
+		bcmirq_handled(BCM43xx_IRQ_NOISE);
 	}
 
 	/* Check the DMA reason registers for received data. */
-	assert(!(dma_reason[1] & BCM430x_DMAIRQ_RX_DONE));
-	assert(!(dma_reason[2] & BCM430x_DMAIRQ_RX_DONE));
-	if (dma_reason[0] & BCM430x_DMAIRQ_RX_DONE) {
+	assert(!(dma_reason[1] & BCM43xx_DMAIRQ_RX_DONE));
+	assert(!(dma_reason[2] & BCM43xx_DMAIRQ_RX_DONE));
+	if (dma_reason[0] & BCM43xx_DMAIRQ_RX_DONE) {
 		if (bcm->pio_mode)
-			bcm430x_pio_rx(bcm->current_core->pio->queue0);
+			bcm43xx_pio_rx(bcm->current_core->pio->queue0);
 		else
-			bcm430x_dma_rx(bcm->current_core->dma->rx_ring0);
+			bcm43xx_dma_rx(bcm->current_core->dma->rx_ring0);
 	}
-	if (dma_reason[3] & BCM430x_DMAIRQ_RX_DONE) {
+	if (dma_reason[3] & BCM43xx_DMAIRQ_RX_DONE) {
 		if (likely(bcm->current_core->rev < 5)) {
 			if (bcm->pio_mode)
-				bcm430x_pio_rx(bcm->current_core->pio->queue3);
+				bcm43xx_pio_rx(bcm->current_core->pio->queue3);
 			else
-				bcm430x_dma_rx(bcm->current_core->dma->rx_ring1);
+				bcm43xx_dma_rx(bcm->current_core->dma->rx_ring1);
 		} else
 			assert(0);
 	}
-	bcmirq_handled(BCM430x_IRQ_RX);
+	bcmirq_handled(BCM43xx_IRQ_RX);
 
-	if (reason & BCM430x_IRQ_XMIT_STATUS) {
+	if (reason & BCM43xx_IRQ_XMIT_STATUS) {
 		handle_irq_transmit_status(bcm);
-		bcmirq_handled(BCM430x_IRQ_XMIT_STATUS);
+		bcmirq_handled(BCM43xx_IRQ_XMIT_STATUS);
 	}
 
 	/* We get spurious IRQs, althought they are masked.
@@ -1638,8 +1638,8 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 	 */
 	bcmirq_handled(~(bcm->irq_savedstate));
 	/* IRQ_PIO_WORKAROUND is handled in the top-half. */
-	bcmirq_handled(BCM430x_IRQ_PIO_WORKAROUND);
-#ifdef BCM430x_DEBUG
+	bcmirq_handled(BCM43xx_IRQ_PIO_WORKAROUND);
+#ifdef BCM43xx_DEBUG
 	if (unlikely(reason & ~_handled)) {
 		printkl(KERN_WARNING PFX
 			"Unhandled IRQ! Reason: 0x%08x,  Unhandled: 0x%08x,  "
@@ -1651,63 +1651,63 @@ static void bcm430x_interrupt_tasklet(struct bcm430x_private *bcm)
 #endif
 #undef bcmirq_handled
 
-	bcm430x_interrupt_enable(bcm, bcm->irq_savedstate);
+	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
 #undef bcmirq_print_reasons
 
 static inline
-void bcm430x_interrupt_ack(struct bcm430x_private *bcm,
+void bcm43xx_interrupt_ack(struct bcm43xx_private *bcm,
 			   u32 reason, u32 mask)
 {
-	bcm->dma_reason[0] = bcm430x_read32(bcm, BCM430x_MMIO_DMA1_REASON)
+	bcm->dma_reason[0] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA1_REASON)
 			     & 0x0001dc00;
-	bcm->dma_reason[1] = bcm430x_read32(bcm, BCM430x_MMIO_DMA2_REASON)
+	bcm->dma_reason[1] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA2_REASON)
 			     & 0x0000dc00;
-	bcm->dma_reason[2] = bcm430x_read32(bcm, BCM430x_MMIO_DMA3_REASON)
+	bcm->dma_reason[2] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA3_REASON)
 			     & 0x0000dc00;
-	bcm->dma_reason[3] = bcm430x_read32(bcm, BCM430x_MMIO_DMA4_REASON)
+	bcm->dma_reason[3] = bcm43xx_read32(bcm, BCM43xx_MMIO_DMA4_REASON)
 			     & 0x0001dc00;
 
 	if ((bcm->pio_mode) &&
 	    (bcm->current_core->rev < 3) &&
-	    (!(reason & BCM430x_IRQ_PIO_WORKAROUND))) {
+	    (!(reason & BCM43xx_IRQ_PIO_WORKAROUND))) {
 		/* Apply a PIO specific workaround to the dma_reasons */
 
 #define apply_pio_workaround(BASE, QNUM) \
 	do {											\
-	if (bcm430x_read16(bcm, BASE + BCM430x_PIO_RXCTL) & BCM430x_PIO_RXCTL_DATAAVAILABLE)	\
+	if (bcm43xx_read16(bcm, BASE + BCM43xx_PIO_RXCTL) & BCM43xx_PIO_RXCTL_DATAAVAILABLE)	\
 		bcm->dma_reason[QNUM] |= 0x00010000;						\
 	else											\
 		bcm->dma_reason[QNUM] &= ~0x00010000;						\
 	} while (0)
 
-		apply_pio_workaround(BCM430x_MMIO_PIO1_BASE, 0);
-		apply_pio_workaround(BCM430x_MMIO_PIO2_BASE, 1);
-		apply_pio_workaround(BCM430x_MMIO_PIO3_BASE, 2);
-		apply_pio_workaround(BCM430x_MMIO_PIO4_BASE, 3);
+		apply_pio_workaround(BCM43xx_MMIO_PIO1_BASE, 0);
+		apply_pio_workaround(BCM43xx_MMIO_PIO2_BASE, 1);
+		apply_pio_workaround(BCM43xx_MMIO_PIO3_BASE, 2);
+		apply_pio_workaround(BCM43xx_MMIO_PIO4_BASE, 3);
 
 #undef apply_pio_workaround
 	}
 
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON,
+	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON,
 			reason & mask);
 
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_REASON,
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA1_REASON,
 			bcm->dma_reason[0]);
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA2_REASON,
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA2_REASON,
 			bcm->dma_reason[1]);
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA3_REASON,
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA3_REASON,
 			bcm->dma_reason[2]);
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_REASON,
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA4_REASON,
 			bcm->dma_reason[3]);
 }
 
 /* Interrupt handler top-half */
-static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id, struct pt_regs *regs)
 {
-	struct bcm430x_private *bcm = dev_id;
+	struct bcm43xx_private *bcm = dev_id;
 	u32 reason, mask;
 
 	if (!bcm)
@@ -1715,22 +1715,22 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 
 	spin_lock(&bcm->lock);
 
-	reason = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
 	if (reason == 0xffffffff) {
 		/* irq not for us (shared irq) */
 		spin_unlock(&bcm->lock);
 		return IRQ_NONE;
 	}
-	mask = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_MASK);
+	mask = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_MASK);
 	if (!(reason & mask)) {
 		spin_unlock(&bcm->lock);
 		return IRQ_HANDLED;
 	}
 
-	bcm430x_interrupt_ack(bcm, reason, mask);
+	bcm43xx_interrupt_ack(bcm, reason, mask);
 
 	/* disable all IRQs. They are enabled again in the bottom half. */
-	bcm->irq_savedstate = bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
 
 	/* save the reason code and call our bottom half. */
 	bcm->irq_reason = reason;
@@ -1741,45 +1741,45 @@ static irqreturn_t bcm430x_interrupt_handler(int irq, void *dev_id, struct pt_re
 	return IRQ_HANDLED;
 }
 
-static inline void bcm430x_write_microcode(struct bcm430x_private *bcm,
+static inline void bcm43xx_write_microcode(struct bcm43xx_private *bcm,
 				    const u32 *data, const unsigned int len)
 {
 	unsigned int i;
-	bcm430x_shm_control_word(bcm, BCM430x_SHM_UCODE, 0x0000);
+	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_UCODE, 0x0000);
 	for (i = 0; i < len; i++) {
-		bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA,
+		bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA,
 				be32_to_cpu(data[i]));
 		udelay(10);
 	}
 }
 
-static inline void bcm430x_write_pcm(struct bcm430x_private *bcm,
+static inline void bcm43xx_write_pcm(struct bcm43xx_private *bcm,
 			      const u32 *data, const unsigned int len)
 {
 	unsigned int i;
-	bcm430x_shm_control_word(bcm, BCM430x_SHM_PCM, 0x01ea);
-	bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA, 0x00004000);
-	bcm430x_shm_control_word(bcm, BCM430x_SHM_PCM, 0x01eb);
+	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01ea);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA, 0x00004000);
+	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01eb);
 	for (i = 0; i < len; i++) {
-		bcm430x_write32(bcm, BCM430x_MMIO_SHM_DATA,
+		bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA,
 				be32_to_cpu(data[i]));
 		udelay(10);
 	}
 }
 
-static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
+static int bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
 {
 	int err = -ENODEV;
 	const struct firmware *fw;
 	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
 
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm430x_mmioprint_enable(bcm);
+	bcm43xx_mmioprint_enable(bcm);
 #else
-	bcm430x_mmioprint_disable(bcm);
+	bcm43xx_mmioprint_disable(bcm);
 #endif
 
-	snprintf(buf, ARRAY_SIZE(buf), "bcm430x_microcode%d%s.fw",
+	snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_microcode%d%s.fw",
 		 (bcm->current_core->rev >= 5 ? 5 : bcm->current_core->rev),
 		 modparam_fwpostfix);
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
@@ -1788,14 +1788,14 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 		        buf);
 		goto out;
 	}
-	bcm430x_write_microcode(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
-#ifdef BCM430x_DEBUG
+	bcm43xx_write_microcode(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
+#ifdef BCM43xx_DEBUG
 	bcm->ucode_size = fw->size;
 #endif
 	release_firmware(fw);
 
 	snprintf(buf, ARRAY_SIZE(buf),
-		 "bcm430x_pcm%d%s.fw",
+		 "bcm43xx_pcm%d%s.fw",
 		 (bcm->current_core->rev < 5 ? 4 : 5),
 		 modparam_fwpostfix);
 	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
@@ -1804,8 +1804,8 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 		       buf);
 		goto out;
 	}
-	bcm430x_write_pcm(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
-#ifdef BCM430x_DEBUG
+	bcm43xx_write_pcm(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
+#ifdef BCM43xx_DEBUG
 	bcm->pcm_size = fw->size;
 #endif
 	release_firmware(fw);
@@ -1813,15 +1813,15 @@ static int bcm430x_upload_microcode(struct bcm430x_private *bcm)
 	err = 0;
 out:
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm430x_mmioprint_disable(bcm);
+	bcm43xx_mmioprint_disable(bcm);
 #else
-	bcm430x_mmioprint_enable(bcm);
+	bcm43xx_mmioprint_enable(bcm);
 #endif
 	return err;
 }
 
-static void bcm430x_write_initvals(struct bcm430x_private *bcm,
-				   const struct bcm430x_initval *data,
+static void bcm43xx_write_initvals(struct bcm43xx_private *bcm,
+				   const struct bcm43xx_initval *data,
 				   const unsigned int len)
 {
 	u16 offset, size;
@@ -1834,15 +1834,15 @@ static void bcm430x_write_initvals(struct bcm430x_private *bcm,
 		value = be32_to_cpu(data[i].value);
 
 		if (size == 2)
-			bcm430x_write16(bcm, offset, value);
+			bcm43xx_write16(bcm, offset, value);
 		else if (size == 4)
-			bcm430x_write32(bcm, offset, value);
+			bcm43xx_write32(bcm, offset, value);
 		else
 			printk(KERN_ERR PFX "InitVals fileformat error.\n");
 	}
 }
 
-static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
+static int bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
 {
 	int err = -ENODEV;
 	u32 sbtmstatehigh;
@@ -1850,20 +1850,20 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	char buf[21 + sizeof(modparam_fwpostfix) - 1] = { 0 };
 
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm430x_mmioprint_enable(bcm);
+	bcm43xx_mmioprint_enable(bcm);
 #else
-	bcm430x_mmioprint_disable(bcm);
+	bcm43xx_mmioprint_disable(bcm);
 #endif
 
 	if ((bcm->current_core->rev == 2) || (bcm->current_core->rev == 4)) {
 		switch (bcm->current_core->phy->type) {
-			case BCM430x_PHYTYPE_A:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+			case BCM43xx_PHYTYPE_A:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
 					 3, modparam_fwpostfix);
 				break;
-			case BCM430x_PHYTYPE_B:
-			case BCM430x_PHYTYPE_G:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+			case BCM43xx_PHYTYPE_B:
+			case BCM43xx_PHYTYPE_G:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
 					 1, modparam_fwpostfix);
 				break;
 			default:
@@ -1872,13 +1872,13 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	
 	} else if (bcm->current_core->rev >= 5) {
 		switch (bcm->current_core->phy->type) {
-			case BCM430x_PHYTYPE_A:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+			case BCM43xx_PHYTYPE_A:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
 					 7, modparam_fwpostfix);
 				break;
-			case BCM430x_PHYTYPE_B:
-			case BCM430x_PHYTYPE_G:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+			case BCM43xx_PHYTYPE_B:
+			case BCM43xx_PHYTYPE_G:
+				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
 					 5, modparam_fwpostfix);
 				break;
 			default:
@@ -1893,31 +1893,31 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 		        buf);
 		goto out;
 	}
-	if (fw->size % sizeof(struct bcm430x_initval)) {
+	if (fw->size % sizeof(struct bcm43xx_initval)) {
 		printk(KERN_ERR PFX "InitVals fileformat error.\n");
 		release_firmware(fw);
 		goto out;
 	}
 
-	bcm430x_write_initvals(bcm, (struct bcm430x_initval *)fw->data,
-			       fw->size / sizeof(struct bcm430x_initval));
+	bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)fw->data,
+			       fw->size / sizeof(struct bcm43xx_initval));
 
 	release_firmware(fw);
 
 	if (bcm->current_core->rev >= 5) {
 		switch (bcm->current_core->phy->type) {
-			case BCM430x_PHYTYPE_A:
-				sbtmstatehigh = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATEHIGH);
+			case BCM43xx_PHYTYPE_A:
+				sbtmstatehigh = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
 				if (sbtmstatehigh & 0x00010000)
-					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+					snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
 						 9, modparam_fwpostfix);
 				else
-					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+					snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
 						 10, modparam_fwpostfix);
 				break;
-			case BCM430x_PHYTYPE_B:
-			case BCM430x_PHYTYPE_G:
-					snprintf(buf, ARRAY_SIZE(buf), "bcm430x_initval%02d%s.fw",
+			case BCM43xx_PHYTYPE_B:
+			case BCM43xx_PHYTYPE_G:
+					snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
 						 6, modparam_fwpostfix);
 				break;
 			default:
@@ -1930,14 +1930,14 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 		        	buf);
 			goto out;
 		}
-		if (fw->size % sizeof(struct bcm430x_initval)) {
+		if (fw->size % sizeof(struct bcm43xx_initval)) {
 			printk(KERN_ERR PFX "InitVals fileformat error.\n");
 			release_firmware(fw);
 			goto out;
 		}
 
-		bcm430x_write_initvals(bcm, (struct bcm430x_initval *)fw->data,
-				       fw->size / sizeof(struct bcm430x_initval));
+		bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)fw->data,
+				       fw->size / sizeof(struct bcm43xx_initval));
 	
 		release_firmware(fw);
 		
@@ -1947,9 +1947,9 @@ static int bcm430x_upload_initvals(struct bcm430x_private *bcm)
 	err = 0;
 out:
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm430x_mmioprint_disable(bcm);
+	bcm43xx_mmioprint_disable(bcm);
 #else
-	bcm430x_mmioprint_enable(bcm);
+	bcm43xx_mmioprint_enable(bcm);
 #endif
 
 	return err;
@@ -1959,27 +1959,27 @@ out_noinitval:
 	goto out;
 }
 
-static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
+static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
 {
 	int res;
 	unsigned int i;
 	u32 data;
 
-	res = request_irq(bcm->pci_dev->irq, bcm430x_interrupt_handler,
+	res = request_irq(bcm->pci_dev->irq, bcm43xx_interrupt_handler,
 			  SA_SHIRQ, DRV_NAME, bcm);
 	if (res) {
 		printk(KERN_ERR PFX "Cannot register IRQ%d\n", bcm->pci_dev->irq);
 		return -EFAULT;
 	}
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, 0xffffffff);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, 0x00020402);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, 0xffffffff);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, 0x00020402);
 	i = 0;
 	while (1) {
-		data = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
-		if (data == BCM430x_IRQ_READY)
+		data = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+		if (data == BCM43xx_IRQ_READY)
 			break;
 		i++;
-		if (i >= BCM430x_IRQWAIT_MAX_RETRIES) {
+		if (i >= BCM43xx_IRQWAIT_MAX_RETRIES) {
 			printk(KERN_ERR PFX "Card IRQ register not responding. "
 					    "Giving up.\n");
 			free_irq(bcm->pci_dev->irq, bcm);
@@ -1988,43 +1988,43 @@ static int bcm430x_initialize_irq(struct bcm430x_private *bcm)
 		udelay(10);
 	}
 	// dummy read
-	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
 
 	return 0;
 }
 
 /* Keep this slim, as we're going to call it from within the interrupt tasklet! */
-static void bcm430x_update_leds(struct bcm430x_private *bcm)
+static void bcm43xx_update_leds(struct bcm43xx_private *bcm)
 {
 	int id;
-	u16 value = bcm430x_read16(bcm, BCM430x_MMIO_GPIO_CONTROL);
+	u16 value = bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_CONTROL);
 	u16 state;
 
-	for (id = 0; id < BCM430x_LED_COUNT; id++) {
+	for (id = 0; id < BCM43xx_LED_COUNT; id++) {
 		if (bcm->leds[id] == 0xFF)
 			continue;
 
 		state = 0;
 
-		switch (bcm->leds[id] & ~BCM430x_LED_ACTIVELOW) {
-		case BCM430x_LED_OFF:
+		switch (bcm->leds[id] & ~BCM43xx_LED_ACTIVELOW) {
+		case BCM43xx_LED_OFF:
 			break;
-		case BCM430x_LED_ON:
+		case BCM43xx_LED_ON:
 			state = 1;
 			break;
-		case BCM430x_LED_RADIO_ALL:
+		case BCM43xx_LED_RADIO_ALL:
 			state = ((bcm->radio[0].enabled) || (bcm->radio[1].enabled)) ? 1 : 0;
 			break;
-		case BCM430x_LED_RADIO_A:
-			if ((bcm->phy[0].type == BCM430x_PHYTYPE_A) && (bcm->radio[0].enabled))
+		case BCM43xx_LED_RADIO_A:
+			if ((bcm->phy[0].type == BCM43xx_PHYTYPE_A) && (bcm->radio[0].enabled))
 				state = 1;
-			if ((bcm->phy[1].type == BCM430x_PHYTYPE_A) && (bcm->radio[1].enabled))
+			if ((bcm->phy[1].type == BCM43xx_PHYTYPE_A) && (bcm->radio[1].enabled))
 				state = 1;
 			break;
-		case BCM430x_LED_RADIO_B:
-			if ((bcm->phy[0].type == BCM430x_PHYTYPE_B) && (bcm->radio[0].enabled))
+		case BCM43xx_LED_RADIO_B:
+			if ((bcm->phy[0].type == BCM43xx_PHYTYPE_B) && (bcm->radio[0].enabled))
 				state = 1;
-			if ((bcm->phy[1].type == BCM430x_PHYTYPE_B) && (bcm->radio[1].enabled))
+			if ((bcm->phy[1].type == BCM43xx_PHYTYPE_B) && (bcm->radio[1].enabled))
 				state = 1;
 			break;
 		/*
@@ -2034,19 +2034,19 @@ static void bcm430x_update_leds(struct bcm430x_private *bcm)
 			break;
 		};
 
-		if (bcm->leds[id] & BCM430x_LED_ACTIVELOW)
+		if (bcm->leds[id] & BCM43xx_LED_ACTIVELOW)
 			state = 0x0001 & (state ^ 0x0001);
 		value &= ~(1 << id);
 		value |= (state << id);
 	}
 
-	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_CONTROL, value);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_CONTROL, value);
 }
 
 /* Switch to the core used to write the GPIO register.
  * This is either the ChipCommon, or the PCI core.
  */
-static inline int switch_to_gpio_core(struct bcm430x_private *bcm)
+static inline int switch_to_gpio_core(struct bcm43xx_private *bcm)
 {
 	int err;
 
@@ -2055,9 +2055,9 @@ static inline int switch_to_gpio_core(struct bcm430x_private *bcm)
 	 * control register. Otherwise the register at offset 0x6c in the
 	 * PCI core is the GPIO control register.
 	 */
-	err = bcm430x_switch_core(bcm, &bcm->core_chipcommon);
+	err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
 	if (err == -ENODEV) {
-		err = bcm430x_switch_core(bcm, &bcm->core_pci);
+		err = bcm43xx_switch_core(bcm, &bcm->core_pci);
 		if (err == -ENODEV) {
 			printk(KERN_ERR PFX "gpio error: "
 			       "Neither ChipCommon nor PCI core available!\n");
@@ -2073,22 +2073,22 @@ static inline int switch_to_gpio_core(struct bcm430x_private *bcm)
 /* Initialize the GPIOs
  * http://bcm-specs.sipsolutions.net/GPIO
  */
-static int bcm430x_gpio_init(struct bcm430x_private *bcm)
+static int bcm43xx_gpio_init(struct bcm43xx_private *bcm)
 {
-	struct bcm430x_coreinfo *old_core;
+	struct bcm43xx_coreinfo *old_core;
 	int err;
 	u32 mask, value;
 
-	value = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	value = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	value &= ~0xc000;
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value);
 
 	mask = 0x0000001F;
 	value = 0x0000000F;
-	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_CONTROL,
-			bcm430x_read16(bcm, BCM430x_MMIO_GPIO_CONTROL) & 0xFFF0);
-	bcm430x_write16(bcm, BCM430x_MMIO_GPIO_MASK,
-			bcm430x_read16(bcm, BCM430x_MMIO_GPIO_MASK) | 0x000F);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_CONTROL,
+			bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_CONTROL) & 0xFFF0);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_MASK,
+			bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_MASK) | 0x000F);
 
 	old_core = bcm->current_core;
 	
@@ -2104,63 +2104,63 @@ static int bcm430x_gpio_init(struct bcm430x_private *bcm)
 		mask  |= 0x60;
 		value |= 0x60;
 	}
-	if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL) {
+	if (bcm->sprom.boardflags & BCM43xx_BFL_PACTRL) {
 		mask  |= 0x200;
 		value |= 0x200;
 	}
 
-	bcm430x_write32(bcm, BCM430x_GPIO_CONTROL,
-	                (bcm430x_read32(bcm, BCM430x_GPIO_CONTROL) & mask) | value);
+	bcm43xx_write32(bcm, BCM43xx_GPIO_CONTROL,
+	                (bcm43xx_read32(bcm, BCM43xx_GPIO_CONTROL) & mask) | value);
 
-	err = bcm430x_switch_core(bcm, old_core);
+	err = bcm43xx_switch_core(bcm, old_core);
 	assert(err == 0);
 
 	return 0;
 }
 
 /* Turn off all GPIO stuff. Call this on module unload, for example. */
-static int bcm430x_gpio_cleanup(struct bcm430x_private *bcm)
+static int bcm43xx_gpio_cleanup(struct bcm43xx_private *bcm)
 {
-	struct bcm430x_coreinfo *old_core;
+	struct bcm43xx_coreinfo *old_core;
 	int err;
 
 	old_core = bcm->current_core;
 	err = switch_to_gpio_core(bcm);
 	if (err)
 		return err;
-	bcm430x_write32(bcm, BCM430x_GPIO_CONTROL, 0x00000000);
-	err = bcm430x_switch_core(bcm, old_core);
+	bcm43xx_write32(bcm, BCM43xx_GPIO_CONTROL, 0x00000000);
+	err = bcm43xx_switch_core(bcm, old_core);
 	assert(err == 0);
 
 	return 0;
 }
 
 /* http://bcm-specs.sipsolutions.net/EnableMac */
-void bcm430x_mac_enable(struct bcm430x_private *bcm)
+void bcm43xx_mac_enable(struct bcm43xx_private *bcm)
 {
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-			| BCM430x_SBF_MAC_ENABLED);
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, BCM430x_IRQ_READY);
-	bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD); /* dummy read */
-	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON); /* dummy read */
-	bcm430x_power_saving_ctl_bits(bcm, -1, -1);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+	                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+			| BCM43xx_SBF_MAC_ENABLED);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, BCM43xx_IRQ_READY);
+	bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* dummy read */
+	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
+	bcm43xx_power_saving_ctl_bits(bcm, -1, -1);
 }
 
 /* http://bcm-specs.sipsolutions.net/SuspendMAC */
-void bcm430x_mac_suspend(struct bcm430x_private *bcm)
+void bcm43xx_mac_suspend(struct bcm43xx_private *bcm)
 {
 	int i;
 	u32 tmp;
 
-	bcm430x_power_saving_ctl_bits(bcm, -1, 1);
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-	                bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD)
-			& ~BCM430x_SBF_MAC_ENABLED);
-	bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON); /* dummy read */
+	bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+	                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+			& ~BCM43xx_SBF_MAC_ENABLED);
+	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
 	for (i = 1000; i > 0; i--) {
-		tmp = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
-		if (tmp & BCM430x_IRQ_READY) {
+		tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+		if (tmp & BCM43xx_IRQ_READY) {
 			i = -1;
 			break;
 		}
@@ -2170,18 +2170,18 @@ void bcm430x_mac_suspend(struct bcm430x_private *bcm)
 		printkl(KERN_ERR PFX "Failed to suspend mac!\n");
 }
 
-/* This is the opposite of bcm430x_chip_init() */
-static void bcm430x_chip_cleanup(struct bcm430x_private *bcm)
+/* This is the opposite of bcm43xx_chip_init() */
+static void bcm43xx_chip_cleanup(struct bcm43xx_private *bcm)
 {
-	bcm430x_radio_turn_off(bcm);
-	bcm430x_gpio_cleanup(bcm);
+	bcm43xx_radio_turn_off(bcm);
+	bcm43xx_gpio_cleanup(bcm);
 	free_irq(bcm->pci_dev->irq, bcm);
 }
 
 /* Initialize the chip
  * http://bcm-specs.sipsolutions.net/ChipInit
  */
-static int bcm430x_chip_init(struct bcm430x_private *bcm)
+static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 {
 	int err;
 	int iw_mode = bcm->ieee->iw_mode;
@@ -2189,113 +2189,113 @@ static int bcm430x_chip_init(struct bcm430x_private *bcm)
 	u32 value32;
 	u16 value16;
 
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD,
-			BCM430x_SBF_CORE_READY
-			| BCM430x_SBF_400);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+			BCM43xx_SBF_CORE_READY
+			| BCM43xx_SBF_400);
 
-	err = bcm430x_upload_microcode(bcm);
+	err = bcm43xx_upload_microcode(bcm);
 	if (err)
 		goto out;
 
-	err = bcm430x_initialize_irq(bcm);
+	err = bcm43xx_initialize_irq(bcm);
 	if (err)
 		goto out;
 
-	err = bcm430x_gpio_init(bcm);
+	err = bcm43xx_gpio_init(bcm);
 	if (err)
 		goto err_free_irq;
 
-	err = bcm430x_upload_initvals(bcm);
+	err = bcm43xx_upload_initvals(bcm);
 	if (err)
 		goto err_gpio_cleanup;
 
-	err = bcm430x_radio_turn_on(bcm);
+	err = bcm43xx_radio_turn_on(bcm);
 	if (err)
 		goto err_gpio_cleanup;
 
-	bcm430x_update_leds(bcm);
+	bcm43xx_update_leds(bcm);
 
-	bcm430x_write16(bcm, 0x03E6, 0x0000);
-	err = bcm430x_phy_init(bcm);
+	bcm43xx_write16(bcm, 0x03E6, 0x0000);
+	err = bcm43xx_phy_init(bcm);
 	if (err)
 		goto err_radio_off;
 
 	/* Select initial Interference Mitigation. */
 	tmp = bcm->current_core->radio->interfmode;
-	bcm->current_core->radio->interfmode = BCM430x_RADIO_INTERFMODE_NONE;
-	bcm430x_radio_set_interference_mitigation(bcm, tmp);
+	bcm->current_core->radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
+	bcm43xx_radio_set_interference_mitigation(bcm, tmp);
 
-	bcm430x_phy_set_antenna_diversity(bcm);
-	bcm430x_radio_set_txantenna(bcm, BCM430x_RADIO_DEFAULT_ANTENNA);
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
-		value16 = bcm430x_read16(bcm, 0x005E);
+	bcm43xx_phy_set_antenna_diversity(bcm);
+	bcm43xx_radio_set_txantenna(bcm, BCM43xx_RADIO_DEFAULT_ANTENNA);
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
+		value16 = bcm43xx_read16(bcm, 0x005E);
 		value16 |= 0x0004;
-		bcm430x_write16(bcm, 0x005E, value16);
+		bcm43xx_write16(bcm, 0x005E, value16);
 	}
-	bcm430x_write32(bcm, 0x0100, 0x01000000);
-	bcm430x_write32(bcm, 0x010C, 0x01000000);
+	bcm43xx_write32(bcm, 0x0100, 0x01000000);
+	bcm43xx_write32(bcm, 0x010C, 0x01000000);
 
-	value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	value32 &= ~ BCM430x_SBF_MODE_NOTADHOC;
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
-	value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-	value32 |= BCM430x_SBF_MODE_NOTADHOC;
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	value32 &= ~ BCM43xx_SBF_MODE_NOTADHOC;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
+	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	value32 |= BCM43xx_SBF_MODE_NOTADHOC;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
 
 	if ((iw_mode == IW_MODE_MASTER) && (bcm->net_dev->flags & IFF_PROMISC)) {
-		value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-		value32 |= BCM430x_SBF_MODE_PROMISC;
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+		value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+		value32 |= BCM43xx_SBF_MODE_PROMISC;
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
 	} else if (iw_mode == IW_MODE_MONITOR) {
-		value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
-		value32 |= BCM430x_SBF_MODE_PROMISC;
-		value32 |= BCM430x_SBF_MODE_MONITOR;
-		bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+		value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+		value32 |= BCM43xx_SBF_MODE_PROMISC;
+		value32 |= BCM43xx_SBF_MODE_MONITOR;
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
 	}
-	value32 = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	value32 |= 0x100000; //FIXME: What's this? Is this correct?
-	bcm430x_write32(bcm, BCM430x_MMIO_STATUS_BITFIELD, value32);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
 
 	if (bcm->pio_mode) {
-		bcm430x_write32(bcm, 0x0210, 0x00000100);
-		bcm430x_write32(bcm, 0x0230, 0x00000100);
-		bcm430x_write32(bcm, 0x0250, 0x00000100);
-		bcm430x_write32(bcm, 0x0270, 0x00000100);
-		bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0034, 0x0000);
+		bcm43xx_write32(bcm, 0x0210, 0x00000100);
+		bcm43xx_write32(bcm, 0x0230, 0x00000100);
+		bcm43xx_write32(bcm, 0x0250, 0x00000100);
+		bcm43xx_write32(bcm, 0x0270, 0x00000100);
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0034, 0x0000);
 	}
 
 	/* Probe Response Timeout value */
 	/* FIXME: Default to 0, has to be set by ioctl probably... :-/ */
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0074, 0x0000);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0074, 0x0000);
 
 	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
 		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
-			bcm430x_write16(bcm, 0x0612, 0x0064);
+			bcm43xx_write16(bcm, 0x0612, 0x0064);
 		else
-			bcm430x_write16(bcm, 0x0612, 0x0032);
+			bcm43xx_write16(bcm, 0x0612, 0x0032);
 	} else
-		bcm430x_write16(bcm, 0x0612, 0x0002);
+		bcm43xx_write16(bcm, 0x0612, 0x0002);
 
 	if (bcm->current_core->rev < 3) {
-		bcm430x_write16(bcm, 0x060E, 0x0000);
-		bcm430x_write16(bcm, 0x0610, 0x8000);
-		bcm430x_write16(bcm, 0x0604, 0x0000);
-		bcm430x_write16(bcm, 0x0606, 0x0200);
+		bcm43xx_write16(bcm, 0x060E, 0x0000);
+		bcm43xx_write16(bcm, 0x0610, 0x8000);
+		bcm43xx_write16(bcm, 0x0604, 0x0000);
+		bcm43xx_write16(bcm, 0x0606, 0x0200);
 	} else {
-		bcm430x_write32(bcm, 0x0188, 0x80000000);
-		bcm430x_write32(bcm, 0x018C, 0x02000000);
+		bcm43xx_write32(bcm, 0x0188, 0x80000000);
+		bcm43xx_write32(bcm, 0x018C, 0x02000000);
 	}
-	bcm430x_write32(bcm, BCM430x_MMIO_GEN_IRQ_REASON, 0x00004000);
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA1_IRQ_MASK, 0x0001DC00);
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA2_IRQ_MASK, 0x0000DC00);
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA3_IRQ_MASK, 0x0000DC00);
-	bcm430x_write32(bcm, BCM430x_MMIO_DMA4_IRQ_MASK, 0x0001DC00);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, 0x00004000);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA1_IRQ_MASK, 0x0001DC00);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA2_IRQ_MASK, 0x0000DC00);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA3_IRQ_MASK, 0x0000DC00);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_DMA4_IRQ_MASK, 0x0001DC00);
 
-	value32 = bcm430x_read32(bcm, BCM430x_CIR_SBTMSTATELOW);
+	value32 = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
 	value32 |= 0x00100000;
-	bcm430x_write32(bcm, BCM430x_CIR_SBTMSTATELOW, value32);
+	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, value32);
 
-	bcm430x_write16(bcm, BCM430x_MMIO_POWERUP_DELAY, bcm430x_pctl_powerup_delay(bcm));
+	bcm43xx_write16(bcm, BCM43xx_MMIO_POWERUP_DELAY, bcm43xx_pctl_powerup_delay(bcm));
 
 	assert(err == 0);
 	dprintk(KERN_INFO PFX "Chip initialized\n");
@@ -2303,9 +2303,9 @@ out:
 	return err;
 
 err_radio_off:
-	bcm430x_radio_turn_off(bcm);
+	bcm43xx_radio_turn_off(bcm);
 err_gpio_cleanup:
-	bcm430x_gpio_cleanup(bcm);
+	bcm43xx_gpio_cleanup(bcm);
 err_free_irq:
 	free_irq(bcm->pci_dev->irq, bcm);
 	goto out;
@@ -2313,34 +2313,34 @@ err_free_irq:
 	
 /* Validate chip access
  * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
-static int bcm430x_validate_chip(struct bcm430x_private *bcm)
+static int bcm43xx_validate_chip(struct bcm43xx_private *bcm)
 {
 	int err = -ENODEV;
 	u32 value;
 	u32 shm_backup;
 
-	shm_backup = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0000);
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0000, 0xAA5555AA);
-	if (bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0000) != 0xAA5555AA) {
+	shm_backup = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, 0xAA5555AA);
+	if (bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000) != 0xAA5555AA) {
 		printk(KERN_ERR PFX "Error: SHM mismatch (1) validating chip\n");
 		goto out;
 	}
 
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0000, 0x55AAAA55);
-	if (bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, 0x0000) != 0x55AAAA55) {
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, 0x55AAAA55);
+	if (bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000) != 0x55AAAA55) {
 		printk(KERN_ERR PFX "Error: SHM mismatch (2) validating chip\n");
 		goto out;
 	}
 
-	bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED, 0x0000, shm_backup);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, shm_backup);
 
-	value = bcm430x_read32(bcm, BCM430x_MMIO_STATUS_BITFIELD);
+	value = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	if ((value | 0x80000000) != 0x80000400) {
 		printk(KERN_ERR PFX "Error: Bad Status Bitfield while validating chip\n");
 		goto out;
 	}
 
-	value = bcm430x_read32(bcm, BCM430x_MMIO_GEN_IRQ_REASON);
+	value = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
 	if (value != 0x00000000) {
 		printk(KERN_ERR PFX "Error: Bad interrupt reason code while validating chip\n");
 		goto out;
@@ -2351,7 +2351,7 @@ out:
 	return err;
 }
 
-static int bcm430x_probe_cores(struct bcm430x_private *bcm)
+static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 {
 	int err, i;
 	int current_core;
@@ -2366,22 +2366,22 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 		goto out;
 
 	/* fetch sb_id_hi from core information registers */
-	sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_SB_ID_HI);
+	sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
 
 	core_id = (sb_id_hi & 0xFFF0) >> 4;
 	core_rev = (sb_id_hi & 0xF);
 	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
 
 	/* if present, chipcommon is always core 0; read the chipid from it */
-	if (core_id == BCM430x_COREID_CHIPCOMMON) {
-		chip_id_32 = bcm430x_read32(bcm, 0);
+	if (core_id == BCM43xx_COREID_CHIPCOMMON) {
+		chip_id_32 = bcm43xx_read32(bcm, 0);
 		chip_id_16 = chip_id_32 & 0xFFFF;
-		bcm->core_chipcommon.flags |= BCM430x_COREFLAG_AVAILABLE;
+		bcm->core_chipcommon.flags |= BCM43xx_COREFLAG_AVAILABLE;
 		bcm->core_chipcommon.id = core_id;
 		bcm->core_chipcommon.rev = core_rev;
 		bcm->core_chipcommon.index = 0;
 		/* While we are at it, also read the capabilities. */
-		bcm->chipcommon_capabilities = bcm430x_read32(bcm, BCM430x_CHIPCOMMON_CAPABILITIES);
+		bcm->chipcommon_capabilities = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_CAPABILITIES);
 	} else {
 		/* without a chipCommon, use a hard coded table. */
 		pci_device = bcm->pci_dev->device;
@@ -2406,7 +2406,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 	/* ChipCommon with Core Rev >=4 encodes number of cores,
 	 * otherwise consult hardcoded table */
-	if ((core_id == BCM430x_COREID_CHIPCOMMON) && (core_rev >= 4)) {
+	if ((core_id == BCM43xx_COREID_CHIPCOMMON) && (core_rev >= 4)) {
 		core_count = (chip_id_32 & 0x0F000000) >> 24;
 	} else {
 		switch (chip_id_16) {
@@ -2444,25 +2444,25 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 	dprintk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
 		bcm->chip_id, bcm->chip_rev);
 	dprintk(KERN_INFO PFX "Number of cores: %d\n", core_count);
-	if (bcm->core_chipcommon.flags & BCM430x_COREFLAG_AVAILABLE) {
+	if (bcm->core_chipcommon.flags & BCM43xx_COREFLAG_AVAILABLE) {
 		dprintk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
 			core_id, core_rev, core_vendor,
-			bcm430x_core_enabled(bcm) ? "enabled" : "disabled");
+			bcm43xx_core_enabled(bcm) ? "enabled" : "disabled");
 	}
 
-	if (bcm->core_chipcommon.flags & BCM430x_COREFLAG_AVAILABLE)
+	if (bcm->core_chipcommon.flags & BCM43xx_COREFLAG_AVAILABLE)
 		current_core = 1;
 	else
 		current_core = 0;
 	for ( ; current_core < core_count; current_core++) {
-		struct bcm430x_coreinfo *core;
+		struct bcm43xx_coreinfo *core;
 
 		err = _switch_core(bcm, current_core);
 		if (err)
 			goto out;
 		/* Gather information */
 		/* fetch sb_id_hi from core information registers */
-		sb_id_hi = bcm430x_read32(bcm, BCM430x_CIR_SB_ID_HI);
+		sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
 
 		/* extract core_id, core_rev, core_vendor */
 		core_id = (sb_id_hi & 0xFFF0) >> 4;
@@ -2471,52 +2471,52 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 
 		dprintk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
 			current_core, core_id, core_rev, core_vendor,
-			bcm430x_core_enabled(bcm) ? "enabled" : "disabled" );
+			bcm43xx_core_enabled(bcm) ? "enabled" : "disabled" );
 
 		core = NULL;
 		switch (core_id) {
-		case BCM430x_COREID_PCI:
+		case BCM43xx_COREID_PCI:
 			core = &bcm->core_pci;
-			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
+			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
 				continue;
 			}
 			memset(core, 0, sizeof(*core));
 			break;
-		case BCM430x_COREID_V90:
+		case BCM43xx_COREID_V90:
 			core = &bcm->core_v90;
-			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
+			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple V90 cores found.\n");
 				continue;
 			}
 			memset(core, 0, sizeof(*core));
 			break;
-		case BCM430x_COREID_PCMCIA:
+		case BCM43xx_COREID_PCMCIA:
 			core = &bcm->core_pcmcia;
-			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
+			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple PCMCIA cores found.\n");
 				continue;
 			}
 			memset(core, 0, sizeof(*core));
 			break;
-		case BCM430x_COREID_ETHERNET:
+		case BCM43xx_COREID_ETHERNET:
 			core = &bcm->core_ethernet;
-			if (core->flags & BCM430x_COREFLAG_AVAILABLE) {
+			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple Ethernet cores found.\n");
 				continue;
 			}
 			memset(core, 0, sizeof(*core));
 			break;
-		case BCM430x_COREID_80211:
-			for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+		case BCM43xx_COREID_80211:
+			for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
 				core = &(bcm->core_80211[i]);
-				if (!(core->flags & BCM430x_COREFLAG_AVAILABLE))
+				if (!(core->flags & BCM43xx_COREFLAG_AVAILABLE))
 					break;
 				core = NULL;
 			}
 			if (!core) {
 				printk(KERN_WARNING PFX "More than %d cores of type 802.11 found.\n",
-				       BCM430x_MAX_80211_CORES);
+				       BCM43xx_MAX_80211_CORES);
 				continue;
 			}
 			if (i != 0) {
@@ -2553,7 +2553,7 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			core->phy->minlowsigpos[0] = 0;
 			core->phy->minlowsigpos[1] = 0;
 			core->radio = &bcm->radio[i];
-			core->radio->interfmode = BCM430x_RADIO_INTERFMODE_NONE; //FIXME: Set to AUTO?
+			core->radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE; //FIXME: Set to AUTO?
 			core->radio->channel = 0xFF;
 			core->radio->initial_channel = 0xFF;
 			core->radio->lofcal = 0xFFFF;
@@ -2563,34 +2563,34 @@ static int bcm430x_probe_cores(struct bcm430x_private *bcm)
 			core->dma = &bcm->dma[i];
 			core->pio = &bcm->pio[i];
 			break;
-		case BCM430x_COREID_CHIPCOMMON:
+		case BCM43xx_COREID_CHIPCOMMON:
 			printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");
 			break;
 		default:
 			printk(KERN_WARNING PFX "Unknown core found (ID 0x%x)\n", core_id);
 		}
 		if (core) {
-			core->flags |= BCM430x_COREFLAG_AVAILABLE;
+			core->flags |= BCM43xx_COREFLAG_AVAILABLE;
 			core->id = core_id;
 			core->rev = core_rev;
 			core->index = current_core;
 		}
 	}
 
-	if (!(bcm->core_80211[0].flags & BCM430x_COREFLAG_AVAILABLE)) {
+	if (!(bcm->core_80211[0].flags & BCM43xx_COREFLAG_AVAILABLE)) {
 		printk(KERN_ERR PFX "Error: No 80211 core found!\n");
 		err = -ENODEV;
 		goto out;
 	}
 
-	err = bcm430x_switch_core(bcm, &bcm->core_80211[0]);
+	err = bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
 
 	assert(err == 0);
 out:
 	return err;
 }
 
-static void bcm430x_gen_bssid(struct bcm430x_private *bcm)
+static void bcm43xx_gen_bssid(struct bcm43xx_private *bcm)
 {
 	const u8 *mac = (const u8*)(bcm->net_dev->dev_addr);
 	u8 *bssid = bcm->ieee->bssid;
@@ -2614,7 +2614,7 @@ static void bcm430x_gen_bssid(struct bcm430x_private *bcm)
 	}
 }
 
-static void bcm430x_rate_memory_write(struct bcm430x_private *bcm,
+static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
 				      u16 double_rate,
 				      int is_ofdm)
 {
@@ -2625,153 +2625,153 @@ static void bcm430x_rate_memory_write(struct bcm430x_private *bcm,
 	else
 		offset = 0x4C0;
 	offset += (double_rate & 0x000F);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, offset + 0x20,
-			    bcm430x_shm_read16(bcm, BCM430x_SHM_SHARED, offset));
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, offset + 0x20,
+			    bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, offset));
 }
 
-static void bcm430x_rate_memory_init(struct bcm430x_private *bcm)
+static void bcm43xx_rate_memory_init(struct bcm43xx_private *bcm)
 {
 	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
-	case BCM430x_PHYTYPE_G:
-		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_6MB, 1);
-		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_12MB, 1);
-		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_18MB, 1);
-		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_24MB, 1);
-		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_36MB, 1);
-		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_48MB, 1);
-		bcm430x_rate_memory_write(bcm, IEEE80211_OFDM_RATE_54MB, 1);
-	case BCM430x_PHYTYPE_B:
-		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_1MB, 0);
-		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_2MB, 0);
-		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_5MB, 0);
-		bcm430x_rate_memory_write(bcm, IEEE80211_CCK_RATE_11MB, 0);
+	case BCM43xx_PHYTYPE_A:
+	case BCM43xx_PHYTYPE_G:
+		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_6MB, 1);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_12MB, 1);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_18MB, 1);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_24MB, 1);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_36MB, 1);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_48MB, 1);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_OFDM_RATE_54MB, 1);
+	case BCM43xx_PHYTYPE_B:
+		bcm43xx_rate_memory_write(bcm, IEEE80211_CCK_RATE_1MB, 0);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_CCK_RATE_2MB, 0);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_CCK_RATE_5MB, 0);
+		bcm43xx_rate_memory_write(bcm, IEEE80211_CCK_RATE_11MB, 0);
 		break;
 	default:
 		assert(0);
 	}
 }
 
-static void bcm430x_wireless_core_cleanup(struct bcm430x_private *bcm)
+static void bcm43xx_wireless_core_cleanup(struct bcm43xx_private *bcm)
 {
-	bcm430x_chip_cleanup(bcm);
-	bcm430x_pio_free(bcm);
-	bcm430x_dma_free(bcm);
+	bcm43xx_chip_cleanup(bcm);
+	bcm43xx_pio_free(bcm);
+	bcm43xx_dma_free(bcm);
 
-	bcm->current_core->flags &= ~ BCM430x_COREFLAG_INITIALIZED;
+	bcm->current_core->flags &= ~ BCM43xx_COREFLAG_INITIALIZED;
 }
 
 /* http://bcm-specs.sipsolutions.net/80211Init */
-static int bcm430x_wireless_core_init(struct bcm430x_private *bcm)
+static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 {
 	u32 ucodeflags;
 	int err;
 	u32 sbimconfiglow;
 
 	if (bcm->chip_rev < 5) {
-		sbimconfiglow = bcm430x_read32(bcm, BCM430x_CIR_SBIMCONFIGLOW);
-		sbimconfiglow &= ~ BCM430x_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
-		sbimconfiglow &= ~ BCM430x_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
-		if (bcm->bustype == BCM430x_BUSTYPE_PCI)
+		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+		if (bcm->bustype == BCM43xx_BUSTYPE_PCI)
 			sbimconfiglow |= 0x32;
-		else if (bcm->bustype == BCM430x_BUSTYPE_SB)
+		else if (bcm->bustype == BCM43xx_BUSTYPE_SB)
 			sbimconfiglow |= 0x53;
 		else
 			assert(0);
-		bcm430x_write32(bcm, BCM430x_CIR_SBIMCONFIGLOW, sbimconfiglow);
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, sbimconfiglow);
 	}
 
-	bcm430x_phy_calibrate(bcm);
-	err = bcm430x_chip_init(bcm);
+	bcm43xx_phy_calibrate(bcm);
+	err = bcm43xx_chip_init(bcm);
 	if (err)
 		goto out;
 
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0016, bcm->current_core->rev);
-	ucodeflags = bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED, BCM430x_UCODEFLAGS_OFFSET);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0016, bcm->current_core->rev);
+	ucodeflags = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, BCM43xx_UCODEFLAGS_OFFSET);
 
 	if (0 /*FIXME: which condition has to be used here? */)
 		ucodeflags |= 0x00000010;
 
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
-		ucodeflags |= BCM430x_UCODEFLAG_UNKBGPHY;
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
 		if (bcm->current_core->phy->rev == 1)
-			ucodeflags |= BCM430x_UCODEFLAG_UNKGPHY;
-		if (bcm->sprom.boardflags & BCM430x_BFL_PACTRL)
-			ucodeflags |= BCM430x_UCODEFLAG_UNKPACTRL;
-	} else if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B) {
-		ucodeflags |= BCM430x_UCODEFLAG_UNKBGPHY;
+			ucodeflags |= BCM43xx_UCODEFLAG_UNKGPHY;
+		if (bcm->sprom.boardflags & BCM43xx_BFL_PACTRL)
+			ucodeflags |= BCM43xx_UCODEFLAG_UNKPACTRL;
+	} else if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
+		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
 		if ((bcm->current_core->phy->rev >= 2) &&
 		    (bcm->current_core->radio->version == 0x2050))
-			ucodeflags &= ~BCM430x_UCODEFLAG_UNKGPHY;
+			ucodeflags &= ~BCM43xx_UCODEFLAG_UNKGPHY;
 	}
 
-	if (ucodeflags != bcm430x_shm_read32(bcm, BCM430x_SHM_SHARED,
-					     BCM430x_UCODEFLAGS_OFFSET)) {
-		bcm430x_shm_write32(bcm, BCM430x_SHM_SHARED,
-				    BCM430x_UCODEFLAGS_OFFSET, ucodeflags);
+	if (ucodeflags != bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED,
+					     BCM43xx_UCODEFLAGS_OFFSET)) {
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+				    BCM43xx_UCODEFLAGS_OFFSET, ucodeflags);
 	}
 
 	/* FIXME: Short/Long Retry Limit: Using defaults as of http://bcm-specs.sipsolutions.net/SHM: 0x0002 */
-	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0006, 7);
-	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0007, 4);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0006, 7);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0007, 4);
 
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0044, 3);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0046, 2);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0044, 3);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0046, 2);
 
-	bcm430x_rate_memory_init(bcm);
+	bcm43xx_rate_memory_init(bcm);
 
 	/* Minimum Contention Window */
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_B)
-		bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0003, 0x0000001f);
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B)
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000001f);
 	else
-		bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0003, 0x0000000f);
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000000f);
 	/* Maximum Contention Window */
-	bcm430x_shm_write32(bcm, BCM430x_SHM_WIRELESS, 0x0004, 0x000003ff);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0004, 0x000003ff);
 
-	bcm430x_gen_bssid(bcm);
-	bcm430x_write_mac_bssid_templates(bcm);
+	bcm43xx_gen_bssid(bcm);
+	bcm43xx_write_mac_bssid_templates(bcm);
 
 	if (bcm->current_core->rev >= 5)
-		bcm430x_write16(bcm, 0x043C, 0x000C);
+		bcm43xx_write16(bcm, 0x043C, 0x000C);
 
 	if (!bcm->pio_mode) {
-		err = bcm430x_dma_init(bcm);
+		err = bcm43xx_dma_init(bcm);
 		if (err)
 			goto err_chip_cleanup;
 	} else {
-		err = bcm430x_pio_init(bcm);
+		err = bcm43xx_pio_init(bcm);
 		if (err)
 			goto err_chip_cleanup;
 	}
-	bcm430x_write16(bcm, 0x0612, 0x0050);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0416, 0x0050);
-	bcm430x_shm_write16(bcm, BCM430x_SHM_SHARED, 0x0414, 0x01F4);
+	bcm43xx_write16(bcm, 0x0612, 0x0050);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0416, 0x0050);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0414, 0x01F4);
 
-	bcm430x_mac_enable(bcm);
-	bcm430x_interrupt_enable(bcm, bcm->irq_savedstate);
+	bcm43xx_mac_enable(bcm);
+	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
 
-	bcm->current_core->flags |= BCM430x_COREFLAG_INITIALIZED;
+	bcm->current_core->flags |= BCM43xx_COREFLAG_INITIALIZED;
 out:
 	return err;
 
 err_chip_cleanup:
-	bcm430x_chip_cleanup(bcm);
+	bcm43xx_chip_cleanup(bcm);
 	goto out;
 }
 
 /* Hard-reset the chip. Do not call this directly.
- * Use bcm430x_recover_from_fatal()
+ * Use bcm43xx_recover_from_fatal()
  */
-static void bcm430x_chip_reset(void *_bcm)
+static void bcm43xx_chip_reset(void *_bcm)
 {
-	struct bcm430x_private *bcm = _bcm;
+	struct bcm43xx_private *bcm = _bcm;
 	int err;
 
 	netif_tx_disable(bcm->net_dev);
 	tasklet_disable(&bcm->isr_tasklet);
-	bcm430x_free_board(bcm);
-	bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
-	err = bcm430x_init_board(bcm);
+	bcm43xx_free_board(bcm);
+	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
+	err = bcm43xx_init_board(bcm);
 	if (err) {
 		printk(KERN_ERR PFX "Chip reset failed!\n");
 		return;
@@ -2784,56 +2784,56 @@ static void bcm430x_chip_reset(void *_bcm)
  * This can be called from interrupt or process context.
  * Make sure to _not_ re-enable device interrupts after this has been called.
  */
-static void bcm430x_recover_from_fatal(struct bcm430x_private *bcm, const char *error)
+static void bcm43xx_recover_from_fatal(struct bcm43xx_private *bcm, const char *error)
 {
-	bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
+	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
 	printk(KERN_ERR PFX "FATAL ERROR (%s): Resetting the chip...\n", error);
-	INIT_WORK(&bcm->fatal_work, bcm430x_chip_reset, bcm);
+	INIT_WORK(&bcm->fatal_work, bcm43xx_chip_reset, bcm);
 	queue_work(bcm->workqueue, &bcm->fatal_work);
 }
 
-static int bcm430x_chipset_attach(struct bcm430x_private *bcm)
+static int bcm43xx_chipset_attach(struct bcm43xx_private *bcm)
 {
 	int err;
 	u16 pci_status;
 
-	err = bcm430x_pctl_set_crystal(bcm, 1);
+	err = bcm43xx_pctl_set_crystal(bcm, 1);
 	if (err)
 		goto out;
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
-	bcm430x_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
+	bcm43xx_pci_read_config_16(bcm->pci_dev, PCI_STATUS, &pci_status);
+	bcm43xx_pci_write_config_16(bcm->pci_dev, PCI_STATUS, pci_status & ~PCI_STATUS_SIG_TARGET_ABORT);
 
 out:
 	return err;
 }
 
-static void bcm430x_chipset_detach(struct bcm430x_private *bcm)
+static void bcm43xx_chipset_detach(struct bcm43xx_private *bcm)
 {
-	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_SLOW);
-	bcm430x_pctl_set_crystal(bcm, 0);
+	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_SLOW);
+	bcm43xx_pctl_set_crystal(bcm, 0);
 }
 
-static inline void bcm430x_pcicore_broadcast_value(struct bcm430x_private *bcm,
+static inline void bcm43xx_pcicore_broadcast_value(struct bcm43xx_private *bcm,
 						   u32 address,
 						   u32 data)
 {
-	bcm430x_write32(bcm, BCM430x_PCICORE_BCAST_ADDR, address);
-	bcm430x_write32(bcm, BCM430x_PCICORE_BCAST_DATA, data);
+	bcm43xx_write32(bcm, BCM43xx_PCICORE_BCAST_ADDR, address);
+	bcm43xx_write32(bcm, BCM43xx_PCICORE_BCAST_DATA, data);
 }
 
-static int bcm430x_pcicore_commit_settings(struct bcm430x_private *bcm)
+static int bcm43xx_pcicore_commit_settings(struct bcm43xx_private *bcm)
 {
 	int err;
-	struct bcm430x_coreinfo *old_core;
+	struct bcm43xx_coreinfo *old_core;
 
 	old_core = bcm->current_core;
-	err = bcm430x_switch_core(bcm, &bcm->core_pci);
+	err = bcm43xx_switch_core(bcm, &bcm->core_pci);
 	if (err)
 		goto out;
 
-	bcm430x_pcicore_broadcast_value(bcm, 0xfd8, 0x00000000);
+	bcm43xx_pcicore_broadcast_value(bcm, 0xfd8, 0x00000000);
 
-	bcm430x_switch_core(bcm, old_core);
+	bcm43xx_switch_core(bcm, old_core);
 	assert(err == 0);
 out:
 	return err;
@@ -2842,164 +2842,164 @@ out:
 /* Make an I/O Core usable. "core_mask" is the bitmask of the cores to enable.
  * To enable core 0, pass a core_mask of 1<<0
  */
-static int bcm430x_setup_backplane_pci_connection(struct bcm430x_private *bcm,
+static int bcm43xx_setup_backplane_pci_connection(struct bcm43xx_private *bcm,
 						  u32 core_mask)
 {
 	u32 backplane_flag_nr;
 	u32 value;
-	struct bcm430x_coreinfo *old_core;
+	struct bcm43xx_coreinfo *old_core;
 	int err;
 
-	value = bcm430x_read32(bcm, BCM430x_CIR_SBTPSFLAG);
-	backplane_flag_nr = value & BCM430x_BACKPLANE_FLAG_NR_MASK;
+	value = bcm43xx_read32(bcm, BCM43xx_CIR_SBTPSFLAG);
+	backplane_flag_nr = value & BCM43xx_BACKPLANE_FLAG_NR_MASK;
 
 	old_core = bcm->current_core;
-	err = bcm430x_switch_core(bcm, &bcm->core_pci);
+	err = bcm43xx_switch_core(bcm, &bcm->core_pci);
 	if (err)
 		goto out;
 
 	if (bcm->core_pci.rev < 6) {
-		value = bcm430x_read32(bcm, BCM430x_CIR_SBINTVEC);
+		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
 		value |= (1 << backplane_flag_nr);
-		bcm430x_write32(bcm, BCM430x_CIR_SBINTVEC, value);
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBINTVEC, value);
 	} else {
-		err = bcm430x_pci_read_config_32(bcm->pci_dev, BCM430x_PCICFG_ICR, &value);
+		err = bcm43xx_pci_read_config_32(bcm->pci_dev, BCM43xx_PCICFG_ICR, &value);
 		if (err) {
 			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
 			goto out_switch_back;
 		}
 		value |= core_mask << 8;
-		err = bcm430x_pci_write_config_32(bcm->pci_dev, BCM430x_PCICFG_ICR, value);
+		err = bcm43xx_pci_write_config_32(bcm->pci_dev, BCM43xx_PCICFG_ICR, value);
 		if (err) {
 			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
 			goto out_switch_back;
 		}
 	}
 
-	value = bcm430x_read32(bcm, BCM430x_PCICORE_SBTOPCI2);
-	value |= BCM430x_SBTOPCI2_PREFETCH | BCM430x_SBTOPCI2_BURST;
-	bcm430x_write32(bcm, BCM430x_PCICORE_SBTOPCI2, value);
+	value = bcm43xx_read32(bcm, BCM43xx_PCICORE_SBTOPCI2);
+	value |= BCM43xx_SBTOPCI2_PREFETCH | BCM43xx_SBTOPCI2_BURST;
+	bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
 
 	if (bcm->core_pci.rev < 5) {
-		value = bcm430x_read32(bcm, BCM430x_CIR_SBIMCONFIGLOW);
-		value |= (2 << BCM430x_SBIMCONFIGLOW_SERVICE_TOUT_SHIFT)
-			 & BCM430x_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
-		value |= (3 << BCM430x_SBIMCONFIGLOW_REQUEST_TOUT_SHIFT)
-			 & BCM430x_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
-		bcm430x_write32(bcm, BCM430x_CIR_SBIMCONFIGLOW, value);
-		err = bcm430x_pcicore_commit_settings(bcm);
+		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+		value |= (2 << BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_SHIFT)
+			 & BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+		value |= (3 << BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_SHIFT)
+			 & BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, value);
+		err = bcm43xx_pcicore_commit_settings(bcm);
 		assert(err == 0);
 	}
 
 out_switch_back:
-	err = bcm430x_switch_core(bcm, old_core);
+	err = bcm43xx_switch_core(bcm, old_core);
 out:
 	return err;
 }
 
-static void bcm430x_softmac_init(struct bcm430x_private *bcm)
+static void bcm43xx_softmac_init(struct bcm43xx_private *bcm)
 {
 	ieee80211softmac_start(bcm->net_dev);
 }
 
-static void bcm430x_periodic_work0_handler(void *d)
+static void bcm43xx_periodic_work0_handler(void *d)
 {
-	struct bcm430x_private *bcm = d;
+	struct bcm43xx_private *bcm = d;
 	unsigned long flags;
 	//TODO: unsigned int aci_average;
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G) {
-		//FIXME: aci_average = bcm430x_update_aci_average(bcm);
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+		//FIXME: aci_average = bcm43xx_update_aci_average(bcm);
 		FIXME();
 		if (bcm->current_core->radio->aci_enable && bcm->current_core->radio->aci_wlan_automatic) {
-			bcm430x_mac_suspend(bcm);
+			bcm43xx_mac_suspend(bcm);
 			if (!bcm->current_core->radio->aci_enable &&
 			    1 /*FIXME: We are not scanning? */) {
-				/*FIXME: First add bcm430x_update_aci_average() before
+				/*FIXME: First add bcm43xx_update_aci_average() before
 				 * uncommenting this: */
-				//if (bcm430x_radio_aci_scan)
-				//	bcm430x_radio_set_interference_mitigation(bcm,
-				//	                                          BCM430x_RADIO_INTERFMODE_MANUALWLAN);
+				//if (bcm43xx_radio_aci_scan)
+				//	bcm43xx_radio_set_interference_mitigation(bcm,
+				//	                                          BCM43xx_RADIO_INTERFMODE_MANUALWLAN);
 			} else if (1/*FIXME*/) {
-				//if ((aci_average > 1000) && !(bcm430x_radio_aci_scan(bcm)))
-				//	bcm430x_radio_set_interference_mitigation(bcm,
-				//	                                          BCM430x_RADIO_INTERFMODE_MANUALWLAN);
+				//if ((aci_average > 1000) && !(bcm43xx_radio_aci_scan(bcm)))
+				//	bcm43xx_radio_set_interference_mitigation(bcm,
+				//	                                          BCM43xx_RADIO_INTERFMODE_MANUALWLAN);
 			}
-			bcm430x_mac_enable(bcm);
-		} else if  (bcm->current_core->radio->interfmode == BCM430x_RADIO_INTERFMODE_NONWLAN) {
+			bcm43xx_mac_enable(bcm);
+		} else if  (bcm->current_core->radio->interfmode == BCM43xx_RADIO_INTERFMODE_NONWLAN) {
 			if (bcm->current_core->phy->rev == 1) {
 				//FIXME: implement rev1 workaround
 				FIXME();
 			}
 		}
 	}
-	bcm430x_phy_xmitpower(bcm); //FIXME: unless scanning?
+	bcm43xx_phy_xmitpower(bcm); //FIXME: unless scanning?
 	//TODO for APHY (temperature?)
 
 	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work0,
-				   BCM430x_PERIODIC_0_DELAY);
+				   BCM43xx_PERIODIC_0_DELAY);
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
-static void bcm430x_periodic_work1_handler(void *d)
+static void bcm43xx_periodic_work1_handler(void *d)
 {
-	struct bcm430x_private *bcm = d;
+	struct bcm43xx_private *bcm = d;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	bcm430x_phy_lo_mark_all_unused(bcm);
-	if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
-		bcm430x_mac_suspend(bcm);
-		bcm430x_calc_nrssi_slope(bcm);
-		bcm430x_mac_enable(bcm);
+	bcm43xx_phy_lo_mark_all_unused(bcm);
+	if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
+		bcm43xx_mac_suspend(bcm);
+		bcm43xx_calc_nrssi_slope(bcm);
+		bcm43xx_mac_enable(bcm);
 	}
 
 	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
-				   BCM430x_PERIODIC_1_DELAY);
+				   BCM43xx_PERIODIC_1_DELAY);
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
-static void bcm430x_periodic_work2_handler(void *d)
+static void bcm43xx_periodic_work2_handler(void *d)
 {
-	struct bcm430x_private *bcm = d;
+	struct bcm43xx_private *bcm = d;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
-	assert(bcm->current_core->phy->type == BCM430x_PHYTYPE_G);
+	assert(bcm->current_core->phy->type == BCM43xx_PHYTYPE_G);
 	assert(bcm->current_core->phy->rev >= 2);
 
-	bcm430x_mac_suspend(bcm);
-	bcm430x_phy_lo_g_measure(bcm);
-	bcm430x_mac_enable(bcm);
+	bcm43xx_mac_suspend(bcm);
+	bcm43xx_phy_lo_g_measure(bcm);
+	bcm43xx_mac_enable(bcm);
 
 	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work2,
-				   BCM430x_PERIODIC_2_DELAY);
+				   BCM43xx_PERIODIC_2_DELAY);
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
-static void bcm430x_periodic_work3_handler(void *d)
+static void bcm43xx_periodic_work3_handler(void *d)
 {
-	struct bcm430x_private *bcm = d;
+	struct bcm43xx_private *bcm = d;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
 
 	/* Update device statistics. */
-	bcm430x_calculate_link_quality(bcm);
+	bcm43xx_calculate_link_quality(bcm);
 
 	if (likely(!bcm->shutting_down)) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work3,
-				   BCM430x_PERIODIC_3_DELAY);
+				   BCM43xx_PERIODIC_3_DELAY);
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
@@ -3007,7 +3007,7 @@ static void bcm430x_periodic_work3_handler(void *d)
 /* Delete all periodic tasks and make
  * sure they are not running any longer
  */
-static void bcm430x_periodic_tasks_delete(struct bcm430x_private *bcm)
+static void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
 {
 	cancel_delayed_work(&bcm->periodic_work0);
 	cancel_delayed_work(&bcm->periodic_work1);
@@ -3017,35 +3017,35 @@ static void bcm430x_periodic_tasks_delete(struct bcm430x_private *bcm)
 }
 
 /* Setup all periodic tasks. */
-static void bcm430x_periodic_tasks_setup(struct bcm430x_private *bcm)
+static void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
 {
-	INIT_WORK(&bcm->periodic_work0, bcm430x_periodic_work0_handler, bcm);
-	INIT_WORK(&bcm->periodic_work1, bcm430x_periodic_work1_handler, bcm);
-	INIT_WORK(&bcm->periodic_work2, bcm430x_periodic_work2_handler, bcm);
-	INIT_WORK(&bcm->periodic_work3, bcm430x_periodic_work3_handler, bcm);
+	INIT_WORK(&bcm->periodic_work0, bcm43xx_periodic_work0_handler, bcm);
+	INIT_WORK(&bcm->periodic_work1, bcm43xx_periodic_work1_handler, bcm);
+	INIT_WORK(&bcm->periodic_work2, bcm43xx_periodic_work2_handler, bcm);
+	INIT_WORK(&bcm->periodic_work3, bcm43xx_periodic_work3_handler, bcm);
 
 	/* Periodic task 0: Delay ~15sec */
 	queue_delayed_work(bcm->workqueue, &bcm->periodic_work0,
-			   BCM430x_PERIODIC_0_DELAY);
+			   BCM43xx_PERIODIC_0_DELAY);
 
 	/* Periodic task 1: Delay ~60sec */
 	queue_delayed_work(bcm->workqueue, &bcm->periodic_work1,
-			   BCM430x_PERIODIC_1_DELAY);
+			   BCM43xx_PERIODIC_1_DELAY);
 
 	/* Periodic task 2: Delay ~120sec */
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_G &&
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G &&
 	    bcm->current_core->phy->rev >= 2) {
 		queue_delayed_work(bcm->workqueue, &bcm->periodic_work2,
-				   BCM430x_PERIODIC_2_DELAY);
+				   BCM43xx_PERIODIC_2_DELAY);
 	}
 
 	/* Periodic task 3: Delay ~30sec */
 	queue_delayed_work(bcm->workqueue, &bcm->periodic_work3,
-			   BCM430x_PERIODIC_3_DELAY);
+			   BCM43xx_PERIODIC_3_DELAY);
 }
 
-/* This is the opposite of bcm430x_init_board() */
-static void bcm430x_free_board(struct bcm430x_private *bcm)
+/* This is the opposite of bcm43xx_init_board() */
+static void bcm43xx_free_board(struct bcm43xx_private *bcm)
 {
 	int i, err;
 	unsigned long flags;
@@ -3055,26 +3055,26 @@ static void bcm430x_free_board(struct bcm430x_private *bcm)
 	bcm->shutting_down = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
-	bcm430x_periodic_tasks_delete(bcm);
+	bcm43xx_periodic_tasks_delete(bcm);
 
-	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
-		if (!(bcm->core_80211[i].flags & BCM430x_COREFLAG_AVAILABLE))
+	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
+		if (!(bcm->core_80211[i].flags & BCM43xx_COREFLAG_AVAILABLE))
 			continue;
-		assert(bcm->core_80211[i].flags & BCM430x_COREFLAG_INITIALIZED);
+		assert(bcm->core_80211[i].flags & BCM43xx_COREFLAG_INITIALIZED);
 
-		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
+		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err == 0);
-		bcm430x_wireless_core_cleanup(bcm);
+		bcm43xx_wireless_core_cleanup(bcm);
 	}
 
-	bcm430x_pctl_set_crystal(bcm, 0);
+	bcm43xx_pctl_set_crystal(bcm, 0);
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->shutting_down = 0;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
-static int bcm430x_init_board(struct bcm430x_private *bcm)
+static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 {
 	int i, err;
 	int num_80211_cores;
@@ -3088,20 +3088,20 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 	bcm->shutting_down = 0;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
-	err = bcm430x_pctl_set_crystal(bcm, 1);
+	err = bcm43xx_pctl_set_crystal(bcm, 1);
 	if (err)
 		goto out;
-	err = bcm430x_pctl_init(bcm);
+	err = bcm43xx_pctl_init(bcm);
 	if (err)
 		goto err_crystal_off;
-	err = bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_FAST);
+	err = bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_FAST);
 	if (err)
 		goto err_crystal_off;
 
 	tasklet_enable(&bcm->isr_tasklet);
-	num_80211_cores = bcm430x_num_80211_cores(bcm);
+	num_80211_cores = bcm43xx_num_80211_cores(bcm);
 	for (i = 0; i < num_80211_cores; i++) {
-		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
+		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
 		if (err)
 			goto err_80211_unwind;
@@ -3109,7 +3109,7 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 		/* Enable the selected wireless core.
 		 * Connect PHY only on the first core.
 		 */
-		if (!bcm430x_core_enabled(bcm)) {
+		if (!bcm43xx_core_enabled(bcm)) {
 			if (num_80211_cores == 1) {
 				connect_phy = bcm->current_core->phy->connected;
 			} else {
@@ -3118,44 +3118,44 @@ static int bcm430x_init_board(struct bcm430x_private *bcm)
 				else
 					connect_phy = 0;
 			}
-			bcm430x_wireless_core_reset(bcm, connect_phy);
+			bcm43xx_wireless_core_reset(bcm, connect_phy);
 		}
 
 		if (i != 0)
-			bcm430x_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
+			bcm43xx_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
 
-		err = bcm430x_wireless_core_init(bcm);
+		err = bcm43xx_wireless_core_init(bcm);
 		if (err)
 			goto err_80211_unwind;
 
 		if (i != 0) {
-			bcm430x_mac_suspend(bcm);
-			bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-			bcm430x_radio_turn_off(bcm);
+			bcm43xx_mac_suspend(bcm);
+			bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+			bcm43xx_radio_turn_off(bcm);
 		}
 	}
 	bcm->active_80211_core = &bcm->core_80211[0];
 	if (num_80211_cores >= 2) {
-		bcm430x_switch_core(bcm, &bcm->core_80211[0]);
-		bcm430x_mac_enable(bcm);
+		bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
+		bcm43xx_mac_enable(bcm);
 	}
-	bcm430x_macfilter_clear(bcm, BCM430x_MACFILTER_ASSOC);
-	bcm430x_macfilter_set(bcm, BCM430x_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
+	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
+	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
-	bcm430x_softmac_init(bcm);
+	bcm43xx_softmac_init(bcm);
 
-	bcm430x_pctl_set_clock(bcm, BCM430x_PCTL_CLK_DYNAMIC);
+	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_DYNAMIC);
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->initialized = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	if (bcm->current_core->radio->initial_channel != 0xFF) {
-		bcm430x_mac_suspend(bcm);
-		bcm430x_radio_selectchannel(bcm, bcm->current_core->radio->initial_channel, 0);
-		bcm430x_mac_enable(bcm);
+		bcm43xx_mac_suspend(bcm);
+		bcm43xx_radio_selectchannel(bcm, bcm->current_core->radio->initial_channel, 0);
+		bcm43xx_mac_enable(bcm);
 	}
-	bcm430x_periodic_tasks_setup(bcm);
+	bcm43xx_periodic_tasks_setup(bcm);
 
 	assert(err == 0);
 out:
@@ -3165,22 +3165,22 @@ err_80211_unwind:
 	tasklet_disable(&bcm->isr_tasklet);
 	/* unwind all 80211 initialization */
 	for (i = 0; i < num_80211_cores; i++) {
-		if (!(bcm->core_80211[i].flags & BCM430x_COREFLAG_INITIALIZED))
+		if (!(bcm->core_80211[i].flags & BCM43xx_COREFLAG_INITIALIZED))
 			continue;
-		bcm430x_interrupt_disable(bcm, BCM430x_IRQ_ALL);
-		bcm430x_wireless_core_cleanup(bcm);
+		bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+		bcm43xx_wireless_core_cleanup(bcm);
 	}
 err_crystal_off:
-	bcm430x_pctl_set_crystal(bcm, 0);
+	bcm43xx_pctl_set_crystal(bcm, 0);
 	goto out;
 }
 
-static void bcm430x_detach_board(struct bcm430x_private *bcm)
+static void bcm43xx_detach_board(struct bcm43xx_private *bcm)
 {
 	struct pci_dev *pci_dev = bcm->pci_dev;
 	int i;
 
-	bcm430x_chipset_detach(bcm);
+	bcm43xx_chipset_detach(bcm);
 	/* Do _not_ access the chip, after it is detached. */
 	iounmap(bcm->mmio_addr);
 
@@ -3188,12 +3188,12 @@ static void bcm430x_detach_board(struct bcm430x_private *bcm)
 	pci_disable_device(pci_dev);
 
 	/* Free allocated structures/fields */
-	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
 		kfree(bcm->phy[i]._lo_pairs);
 	}
 }	
 
-static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
+static int bcm43xx_read_phyinfo(struct bcm43xx_private *bcm)
 {
 	u16 value;
 	u8 phy_version;
@@ -3202,7 +3202,7 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	int phy_rev_ok = 1;
 	void *p;
 
-	value = bcm430x_read16(bcm, BCM430x_MMIO_PHY_VER);
+	value = bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_VER);
 
 	phy_version = (value & 0xF000) >> 12;
 	phy_type = (value & 0x0F00) >> 8;
@@ -3212,7 +3212,7 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 		phy_version, phy_type, phy_rev);
 
 	switch (phy_type) {
-	case BCM430x_PHYTYPE_A:
+	case BCM43xx_PHYTYPE_A:
 		if (phy_rev >= 4)
 			phy_rev_ok = 0;
 		/*FIXME: We need to switch the ieee->modulation, etc.. flags,
@@ -3225,14 +3225,14 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 		bcm->ieee->freq_band = IEEE80211_52GHZ_BAND |
 				       IEEE80211_24GHZ_BAND;
 		break;
-	case BCM430x_PHYTYPE_B:
+	case BCM43xx_PHYTYPE_B:
 		if (phy_rev != 2 && phy_rev != 4 && phy_rev != 6 && phy_rev != 7)
 			phy_rev_ok = 0;
 		bcm->ieee->modulation = IEEE80211_CCK_MODULATION;
 		bcm->ieee->mode = IEEE_B;
 		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
 		break;
-	case BCM430x_PHYTYPE_G:
+	case BCM43xx_PHYTYPE_G:
 		if (phy_rev >= 3)
 			phy_rev_ok = 0;
 		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION |
@@ -3253,8 +3253,8 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	bcm->current_core->phy->version = phy_version;
 	bcm->current_core->phy->type = phy_type;
 	bcm->current_core->phy->rev = phy_rev;
-	if ((phy_type == BCM430x_PHYTYPE_B) || (phy_type == BCM430x_PHYTYPE_G)) {
-		p = kzalloc(sizeof(struct bcm430x_lopair) * BCM430x_LO_COUNT,
+	if ((phy_type == BCM43xx_PHYTYPE_B) || (phy_type == BCM43xx_PHYTYPE_G)) {
+		p = kzalloc(sizeof(struct bcm43xx_lopair) * BCM43xx_LO_COUNT,
 			    GFP_KERNEL);
 		if (!p)
 			return -ENOMEM;
@@ -3264,7 +3264,7 @@ static int bcm430x_read_phyinfo(struct bcm430x_private *bcm)
 	return 0;
 }
 
-static int bcm430x_attach_board(struct bcm430x_private *bcm)
+static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 {
 	struct pci_dev *pci_dev = bcm->pci_dev;
 	struct net_device *net_dev = bcm->net_dev;
@@ -3295,7 +3295,7 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		err = -ENODEV;
 		goto err_pci_disable;
 	}
-	if (mmio_len != BCM430x_IO_SIZE) {
+	if (mmio_len != BCM43xx_IO_SIZE) {
 		printk(KERN_ERR PFX
 		       "%s: invalid PCI mem region size(s), aborting\n",
 		       pci_name(pci_dev));
@@ -3326,45 +3326,45 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 	bcm->mmio_addr = ioaddr;
 	bcm->mmio_len = mmio_len;
 
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_VENDOR_ID,
+	bcm43xx_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_VENDOR_ID,
 	                           &bcm->board_vendor);
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID,
+	bcm43xx_pci_read_config_16(bcm->pci_dev, PCI_SUBSYSTEM_ID,
 	                           &bcm->board_type);
-	bcm430x_pci_read_config_16(bcm->pci_dev, PCI_REVISION_ID,
+	bcm43xx_pci_read_config_16(bcm->pci_dev, PCI_REVISION_ID,
 	                           &bcm->board_revision);
 
-	err = bcm430x_chipset_attach(bcm);
+	err = bcm43xx_chipset_attach(bcm);
 	if (err)
 		goto err_iounmap;
-	err = bcm430x_pctl_init(bcm);
+	err = bcm43xx_pctl_init(bcm);
 	if (err)
 		goto err_chipset_detach;
-	err = bcm430x_probe_cores(bcm);
+	err = bcm43xx_probe_cores(bcm);
 	if (err)
 		goto err_chipset_detach;
 	
-	num_80211_cores = bcm430x_num_80211_cores(bcm);
+	num_80211_cores = bcm43xx_num_80211_cores(bcm);
 
 	/* Attach all IO cores to the backplane. */
 	coremask = 0;
 	for (i = 0; i < num_80211_cores; i++)
 		coremask |= (1 << bcm->core_80211[i].index);
 	//FIXME: Also attach some non80211 cores?
-	err = bcm430x_setup_backplane_pci_connection(bcm, coremask);
+	err = bcm43xx_setup_backplane_pci_connection(bcm, coremask);
 	if (err) {
 		printk(KERN_ERR PFX "Backplane->PCI connection failed!\n");
 		goto err_chipset_detach;
 	}
 
-	err = bcm430x_read_sprom(bcm);
+	err = bcm43xx_read_sprom(bcm);
 	if (err)
 		goto err_chipset_detach;
-	err = bcm430x_leds_init(bcm);
+	err = bcm43xx_leds_init(bcm);
 	if (err)
 		goto err_chipset_detach;
 
 	for (i = 0; i < num_80211_cores; i++) {
-		err = bcm430x_switch_core(bcm, &bcm->core_80211[i]);
+		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
 		assert(err != -ENODEV);
 		if (err)
 			goto err_80211_unwind;
@@ -3372,35 +3372,35 @@ static int bcm430x_attach_board(struct bcm430x_private *bcm)
 		/* Enable the selected wireless core.
 		 * Connect PHY only on the first core.
 		 */
-		bcm430x_wireless_core_reset(bcm, (i == 0));
+		bcm43xx_wireless_core_reset(bcm, (i == 0));
 
-		err = bcm430x_read_phyinfo(bcm);
+		err = bcm43xx_read_phyinfo(bcm);
 		if (err && (i == 0))
 			goto err_80211_unwind;
 
-		err = bcm430x_read_radioinfo(bcm);
+		err = bcm43xx_read_radioinfo(bcm);
 		if (err && (i == 0))
 			goto err_80211_unwind;
 
-		err = bcm430x_validate_chip(bcm);
+		err = bcm43xx_validate_chip(bcm);
 		if (err && (i == 0))
 			goto err_80211_unwind;
 
-		bcm430x_radio_turn_off(bcm);
-		err = bcm430x_phy_init_tssi2dbm_table(bcm);
+		bcm43xx_radio_turn_off(bcm);
+		err = bcm43xx_phy_init_tssi2dbm_table(bcm);
 		if (err)
 			goto err_80211_unwind;
-		bcm430x_wireless_core_disable(bcm);
+		bcm43xx_wireless_core_disable(bcm);
 	}
-	bcm430x_pctl_set_crystal(bcm, 0);
+	bcm43xx_pctl_set_crystal(bcm, 0);
 
 	/* Set the MAC address in the networking subsystem */
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
 	else
 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
 
-	bcm430x_geo_init(bcm);
+	bcm43xx_geo_init(bcm);
 
 	snprintf(bcm->nick, IW_ESSID_MAX_SIZE,
 		 "Broadcom %04X", bcm->chip_id);
@@ -3410,11 +3410,11 @@ out:
 	return err;
 
 err_80211_unwind:
-	for (i = 0; i < BCM430x_MAX_80211_CORES; i++) {
+	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
 		kfree(bcm->phy[i]._lo_pairs);
 	}
 err_chipset_detach:
-	bcm430x_chipset_detach(bcm);
+	bcm43xx_chipset_detach(bcm);
 err_iounmap:
 	iounmap(bcm->mmio_addr);
 err_pci_release:
@@ -3424,10 +3424,10 @@ err_pci_disable:
 	goto out;
 }
 
-int fastcall bcm430x_rx_transmitstatus(struct bcm430x_private *bcm,
-				       const struct bcm430x_hwxmitstatus *status)
+int fastcall bcm43xx_rx_transmitstatus(struct bcm43xx_private *bcm,
+				       const struct bcm43xx_hwxmitstatus *status)
 {
-	struct bcm430x_xmitstatus_queue *q;
+	struct bcm43xx_xmitstatus_queue *q;
 
 	/*XXX: This code is untested, as we currently do not have a rev < 5 card. */
 dprintkl("processing received xmitstatus...\n");
@@ -3449,19 +3449,19 @@ dprintkl("processing received xmitstatus...\n");
 
 /* Postprocess the RSSI value in the RX header. */
 static inline
-s8 bcm430x_rssi_postprocess(struct bcm430x_private *bcm, u8 in_rssi)
+s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi)
 {
 	s8 ret = 0;
 	s32 tmp;
 
 	switch (bcm->current_core->phy->type) {
-	case BCM430x_PHYTYPE_A:
+	case BCM43xx_PHYTYPE_A:
 		TODO();//TODO
 		break;
-	case BCM430x_PHYTYPE_B:
-	case BCM430x_PHYTYPE_G:
+	case BCM43xx_PHYTYPE_B:
+	case BCM43xx_PHYTYPE_G:
 		if (bcm->current_core->radio->version == 0x2050) {
-			if (bcm->sprom.boardflags & BCM430x_BFL_RSSI) {
+			if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
 				if (in_rssi > 63)
 					in_rssi = 63;
 				tmp = bcm->current_core->radio->nrssi_lt[in_rssi];
@@ -3499,7 +3499,7 @@ s8 bcm430x_rssi_postprocess(struct bcm430x_private *bcm, u8 in_rssi)
 }
 
 static inline
-int bcm430x_rx_packet(struct bcm430x_private *bcm,
+int bcm43xx_rx_packet(struct bcm43xx_private *bcm,
 		      struct sk_buff *skb,
 		      struct ieee80211_rx_stats *stats)
 {
@@ -3514,12 +3514,12 @@ int bcm430x_rx_packet(struct bcm430x_private *bcm,
 	return 0;
 }
 
-int fastcall bcm430x_rx(struct bcm430x_private *bcm,
+int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 			struct sk_buff *skb,
-			struct bcm430x_rxhdr *rxhdr)
+			struct bcm43xx_rxhdr *rxhdr)
 {
-	struct bcm430x_plcp_hdr4 *plcp;
-	const int is_ofdm = !!(rxhdr->flags1 & BCM430x_RXHDR_FLAGS1_OFDM);
+	struct bcm43xx_plcp_hdr4 *plcp;
+	const int is_ofdm = !!(rxhdr->flags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
 	struct ieee80211_rx_stats stats;
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	struct ieee80211_hdr *wlhdr;
@@ -3530,14 +3530,14 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 	int is_packet_for_us = 0;
 	int err = -EINVAL;
 
-	if (rxhdr->flags2 & BCM430x_RXHDR_FLAGS2_TYPE2FRAME) {
-		plcp = (struct bcm430x_plcp_hdr4 *)(skb->data + 2);
+	if (rxhdr->flags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME) {
+		plcp = (struct bcm43xx_plcp_hdr4 *)(skb->data + 2);
 		/* Skip two unknown bytes and the PLCP header. */
-		skb_pull(skb, 2 + sizeof(struct bcm430x_plcp_hdr6));
+		skb_pull(skb, 2 + sizeof(struct bcm43xx_plcp_hdr6));
 	} else {
-		plcp = (struct bcm430x_plcp_hdr4 *)(skb->data);
+		plcp = (struct bcm43xx_plcp_hdr4 *)(skb->data);
 		/* Skip the PLCP header. */
-		skb_pull(skb, sizeof(struct bcm430x_plcp_hdr6));
+		skb_pull(skb, sizeof(struct bcm43xx_plcp_hdr6));
 	}
 	/* The SKB contains the PAYLOAD (wireless header + data)
 	 * at this point. The FCS at the end is stripped.
@@ -3545,10 +3545,10 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 
 	memset(&stats, 0, sizeof(stats));
 	stats.mac_time = rxhdr->mactime;
-	stats.rssi = bcm430x_rssi_postprocess(bcm, rxhdr->rssi);
+	stats.rssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi);
 	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
-	stats.rate = bcm430x_plcp_get_bitrate(plcp, is_ofdm);
+	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
 //printk("RX ofdm %d, rate == %u\n", is_ofdm, stats.rate);
 	stats.received_channel = bcm->current_core->radio->channel;
 //TODO	stats.control = 
@@ -3556,7 +3556,7 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 //TODO		     IEEE80211_STATMASK_NOISE |
 		     IEEE80211_STATMASK_RATE |
 		     IEEE80211_STATMASK_RSSI;
-	if (bcm->current_core->phy->type == BCM430x_PHYTYPE_A)
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
 		stats.freq = IEEE80211_52GHZ_BAND;
 	else
 		stats.freq = IEEE80211_24GHZ_BAND;
@@ -3564,7 +3564,7 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 
 
 	if (bcm->ieee->iw_mode == IW_MODE_MONITOR)
-		return bcm430x_rx_packet(bcm, skb, &stats);
+		return bcm43xx_rx_packet(bcm, skb, &stats);
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
 	wlhdr = (struct ieee80211_hdr *)(skb->data);
@@ -3597,7 +3597,7 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 		break;
 	case IEEE80211_FTYPE_DATA:
 		if (is_packet_for_us)
-			err = bcm430x_rx_packet(bcm, skb, &stats);
+			err = bcm43xx_rx_packet(bcm, skb, &stats);
 		else
 			dprintkl(KERN_ERR PFX "RX packet dropped (not for us)\n");
 		break;
@@ -3612,97 +3612,97 @@ int fastcall bcm430x_rx(struct bcm430x_private *bcm,
 }
 
 /* Do the Hardware IO operations to send the txb */
-static inline int bcm430x_tx(struct bcm430x_private *bcm,
+static inline int bcm43xx_tx(struct bcm43xx_private *bcm,
 			     struct ieee80211_txb *txb)
 {
 	int err = -ENODEV;
 
 	if (bcm->pio_mode)
-		err = bcm430x_pio_transfer_txb(bcm, txb);
+		err = bcm43xx_pio_transfer_txb(bcm, txb);
 	else
-		err = bcm430x_dma_transfer_txb(bcm, txb);
+		err = bcm43xx_dma_transfer_txb(bcm, txb);
 
 	return err;
 }
 
-static void bcm430x_ieee80211_set_chan(struct net_device *net_dev,
+static void bcm43xx_ieee80211_set_chan(struct net_device *net_dev,
 				       u8 channel)
 {
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	bcm430x_mac_suspend(bcm);
-	bcm430x_radio_selectchannel(bcm, channel, 0);
-	bcm430x_mac_enable(bcm);
+	bcm43xx_mac_suspend(bcm);
+	bcm43xx_radio_selectchannel(bcm, channel, 0);
+	bcm43xx_mac_enable(bcm);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
 /* set_security() callback in struct ieee80211_device */
-static void bcm430x_ieee80211_set_security(struct net_device *net_dev,
+static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 					   struct ieee80211_security *sec)
 {/*TODO*/
 }
 
 /* hard_start_xmit() callback in struct ieee80211_device */
-static int bcm430x_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
+static int bcm43xx_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
 					     struct net_device *net_dev
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 14)
 					     , int pri
 #endif
 					     )
 {
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 	int err = -ENODEV;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (likely(bcm->initialized))
-		err = bcm430x_tx(bcm, txb);
+		err = bcm43xx_tx(bcm, txb);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return err;
 }
 
-static struct net_device_stats * bcm430x_net_get_stats(struct net_device *net_dev)
+static struct net_device_stats * bcm43xx_net_get_stats(struct net_device *net_dev)
 {
-	return &(bcm430x_priv(net_dev)->ieee->stats);
+	return &(bcm43xx_priv(net_dev)->ieee->stats);
 }
 
-static void bcm430x_net_tx_timeout(struct net_device *net_dev)
+static void bcm43xx_net_tx_timeout(struct net_device *net_dev)
 {
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	bcm430x_recover_from_fatal(bcm, "TX timeout");
+	bcm43xx_recover_from_fatal(bcm, "TX timeout");
 }
 
-static int bcm430x_net_open(struct net_device *net_dev)
+static int bcm43xx_net_open(struct net_device *net_dev)
 {
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	bcm430x_init_board(bcm);
+	bcm43xx_init_board(bcm);
 
 	return 0;
 }
 
-static int bcm430x_net_stop(struct net_device *net_dev)
+static int bcm43xx_net_stop(struct net_device *net_dev)
 {
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 	int err;
 
 	ieee80211softmac_stop(net_dev);
-	err = bcm430x_disable_interrupts_sync(bcm, NULL);
+	err = bcm43xx_disable_interrupts_sync(bcm, NULL);
 	assert(!err);
-	bcm430x_free_board(bcm);
+	bcm43xx_free_board(bcm);
 
 	return 0;
 }
 
-static int __devinit bcm430x_init_one(struct pci_dev *pdev,
+static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 				      const struct pci_device_id *ent)
 {
 	struct net_device *net_dev;
-	struct bcm430x_private *bcm;
+	struct bcm43xx_private *bcm;
 	int err;
 
 #ifdef DEBUG_SINGLE_DEVICE_ONLY
@@ -3722,26 +3722,26 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	SET_MODULE_OWNER(net_dev);
 	SET_NETDEV_DEV(net_dev, &pdev->dev);
 
-	net_dev->open = bcm430x_net_open;
-	net_dev->stop = bcm430x_net_stop;
-	net_dev->get_stats = bcm430x_net_get_stats;
-	net_dev->tx_timeout = bcm430x_net_tx_timeout;
-	net_dev->wireless_handlers = &bcm430x_wx_handlers_def;
+	net_dev->open = bcm43xx_net_open;
+	net_dev->stop = bcm43xx_net_stop;
+	net_dev->get_stats = bcm43xx_net_get_stats;
+	net_dev->tx_timeout = bcm43xx_net_tx_timeout;
+	net_dev->wireless_handlers = &bcm43xx_wx_handlers_def;
 	net_dev->irq = pdev->irq;
 
-	/* initialize the bcm430x_private struct */
-	bcm = bcm430x_priv(net_dev);
+	/* initialize the bcm43xx_private struct */
+	bcm = bcm43xx_priv(net_dev);
 	bcm->ieee = netdev_priv(net_dev);
 	bcm->softmac = ieee80211_priv(net_dev);
-	bcm->softmac->set_channel = bcm430x_ieee80211_set_chan;
+	bcm->softmac->set_channel = bcm43xx_ieee80211_set_chan;
 
 #ifdef DEBUG_ENABLE_MMIO_PRINT
-	bcm430x_mmioprint_initial(bcm, 1);
+	bcm43xx_mmioprint_initial(bcm, 1);
 #else
-	bcm430x_mmioprint_initial(bcm, 0);
+	bcm43xx_mmioprint_initial(bcm, 0);
 #endif
 
-	bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
+	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
 	bcm->pci_dev = pdev;
 	bcm->net_dev = net_dev;
 	if (modparam_bad_frames_preempt)
@@ -3749,7 +3749,7 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 	spin_lock_init(&bcm->lock);
 	INIT_LIST_HEAD(&bcm->xmitstatus_queue);
 	tasklet_init(&bcm->isr_tasklet,
-		     (void (*)(unsigned long))bcm430x_interrupt_tasklet,
+		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
 		     (unsigned long)bcm);
 	tasklet_disable_nosync(&bcm->isr_tasklet);
 	bcm->workqueue = create_workqueue(DRV_NAME "_wq");
@@ -3767,16 +3767,16 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 			bcm->pio_mode = 1;
 		}
 	}
-	bcm->rts_threshold = BCM430x_DEFAULT_RTS_THRESHOLD;
+	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
 
-	bcm->ieee->iw_mode = BCM430x_INITIAL_IWMODE;
-	bcm->ieee->tx_headroom = sizeof(struct bcm430x_txhdr);
-	bcm->ieee->set_security = bcm430x_ieee80211_set_security;
-	bcm->ieee->hard_start_xmit = bcm430x_ieee80211_hard_start_xmit;
+	bcm->ieee->iw_mode = BCM43xx_INITIAL_IWMODE;
+	bcm->ieee->tx_headroom = sizeof(struct bcm43xx_txhdr);
+	bcm->ieee->set_security = bcm43xx_ieee80211_set_security;
+	bcm->ieee->hard_start_xmit = bcm43xx_ieee80211_hard_start_xmit;
 
 	pci_set_drvdata(pdev, net_dev);
 
-	err = bcm430x_attach_board(bcm);
+	err = bcm43xx_attach_board(bcm);
 	if (err)
 		goto err_destroy_wq;
 
@@ -3788,14 +3788,14 @@ static int __devinit bcm430x_init_one(struct pci_dev *pdev,
 		goto err_detach_board;
 	}
 
-	bcm430x_debugfs_add_device(bcm);
+	bcm43xx_debugfs_add_device(bcm);
 
 	assert(err == 0);
 out:
 	return err;
 
 err_detach_board:
-	bcm430x_detach_board(bcm);
+	bcm43xx_detach_board(bcm);
 err_destroy_wq:
 	destroy_workqueue(bcm->workqueue);
 err_free_netdev:
@@ -3803,24 +3803,24 @@ err_free_netdev:
 	goto out;
 }
 
-static void __devexit bcm430x_remove_one(struct pci_dev *pdev)
+static void __devexit bcm43xx_remove_one(struct pci_dev *pdev)
 {
 	struct net_device *net_dev = pci_get_drvdata(pdev);
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	bcm430x_debugfs_remove_device(bcm);
+	bcm43xx_debugfs_remove_device(bcm);
 	unregister_netdev(net_dev);
-	bcm430x_detach_board(bcm);
+	bcm43xx_detach_board(bcm);
 	destroy_workqueue(bcm->workqueue);
 	free_ieee80211softmac(net_dev);
 }
 
 #ifdef CONFIG_PM
 
-static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
+static int bcm43xx_suspend(struct pci_dev *pdev, pm_message_t state)
 {
 	struct net_device *net_dev = pci_get_drvdata(pdev);
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 	unsigned long flags;
 	int try_to_shutdown = 0, err;
 
@@ -3835,14 +3835,14 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 	netif_device_detach(net_dev);
 	if (try_to_shutdown) {
 		ieee80211softmac_stop(net_dev);
-		err = bcm430x_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
+		err = bcm43xx_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
 		if (unlikely(err)) {
 			dprintk(KERN_ERR PFX "Suspend failed.\n");
 			return -EAGAIN;
 		}
-		bcm430x_free_board(bcm);
+		bcm43xx_free_board(bcm);
 	}
-	bcm430x_chipset_detach(bcm);
+	bcm43xx_chipset_detach(bcm);
 
 	pci_save_state(pdev);
 	pci_disable_device(pdev);
@@ -3853,10 +3853,10 @@ static int bcm430x_suspend(struct pci_dev *pdev, pm_message_t state)
 	return 0;
 }
 
-static int bcm430x_resume(struct pci_dev *pdev)
+static int bcm43xx_resume(struct pci_dev *pdev)
 {
 	struct net_device *net_dev = pci_get_drvdata(pdev);
-	struct bcm430x_private *bcm = bcm430x_priv(net_dev);
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 	int err = 0;
 
 	dprintk(KERN_INFO PFX "Resuming...\n");
@@ -3865,10 +3865,10 @@ static int bcm430x_resume(struct pci_dev *pdev)
 	pci_enable_device(pdev);
 	pci_restore_state(pdev);
 
-	bcm430x_chipset_attach(bcm);
+	bcm43xx_chipset_attach(bcm);
 	if (bcm->was_initialized) {
-		bcm->irq_savedstate = BCM430x_IRQ_INITIAL;
-		err = bcm430x_init_board(bcm);
+		bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
+		err = bcm43xx_init_board(bcm);
 	}
 	if (err) {
 		printk(KERN_ERR PFX "Resume failed!\n");
@@ -3884,31 +3884,31 @@ static int bcm430x_resume(struct pci_dev *pdev)
 
 #endif				/* CONFIG_PM */
 
-static struct pci_driver bcm430x_pci_driver = {
-	.name = BCM430x_DRIVER_NAME,
-	.id_table = bcm430x_pci_tbl,
-	.probe = bcm430x_init_one,
-	.remove = __devexit_p(bcm430x_remove_one),
+static struct pci_driver bcm43xx_pci_driver = {
+	.name = BCM43xx_DRIVER_NAME,
+	.id_table = bcm43xx_pci_tbl,
+	.probe = bcm43xx_init_one,
+	.remove = __devexit_p(bcm43xx_remove_one),
 #ifdef CONFIG_PM
-	.suspend = bcm430x_suspend,
-	.resume = bcm430x_resume,
+	.suspend = bcm43xx_suspend,
+	.resume = bcm43xx_resume,
 #endif				/* CONFIG_PM */
 };
 
-static int __init bcm430x_init(void)
+static int __init bcm43xx_init(void)
 {
-	printk(KERN_INFO BCM430x_DRIVER_NAME "\n");
-	bcm430x_debugfs_init();
-	return pci_register_driver(&bcm430x_pci_driver);
+	printk(KERN_INFO BCM43xx_DRIVER_NAME "\n");
+	bcm43xx_debugfs_init();
+	return pci_register_driver(&bcm43xx_pci_driver);
 }
 
-static void __exit bcm430x_exit(void)
+static void __exit bcm43xx_exit(void)
 {
-	pci_unregister_driver(&bcm430x_pci_driver);
-	bcm430x_debugfs_exit();
+	pci_unregister_driver(&bcm43xx_pci_driver);
+	bcm43xx_debugfs_exit();
 }
 
-module_init(bcm430x_init)
-module_exit(bcm430x_exit)
+module_init(bcm43xx_init)
+module_exit(bcm43xx_exit)
 
 /* vim: set ts=8 sw=8 sts=8: */

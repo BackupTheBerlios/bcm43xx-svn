@@ -1,6 +1,6 @@
 /*
 
-  Broadcom BCM430x wireless driver
+  Broadcom BCM43xx wireless driver
 
   Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
                      Stefano Brivio <st3@riseup.net>
@@ -28,9 +28,20 @@
 
 */
 
-#ifndef BCM430x_WX_H_
-#define BCM430x_WX_H_
+#ifndef BCM43xx_POWER_H_
+#define BCM43xx_POWER_H_
 
-extern const struct iw_handler_def bcm430x_wx_handlers_def;
+#include <linux/types.h>
 
-#endif /* BCM430x_WX_H_ */
+
+struct bcm43xx_private;
+
+int bcm43xx_pctl_init(struct bcm43xx_private *bcm);
+int bcm43xx_pctl_set_clock(struct bcm43xx_private *bcm, u16 mode);
+int bcm43xx_pctl_set_crystal(struct bcm43xx_private *bcm, int on);
+u16 bcm43xx_pctl_powerup_delay(struct bcm43xx_private *bcm);
+
+void bcm43xx_power_saving_ctl_bits(struct bcm43xx_private *bcm,
+				   int bit25, int bit26);
+
+#endif /* BCM43xx_POWER_H_ */
