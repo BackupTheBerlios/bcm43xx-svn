@@ -998,7 +998,7 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 			bcm43xx_phy_write(bcm, 0x04C2, 0x1816);
 			bcm43xx_phy_write(bcm, 0x04C3, 0x8006);
 			bcm43xx_phy_write(bcm, 0x04CC, (bcm43xx_phy_read(bcm, 0x04CC)
-					  & 0xFF00) | 0x1F00);
+					  & 0x00FF) | 0x1F00);
 		}
 	}
 	if (bcm->current_core->radio->revision <= 3 &&
