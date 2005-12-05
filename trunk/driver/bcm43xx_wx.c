@@ -130,7 +130,7 @@ static int bcm43xx_wx_set_channelfreq(struct net_device *net_dev,
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (bcm->initialized) {
-		bcm43xx_disassociate(bcm);
+		//TODO: Tell softmac to disassociate.
 		bcm43xx_mac_suspend(bcm);
 		err = bcm43xx_radio_selectchannel(bcm, channel, 0);
 		bcm43xx_mac_enable(bcm);
