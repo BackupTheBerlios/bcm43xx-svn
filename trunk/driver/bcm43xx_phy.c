@@ -924,7 +924,7 @@ static void bcm43xx_phy_initb6(struct bcm43xx_private *bcm)
 	bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
 	bcm43xx_radio_write16(bcm, 0x0050, 0x0023);
 	udelay(40);
-	bcm43xx_radio_write16(bcm, 0x007C, (bcm43xx_radio_read16(bcm, 0x007C) & 0x0002));
+	bcm43xx_radio_write16(bcm, 0x007C, (bcm43xx_radio_read16(bcm, 0x007C) | 0x0002));
 	bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
 	if ((bcm->current_core->radio->manufact == 0x17F) &&
             (bcm->current_core->radio->version == 0x2050) &&
