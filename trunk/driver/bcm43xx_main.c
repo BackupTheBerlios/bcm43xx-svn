@@ -587,24 +587,30 @@ static void bcm43xx_write_mac_bssid_templates(struct bcm43xx_private *bcm)
 		bcm43xx_ram_write(bcm, 0x478 + i, *((u32 *)(mac_bssid + i)));
 }
 
-static void bcm43xx_short_slot_timing_enable(struct bcm43xx_private *bcm)
+static inline
+void bcm43xx_set_slot_time(struct bcm43xx_private *bcm, u16 slot_time)
 {
+	/* slot_time is in usec. */
 	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
 		return;
-	bcm43xx_write16(bcm, 0x684, 519);
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0010, 9);
+	bcm43xx_write16(bcm, 0x684, 510 + slot_time);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0010, slot_time);
 }
 
-static void bcm43xx_short_slot_timing_disable(struct bcm43xx_private *bcm)
+static inline
+void bcm43xx_short_slot_timing_enable(struct bcm43xx_private *bcm)
 {
-	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
-		return;
-	bcm43xx_write16(bcm, 0x684, 530);
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0010, 20);
+	bcm43xx_set_slot_time(bcm, 9);
 }
 
-//FIXME: rename this func? This func has still invalid callers in wx.c. This func should be static.
-void bcm43xx_disassociate(struct bcm43xx_private *bcm)
+static inline
+void bcm43xx_short_slot_timing_disable(struct bcm43xx_private *bcm)
+{
+	bcm43xx_set_slot_time(bcm, 20);
+}
+
+//FIXME: rename this func?
+static void bcm43xx_disassociate(struct bcm43xx_private *bcm)
 {
 	bcm43xx_mac_suspend(bcm);
 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
