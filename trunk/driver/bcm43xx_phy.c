@@ -377,6 +377,15 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 			bcm43xx_ilt_write16(bcm, 0x5410 + i, 0x0020);
 		}
 		bcm43xx_phy_agcsetup(bcm);
+		
+		if ((bcm->board_vendor == PCI_VENDOR_ID_BROADCOM) &&
+		    (bcm->board_type == 0x0416) &&
+		    (bcm->board_revision == 0x0017))
+			return;
+		
+		bcm43xx_ilt_write16(bcm, 0x5001, 0x0002);
+		bcm43xx_ilt_write16(bcm, 0x5002, 0x0001);
+		
 	} else {
 		for (i = 0; i <= 0x2F; i++)
 			bcm43xx_ilt_write16(bcm, 0x1000 + i, 0x0820);
@@ -388,16 +397,11 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 
 		if ((bcm->board_vendor == PCI_VENDOR_ID_BROADCOM) &&
 		    (bcm->board_type == 0x0416) &&
-		    (bcm->board_revision != 0x0017))
+		    (bcm->board_revision == 0x0017))
 			return;
 
-		if (bcm->current_core->phy->rev < 2) {
-			bcm43xx_ilt_write16(bcm, 0x5001, 0x0002);
-			bcm43xx_ilt_write16(bcm, 0x5002, 0x0001);
-		} else {
-			bcm43xx_ilt_write16(bcm, 0x0401, 0x0002);
-			bcm43xx_ilt_write16(bcm, 0x0402, 0x0001);
-		}
+		bcm43xx_ilt_write16(bcm, 0x0401, 0x0002);
+		bcm43xx_ilt_write16(bcm, 0x0402, 0x0001);
 	}
 }
 
