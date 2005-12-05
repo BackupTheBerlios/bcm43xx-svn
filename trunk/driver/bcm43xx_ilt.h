@@ -18,9 +18,12 @@ extern const u16 bcm43xx_ilt_noiseg1[BCM43xx_ILT_NOISEG1_SIZE];
 #define BCM43xx_ILT_NOISEG2_SIZE	8
 extern const u16 bcm43xx_ilt_noiseg2[BCM43xx_ILT_NOISEG2_SIZE];
 #define BCM43xx_ILT_NOISESCALEG_SIZE	27
-extern const u16 bcm43xx_ilt_noisescaleg[BCM43xx_ILT_NOISESCALEG_SIZE];
+extern const u16 bcm43xx_ilt_noisescaleg1[BCM43xx_ILT_NOISESCALEG_SIZE];
+extern const u16 bcm43xx_ilt_noisescaleg2[BCM43xx_ILT_NOISESCALEG_SIZE];
+extern const u16 bcm43xx_ilt_noisescaleg3[BCM43xx_ILT_NOISESCALEG_SIZE];
 #define BCM43xx_ILT_SIGMASQR_SIZE	53
-extern const u16 bcm43xx_ilt_sigmasqr[BCM43xx_ILT_SIGMASQR_SIZE];
+extern const u16 bcm43xx_ilt_sigmasqr1[BCM43xx_ILT_SIGMASQR_SIZE];
+extern const u16 bcm43xx_ilt_sigmasqr2[BCM43xx_ILT_SIGMASQR_SIZE];
 
 
 void bcm43xx_ilt_write16(struct bcm43xx_private *bcm, u16 offset, u16 val);

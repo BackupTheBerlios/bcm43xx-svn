@@ -316,8 +316,7 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 	u16 i;
 
 	assert(bcm->current_core->phy->type == BCM43xx_PHYTYPE_G);
-	switch (bcm->current_core->phy->rev) {
-	case 1:
+	if (bcm->current_core->phy->rev == 1) {
 		bcm43xx_phy_write(bcm, 0x0406, 0x4F19);
 		bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
 				  (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0xFC3F) | 0x0340);
@@ -330,24 +329,7 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 			bcm43xx_ilt_write16(bcm, 0x1800 + i, bcm43xx_ilt_noiseg1[i]);
 		for (i = 0; i < BCM43xx_ILT_ROTOR_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x2000 + i, bcm43xx_ilt_rotor[i]);
-		for (i = 0; i < BCM43xx_ILT_NOISESCALEG_SIZE; i++)
-			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg[i]);
-		for (i = 0; i < BCM43xx_ILT_RETARD_SIZE; i++)
-			bcm43xx_ilt_write16(bcm, 0x2400 + i, bcm43xx_ilt_retard[i]);
-		for (i = 0; i < 4; i++) {
-			bcm43xx_ilt_write16(bcm, 0x5404 + i, 0x0020);
-			bcm43xx_ilt_write16(bcm, 0x5408 + i, 0x0020);
-			bcm43xx_ilt_write16(bcm, 0x540C + i, 0x0020);
-			bcm43xx_ilt_write16(bcm, 0x5410 + i, 0x0020);
-		}
-		bcm43xx_phy_agcsetup(bcm);
-		break;
-	case 2:
-	case 3:
-	case 4:
-	case 5:
-	case 6:
-	case 7:
+	} else {
 		FIXME();//FIXME: 0xBA98 should be in 0-64, 0x7654 should be 6-bit!
 		bcm43xx_nrssi_hw_write(bcm, 0xBA98, (s16)0x7654);
 		
@@ -366,10 +348,36 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 			bcm43xx_ilt_write16(bcm, 0x4000 + i, i);
 		for (i = 0; i < BCM43xx_ILT_NOISEG2_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x1800 + i, bcm43xx_ilt_noiseg2[i]);
+	}
+	
+	if (bcm->current_core->phy->rev <= 2)
 		for (i = 0; i < BCM43xx_ILT_NOISESCALEG_SIZE; i++)
-			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg[i]);
+			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg1[i]);
+	else if ((bcm->current_core->phy->rev == 7) && (bcm43xx_phy_read(bcm, 0x0449) & 0x0200))
+		for (i = 0; i < BCM43xx_ILT_NOISESCALEG_SIZE; i++)
+			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg3[i]);
+	else
+		for (i = 0; i < BCM43xx_ILT_NOISESCALEG_SIZE; i++)
+			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg2[i]);
+	
+	if (bcm->current_core->phy->rev == 2)
 		for (i = 0; i < BCM43xx_ILT_SIGMASQR_SIZE; i++)
-			bcm43xx_ilt_write16(bcm, 0x5000 + i, bcm43xx_ilt_sigmasqr[i]);
+			bcm43xx_ilt_write16(bcm, 0x5000 + i, bcm43xx_ilt_sigmasqr1[i]);
+	else if ((bcm->current_core->phy->rev > 2) && (bcm->current_core->phy->rev <= 7))
+		for (i = 0; i < BCM43xx_ILT_SIGMASQR_SIZE; i++)
+			bcm43xx_ilt_write16(bcm, 0x5000 + i, bcm43xx_ilt_sigmasqr2[i]);
+	
+	if (bcm->current_core->phy->rev == 1) {
+		for (i = 0; i < BCM43xx_ILT_RETARD_SIZE; i++)
+			bcm43xx_ilt_write16(bcm, 0x2400 + i, bcm43xx_ilt_retard[i]);
+		for (i = 0; i < 4; i++) {
+			bcm43xx_ilt_write16(bcm, 0x5404 + i, 0x0020);
+			bcm43xx_ilt_write16(bcm, 0x5408 + i, 0x0020);
+			bcm43xx_ilt_write16(bcm, 0x540C + i, 0x0020);
+			bcm43xx_ilt_write16(bcm, 0x5410 + i, 0x0020);
+		}
+		bcm43xx_phy_agcsetup(bcm);
+	} else {
 		for (i = 0; i <= 0x2F; i++)
 			bcm43xx_ilt_write16(bcm, 0x1000 + i, 0x0820);
 		bcm43xx_phy_agcsetup(bcm);
@@ -390,9 +398,6 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 			bcm43xx_ilt_write16(bcm, 0x0401, 0x0002);
 			bcm43xx_ilt_write16(bcm, 0x0402, 0x0001);
 		}
-		break;
-	default:
-		assert(0);
 	}
 }
 
@@ -509,7 +514,7 @@ static void bcm43xx_phy_setupa(struct bcm43xx_private *bcm)
 			bcm43xx_ilt_write16(bcm, 0x1800 + i, bcm43xx_ilt_noisea3[i]);
 		bcm43xx_phy_init_noisescaletbl(bcm);
 		for (i = 0; i < BCM43xx_ILT_SIGMASQR_SIZE; i++)
-			bcm43xx_ilt_write16(bcm, 0x5000 + i, bcm43xx_ilt_sigmasqr[i]);
+			bcm43xx_ilt_write16(bcm, 0x5000 + i, bcm43xx_ilt_sigmasqr1[i]);
 
 		bcm43xx_phy_write(bcm, 0x0003, 0x1808);
 
