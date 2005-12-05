@@ -960,7 +960,7 @@ static void bcm43xx_phy_initb6(struct bcm43xx_private *bcm)
 	}
 	
 	if (bcm->current_core->phy->rev == 4)
-		bcm43xx_phy_write(bcm, 0x0002, (bcm43xx_phy_read(bcm, 0x0002) & 0x003f) | 0x0004);
+		bcm43xx_phy_write(bcm, 0x0002, (bcm43xx_phy_read(bcm, 0x0002) & 0xFFC0) | 0x0004);
 	else
 		bcm43xx_write16(bcm, 0x03E4, 0x0009);
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
