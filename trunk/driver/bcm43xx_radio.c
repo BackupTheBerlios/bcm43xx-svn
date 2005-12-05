@@ -1266,7 +1266,7 @@ int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
 				channel2freq_bg(channel));
 
 		if (channel == 14) {
-			if (0 /*FIXME: country == Japan */) {
+			if (bcm->sprom.locale == BCM43xx_LOCALE_JAPAN) {
 				bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
 						    BCM43xx_UCODEFLAGS_OFFSET,
 						    bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED,

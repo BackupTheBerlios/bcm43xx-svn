@@ -412,6 +412,22 @@ struct bcm43xx_initval {
 	u32 value;
 } __attribute__((__packed__));
 
+/* Values for bcm430x_sprominfo.locale */
+enum {
+	BCM43xx_LOCALE_WORLD = 0,
+	BCM43xx_LOCALE_THAILAND,
+	BCM43xx_LOCALE_ISRAEL,
+	BCM43xx_LOCALE_JORDAN,
+	BCM43xx_LOCALE_CHINA,
+	BCM43xx_LOCALE_JAPAN,
+	BCM43xx_LOCALE_USA_CANADA_ANZ,
+	BCM43xx_LOCALE_EUROPE,
+	BCM43xx_LOCALE_USA_LOW,
+	BCM43xx_LOCALE_JAPAN_HIGH,
+	BCM43xx_LOCALE_ALL,
+	BCM43xx_LOCALE_NONE,
+};
+
 struct bcm43xx_sprominfo {
 	u16 boardflags2;
 	u8 il0macaddr[6];
@@ -422,7 +438,7 @@ struct bcm43xx_sprominfo {
 	u8 et0mdcport:1;
 	u8 et1mdcport:1;
 	u8 boardrev;
-	u8 countrycode:4;
+	u8 locale:4;
 	u8 antennas_aphy:2;
 	u8 antennas_bgphy:2;
 	u16 pa0b0;

@@ -67,6 +67,14 @@ static int modparam_bad_frames_preempt;
 module_param_named(bad_frames_preempt, modparam_bad_frames_preempt, int, 0444);
 MODULE_PARM_DESC(bad_frames_preempt, "enable(1) / disable(0) Bad Frames Preemption");
 
+static int modparam_locale = -1;
+module_param_named(locale, modparam_locale, int, 0444);
+MODULE_PARM_DESC(country, "Select LocaleCode 0-11 (For travelers)");
+
+static int modparam_outdoor;
+module_param_named(outdoor, modparam_outdoor, int, 0444);
+MODULE_PARM_DESC(outdoor, "Set to 1, if you are using the device outdoor, 0 otherwise.");
+
 #ifdef BCM43xx_DEBUG
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
@@ -764,6 +772,71 @@ err_unsupported_radio:
 	return -ENODEV;
 }
 
+static const char * bcm43xx_locale_iso(u8 locale)
+{
+	/* ISO 3166-1 country codes.
+	 * Note that there aren't ISO 3166-1 codes for
+	 * all or locales. (Not all locales are countries)
+	 */
+	switch (locale) {
+	case BCM43xx_LOCALE_WORLD:
+	case BCM43xx_LOCALE_ALL:
+		return "XX";
+	case BCM43xx_LOCALE_THAILAND:
+		return "TH";
+	case BCM43xx_LOCALE_ISRAEL:
+		return "IL";
+	case BCM43xx_LOCALE_JORDAN:
+		return "JO";
+	case BCM43xx_LOCALE_CHINA:
+		return "CN";
+	case BCM43xx_LOCALE_JAPAN:
+	case BCM43xx_LOCALE_JAPAN_HIGH:
+		return "JP";
+	case BCM43xx_LOCALE_USA_CANADA_ANZ:
+	case BCM43xx_LOCALE_USA_LOW:
+		return "US";
+	case BCM43xx_LOCALE_EUROPE:
+		return "EU";
+	case BCM43xx_LOCALE_NONE:
+		return "  ";
+	}
+	assert(0);
+	return "  ";
+}
+
+static const char * bcm43xx_locale_string(u8 locale)
+{
+	switch (locale) {
+	case BCM43xx_LOCALE_WORLD:
+		return "World";
+	case BCM43xx_LOCALE_THAILAND:
+		return "Thailand";
+	case BCM43xx_LOCALE_ISRAEL:
+		return "Israel";
+	case BCM43xx_LOCALE_JORDAN:
+		return "Jordan";
+	case BCM43xx_LOCALE_CHINA:
+		return "China";
+	case BCM43xx_LOCALE_JAPAN:
+		return "Japan";
+	case BCM43xx_LOCALE_USA_CANADA_ANZ:
+		return "USA/Canada/ANZ";
+	case BCM43xx_LOCALE_EUROPE:
+		return "Europe";
+	case BCM43xx_LOCALE_USA_LOW:
+		return "USAlow";
+	case BCM43xx_LOCALE_JAPAN_HIGH:
+		return "JapanHigh";
+	case BCM43xx_LOCALE_ALL:
+		return "All";
+	case BCM43xx_LOCALE_NONE:
+		return "None";
+	}
+	assert(0);
+	return "";
+}
+
 static inline
 u16 sprom_read(struct bcm43xx_private *bcm,
 	       u16 offset)
@@ -811,12 +884,24 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	bcm->sprom.et0mdcport = (value & (1 << 14)) >> 14;
 	bcm->sprom.et1mdcport = (value & (1 << 15)) >> 15;
 
-	/* boardrev, antennas, country code */
+	/* boardrev, antennas, locale */
 	value = sprom_read(bcm, BCM43xx_SPROM_BOARDREV);
-	bcm->sprom.boardrev = (value & 0x000F);
-	bcm->sprom.countrycode = (value & 0x0F00) >> 8;
+	bcm->sprom.boardrev = (value & 0x00FF);
+	bcm->sprom.locale = (value & 0x0F00) >> 8;
 	bcm->sprom.antennas_aphy = (value & 0x3000) >> 12;
 	bcm->sprom.antennas_bgphy = (value & 0xC000) >> 14;
+	if (modparam_locale != -1) {
+		if (modparam_locale >= 0 && modparam_locale <= 11) {
+			bcm->sprom.locale = modparam_locale;
+			printk(KERN_WARNING PFX "Operating with modified "
+						"LocaleCode %u (%s)\n",
+			       bcm->sprom.locale,
+			       bcm43xx_locale_string(bcm->sprom.locale));
+		} else {
+			printk(KERN_WARNING PFX "Module parameter \"locale\" "
+						"invalid value. (0 - 11)\n");
+		}
+	}
 
 	/* pa0b* */
 	value = sprom_read(bcm, BCM43xx_SPROM_PA0B0);
@@ -876,17 +961,167 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	return 0;
 }
 
+static int bcm43xx_channel_is_allowed(struct bcm43xx_private *bcm, u8 channel,
+				      u8 *max_power, u8 *flags)
+{
+	/* THIS FUNCTION DOES _NOT_ ENFORCE REGULATORY DOMAIN COMPLIANCE.
+	 * It is only a helper function to make life easier to
+	 * select legal channels and transmission powers.
+	 */
+
+	u8 phytype = bcm->current_core->phy->type;
+	int allowed = 0;
+
+	*max_power = 0;
+	*flags = 0;
+
+	//FIXME: Set max_power and maybe flags
+	/*FIXME: Allowed channels are sometimes different for outdoor
+	 *       or indoor use. See modparam_outdoor.
+	 */
+	/* From b specs Max Power BPHY:
+	 *	USA:	1000mW
+	 *	Europe:	100mW
+	 *	Japan:	10mW/MHz
+	 */
+
+	switch (bcm->sprom.locale) {
+	case BCM43xx_LOCALE_WORLD:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		} else {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_THAILAND:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 1 && channel <= 14)
+				allowed = 1;
+		} else {
+			if (channel >= 1 && channel <= 14)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_ISRAEL:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 5 && channel <= 7)
+				allowed = 1;
+		} else {
+			if (channel >= 5 && channel <= 7)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_JORDAN:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 10 && channel <= 13)
+				allowed = 1;
+		} else {
+			if (channel >= 10 && channel <= 13)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_CHINA:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		} else {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_JAPAN:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			//FIXME: This seems to be wrong.
+			if (channel >= 1 && channel <= 14)
+				allowed = 1;
+		} else {
+			//FIXME: This seems to be wrong.
+			if (channel >= 1 && channel <= 14)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_USA_CANADA_ANZ:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		} else {
+			if (channel >= 1 && channel <= 11)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_EUROPE:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		} else {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_USA_LOW:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			if (channel >= 1 && channel <= 13)
+				allowed = 1;
+		} else {
+			if (channel >= 1 && channel <= 11)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_JAPAN_HIGH:
+		if (phytype == BCM43xx_PHYTYPE_A) {
+			allowed = 1;//FIXME
+		} else if (phytype == BCM43xx_PHYTYPE_B) {
+			//FIXME?
+			if (channel >= 1 && channel <= 14)
+				allowed = 1;
+		} else {
+			if (channel >= 1 && channel <= 14)
+				allowed = 1;
+		}
+		break;
+	case BCM43xx_LOCALE_ALL:
+		allowed = 1;
+		break;
+	case BCM43xx_LOCALE_NONE:
+		break;
+	default:
+		assert(0);
+	}
+
+	return allowed;
+}
+
 static void bcm43xx_geo_init(struct bcm43xx_private *bcm)
 {
 	struct ieee80211_geo geo;
 	struct ieee80211_channel *chan;
 	int have_a = 0, have_bg = 0;
 	int i, num80211;
+	u8 channel, flags, max_power;
 	struct bcm43xx_phyinfo *phy;
+	const char *iso_country;
 
 	memset(&geo, 0, sizeof(geo));
-	snprintf(geo.name, ARRAY_SIZE(geo.name),
-		 "%01X", bcm->sprom.countrycode);//FIXME
 	num80211 = bcm43xx_num_80211_cores(bcm);
 	for (i = 0; i < num80211; i++) {
 		phy = bcm->phy + i;
@@ -902,21 +1137,42 @@ static void bcm43xx_geo_init(struct bcm43xx_private *bcm)
 			assert(0);
 		}
 	}
+	iso_country = bcm43xx_locale_iso(bcm->sprom.locale);
 
-	/* FIXME: Allowed channels for countrycode. */
-	if (have_a) {
-		geo.a_channels = IEEE80211_52GHZ_CHANNELS;
-		//TODO
+ 	if (have_a) {
+		for (i = 0, channel = 0; channel < 201; channel++) {
+			if (!bcm43xx_channel_is_allowed(bcm, channel,
+							&max_power, &flags))
+				continue;
+			chan = &geo.a[i++];
+			chan->freq = bcm43xx_channel_to_freq(bcm, channel);
+			chan->channel = channel;
+			chan->flags = flags;
+			chan->max_power = max_power;
+		}
+		geo.a_channels = i;
 	}
 	if (have_bg) {
-		geo.bg_channels = IEEE80211_24GHZ_CHANNELS;
-		for (i = 0; i < IEEE80211_24GHZ_CHANNELS; i++) {
-			chan = geo.bg + i;
-			chan->freq = 0;//FIXME
-			chan->channel = i + 1;
-			//TODO: maxpower
+		for (i = 0, channel = 1; channel < 15; channel++) {
+			if (!bcm43xx_channel_is_allowed(bcm, channel,
+							&max_power, &flags))
+				continue;
+			chan = &geo.bg[i++];
+			chan->freq = bcm43xx_channel_to_freq(bcm, channel);
+			chan->channel = channel;
+			chan->flags = flags;
+			chan->max_power = max_power;
 		}
+		geo.bg_channels = i;
 	}
+	memcpy(geo.name, iso_country, 2);
+	if (0 /*TODO: Outdoor use only */)
+		geo.name[2] = 'O';
+	else if (0 /*TODO: Indoor use only */)
+		geo.name[2] = 'I';
+	else
+		geo.name[2] = ' ';
+	geo.name[3] = '\0';
 
 	ieee80211_set_geo(bcm->ieee, &geo);
 }
