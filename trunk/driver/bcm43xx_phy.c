@@ -290,6 +290,11 @@ static void bcm43xx_phy_agcsetup(struct bcm43xx_private *bcm)
 		bcm43xx_phy_write(bcm, 0x0420, (bcm43xx_phy_read(bcm, 0x0420) & 0xFFF0) | 0x0004);
 	}
 
+	if (bcm->current_core->phy->rev > 2) {
+		bcm43xx_phy_write(bcm, 0x0422, 0x287A);
+		bcm43xx_phy_write(bcm, 0x0420, (bcm43xx_phy_read(bcm, 0x0420) & 0x0FFF) | 0x3000); 
+	}
+		
 	bcm43xx_phy_write(bcm, 0x04A8, (bcm43xx_phy_read(bcm, 0x04A8) & 0x8080) | 0x7874);
 	bcm43xx_phy_write(bcm, 0x048E, 0x1C00);
 
