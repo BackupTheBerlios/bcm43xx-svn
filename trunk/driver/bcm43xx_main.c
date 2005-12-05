@@ -3566,13 +3566,13 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	stats.rssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi);
 	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
-	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
+//FIXME: is_ofdm seems to be wrong	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
 //printk("RX ofdm %d, rate == %u\n", is_ofdm, stats.rate);
 	stats.received_channel = bcm->current_core->radio->channel;
 //TODO	stats.control = 
 	stats.mask = IEEE80211_STATMASK_SIGNAL |
 //TODO		     IEEE80211_STATMASK_NOISE |
-		     IEEE80211_STATMASK_RATE |
+//FIXME		     IEEE80211_STATMASK_RATE |
 		     IEEE80211_STATMASK_RSSI;
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
 		stats.freq = IEEE80211_52GHZ_BAND;
