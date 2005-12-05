@@ -1013,6 +1013,11 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 	if (bcm->current_core->radio->revision <= 3 &&
 	    bcm->current_core->phy->connected)
 		bcm43xx_phy_write(bcm, 0x047E, 0x0078);
+	if ((bcm->current_core->radio->revision >= 6) &&
+	    (bcm->current_core->radio->revision <= 8)) {
+		bcm43xx_phy_write(bcm, 0x0801, bcm43xx_phy_read(bcm, 0x0801) | 0x0080);
+		bcm43xx_phy_write(bcm, 0x043E, bcm43xx_phy_read(bcm, 0x043E) | 0x0004);
+	}
 	if (bcm->current_core->radio->initval == 0xFFFF) {
 		bcm->current_core->radio->initval = bcm43xx_radio_init2050(bcm);
 		bcm43xx_phy_lo_g_measure(bcm);
