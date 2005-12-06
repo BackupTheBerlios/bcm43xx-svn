@@ -473,11 +473,7 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 		       const u16 cookie)
 {
 	const struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
-	const struct ieee80211_hdr *wireless_header = (const struct ieee80211_hdr *)fragment_data;
-#else
 	const struct ieee80211_hdr_1addr *wireless_header = (const struct ieee80211_hdr_1addr *)fragment_data;
-#endif
 	u8 bitrate;
 	int ofdm_modulation;
 	u8 fallback_bitrate;
@@ -3795,11 +3791,7 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	struct bcm43xx_plcp_hdr4 *plcp;
 	const int is_ofdm = !!(rxhdr->flags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
 	struct ieee80211_rx_stats stats;
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
-	struct ieee80211_hdr *wlhdr;
-#else
 	struct ieee80211_hdr_4addr *wlhdr;
-#endif
 	u16 frame_ctl;
 	int is_packet_for_us = 0;
 	int err = -EINVAL;
@@ -3840,11 +3832,7 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	if (bcm->ieee->iw_mode == IW_MODE_MONITOR)
 		return bcm43xx_rx_packet(bcm, skb, &stats);
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 14)
-	wlhdr = (struct ieee80211_hdr *)(skb->data);
-#else
 	wlhdr = (struct ieee80211_hdr_4addr *)(skb->data);
-#endif
 
 	switch (bcm->ieee->iw_mode) {
 	case IW_MODE_ADHOC:
@@ -3920,11 +3908,8 @@ static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 
 /* hard_start_xmit() callback in struct ieee80211_device */
 static int bcm43xx_ieee80211_hard_start_xmit(struct ieee80211_txb *txb,
-					     struct net_device *net_dev
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 14)
-					     , int pri
-#endif
-					     )
+					     struct net_device *net_dev,
+					     int pri)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 	int err = -ENODEV;
