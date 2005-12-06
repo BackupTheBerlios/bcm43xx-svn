@@ -514,7 +514,7 @@ struct bcm43xx_radioinfo {
 	u16 interfstack[20];
 	/* Saved values from the NRSSI Slope calculation */
 	s16 nrssi[2];
-	s16 nrssislope;
+	s32 nrssislope;
 	/* In memory nrssi lookup table. */
 	s8 nrssi_lt[64];
 
