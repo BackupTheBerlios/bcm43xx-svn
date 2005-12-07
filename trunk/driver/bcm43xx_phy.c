@@ -1837,37 +1837,36 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 		bcm->current_core->phy->tssi2dbm = bcm43xx_tssi2dbm_b_table;
 		return 0;
 	}
-	if ((bcm->chip_id == 0x4306) || (bcm->chip_id == 0x4301) || (bcm->chip_id == 0x4318)) {
-		if (pab0 != 0 && pab1 != 0 && pab2 != 0 &&
-		    pab0 != -1 && pab1 != -1 && pab2 != -1) {
-			/* The pabX values are set in SPROM. Use them. */
-			if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
-				bcm->current_core->phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_aphy);
-			else
-				bcm->current_core->phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
-			if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
-				TODO(); //TODO: incomplete specs.
-			}
+
+	if (pab0 != 0 && pab1 != 0 && pab2 != 0 &&
+	    pab0 != -1 && pab1 != -1 && pab2 != -1) {
+		/* The pabX values are set in SPROM. Use them. */
+		if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
+			bcm->current_core->phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_aphy);
+		else
+			bcm->current_core->phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
+		if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
 			TODO(); //TODO: incomplete specs.
+		}
+		TODO(); //TODO: incomplete specs.
+		return -ENODEV;
+	} else {
+		/* pabX values not set in SPROM. */
+		switch (bcm->current_core->phy->type) {
+		case BCM43xx_PHYTYPE_A:
+			/* APHY needs a generated table. */
+			bcm->current_core->phy->tssi2dbm = NULL;
+			printk(KERN_ERR PFX "Could not generate tssi2dBm "
+					    "table (wrong SPROM info)!\n");
 			return -ENODEV;
-		} else {
-			/* pabX values not set in SPROM. */
-			switch (bcm->current_core->phy->type) {
-			case BCM43xx_PHYTYPE_A:
-				/* APHY needs a generated table. */
-				bcm->current_core->phy->tssi2dbm = NULL;
-				printk(KERN_ERR PFX "Could not generate tssi2dBm "
-						    "table (wrong SPROM info)!\n");
-				return -ENODEV;
-			case BCM43xx_PHYTYPE_B:
-				bcm->current_core->phy->idle_tssi = 0x34;
-				bcm->current_core->phy->tssi2dbm = bcm43xx_tssi2dbm_b_table;
-				break;
-			case BCM43xx_PHYTYPE_G:
-				bcm->current_core->phy->idle_tssi = 0x34;
-				bcm->current_core->phy->tssi2dbm = bcm43xx_tssi2dbm_g_table;
-				break;
-			}
+		case BCM43xx_PHYTYPE_B:
+			bcm->current_core->phy->idle_tssi = 0x34;
+			bcm->current_core->phy->tssi2dbm = bcm43xx_tssi2dbm_b_table;
+			break;
+		case BCM43xx_PHYTYPE_G:
+			bcm->current_core->phy->idle_tssi = 0x34;
+			bcm->current_core->phy->tssi2dbm = bcm43xx_tssi2dbm_g_table;
+			break;
 		}
 	}
 
