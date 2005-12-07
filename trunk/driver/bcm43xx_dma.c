@@ -895,14 +895,14 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 	sync_descbuffer_for_cpu(ring, meta->dmaaddr, ring->rx_buffersize);
 	skb = meta->skb;
 	rxhdr = (struct bcm43xx_rxhdr *)skb->data;
-	len = cpu_to_le16(rxhdr->frame_length);
+	len = le16_to_cpu(rxhdr->frame_length);
 	if (len == 0) {
 		int i = 0;
 
 		do {
 			udelay(2);
 			barrier();
-			len = cpu_to_le16(rxhdr->frame_length);
+			len = le16_to_cpu(rxhdr->frame_length);
 		} while (len == 0 && i++ < 5);
 		if (unlikely(len == 0)) {
 			dprintkl(KERN_ERR PFX "DMA RX: len zero, dropping...\n");
