@@ -133,6 +133,7 @@ static struct pci_device_id bcm43xx_pci_tbl[] = {
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12f8, 0, 0, 0 }, /* HP zd8000 Laptop */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12fa, 0, 0, 0 }, /* Compaq Presario R3xxx PCI on board */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1043, 0x100f, 0, 0, 0 }, /* Asus WL-100G PC Card */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1043, 0x120f, 0, 0, 0 }, /* Asus M6R on board */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1057, 0x7025, 0, 0, 0 }, /* Motorola WN825G PC Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x106b, 0x004e, 0, 0, 0 }, /* Apple AirPort Extreme Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1154, 0x0325, 0, 0, 0 }, /* Buffalo WLI-PCI-G54 */
