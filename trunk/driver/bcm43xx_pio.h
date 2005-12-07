@@ -42,14 +42,6 @@ struct bcm43xx_pio_txpacket {
 
 	u8 xmitted_frags;
 	u16 xmitted_octets;
-
-	/* Do not free the txb, but the skb contained in it.
-	 * This is only used for debugging and the
-	 * DebugFS "send" and "sendraw" files.
-	 */
-	u8 txb_is_dummy:1;
-	/* For DebugFS "sendraw" */
-	u8 no_txhdr:1;
 };
 
 #define pio_txpacket_getindex(packet) ((int)((packet) - (packet)->queue->__tx_packets_cache)) 
@@ -91,8 +83,6 @@ int FASTCALL(bcm43xx_pio_transfer_txb(struct bcm43xx_private *bcm,
 				      struct ieee80211_txb *txb));
 void FASTCALL(bcm43xx_pio_handle_xmitstatus(struct bcm43xx_private *bcm,
 					    struct bcm43xx_xmitstatus *status));
-int FASTCALL(bcm43xx_pio_tx_frame(struct bcm43xx_pioqueue *queue,
-				  const char *buf, size_t size));
 
 void FASTCALL(bcm43xx_pio_rx(struct bcm43xx_pioqueue *queue));
 #endif /* BCM43xx_PIO_H_ */

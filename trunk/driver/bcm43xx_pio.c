@@ -171,26 +171,17 @@ void pio_tx_write_fragment(struct bcm43xx_pioqueue *queue,
 			   struct bcm43xx_pio_txpacket *packet)
 {
 	unsigned int octets;
-	int err;
 
-	/*TODO: fragmented skb */
+	assert(skb_shinfo(skb)->nr_frags == 0);
+	assert(skb_headroom(skb) >= sizeof(struct bcm43xx_txhdr));
 
-	if (likely(packet->no_txhdr == 0)) {
-		if (unlikely(skb_headroom(skb) < sizeof(struct bcm43xx_txhdr))) {
-			err = skb_cow(skb, sizeof(struct bcm43xx_txhdr));
-			if (unlikely(err)) {
-				printk(KERN_ERR PFX "PIO: Not enough skb headroom!\n");
-				return;
-			}
-		}
-		__skb_push(skb, sizeof(struct bcm43xx_txhdr));
-		bcm43xx_generate_txhdr(queue->bcm,
-				       (struct bcm43xx_txhdr *)skb->data,
-				       skb->data + sizeof(struct bcm43xx_txhdr),
-				       skb->len - sizeof(struct bcm43xx_txhdr),
-				       (packet->xmitted_frags == 0),
-				       generate_cookie(queue, pio_txpacket_getindex(packet)));
-	}
+	__skb_push(skb, sizeof(struct bcm43xx_txhdr));
+	bcm43xx_generate_txhdr(queue->bcm,
+			       (struct bcm43xx_txhdr *)skb->data,
+			       skb->data + sizeof(struct bcm43xx_txhdr),
+			       skb->len - sizeof(struct bcm43xx_txhdr),
+			       (packet->xmitted_frags == 0),
+			       generate_cookie(queue, pio_txpacket_getindex(packet)));
 
 	tx_start(queue);
 	octets = skb->len;
@@ -212,9 +203,7 @@ int pio_tx_packet(struct bcm43xx_pio_txpacket *packet)
 	for (i = packet->xmitted_frags; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
 
-		octets = (u16)skb->len;
-		if (likely(queue->bcm->no_txhdr == 0))
-			octets += sizeof(struct bcm43xx_txhdr);
+		octets = (u16)skb->len + sizeof(struct bcm43xx_txhdr);
 
 		assert(queue->tx_devq_size >= octets);
 		assert(queue->tx_devq_packets <= BCM43xx_PIO_MAXTXDEVQPACKETS);
@@ -249,19 +238,6 @@ static void free_txpacket(struct bcm43xx_pio_txpacket *packet)
 {
 	struct bcm43xx_pioqueue *queue = packet->queue;
 
-	if (unlikely(packet->txb_is_dummy)) {
-		u8 i;
-
-		/* This is only a hack for the debugging function
-		 * bcm43xx_pio_tx_frame()
-		 */
-		for (i = 0; i < packet->txb->nr_frags; i++)
-			dev_kfree_skb_any(packet->txb->fragments[i]);
-		kfree(packet->txb);
-		packet->txb_is_dummy = 0;
-		packet->no_txhdr = 0;
-		return;
-	}
 	ieee80211_txb_free(packet->txb);
 
 	list_move(&packet->list, &packet->queue->txfree);
@@ -453,10 +429,9 @@ err_destroy0:
 	goto out;
 }
 
-static fastcall
+static inline
 int pio_transfer_txb(struct bcm43xx_pioqueue *queue,
-		     struct ieee80211_txb *txb,
-		     const int txb_is_dummy)
+		     struct ieee80211_txb *txb)
 {
 	struct bcm43xx_pio_txpacket *packet;
 	unsigned long flags;
@@ -478,8 +453,6 @@ int pio_transfer_txb(struct bcm43xx_pioqueue *queue,
 	list_move_tail(&packet->list, &queue->txqueue);
 	packet->xmitted_octets = 0;
 	packet->xmitted_frags = 0;
-	packet->txb_is_dummy = txb_is_dummy;
-	packet->no_txhdr = queue->bcm->no_txhdr;
 
 	/* Suspend TX, if we are out of packets in the "free" queue. */
 	if (unlikely(list_empty(&queue->txfree))) {
@@ -496,57 +469,7 @@ int pio_transfer_txb(struct bcm43xx_pioqueue *queue,
 int fastcall bcm43xx_pio_transfer_txb(struct bcm43xx_private *bcm,
 				      struct ieee80211_txb *txb)
 {
-	int err;
-
-	err = pio_transfer_txb(bcm->current_core->pio->queue1,
-			       txb, 0);
-
-	return err;
-}
-
-int fastcall bcm43xx_pio_tx_frame(struct bcm43xx_pioqueue *queue,
-				  const char *buf, size_t size)
-{
-	struct sk_buff *skb;
-	size_t skb_size;
-	struct ieee80211_txb *dummy_txb;
-	int err = -ENOMEM;
-
-	if (unlikely(queue->tx_suspended))
-		return -EBUSY;
-
-	skb_size = size;
-	if (likely(queue->bcm->no_txhdr == 0))
-		skb_size += sizeof(struct bcm43xx_txhdr);
-	skb = dev_alloc_skb(skb_size);
-	if (unlikely(!skb))
-		goto out;
-	if (likely(!queue->bcm->no_txhdr))
-		skb_reserve(skb, sizeof(struct bcm43xx_txhdr));
-	memcpy(skb_put(skb, size), buf, size);
-
-	/* Setup a dummy txb. Be careful to not free this
-	 * with ieee80211_txb_free()
-	 */
-	dummy_txb = kzalloc(sizeof(*dummy_txb) + sizeof(u8 *),
-			    GFP_ATOMIC);
-	if (unlikely(!dummy_txb))
-		goto err_kfree_skb;
-	dummy_txb->nr_frags = 1;
-	dummy_txb->fragments[0] = skb;
-
-	err = pio_transfer_txb(queue, dummy_txb, 1);
-	if (unlikely(err))
-		goto err_kfree_txb;
-
-out:
-	return err;
-
-err_kfree_txb:
-	kfree(dummy_txb);
-err_kfree_skb:
-	dev_kfree_skb_any(skb);
-	goto out;
+	return pio_transfer_txb(bcm->current_core->pio->queue1, txb);
 }
 
 void fastcall

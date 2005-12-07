@@ -165,8 +165,6 @@ int FASTCALL(bcm43xx_dma_transfer_txb(struct bcm43xx_private *bcm,
 				      struct ieee80211_txb *txb));
 void FASTCALL(bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 					    struct bcm43xx_xmitstatus *status));
-int FASTCALL(bcm43xx_dma_tx_frame(struct bcm43xx_dmaring *ring,
-				  const char *buf, size_t size));
 
 void FASTCALL(bcm43xx_dma_rx(struct bcm43xx_dmaring *ring));
 
