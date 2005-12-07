@@ -135,6 +135,7 @@ static struct pci_device_id bcm43xx_pci_tbl[] = {
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1043, 0x100f, 0, 0, 0 }, /* Asus WL-100G PC Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1057, 0x7025, 0, 0, 0 }, /* Motorola WN825G PC Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x106b, 0x004e, 0, 0, 0 }, /* Apple AirPort Extreme Card */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1154, 0x0325, 0, 0, 0 }, /* Buffalo WLI-PCI-G54 */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x14e4, 0x0013, 0, 0, 0 }, /* Linksys WMP54G PCI Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x14e4, 0x0417, 0, 0, 0 }, /* TRENDnet TEW-401PC */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1737, 0x0015, 0, 0, 0 }, /* Linksys WMP54GS PC Card */
