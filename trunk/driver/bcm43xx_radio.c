@@ -1152,7 +1152,6 @@ u16 freq_r3A_value(u16 frequency)
 	return value;
 }
 
-static inline
 void bcm43xx_radio_set_tx_iq(struct bcm43xx_private *bcm)
 {
 	static const u8 data_high[5] = { 0x00, 0x40, 0x80, 0x90, 0xD0 };
@@ -1229,7 +1228,7 @@ int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
 		bcm43xx_radio_write16(bcm, 0x0035,
 				      (bcm43xx_radio_read16(bcm, 0x0035)
 				       & 0xFFEF) | 0x0010);
-		bcm43xx_set_iq_tx(bcm);
+		bcm43xx_radio_set_tx_iq(bcm);
 		TODO();	//TODO:	TSSI2dbm workaround
 		bcm43xx_phy_xmitpower(bcm);//FIXME correct?
 	} else {
