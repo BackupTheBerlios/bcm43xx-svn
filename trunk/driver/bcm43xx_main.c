@@ -2344,8 +2344,16 @@ static void bcm43xx_update_leds(struct bcm43xx_private *bcm)
 			if ((bcm->phy[1].type == BCM43xx_PHYTYPE_B) && (bcm->radio[1].enabled))
 				state = 1;
 			break;
+		case BCM43xx_LED_MODE_BG:
+			if (bcm->ieee->mode == IEEE_G)
+				state = 1;
+			break;
+		case BCM43xx_LED_ASSOC:
+			if (bcm->ieee->state == 3)
+				state = 1;
+			break;
 		/*
-		 * TODO: LED_ACTIVITY, MODE_BG, ASSOC
+		 * TODO: LED_ACTIVITY
 		 */
 		default:
 			break;
