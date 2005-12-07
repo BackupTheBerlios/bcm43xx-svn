@@ -3720,53 +3720,76 @@ dprintkl("processing received xmitstatus...\n");
 	return 0;
 }
 
-/* Postprocess the RSSI value in the RX header. */
 static inline
-s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi)
+s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi,
+			    int ofdm, int adjust)
 {
-	s8 ret = 0;
 	s32 tmp;
 
-	switch (bcm->current_core->phy->type) {
-	case BCM43xx_PHYTYPE_A:
-		TODO();//TODO
-		break;
-	case BCM43xx_PHYTYPE_B:
-	case BCM43xx_PHYTYPE_G:
-		if (bcm->current_core->radio->version == 0x2050) {
+	switch (bcm->current_core->radio->version) {
+	case 0x2050:
+		if (ofdm) {
+			tmp = in_rssi;
+			if (tmp > 127)
+				tmp -= 256;
+			tmp *= 73;
+			tmp /= 64;
+			if (adjust)
+				tmp += 25;
+			else
+				tmp -= 3;
+		} else {
 			if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
 				if (in_rssi > 63)
 					in_rssi = 63;
 				tmp = bcm->current_core->radio->nrssi_lt[in_rssi];
-				tmp -= 31;
-				tmp *= 65;
+				tmp = 31 - tmp;
+				tmp *= -131;
 				tmp /= 128;
 				tmp -= 57;
-				if (tmp < -34)
-					tmp += 15;
-				ret = (s8)tmp;
 			} else {
 				tmp = in_rssi;
-				tmp -= 31;
+				tmp = 31 - tmp;
 				tmp *= -149;
 				tmp /= 128;
 				tmp -= 68;
-				if (tmp < -35)
-					tmp += 15;
-				ret = (s8)tmp;
 			}
-		} else {
-			tmp = in_rssi;
-			tmp *= 103;
-			tmp += 1133;
-			tmp /= 64;
-			tmp -= 1133;
-			ret = (s8)tmp;
+			if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G &&
+			    adjust)
+				tmp += 25;
 		}
 		break;
+	case 0x2060:
+		if (in_rssi > 127)
+			tmp = in_rssi - 256;
+		else
+			tmp = in_rssi;
+		break;
 	default:
-		assert(0);
+		tmp = in_rssi;
+		tmp -= 11;
+		tmp *= 103;
+		tmp /= 64;
+		if (adjust)
+			tmp -= 109;
+		else
+			tmp -= 83;
 	}
+
+	return (s8)tmp;
+}
+
+/* Postprocess the RSSI value in the RX header. */
+static inline
+s8 bcm43xx_rssinoise_postprocess(struct bcm43xx_private *bcm, u8 in_rssi)
+{
+	s8 ret;
+
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A) {
+		//TODO: Incomplete specs.
+		ret = 0;
+	} else
+		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1);
 
 	return ret;
 }
@@ -3816,7 +3839,7 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 
 	memset(&stats, 0, sizeof(stats));
 	stats.mac_time = le16_to_cpu(rxhdr->mactime);
-	stats.rssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi);
+	stats.rssi = bcm43xx_rssinoise_postprocess(bcm, rxhdr->rssi);
 	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
 	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);

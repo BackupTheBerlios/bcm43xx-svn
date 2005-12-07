@@ -109,7 +109,8 @@ struct bcm43xx_rxhdr {
 	u8 rssi;
 	u8 signal_quality;
 	PAD_BYTES(2);
-	__le16 rssi_encoding;
+	/* Flags field 3 */
+	__le16 flags3;
 	/* Flags field 2 */
 	__le16 flags2;
 	/* Lower 16bits of the TSF at the time the frame started. */
