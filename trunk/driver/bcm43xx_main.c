@@ -3791,14 +3791,16 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 			struct bcm43xx_rxhdr *rxhdr)
 {
 	struct bcm43xx_plcp_hdr4 *plcp;
-	const int is_ofdm = !!(rxhdr->flags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
 	struct ieee80211_rx_stats stats;
 	struct ieee80211_hdr_4addr *wlhdr;
 	u16 frame_ctl;
 	int is_packet_for_us = 0;
 	int err = -EINVAL;
+	const u16 rxflags1 = le16_to_cpu(rxhdr->flags1);
+	const u16 rxflags2 = le16_to_cpu(rxhdr->flags2);
+	const int is_ofdm = !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
 
-	if (rxhdr->flags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME) {
+	if (rxflags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME) {
 		plcp = (struct bcm43xx_plcp_hdr4 *)(skb->data + 2);
 		/* Skip two unknown bytes and the PLCP header. */
 		skb_pull(skb, 2 + sizeof(struct bcm43xx_plcp_hdr6));
@@ -3812,17 +3814,17 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	 */
 
 	memset(&stats, 0, sizeof(stats));
-	stats.mac_time = rxhdr->mactime;
+	stats.mac_time = le16_to_cpu(rxhdr->mactime);
 	stats.rssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi);
 	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
-//FIXME: is_ofdm seems to be wrong	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
+	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
 //printk("RX ofdm %d, rate == %u\n", is_ofdm, stats.rate);
 	stats.received_channel = bcm->current_core->radio->channel;
 //TODO	stats.control = 
 	stats.mask = IEEE80211_STATMASK_SIGNAL |
 //TODO		     IEEE80211_STATMASK_NOISE |
-//FIXME		     IEEE80211_STATMASK_RATE |
+		     IEEE80211_STATMASK_RATE |
 		     IEEE80211_STATMASK_RSSI;
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
 		stats.freq = IEEE80211_52GHZ_BAND;

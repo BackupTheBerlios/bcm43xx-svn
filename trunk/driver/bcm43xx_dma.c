@@ -1048,7 +1048,7 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 	}
 
 	err = bcm43xx_rx(ring->bcm, skb, rxhdr);
-	if (unlikely(err)) {
+	if (err) {
 		dev_kfree_skb_irq(skb);
 		goto drop;
 	}
