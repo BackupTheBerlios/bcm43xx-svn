@@ -1229,10 +1229,8 @@ int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
 		bcm43xx_radio_write16(bcm, 0x0035,
 				      (bcm43xx_radio_read16(bcm, 0x0035)
 				       & 0xFFEF) | 0x0010);
-		TODO();	//TODO: Set TX IQ based on VOS
-			//	Calc IQ Comp Delta
-			//	Write IQ Comp Deltza to PHY 0x69
-			//	TSSI2dbm workaround
+		bcm43xx_set_iq_tx(bcm);
+		TODO();	//TODO:	TSSI2dbm workaround
 		bcm43xx_phy_xmitpower(bcm);//FIXME correct?
 	} else {
 		if ((channel < 1) || (channel > 14))

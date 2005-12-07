@@ -575,7 +575,7 @@ static void bcm43xx_phy_inita(struct bcm43xx_private *bcm)
 	    && ((bcm->board_type == 0x0416) || (bcm->board_type == 0x040A))) {
 		if (bcm->current_core->radio->lofcal == 0xFFFF) {
 			TODO();//TODO: LOF Cal
-			//TODO: Set TX IQ based on VOS
+			bcm43xx_set_tx_iq(bcm);
 		} else
 			bcm43xx_radio_write16(bcm, 0x001E, bcm->current_core->radio->lofcal);
 	}
