@@ -1140,8 +1140,7 @@ u16 freq_r3A_value(u16 frequency)
 {
 	u16 value;
 
-	FIXME();//FIXME: This table seems to be buggy.
-	if (frequency < 5081)
+	if (frequency < 5091)
 		value = 0x0040;
 	else if (frequency < 5321)
 		value = 0x0000;
