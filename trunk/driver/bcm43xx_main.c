@@ -3568,7 +3568,7 @@ static int bcm43xx_read_phyinfo(struct bcm43xx_private *bcm)
 		bcm->ieee->freq_band = IEEE80211_24GHZ_BAND;
 		break;
 	case BCM43xx_PHYTYPE_G:
-		if (phy_rev >= 3)
+		if (phy_rev > 7)
 			phy_rev_ok = 0;
 		bcm->ieee->modulation = IEEE80211_OFDM_MODULATION |
 					IEEE80211_CCK_MODULATION;
