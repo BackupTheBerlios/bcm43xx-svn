@@ -478,9 +478,8 @@ static void bcm43xx_phy_setupa(struct bcm43xx_private *bcm)
 		bcm43xx_ilt_write16(bcm, 0x0405, 0x0003);
 		bcm43xx_ilt_write16(bcm, 0x0406, 0x0007);
 
-		FIXME();//FIXME: The specs are completely weird here. I think this code is wrong.
 		for (i = 0; i < 16; i++)
-			bcm43xx_ilt_write16(bcm, 0x4000 + i, (i+8)%16);
+			bcm43xx_ilt_write16(bcm, 0x4000 + i, (0x8 + i) & 0x000F);
 
 		bcm43xx_ilt_write16(bcm, 0x3003, 0x1044);
 		bcm43xx_ilt_write16(bcm, 0x3004, 0x7201);
