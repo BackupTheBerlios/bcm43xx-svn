@@ -119,6 +119,7 @@ static struct pci_device_id bcm43xx_pci_tbl[] = {
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1043, 0x120f, 0, 0, 0 }, /* Asus Z9200K Laptop */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x106b, 0x4318, 0, 0, 0 }, /* Apple AirPort Extreme 2 Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1468, 0x0311, 0, 0, 0 }, /* AMBITG T60H906.00 */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1468, 0x0312, 0, 0, 0 }, /* Acer Aspire 3003LCi Laptop */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x16ec, 0x0119, 0, 0, 0 }, /* U.S.Robotics Wireless MAXg PC Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1799, 0x7000, 0, 0, 0 }, /* Belkin F5D7000 PCI Card */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x17f9, 0x0006, 0, 0, 0 }, /* Amilo A1650 Laptop */
