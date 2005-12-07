@@ -1784,12 +1784,73 @@ void handle_irq_pmq(struct bcm43xx_private *bcm)
 	bcm43xx_write16(bcm, BCM43xx_MMIO_PS_STATUS, 0x0002);
 }
 
+static void bcm43xx_generate_beacon_template(struct bcm43xx_private *bcm,
+					     u16 ram_offset, u16 shm_size_offset)
+{
+	u32 value;
+	u16 tmp;
+	u16 size = 0;
+
+	/* Timestamp. */
+	//FIXME: assumption: The chip sets the timestamp
+	value = 0;
+	bcm43xx_ram_write(bcm, ram_offset++, value);
+	bcm43xx_ram_write(bcm, ram_offset++, value);
+	size += 8;
+
+	/* Beacon Interval / Capability Information */
+	value = 0x0000;//FIXME: Which interval?
+	value |= (1 << 0) << 16; /* ESS */
+	value |= (1 << 2) << 16; /* CF Pollable */	//FIXME?
+	value |= (1 << 3) << 16; /* CF Poll Request */	//FIXME?
+	if (!bcm->ieee->open_wep)
+		value |= (1 << 4) << 16; /* Privacy */
+	bcm43xx_ram_write(bcm, ram_offset++, value);
+	size += 4;
+
+	/* SSID */
+	//TODO
+
+	/* FH Parameter Set */
+	//TODO
+
+	/* DS Parameter Set */
+	//TODO
+
+	/* CF Parameter Set */
+	//TODO
+
+	/* TIM */
+	//TODO
+
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, shm_size_offset, size);
+}
+
 static inline
 void handle_irq_beacon(struct bcm43xx_private *bcm)
 {
-	if (bcm->ieee->iw_mode != IW_MODE_MASTER)
+	u32 status;
+
+	bcm->irq_savedstate &= ~BCM43xx_IRQ_BEACON;
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD);
+
+	if ((status & 0x1) && (status & 0x2)) {
+		/* ACK beacon IRQ. */
+		bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON,
+				BCM43xx_IRQ_BEACON);
+		bcm->irq_savedstate |= BCM43xx_IRQ_BEACON;
 		return;
-	//TODO: UpdateBeaconPacket
+	}
+	if (!(status & 0x1)) {
+		bcm43xx_generate_beacon_template(bcm, 0x68, 0x18);
+		status |= 0x1;
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD, status);
+	}
+	if (!(status & 0x2)) {
+		bcm43xx_generate_beacon_template(bcm, 0x468, 0x1A);
+		status |= 0x2;
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD, status);
+	}
 }
 
 /* Debug helper for irq bottom-half to print all reason registers. */
@@ -1850,7 +1911,8 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 	}
 
 	if (reason & BCM43xx_IRQ_BEACON) {
-		handle_irq_beacon(bcm);
+		if (bcm->ieee->iw_mode == IW_MODE_MASTER)
+			handle_irq_beacon(bcm);
 		bcmirq_handled(BCM43xx_IRQ_BEACON);
 	}
 
