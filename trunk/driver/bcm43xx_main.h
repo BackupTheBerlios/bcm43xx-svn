@@ -121,11 +121,13 @@ struct bcm43xx_rxhdr {
 #define BCM43xx_RXHDR_FLAGS1_OFDM		(1 << 0)
 /*#define BCM43xx_RXHDR_FLAGS1_SIGNAL???	(1 << 3) FIXME */
 #define BCM43xx_RXHDR_FLAGS1_SHORTPREAMBLE	(1 << 7)
-#define BCM43xx_RXHDR_FLAGS1_RSSIADJUST		(1 << 14)
+#define BCM43xx_RXHDR_FLAGS1_2053RSSIADJ	(1 << 14)
 
 #define BCM43xx_RXHDR_FLAGS2_INVALIDFRAME	(1 << 0)
 #define BCM43xx_RXHDR_FLAGS2_TYPE2FRAME		(1 << 2)
 /*FIXME: WEP related flags */
+
+#define BCM43xx_RXHDR_FLAGS3_2050RSSIADJ	(1 << 10)
 
 /* Transmit Status as received from the hardware. */
 struct bcm43xx_hwxmitstatus {

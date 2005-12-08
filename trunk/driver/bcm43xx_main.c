@@ -1812,7 +1812,6 @@ static void bcm43xx_generate_beacon_template(struct bcm43xx_private *bcm,
 					     u16 ram_offset, u16 shm_size_offset)
 {
 	u32 value;
-	u16 tmp;
 	u16 size = 0;
 
 	/* Timestamp. */
@@ -3816,7 +3815,7 @@ dprintkl("processing received xmitstatus...\n");
 
 static inline
 s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi,
-			    int ofdm, int adjust)
+			    int ofdm, int adjust_2053, int adjust_2050)
 {
 	s32 tmp;
 
@@ -3828,7 +3827,7 @@ s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi,
 				tmp -= 256;
 			tmp *= 73;
 			tmp /= 64;
-			if (adjust)
+			if (adjust_2050)
 				tmp += 25;
 			else
 				tmp -= 3;
@@ -3849,7 +3848,7 @@ s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi,
 				tmp -= 68;
 			}
 			if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G &&
-			    adjust)
+			    adjust_2050)
 				tmp += 25;
 		}
 		break;
@@ -3864,7 +3863,7 @@ s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi,
 		tmp -= 11;
 		tmp *= 103;
 		tmp /= 64;
-		if (adjust)
+		if (adjust_2053)
 			tmp -= 109;
 		else
 			tmp -= 83;
@@ -3873,7 +3872,6 @@ s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi,
 	return (s8)tmp;
 }
 
-/* Postprocess the RSSI value in the RX header. */
 static inline
 s8 bcm43xx_rssinoise_postprocess(struct bcm43xx_private *bcm, u8 in_rssi)
 {
@@ -3883,7 +3881,7 @@ s8 bcm43xx_rssinoise_postprocess(struct bcm43xx_private *bcm, u8 in_rssi)
 		//TODO: Incomplete specs.
 		ret = 0;
 	} else
-		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1);
+		ret = bcm43xx_rssi_postprocess(bcm, in_rssi, 0, 1, 1);
 
 	return ret;
 }
@@ -3916,6 +3914,7 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	int err = -EINVAL;
 	const u16 rxflags1 = le16_to_cpu(rxhdr->flags1);
 	const u16 rxflags2 = le16_to_cpu(rxhdr->flags2);
+	const u16 rxflags3 = le16_to_cpu(rxhdr->flags3);
 	const int is_ofdm = !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_OFDM);
 
 	if (rxflags2 & BCM43xx_RXHDR_FLAGS2_TYPE2FRAME) {
@@ -3933,7 +3932,9 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 
 	memset(&stats, 0, sizeof(stats));
 	stats.mac_time = le16_to_cpu(rxhdr->mactime);
-	stats.rssi = bcm43xx_rssinoise_postprocess(bcm, rxhdr->rssi);
+	stats.rssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
+					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
+					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
 	stats.signal = rxhdr->signal_quality;	//FIXME
 //TODO	stats.noise = 
 	stats.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
