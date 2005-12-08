@@ -1278,6 +1278,32 @@ void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 	}
 }
 
+void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
+{
+	u16 tmp;
+	int i, j;
+	
+	for (i = 0; i <= 0x1FC; i += 0x4)
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, i + 0x0180, 0x00000000);
+	tmp = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0056);
+	for (i = 0; i <= 0x1FC; i += 0x4)
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, i + tmp, 0x00000000);
+	
+	if (bcm->current_core->rev < 5) {
+		for (i = 16; i <= 25; i += 3) {
+			bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_CONTROL, i | 0x20);
+			for (j = 0; j < 3; j++)
+				bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_DATA, 0x0000);
+		}
+	} else
+		for (i = 0; i < 12; i++) {
+			bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, i * 6, 0x00000000);
+			bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, i * 6 + 4, 0x0000);
+		}
+
+	bcm43xx_write16(bcm, 0x043C, 0x0000);
+}
+
 /* Puts the index of the current core into user supplied core variable.
  * This function reads the value from the device.
  * Almost always you don't want to call this, but use bcm->current_core
