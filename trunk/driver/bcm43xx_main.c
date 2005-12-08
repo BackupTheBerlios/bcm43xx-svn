@@ -550,8 +550,6 @@ void bcm43xx_macfilter_set(struct bcm43xx_private *bcm,
 {
 	u16 data;
 
-	//FIXME: Only for card rev < 3?
-
 	offset |= 0x0020;
 	bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_CONTROL, offset);
 
