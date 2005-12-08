@@ -124,8 +124,8 @@ static const struct file {
 		.version     = "3.90.34.0.p11 (400.17)",	       /* 09/13/2005 (??) */
 		.md5         = "ca0f34df2f0bfb8b5cfd83b5848d2bf5",
 		.flags       = BYTE_ORDER_BIG_ENDIAN | 
-		               INIT_VAL_08_MISSING,
-		.iv_pos      = 0x4ff2c,
+		               SUPPORT_INCOMPLETE,
+		.iv_pos      = 0x4ff2c,                                /* A-PHY init vals empty */
 		.uc2_pos     = 0x5181c,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x55764,  .uc4_length  = 0x4df0,
 		.uc5_pos     = 0x5a554,  .uc5_length  = 0x57e0,
