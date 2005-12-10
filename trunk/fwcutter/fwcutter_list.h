@@ -575,6 +575,32 @@ static const struct file {
 	},
 	{
 		.name        = "wl_apsta.o",
+		.version     = "3.31.16.0",                            /* 06/08/2003 */
+		.md5         = "22b90e4cbeee45ad7f78ff536c65712a",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               INIT_VAL_08_MISSING,
+		.iv_pos      = 0x38020,
+		.uc2_pos     = 0x3b100,  .uc2_length  = 0x3d88,
+		.uc4_pos     = 0x3ee8c,  .uc4_length  = 0x378c,
+		.uc5_pos     = 0x43330,  .uc5_length  = 0x4ec0,
+		.pcm4_pos    = 0x481f4,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x48670,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl_apsta.o",
+		.version     = "3.31.16.0",                            /* 06/08/2003 */
+		.md5         = "dfce35a8b5cb6e53e1ab75342c7e7194",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               INIT_VAL_08_MISSING,
+		.iv_pos      = 0x38020,
+		.uc2_pos     = 0x3b100,  .uc2_length  = 0x3d88,
+		.uc4_pos     = 0x3ee8c,  .uc4_length  = 0x378c,
+		.uc5_pos     = 0x43330,  .uc5_length  = 0x4ec0,
+		.pcm4_pos    = 0x481f4,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x48670,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl_apsta.o",
 		.version     = "3.130.20.0",                           /* 19/05/2005 */
 		.md5         = "e08665c5c5b66beb9c3b2dd54aa80cb3",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,

@@ -84,4 +84,9 @@ wl.o		Link
 3.60.13.0	http://nthill.free.fr/openwrt/sources/wl/wl-2.09.1.tar.bz2
 		http://nthill.free.fr/openwrt/sources/wl/wl-3.37.6.tar.bz2
 3.90.37.0	http://openwrt.inf.fh-brs.de/~nbd/wl1.o
+
+wl_apsta.o	Link
+-------------   -------------------------------------------------------
+3.31.16.0	http://puma.ttc.cz/~jaha2x/openwrt/modules/drivers/net/wl/wl_apsta/wl_apsta.o
+		http://jak.kvalitne.cz/pub/puma.habrova.jarov.czf/~jaha2x/wl500/wl_apsta.o
 3.130.20.0	http://openwrt.inf.fh-brs.de/~nbd/wl_apsta.o
