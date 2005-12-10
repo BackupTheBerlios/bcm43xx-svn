@@ -61,6 +61,7 @@ bcmwl5.sys	Link
 		http://www.linksys.com/servlet/Satellite?blobcol=urldata&blobheadername1=Content-Type&blobheadername2=Content-Disposition&blobheadervalue1=application%2Fx-msdownload&blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&blobkey=id&blobtable=MungoBlobs&blobwhere=1124848568427&ssbinary=true
 		ftp://ftp.compaq.com/pub/softpaq/sp29501-30000/SP29845.exe
 3.100.64.0	ftp://ftp.compaq.com/pub/softpaq/sp30501-31000/SP30676.exe
+3.100.64.50	http://www2.melcoinc.co.jp/pub/lan/wdrv_661.exe
 3.100.65.1	ftp://ftp.hp.com/pub/softlib/software5/COL3601/ob-31557-1/SP30379.exe
 3.120.27.0	ftp://ftp.us.dell.com/network/R102318.EXE
 3.140.16.0	http://files.techlabs.by/getfile.php?id=1844
