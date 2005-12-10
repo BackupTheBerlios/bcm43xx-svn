@@ -1286,10 +1286,10 @@ void bcm43xx_wep_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
 	sec_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0056);
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + 2 * index,
 			    (index << 4 | algorithm));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 4 * (index / 4) + index % 4, *(((u32 *)material) + 0));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 4 * (index / 4) + index % 4, *(((u32 *)material) + 4));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 4 * (index / 4) + index % 4, *(((u32 *)material) + 8));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 4 * (index / 4) + index % 4, *(((u32 *)material) + 12));
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 8 * (index / 4) + index % 4, *(((u32 *)material) + 0));
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 8 * (index / 4) + index % 4, *(((u32 *)material) + 4));
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 8 * (index / 4) + index % 4, *(((u32 *)material) + 8));
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset + 8 * (index / 4) + index % 4, *(((u32 *)material) + 12));
 }
 
 void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
