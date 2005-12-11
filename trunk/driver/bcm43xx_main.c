@@ -1296,8 +1296,8 @@ void bcm43xx_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
 	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 12));
 	
 	if (bcm->current_core->rev >= 5) {
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, index * 8, cpu_to_be32(*((u32 *)macaddr)));
-		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, index * 8 + 4, cpu_to_be16(*((u16 *)macaddr)));
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, index * 8, le32_to_cpup((__le32 *)&macaddr[0]));
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, index * 8 + 4, le16_to_cpup((__le16 *)&macaddr[4]));
 	} else {
 		//FIXME: incomplete specs.
 	}
