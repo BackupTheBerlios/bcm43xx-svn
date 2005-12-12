@@ -882,12 +882,9 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 	struct bcm43xx_dmadesc_meta *meta;
 	struct bcm43xx_rxhdr *rxhdr;
 	struct sk_buff *skb;
-	struct ieee80211_rx_stats rx_stats;
 	u16 len;
 	int err;
 	dma_addr_t dmaaddr;
-
-	memset(&rx_stats, 0, sizeof(rx_stats));
 
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
