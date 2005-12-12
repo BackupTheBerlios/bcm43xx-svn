@@ -1322,11 +1322,12 @@ void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
 			for (j = 0; j < 3; j++)
 				bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_DATA, 0x0000);
 		}
-	} else
+	} else {
 		for (i = 0; i < 12; i++) {
 			bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, i * 6, 0x00000000);
 			bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, i * 6 + 4, 0x0000);
 		}
+	}
 
 	bcm43xx_write16(bcm, 0x043C, 0x0000);
 }
