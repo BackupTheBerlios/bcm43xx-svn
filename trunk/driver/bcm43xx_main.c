@@ -910,13 +910,13 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 
 	/* wl0gpio* */
 	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO0);
-	if (value == 0xFFFF)
-		value = 0x0000;
+	if (value == 0x0000)
+		value = 0xFFFF;
 	bcm->sprom.wl0gpio0 = (value & 0x00FF);
 	bcm->sprom.wl0gpio1 = (value & 0xFF00) >> 8;
 	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO2);
-	if (value == 0xFFFF)
-		value = 0x0000;
+	if (value == 0x0000)
+		value = 0xFFFF;
 	bcm->sprom.wl0gpio2 = (value & 0x00FF);
 	bcm->sprom.wl0gpio3 = (value & 0xFF00) >> 8;
 
@@ -1301,6 +1301,8 @@ void bcm43xx_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
 	} else {
 		//FIXME: incomplete specs.
 	}
+	
+	memcpy(bcm->key[index].macaddr, macaddr, 6);
 }
 
 void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
