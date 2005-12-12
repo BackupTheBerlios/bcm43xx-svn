@@ -602,6 +602,10 @@ struct bcm43xx_stats {
 	u8 link_quality;
 };
 
+struct bcm43xx_key {
+	u8 macaddr[6];
+};
+
 struct bcm43xx_private {
 	struct ieee80211_device *ieee;
 	struct ieee80211softmac_device *softmac;
@@ -702,6 +706,8 @@ struct bcm43xx_private {
 	/* Informational stuff. */
 	char nick[IW_ESSID_MAX_SIZE + 1];
 
+	struct bcm43xx_key key[54];
+	
 	/* Debugging stuff follows. */
 #ifdef BCM43xx_DEBUG
 	struct bcm43xx_dfsentry *dfsentry;
