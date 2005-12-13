@@ -737,9 +737,9 @@ static inline void dmacontroller_poke_tx(struct bcm43xx_dmaring *ring,
 }
 
 static inline
-void dma_tx_fragment(struct bcm43xx_dmaring *ring,
-		     struct sk_buff *skb,
-		     struct ieee80211_tx_control *ctl)
+int dma_tx_fragment(struct bcm43xx_dmaring *ring,
+		    struct sk_buff *skb,
+		    struct ieee80211_tx_control *ctl)
 {
 	struct sk_buff *hdr_skb;
 	int slot;
@@ -791,13 +791,15 @@ void dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	set_desc_addr(desc, desc_addr);
 	/* Now transfer the whole frame. */
 	dmacontroller_poke_tx(ring, slot);
+
+	return 0;
 }
 
 static inline int dma_tx(struct bcm43xx_dmaring *ring,
 			 struct sk_buff *skb,
 			 struct ieee80211_tx_control *ctl)
 {
-	u8 i;
+	int err;
 
 	assert(ring->tx);
 	if (unlikely(free_slots(ring) < 2)) {
@@ -811,10 +813,10 @@ static inline int dma_tx(struct bcm43xx_dmaring *ring,
 
 	assert(irqs_disabled());
 	spin_lock(&ring->lock);
-	dma_tx_fragment(ring, skb, ctl);
+	err = dma_tx_fragment(ring, skb, ctl);
 	spin_unlock(&ring->lock);
 
-	return 0;
+	return err;
 }
 
 int fastcall
@@ -890,7 +892,6 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 		dprintkl(KERN_ERR PFX "DMA RX: invalid length\n");
 		goto drop;
 	}
-	len -= 4;//FIXME: Do not remove FCS, but notify ieee about added FCS.
 
 	if (1/*len > BCM43xx_DMA_RX_COPYTHRESHOLD*/) {
 		dmaaddr = meta->dmaaddr;
