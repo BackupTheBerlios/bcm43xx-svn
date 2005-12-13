@@ -639,7 +639,8 @@ struct bcm43xx_private {
 	    bad_frames_preempt:1,	/* Use "Bad Frames Preemption" (default off) */
 	    reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
 	    powersaving:1,		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
-	    short_preamble:1;		/* TRUE, if short preamble is enabled. */
+	    short_preamble:1,		/* TRUE, if short preamble is enabled. */
+	    short_slot:1;		/* TRUE, if short slot timing is enabled. */
 
 	struct bcm43xx_stats stats;
 

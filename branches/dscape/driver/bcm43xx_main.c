@@ -610,12 +610,14 @@ static inline
 void bcm43xx_short_slot_timing_enable(struct bcm43xx_private *bcm)
 {
 	bcm43xx_set_slot_time(bcm, 9);
+	bcm->short_slot = 1;
 }
 
 static inline
 void bcm43xx_short_slot_timing_disable(struct bcm43xx_private *bcm)
 {
 	bcm43xx_set_slot_time(bcm, 20);
+	bcm->short_slot = 0;
 }
 
 //FIXME: rename this func?
@@ -4675,8 +4677,14 @@ static int bcm43xx_net_config(struct net_device *net_dev,
 	if (conf->mode != bcm->iw_mode)
 		bcm43xx_set_iwmode(bcm, IW_MODE_INFRA);
 
+	if (conf->short_slot_time != bcm->short_slot) {
+		assert(bcm->current_core->phy->type == BCM43xx_PHYTYPE_G);
+		if (conf->short_slot_time)
+			bcm43xx_short_slot_timing_enable(bcm);
+		else
+			bcm43xx_short_slot_timing_disable(bcm);
+	}
 	//TODO: phymode
-	//TODO: Shortslot time
 	//TODO: antennas
 
 	spin_unlock_irqrestore(&bcm->lock, flags);
