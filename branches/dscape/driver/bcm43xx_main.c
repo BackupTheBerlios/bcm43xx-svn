@@ -3491,135 +3491,32 @@ static void bcm43xx_free_modes(struct bcm43xx_private *bcm)
 	ieee->num_modes = 0;
 }
 
-static int bcm43xx_setup_modes_aphy(struct bcm43xx_private *bcm)
+static int bcm43xx_append_mode(struct ieee80211_hw *ieee,
+			       int mode_id,
+			       int nr_channels,
+			       const struct ieee80211_channel *channels,
+			       int nr_rates,
+			       const struct ieee80211_rate *rates)
 {
-	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_A)
-		return 0;
-
-	//TODO
-
-	return 0;
-}
-
-static int bcm43xx_setup_modes_bphy(struct bcm43xx_private *bcm)
-{
-	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_B &&
-	    bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
-		return 0;
-
-	//TODO
-
-	return 0;
-}
-
-static int bcm43xx_setup_modes_gphy(struct bcm43xx_private *bcm)
-{
-	struct ieee80211_hw *ieee = bcm->ieee;
 	struct ieee80211_hw_modes *mode;
-	struct ieee80211_channel *chan;
-	struct ieee80211_rate *rate;
-	int i;
 	int err = -ENOMEM;
 
-	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
-		return 0;
 	mode = &(ieee->modes[ieee->num_modes]);
-	ieee->num_modes++;
 
-	mode->mode = MODE_IEEE80211G;
-	mode->num_channels = 14;
-	mode->channels = kzalloc(sizeof(*(mode->channels)) * mode->num_channels,
-				 GFP_KERNEL);
+	mode->mode = mode_id;
+	mode->num_channels = nr_channels;
+	mode->channels = kzalloc(sizeof(*channels) * nr_channels, GFP_KERNEL);
 	if (!mode->channels)
 		goto out;
-	for (i = 0; i < mode->num_channels; i++) {
-		chan = &(mode->channels[i]);
-		chan->chan = i + 1;
-		chan->val = chan->chan;
-		chan->freq = bcm43xx_channel_to_freq(bcm, chan->val);
-	}
-	mode->num_rates = 12;
-	mode->rates = kzalloc(sizeof(*(mode->rates)) * mode->num_rates,
-			      GFP_KERNEL);
+	memcpy(mode->channels, channels, sizeof(*channels) * nr_channels);
+
+	mode->num_rates = nr_rates;
+	mode->rates = kzalloc(sizeof(*rates) * nr_rates, GFP_KERNEL);
 	if (!mode->rates)
 		goto err_free_channels;
-	for (i = 0; i < mode->num_rates; i++) {
-		rate = &(mode->rates[i]);
-		switch (i) {
-		case 0:
-			rate->rate = 10;
-			rate->val = BCM43xx_CCK_RATE_1MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_CCK;
-			break;
-		case 1:
-			rate->rate = 20;
-			rate->val = BCM43xx_CCK_RATE_2MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_CCK;
-			break;
-		case 2:
-			rate->rate = 55;
-			rate->val = BCM43xx_CCK_RATE_5MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_CCK;
-			break;
-		case 3:
-			rate->rate = 110;
-			rate->val = BCM43xx_CCK_RATE_11MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_CCK;
-			break;
-		case 4:
-			rate->rate = 60;
-			rate->val = BCM43xx_OFDM_RATE_6MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		case 5:
-			rate->rate = 90;
-			rate->val = BCM43xx_OFDM_RATE_9MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		case 6:
-			rate->rate = 120;
-			rate->val = BCM43xx_OFDM_RATE_12MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		case 7:
-			rate->rate = 180;
-			rate->val = BCM43xx_OFDM_RATE_18MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		case 8:
-			rate->rate = 240;
-			rate->val = BCM43xx_OFDM_RATE_24MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		case 9:
-			rate->rate = 360;
-			rate->val = BCM43xx_OFDM_RATE_36MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		case 10:
-			rate->rate = 480;
-			rate->val = BCM43xx_OFDM_RATE_48MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		case 11:
-			rate->rate = 540;
-			rate->val = BCM43xx_OFDM_RATE_54MB;
-			rate->val2 = rate->val;
-			rate->flags = IEEE80211_RATE_OFDM;
-			break;
-		}
-	}
+	memcpy(mode->rates, rates, sizeof(*rates) * nr_rates);
+
+	ieee->num_modes++;
 	err = 0;
 out:
 	return err;
@@ -3629,13 +3526,561 @@ err_free_channels:
 	goto out;
 }
 
+static int bcm43xx_setup_modes_aphy(struct bcm43xx_private *bcm)
+{
+	int err = 0;
+
+	static const struct ieee80211_rate rates[] = {
+		{
+			.rate	= 60,
+			.val	= BCM43xx_OFDM_RATE_6MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_6MB,
+		}, {
+			.rate	= 90,
+			.val	= BCM43xx_OFDM_RATE_9MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_9MB,
+		}, {
+			.rate	= 120,
+			.val	= BCM43xx_OFDM_RATE_12MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_12MB,
+		}, {
+			.rate	= 180,
+			.val	= BCM43xx_OFDM_RATE_18MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_18MB,
+		}, {
+			.rate	= 240,
+			.val	= BCM43xx_OFDM_RATE_24MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_24MB,
+		}, {
+			.rate	= 360,
+			.val	= BCM43xx_OFDM_RATE_36MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_36MB,
+		}, {
+			.rate	= 480,
+			.val	= BCM43xx_OFDM_RATE_48MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_48MB,
+		}, {
+			.rate	= 540,
+			.val	= BCM43xx_OFDM_RATE_54MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_54MB,
+		},
+	};
+	static const struct ieee80211_channel channels[] = {
+		{
+			.chan		= 36,
+			.freq		= 5180,
+			.val		= 36,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 40,
+			.freq		= 5200,
+			.val		= 40,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 44,
+			.freq		= 5220,
+			.val		= 44,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 48,
+			.freq		= 5240,
+			.val		= 48,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 52,
+			.freq		= 5260,
+			.val		= 52,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 56,
+			.freq		= 5280,
+			.val		= 56,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 60,
+			.freq		= 5300,
+			.val		= 60,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 64,
+			.freq		= 5320,
+			.val		= 64,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 149,
+			.freq		= 5745,
+			.val		= 149,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 153,
+			.freq		= 5765,
+			.val		= 153,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 157,
+			.freq		= 5785,
+			.val		= 157,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 161,
+			.freq		= 5805,
+			.val		= 161,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 165,
+			.freq		= 5825,
+			.val		= 165,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		},
+	};
+
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A) {
+		err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211A,
+					  ARRAY_SIZE(channels), channels,
+					  ARRAY_SIZE(rates), rates);
+	}
+
+	return err;
+}
+
+static int bcm43xx_setup_modes_bphy(struct bcm43xx_private *bcm)
+{
+	int err = 0;
+
+	static const struct ieee80211_rate rates[] = {
+		{
+			.rate	= 10,
+			.val	= BCM43xx_CCK_RATE_1MB,
+			.flags	= IEEE80211_RATE_CCK,
+			.val2	= BCM43xx_CCK_RATE_1MB,
+		}, {
+			.rate	= 20,
+			.val	= BCM43xx_CCK_RATE_2MB,
+			.flags	= IEEE80211_RATE_CCK_2,
+			.val2	= BCM43xx_CCK_RATE_2MB,
+		}, {
+			.rate	= 55,
+			.val	= BCM43xx_CCK_RATE_5MB,
+			.flags	= IEEE80211_RATE_CCK_2,
+			.val2	= BCM43xx_CCK_RATE_5MB,
+		}, {
+			.rate	= 110,
+			.val	= BCM43xx_CCK_RATE_11MB,
+			.flags	= IEEE80211_RATE_CCK_2,
+			.val2	= BCM43xx_CCK_RATE_11MB,
+		},
+	};
+	static const struct ieee80211_channel channels[] = {
+		{
+			.chan		= 1,
+			.freq		= 2412,
+			.val		= 1,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 2,
+			.freq		= 2417,
+			.val		= 2,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 3,
+			.freq		= 2422,
+			.val		= 3,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 4,
+			.freq		= 2427,
+			.val		= 4,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 5,
+			.freq		= 2432,
+			.val		= 5,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 6,
+			.freq		= 2437,
+			.val		= 6,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 7,
+			.freq		= 2442,
+			.val		= 7,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 8,
+			.freq		= 2447,
+			.val		= 8,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 9,
+			.freq		= 2452,
+			.val		= 9,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 10,
+			.freq		= 2457,
+			.val		= 10,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 11,
+			.freq		= 2462,
+			.val		= 11,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 12,
+			.freq		= 2467,
+			.val		= 12,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 13,
+			.freq		= 2472,
+			.val		= 13,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, /*{
+			.chan		= 14,
+			.freq		= 2484,
+			.val		= 14,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		},*/
+	};
+
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B ||
+	    bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+		err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211B,
+					  ARRAY_SIZE(channels), channels,
+					  ARRAY_SIZE(rates), rates);
+	}
+
+	return err;
+}
+
+static int bcm43xx_setup_modes_gphy(struct bcm43xx_private *bcm)
+{
+	int err = 0;
+
+	static const struct ieee80211_rate rates[] = {
+		{
+			.rate	= 10,
+			.val	= BCM43xx_CCK_RATE_1MB,
+			.flags	= IEEE80211_RATE_CCK,
+			.val2	= BCM43xx_CCK_RATE_1MB,
+		}, {
+			.rate	= 20,
+			.val	= BCM43xx_CCK_RATE_2MB,
+			.flags	= IEEE80211_RATE_CCK_2,
+			.val2	= BCM43xx_CCK_RATE_2MB,
+		}, {
+			.rate	= 55,
+			.val	= BCM43xx_CCK_RATE_5MB,
+			.flags	= IEEE80211_RATE_CCK_2,
+			.val2	= BCM43xx_CCK_RATE_5MB,
+		}, {
+			.rate	= 60,
+			.val	= BCM43xx_OFDM_RATE_6MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_6MB,
+		}, {
+			.rate	= 90,
+			.val	= BCM43xx_OFDM_RATE_9MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_9MB,
+		}, {
+			.rate	= 110,
+			.val	= BCM43xx_CCK_RATE_11MB,
+			.flags	= IEEE80211_RATE_CCK_2,
+			.val2	= BCM43xx_CCK_RATE_11MB,
+		}, {
+			.rate	= 120,
+			.val	= BCM43xx_OFDM_RATE_12MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_12MB,
+		}, {
+			.rate	= 180,
+			.val	= BCM43xx_OFDM_RATE_18MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_18MB,
+		}, {
+			.rate	= 240,
+			.val	= BCM43xx_OFDM_RATE_24MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_24MB,
+		}, {
+			.rate	= 360,
+			.val	= BCM43xx_OFDM_RATE_36MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_36MB,
+		}, {
+			.rate	= 480,
+			.val	= BCM43xx_OFDM_RATE_48MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_48MB,
+		}, {
+			.rate	= 540,
+			.val	= BCM43xx_OFDM_RATE_54MB,
+			.flags	= IEEE80211_RATE_OFDM,
+			.val2	= BCM43xx_OFDM_RATE_54MB,
+		},
+	};
+	static const struct ieee80211_channel channels[] = {
+		{
+			.chan		= 1,
+			.freq		= 2412,
+			.val		= 1,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 2,
+			.freq		= 2417,
+			.val		= 2,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 3,
+			.freq		= 2422,
+			.val		= 3,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 4,
+			.freq		= 2427,
+			.val		= 4,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 5,
+			.freq		= 2432,
+			.val		= 5,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 6,
+			.freq		= 2437,
+			.val		= 6,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 7,
+			.freq		= 2442,
+			.val		= 7,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 8,
+			.freq		= 2447,
+			.val		= 8,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 9,
+			.freq		= 2452,
+			.val		= 9,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 10,
+			.freq		= 2457,
+			.val		= 10,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 11,
+			.freq		= 2462,
+			.val		= 11,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 12,
+			.freq		= 2467,
+			.val		= 12,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, {
+			.chan		= 13,
+			.freq		= 2472,
+			.val		= 13,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		}, /*{
+			.chan		= 14,
+			.freq		= 2484,
+			.val		= 14,
+			.flag		= IEEE80211_CHAN_W_SCAN |
+					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+					  IEEE80211_CHAN_W_IBSS,
+			.power_level	= 0xFF,
+			.antenna_max	= 0xFF,
+		},*/
+	};
+
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+		err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211G,
+					  ARRAY_SIZE(channels), channels,
+					  ARRAY_SIZE(rates), rates);
+	}
+
+	return err;
+}
+
 static int bcm43xx_setup_modes(struct bcm43xx_private *bcm)
 {
 	int err = -ENOMEM;
 	int nr;
 	struct ieee80211_hw *ieee = bcm->ieee;
-	struct ieee80211_channel *chan;
-	struct ieee80211_rate *rate;
 
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
 		nr = 1;
@@ -4148,9 +4593,6 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 {
 	struct bcm43xx_plcp_hdr4 *plcp;
 	struct ieee80211_rx_status status;
-	u16 frame_ctl;
-	int is_packet_for_us = 0;
-	int err = -EINVAL;
 	const u16 rxflags1 = le16_to_cpu(rxhdr->flags1);
 	const u16 rxflags2 = le16_to_cpu(rxhdr->flags2);
 	const u16 rxflags3 = le16_to_cpu(rxhdr->flags3);
@@ -4392,8 +4834,6 @@ FIXME();//FIXME	bcm->ieee->tx_headroom = sizeof(struct bcm43xx_txhdr);
 out:
 	return err;
 
-err_detach_board:
-	bcm43xx_detach_board(bcm);
 err_free_netdev:
 	ieee80211_unregister_hw(net_dev);
 err_free_ieee:
