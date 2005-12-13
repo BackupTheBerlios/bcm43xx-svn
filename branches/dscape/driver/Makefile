@@ -6,7 +6,7 @@ RELEASE_NAME	:= bcm43xx-$(VERSION)
 KVER		:= $(shell uname -r)
 KDIR		?= /lib/modules/$(KVER)/build
 PWD		:= $(shell pwd)
-MODPATH		:= $(DESTDIR)/lib/modules/$(KVER)/kernel/drivers/net/bcm430
+MODPATH		:= $(DESTDIR)/lib/modules/$(KVER)/kernel/drivers/net/bcm43xx
 
 # Comment/uncomment to enable/disable debugging
 DEBUG = y
