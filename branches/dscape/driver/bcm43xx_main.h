@@ -233,6 +233,9 @@ int bcm43xx_is_cck_rate(int rate)
 		rate == BCM43xx_CCK_RATE_11MB);
 }
 
+void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf);
+void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf);
+
 int FASTCALL(bcm43xx_rx_transmitstatus(struct bcm43xx_private *bcm,
 				       const struct bcm43xx_hwxmitstatus *status));
 

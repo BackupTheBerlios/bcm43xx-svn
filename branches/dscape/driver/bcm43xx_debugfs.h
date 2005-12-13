@@ -2,6 +2,7 @@
 #define BCM43xx_DEBUGFS_H_
 
 struct bcm43xx_private;
+struct bcm43xx_xmitstatus;
 
 #ifdef BCM43xx_DEBUG
 

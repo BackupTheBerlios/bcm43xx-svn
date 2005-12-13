@@ -7,6 +7,7 @@
 #include <linux/interrupt.h>
 #include <linux/stringify.h>
 #include <linux/netdevice.h>
+#include <linux/pci.h>
 #include <asm/atomic.h>
 #include <asm/io.h>
 
@@ -53,8 +54,8 @@
 #define BCM43xx_MMIO_SHM_CONTROL	0x160
 #define BCM43xx_MMIO_SHM_DATA		0x164
 #define BCM43xx_MMIO_SHM_DATA_UNALIGNED	0x166
-#define BCM43xx_MMIO_REV3PLUS_TSF_LOW	0x180
-#define BCM43xx_MMIO_REV3PLUS_TSF_HIGH	0x184
+#define BCM43xx_MMIO_REV3PLUS_TSF_LOW	0x180 /* core rev >= 3 only */
+#define BCM43xx_MMIO_REV3PLUS_TSF_HIGH	0x184 /* core rev >= 3 only */
 #define BCM43xx_MMIO_DMA1_BASE		0x200
 #define BCM43xx_MMIO_DMA2_BASE		0x220
 #define BCM43xx_MMIO_DMA3_BASE		0x240
@@ -78,6 +79,10 @@
 #define BCM43xx_MMIO_RADIO_HWENABLED_LO	0x49A
 #define BCM43xx_MMIO_GPIO_CONTROL	0x49C
 #define BCM43xx_MMIO_GPIO_MASK		0x49E
+#define BCM43xx_MMIO_TSF_0		0x632 /* core rev < 3 only */
+#define BCM43xx_MMIO_TSF_1		0x634 /* core rev < 3 only */
+#define BCM43xx_MMIO_TSF_2		0x636 /* core rev < 3 only */
+#define BCM43xx_MMIO_TSF_3		0x638 /* core rev < 3 only */
 #define BCM43xx_MMIO_POWERUP_DELAY	0x6A8
 
 /* SPROM offsets. */
@@ -270,6 +275,7 @@
 #define BCM43xx_SBF_PS1			0x02000000
 #define BCM43xx_SBF_PS2			0x04000000
 #define BCM43xx_SBF_NO_SSID_BCAST	0x08000000
+#define BCM43xx_SBF_TIME_UPDATE		0x10000000
 #define BCM43xx_SBF_80000000		0x80000000 /*FIXME: fix name*/
 
 /* MicrocodeFlagsBitfield (addr + lo-word values?)*/
@@ -718,6 +724,7 @@ struct bcm43xx_private {
 #ifdef BCM43xx_DEBUG
 	struct bcm43xx_dfsentry *dfsentry;
 	atomic_t mmio_print_cnt;
+	atomic_t pcicfg_print_cnt;
 #endif
 };
 
@@ -769,7 +776,7 @@ u16 bcm43xx_read16(struct bcm43xx_private *bcm, u16 offset)
 	u16 value;
 
 	value = ioread16(bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "ioread16   offset: 0x%04x, value: 0x%04x\n",
 		       offset, value);
 	}
@@ -781,7 +788,7 @@ static inline
 void bcm43xx_write16(struct bcm43xx_private *bcm, u16 offset, u16 value)
 {
 	iowrite16(value, bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "iowrite16  offset: 0x%04x, value: 0x%04x\n",
 		       offset, value);
 	}
@@ -793,7 +800,7 @@ u32 bcm43xx_read32(struct bcm43xx_private *bcm, u16 offset)
 	u32 value;
 
 	value = ioread32(bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "ioread32   offset: 0x%04x, value: 0x%08x\n",
 		       offset, value);
 	}
@@ -805,29 +812,74 @@ static inline
 void bcm43xx_write32(struct bcm43xx_private *bcm, u16 offset, u32 value)
 {
 	iowrite32(value, bcm->mmio_addr + offset);
-	if (atomic_read(&bcm->mmio_print_cnt) > 0) {
+	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "iowrite32  offset: 0x%04x, value: 0x%08x\n",
 		       offset, value);
 	}
 }
 
 static inline
-void bcm43xx_mmioprint_initial(struct bcm43xx_private *bcm, int value)
+int bcm43xx_pci_read_config16(struct bcm43xx_private *bcm, int offset, u16 *value)
 {
-	atomic_set(&bcm->mmio_print_cnt, value);
+	int err;
+
+	err = pci_read_config_word(bcm->pci_dev, offset, value);
+	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
+		printk(KERN_INFO PFX "pciread16   offset: 0x%08x, value: 0x%04x, err: %d\n",
+		       offset, *value, err);
+	}
+
+	return err;
 }
 
 static inline
-void bcm43xx_mmioprint_enable(struct bcm43xx_private *bcm)
+int bcm43xx_pci_read_config32(struct bcm43xx_private *bcm, int offset, u32 *value)
 {
-	atomic_inc(&bcm->mmio_print_cnt);
+	int err;
+
+	err = pci_read_config_dword(bcm->pci_dev, offset, value);
+	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
+		printk(KERN_INFO PFX "pciread32   offset: 0x%08x, value: 0x%08x, err: %d\n",
+		       offset, *value, err);
+	}
+
+	return err;
 }
 
 static inline
-void bcm43xx_mmioprint_disable(struct bcm43xx_private *bcm)
+int bcm43xx_pci_write_config16(struct bcm43xx_private *bcm, int offset, u16 value)
 {
-	atomic_dec(&bcm->mmio_print_cnt);
+	int err;
+
+	err = pci_write_config_word(bcm->pci_dev, offset, value);
+	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
+		printk(KERN_INFO PFX "pciwrite16  offset: 0x%08x, value: 0x%04x, err: %d\n",
+		       offset, value, err);
+	}
+
+	return err;
 }
+
+static inline
+int bcm43xx_pci_write_config32(struct bcm43xx_private *bcm, int offset, u32 value)
+{
+	int err;
+
+	err = pci_write_config_dword(bcm->pci_dev, offset, value);
+	if (unlikely(atomic_read(&bcm->pcicfg_print_cnt) > 0)) {
+		printk(KERN_INFO PFX "pciwrite32  offset: 0x%08x, value: 0x%08x, err: %d\n",
+		       offset, value, err);
+	}
+
+	return err;
+}
+
+#define bcm43xx_mmioprint_initial(bcm, value)	atomic_set(&(bcm)->mmio_print_cnt, (value))
+#define bcm43xx_mmioprint_enable(bcm)		atomic_inc(&(bcm)->mmio_print_cnt)
+#define bcm43xx_mmioprint_disable(bcm)		atomic_dec(&(bcm)->mmio_print_cnt)
+#define bcm43xx_pciprint_initial(bcm, value)	atomic_set(&(bcm)->pcicfg_print_cnt, (value))
+#define bcm43xx_pciprint_enable(bcm)		atomic_inc(&(bcm)->pcicfg_print_cnt)
+#define bcm43xx_pciprint_disable(bcm)		atomic_dec(&(bcm)->pcicfg_print_cnt)
 
 #else /* BCM43xx_DEBUG */
 
@@ -835,10 +887,17 @@ void bcm43xx_mmioprint_disable(struct bcm43xx_private *bcm)
 #define bcm43xx_write16(bcm, offset, value)	iowrite16((value), (bcm)->mmio_addr + (offset))
 #define bcm43xx_read32(bcm, offset)		ioread32((bcm)->mmio_addr + (offset))
 #define bcm43xx_write32(bcm, offset, value)	iowrite32((value), (bcm)->mmio_addr + (offset))
+#define bcm43xx_pci_read_config16(bcm, o, v)	pci_read_config_word((bcm)->pci_dev, (o), (v))
+#define bcm43xx_pci_read_config32(bcm, o, v)	pci_read_config_dword((bcm)->pci_dev, (o), (v))
+#define bcm43xx_pci_write_config16(bcm, o, v)	pci_write_config_word((bcm)->pci_dev, (o), (v))
+#define bcm43xx_pci_write_config32(bcm, o, v)	pci_write_config_dword((bcm)->pci_dev, (o), (v))
 
-#define bcm43xx_mmioprint_initial(x, y)	do { /* nothing */ } while (0)
-#define bcm43xx_mmioprint_enable(x)	do { /* nothing */ } while (0)
-#define bcm43xx_mmioprint_disable(x)	do { /* nothing */ } while (0)
+#define bcm43xx_mmioprint_initial(x, y)		do { /* nothing */ } while (0)
+#define bcm43xx_mmioprint_enable(x)		do { /* nothing */ } while (0)
+#define bcm43xx_mmioprint_disable(x)		do { /* nothing */ } while (0)
+#define bcm43xx_pciprint_initial(bcm, value)	do { /* nothing */ } while (0)
+#define bcm43xx_pciprint_enable(bcm)		do { /* nothing */ } while (0)
+#define bcm43xx_pciprint_disable(bcm)		do { /* nothing */ } while (0)
 
 #endif /* BCM43xx_DEBUG */
 

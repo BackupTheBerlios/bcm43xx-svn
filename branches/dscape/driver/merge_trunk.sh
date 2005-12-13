@@ -1,4 +1,4 @@
 #!/bin/sh
 origin="svn://svn.berlios.de/bcm43xx/trunk/driver/"
-branch_rev="847"
-svn merge ${origin}@${branch_rev} ${origin}@HEAD .
+last_merge_rev="865"
+svn merge ${origin}@${last_merge_rev} ${origin}@HEAD .

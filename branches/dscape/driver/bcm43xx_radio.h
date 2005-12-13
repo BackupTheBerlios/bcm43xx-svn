@@ -79,4 +79,6 @@ void bcm43xx_nrssi_hw_write(struct bcm43xx_private *bcm, u16 offset, s16 val);
 void bcm43xx_nrssi_hw_update(struct bcm43xx_private *bcm, u16 val);
 void bcm43xx_nrssi_mem_update(struct bcm43xx_private *bcm);
 
+void bcm43xx_radio_set_tx_iq(struct bcm43xx_private *bcm);
+
 #endif /* BCM43xx_RADIO_H_ */
