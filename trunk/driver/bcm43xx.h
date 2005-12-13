@@ -50,8 +50,8 @@
 #define BCM43xx_MMIO_SHM_CONTROL	0x160
 #define BCM43xx_MMIO_SHM_DATA		0x164
 #define BCM43xx_MMIO_SHM_DATA_UNALIGNED	0x166
-#define BCM43xx_MMIO_REV3PLUS_TSF_LOW	0x180
-#define BCM43xx_MMIO_REV3PLUS_TSF_HIGH	0x184
+#define BCM43xx_MMIO_REV3PLUS_TSF_LOW	0x180 /* core rev >= 3 only */
+#define BCM43xx_MMIO_REV3PLUS_TSF_HIGH	0x184 /* core rev >= 3 only */
 #define BCM43xx_MMIO_DMA1_BASE		0x200
 #define BCM43xx_MMIO_DMA2_BASE		0x220
 #define BCM43xx_MMIO_DMA3_BASE		0x240
@@ -75,6 +75,10 @@
 #define BCM43xx_MMIO_RADIO_HWENABLED_LO	0x49A
 #define BCM43xx_MMIO_GPIO_CONTROL	0x49C
 #define BCM43xx_MMIO_GPIO_MASK		0x49E
+#define BCM43xx_MMIO_TSF_0		0x632 /* core rev < 3 only */
+#define BCM43xx_MMIO_TSF_1		0x634 /* core rev < 3 only */
+#define BCM43xx_MMIO_TSF_2		0x636 /* core rev < 3 only */
+#define BCM43xx_MMIO_TSF_3		0x638 /* core rev < 3 only */
 #define BCM43xx_MMIO_POWERUP_DELAY	0x6A8
 
 /* SPROM offsets. */
@@ -267,6 +271,7 @@
 #define BCM43xx_SBF_PS1			0x02000000
 #define BCM43xx_SBF_PS2			0x04000000
 #define BCM43xx_SBF_NO_SSID_BCAST	0x08000000
+#define BCM43xx_SBF_TIME_UPDATE		0x10000000
 #define BCM43xx_SBF_80000000		0x80000000 /*FIXME: fix name*/
 
 /* MicrocodeFlagsBitfield (addr + lo-word values?)*/

@@ -180,6 +180,7 @@ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
 	size_t pos = 0;
 	ssize_t res;
 	unsigned long flags;
+	u64 tsf;
 
 	down(&big_buffer_sem);
 	spin_lock_irqsave(&bcm->lock, flags);
@@ -187,10 +188,11 @@ static ssize_t tsf_read_file(struct file *file, char __user *userbuf,
 		fappend("Board not initialized.\n");
 		goto out;
 	}
+	bcm43xx_tsf_read(bcm, &tsf);
 	fappend("0x%08x%08x\n",
-		ioread32(bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_HIGH),
-		ioread32(bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_LOW));
-	
+		(unsigned int)((tsf & 0xFFFFFFFF00000000ULL) >> 32),
+		(unsigned int)(tsf & 0xFFFFFFFFULL));
+
 out:
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	res = simple_read_from_buffer(userbuf, count, ppos, buf, pos);
@@ -220,14 +222,12 @@ static ssize_t tsf_write_file(struct file *file, const char __user *user_buf,
 		res = -EFAULT;
 		goto out_unlock;
 	}
-	if (sscanf(buf, "%lli", &tsf) == 1) {
-		iowrite32(tsf & 0xFFFFFFFF, bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_LOW);
-		iowrite32((tsf >> 32), bcm->mmio_addr + BCM43xx_MMIO_REV3PLUS_TSF_HIGH);
-	} else {
+	if (sscanf(buf, "%lli", &tsf) != 1) {
 		printk(KERN_INFO PFX "debugfs: invalid values for \"tsf\"\n");
 		res = -EINVAL;
 		goto out_unlock;
 	}
+	bcm43xx_tsf_write(bcm, tsf);
 	res = buf_size;
 	
 out_unlock:

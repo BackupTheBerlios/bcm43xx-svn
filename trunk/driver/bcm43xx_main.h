@@ -223,6 +223,9 @@ int bcm43xx_is_valid_channel(struct bcm43xx_private *bcm,
 	return 0;
 }
 
+void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf);
+void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf);
+
 int FASTCALL(bcm43xx_rx_transmitstatus(struct bcm43xx_private *bcm,
 				       const struct bcm43xx_hwxmitstatus *status));
 

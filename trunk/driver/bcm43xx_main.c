@@ -279,6 +279,81 @@ void bcm43xx_shm_write16(struct bcm43xx_private *bcm,
 	bcm43xx_write16(bcm, BCM43xx_MMIO_SHM_DATA, value);
 }
 
+void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf)
+{
+	/* We need to be careful. As we read the TSF from multiple
+	 * registers, we should take care of register overflows.
+	 * In theory, the whole tsf read process should be atomic.
+	 * We try to be atomic here, by restaring the read process,
+	 * if any of the high registers changed (overflew).
+	 */
+	if (bcm->current_core->rev >= 3) {
+		u32 low, high, high2;
+
+		do {
+			high = bcm43xx_read32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH);
+			low = bcm43xx_read32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW);
+			high2 = bcm43xx_read32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH);
+		} while (unlikely(high != high2));
+
+		*tsf = high;
+		*tsf <<= 32;
+		*tsf |= low;
+	} else {
+		u64 tmp;
+		u16 v0, v1, v2, v3;
+		u16 test1, test2, test3;
+
+		do {
+			v3 = bcm43xx_read16(bcm, BCM43xx_MMIO_TSF_3);
+			v2 = bcm43xx_read16(bcm, BCM43xx_MMIO_TSF_2);
+			v1 = bcm43xx_read16(bcm, BCM43xx_MMIO_TSF_1);
+			v0 = bcm43xx_read16(bcm, BCM43xx_MMIO_TSF_0);
+
+			test3 = bcm43xx_read16(bcm, BCM43xx_MMIO_TSF_3);
+			test2 = bcm43xx_read16(bcm, BCM43xx_MMIO_TSF_2);
+			test1 = bcm43xx_read16(bcm, BCM43xx_MMIO_TSF_1);
+		} while (v3 != test3 || v2 != test2 || v1 != test1);
+
+		*tsf = v3;
+		*tsf <<= 48;
+		tmp = v2;
+		tmp <<= 32;
+		*tsf |= tmp;
+		tmp = v1;
+		tmp <<= 16;
+		*tsf |= tmp;
+		*tsf |= v0;
+	}
+}
+
+void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf)
+{
+	if (bcm->current_core->rev >= 3) {
+		u32 status;
+
+		status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+		status |= BCM43xx_SBF_TIME_UPDATE;
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+
+		/* Be careful with the in-progress timer.
+		 * First zero out the low register, so we have a full
+		 * 32bit overflow duration to complete the operation.
+		 */
+		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW, 0);
+		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH,
+				(tsf & 0xFFFFFFFF00000000ULL) >> 32);
+		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW,
+				(tsf & 0x00000000FFFFFFFFULL));
+
+		status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+		status &= ~BCM43xx_SBF_TIME_UPDATE;
+		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+	} else {
+		TODO();//TODO
+	}
+}
+
 int bcm43xx_pci_read_config_16(struct pci_dev *pdev, u16 offset,
 			       u16 *val)
 {
