@@ -236,9 +236,9 @@ int bcm43xx_is_cck_rate(int rate)
 int FASTCALL(bcm43xx_rx_transmitstatus(struct bcm43xx_private *bcm,
 				       const struct bcm43xx_hwxmitstatus *status));
 
-int FASTCALL(bcm43xx_rx(struct bcm43xx_private *bcm,
-			struct sk_buff *skb,
-			struct bcm43xx_rxhdr *rxhdr));
+void FASTCALL(bcm43xx_rx(struct bcm43xx_private *bcm,
+			 struct sk_buff *skb,
+			 struct bcm43xx_rxhdr *rxhdr));
 
 void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
 			int iw_mode);

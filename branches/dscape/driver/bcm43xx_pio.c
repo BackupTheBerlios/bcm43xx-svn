@@ -599,9 +599,7 @@ data_ready:
 		skb->data[len - 1] = (tmp & 0x00FF);
 		skb->data[0] = (tmp & 0xFF00) >> 8;
 	}
-	err = bcm43xx_rx(queue->bcm, skb, rxhdr);
-	if (unlikely(err))
-		dev_kfree_skb_irq(skb);
+	bcm43xx_rx(queue->bcm, skb, rxhdr);
 }
 
 /* vim: set ts=8 sw=8 sts=8: */

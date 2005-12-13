@@ -4588,9 +4588,9 @@ s8 bcm43xx_rssinoise_postprocess(struct bcm43xx_private *bcm, u8 in_rssi)
 	return ret;
 }
 
-int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
-			struct sk_buff *skb,
-			struct bcm43xx_rxhdr *rxhdr)
+void fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
+			 struct sk_buff *skb,
+			 struct bcm43xx_rxhdr *rxhdr)
 {
 	struct bcm43xx_plcp_hdr4 *plcp;
 	struct ieee80211_rx_status status;
@@ -4613,23 +4613,13 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	 */
 
 	memset(&status, 0, sizeof(status));
-//	status.mactime = le16_to_cpu(rxhdr->mactime);
 	status.ssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
 					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
 					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
 	status.rate = bcm43xx_plcp_get_bitrate(plcp, is_ofdm);
 	status.channel = bcm->current_core->radio->channel;
-#if 0
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A)
-		stats.freq = IEEE80211_52GHZ_BAND;
-	else
-		stats.freq = IEEE80211_24GHZ_BAND;
-	stats.len = skb->len;
-#endif
 
 	ieee80211_rx_irqsafe(bcm->net_dev, skb, &status);
-
-	return 0;
 }
 
 /* hard_start_xmit() callback in struct ieee80211_device */

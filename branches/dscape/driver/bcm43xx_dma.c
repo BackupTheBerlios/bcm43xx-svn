@@ -915,12 +915,7 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 		return;
 	}
 
-	err = bcm43xx_rx(ring->bcm, skb, rxhdr);
-	if (err) {
-		dev_kfree_skb_irq(skb);
-		goto drop;
-	}
-
+	bcm43xx_rx(ring->bcm, skb, rxhdr);
 drop:
 	return;
 }
