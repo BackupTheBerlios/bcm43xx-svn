@@ -61,7 +61,7 @@ static int bcm43xx_pctl_clockfreqlimit(struct bcm43xx_private *bcm,
 			selection = 1;
 			divisor = 32;
 		} else {
-			err = bcm43xx_pci_read_config_32(bcm->pci_dev, BCM43xx_PCTL_OUT, &tmp);
+			err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCTL_OUT, &tmp);
 			if (err) {
 				printk(KERN_ERR PFX "clockfreqlimit pcicfg read failure\n");
 				goto out_switchback;
@@ -240,13 +240,13 @@ int bcm43xx_pctl_set_crystal(struct bcm43xx_private *bcm, int on)
 	int err;
 	u32 in, out, outenable;
 
-	err = bcm43xx_pci_read_config_32(bcm->pci_dev, BCM43xx_PCTL_IN, &in);
+	err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCTL_IN, &in);
 	if (err)
 		goto err_pci;
-	err = bcm43xx_pci_read_config_32(bcm->pci_dev, BCM43xx_PCTL_OUT, &out);
+	err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCTL_OUT, &out);
 	if (err)
 		goto err_pci;
-	err = bcm43xx_pci_read_config_32(bcm->pci_dev, BCM43xx_PCTL_OUTENABLE, &outenable);
+	err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCTL_OUTENABLE, &outenable);
 	if (err)
 		goto err_pci;
 
@@ -258,16 +258,16 @@ int bcm43xx_pctl_set_crystal(struct bcm43xx_private *bcm, int on)
 
 		out |= (BCM43xx_PCTL_XTAL_POWERUP | BCM43xx_PCTL_PLL_POWERDOWN);
 
-		err = bcm43xx_pci_write_config_32(bcm->pci_dev, BCM43xx_PCTL_OUT, out);
+		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCTL_OUT, out);
 		if (err)
 			goto err_pci;
-		err = bcm43xx_pci_write_config_32(bcm->pci_dev, BCM43xx_PCTL_OUTENABLE, outenable);
+		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCTL_OUTENABLE, outenable);
 		if (err)
 			goto err_pci;
 		udelay(1000);
 
 		out &= ~BCM43xx_PCTL_PLL_POWERDOWN;
-		err = bcm43xx_pci_write_config_32(bcm->pci_dev, BCM43xx_PCTL_OUT, out);
+		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCTL_OUT, out);
 		if (err)
 			goto err_pci;
 		udelay(5000);
@@ -296,10 +296,10 @@ int bcm43xx_pctl_set_crystal(struct bcm43xx_private *bcm, int on)
 			goto out;
 		out &= ~BCM43xx_PCTL_XTAL_POWERUP;
 		out |= BCM43xx_PCTL_PLL_POWERDOWN;
-		err = bcm43xx_pci_write_config_32(bcm->pci_dev, BCM43xx_PCTL_OUT, out);
+		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCTL_OUT, out);
 		if (err)
 			goto err_pci;
-		err = bcm43xx_pci_write_config_32(bcm->pci_dev, BCM43xx_PCTL_OUTENABLE, outenable);
+		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCTL_OUTENABLE, outenable);
 		if (err)
 			goto err_pci;
 	}
