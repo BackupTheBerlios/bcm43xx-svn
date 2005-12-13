@@ -2595,6 +2595,7 @@ FIXME();//FIXME
 		if (!(bcm->net_dev->flags & IFF_PROMISC))
 			status &= ~BCM43xx_SBF_MODE_PROMISC;
 	}
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
 
 	//FIXME: Is this needed?
 	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
@@ -2604,8 +2605,6 @@ FIXME();//FIXME
 			bcm43xx_write16(bcm, 0x0612, 0x0032);
 	} else
 		bcm43xx_write16(bcm, 0x0612, 0x0002);
-
-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
 }
 
 /* This is the opposite of bcm43xx_chip_init() */
@@ -4675,7 +4674,7 @@ static int bcm43xx_net_config(struct net_device *net_dev,
 		bcm43xx_radio_selectchannel(bcm, conf->channel, 0);
 
 	if (conf->mode != bcm->iw_mode)
-		bcm43xx_set_iwmode(bcm, IW_MODE_INFRA);
+		bcm43xx_set_iwmode(bcm, conf->mode);
 
 	if (conf->short_slot_time != bcm->short_slot) {
 		assert(bcm->current_core->phy->type == BCM43xx_PHYTYPE_G);
@@ -4835,8 +4834,6 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 			bcm->pio_mode = 1;
 		}
 	}
-
-	bcm->iw_mode = BCM43xx_INITIAL_IWMODE;
 
 	pci_set_drvdata(pdev, net_dev);
 

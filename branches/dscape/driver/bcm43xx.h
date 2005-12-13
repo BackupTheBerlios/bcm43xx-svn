@@ -304,10 +304,6 @@
 					 BCM43xx_IRQ_SCAN |		\
 					 BCM43xx_IRQ_NOISE |		\
 					 BCM43xx_IRQ_XMIT_STATUS)
-					 
-
-/* Initial default iw_mode */
-#define BCM43xx_INITIAL_IWMODE			IW_MODE_INFRA
 
 /* Values/Masks for the device TX header */
 //TODO: add missing.
