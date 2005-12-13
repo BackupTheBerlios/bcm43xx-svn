@@ -4692,6 +4692,13 @@ static int bcm43xx_net_config(struct net_device *net_dev,
 	return 0;
 }
 
+static int bcm43xx_net_conf_tx(struct net_device *net_dev,
+			       int queue,
+			       const struct ieee80211_tx_queue_params *params)
+{
+	return 0;
+}
+
 static int bcm43xx_net_get_tx_stats(struct net_device *net_dev,
 				    struct ieee80211_tx_queue_stats *stats)
 {
@@ -4782,6 +4789,7 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->get_stats = bcm43xx_net_get_stats;
 	ieee->queues = 1;
 	ieee->get_tx_stats = bcm43xx_net_get_tx_stats;
+	ieee->conf_tx = bcm43xx_net_conf_tx;
 
 	net_dev = ieee80211_register_hw(ieee, sizeof(*bcm));
 	if (!net_dev) {
@@ -4797,6 +4805,7 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 
 	/* initialize the bcm43xx_private struct */
 	bcm = bcm43xx_priv(net_dev);
+	memset(bcm, 0, sizeof(*bcm));
 	bcm->ieee = ieee;
 
 #ifdef DEBUG_ENABLE_MMIO_PRINT
@@ -4828,7 +4837,6 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	}
 
 	bcm->iw_mode = BCM43xx_INITIAL_IWMODE;
-FIXME();//FIXME	bcm->ieee->tx_headroom = sizeof(struct bcm43xx_txhdr);
 
 	pci_set_drvdata(pdev, net_dev);
 
