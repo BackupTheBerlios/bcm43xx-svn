@@ -4649,7 +4649,6 @@ static int bcm43xx_net_hard_start_xmit(struct net_device *net_dev,
 	int err = -ENODEV;
 	unsigned long flags;
 
-printk("TX!!\n");
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (likely(bcm->initialized)) {
 		if (bcm->pio_mode)
