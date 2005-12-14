@@ -758,6 +758,14 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	slot = request_slot(ring);
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
+
+	bcm43xx_generate_txhdr(ring->bcm,
+			       (struct bcm43xx_txhdr *)hdr_skb->data,
+			       skb->data, skb->len,
+			       1,//FIXME
+			       generate_cookie(ring, slot),
+			       ctl);
+
 	meta->skb = hdr_skb;
 	meta->dmaaddr = map_descbuffer(ring, hdr_skb->data, hdr_skb->len, 1);
 	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
@@ -768,21 +776,13 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	set_desc_ctl(desc, desc_ctl);
 	set_desc_addr(desc, desc_addr);
 
-	bcm43xx_generate_txhdr(ring->bcm,
-			       (struct bcm43xx_txhdr *)hdr_skb->data,
-			       skb->data, skb->len,
-			       1,//FIXME
-			       generate_cookie(ring, slot),
-			       ctl);
-
 	slot = request_slot(ring);
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
 	meta->skb = skb;
 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
 	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
-	desc_ctl |= (BCM43xx_DMADTOR_BYTECNT_MASK &
-		     (u32)(skb->len));
+	desc_ctl = (BCM43xx_DMADTOR_BYTECNT_MASK & (u32)(skb->len));
 	if (slot == ring->nr_slots - 1)
 		desc_ctl |= BCM43xx_DMADTOR_DTABLEEND;
 
