@@ -599,12 +599,9 @@ void bcm43xx_macfilter_clear(struct bcm43xx_private *bcm,
 static void bcm43xx_write_mac_bssid_templates(struct bcm43xx_private *bcm)
 {
 	const u8 *mac = (const u8 *)(bcm->net_dev->dev_addr);
-//	const u8 *bssid = (const u8 *)(bcm->ieee->bssid);
-//FIXME:
-u8 bssid[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, };
+	const u8 *bssid = mac;//FIXME
 	u8 mac_bssid[ETH_ALEN * 2];
 	int i;
-FIXME();
 
 	memcpy(mac_bssid, mac, ETH_ALEN);
 	memcpy(mac_bssid + ETH_ALEN, bssid, ETH_ALEN);
