@@ -3020,17 +3020,14 @@ static void bcm43xx_gen_bssid(struct bcm43xx_private *bcm)
 	u8 *bssid = bcm->ieee->bssid;
 
 	switch (bcm->ieee->iw_mode) {
-	case IW_MODE_MASTER:
 	case IW_MODE_ADHOC:
+		random_ether_addr(bssid);
+		break;
+	case IW_MODE_MASTER:
 	case IW_MODE_INFRA:
 	case IW_MODE_REPEAT:
 	case IW_MODE_SECOND:
 	case IW_MODE_MONITOR:
-		/*FIXME: For now we always return the mac address.
-		 *       I hope this is ok. Wikipedia states something about
-		 *       randomizing the bssid in non-MASTER mode... .
-		 *       I did not find something about this in the IEEE specs, yet.
-		 */
 		memcpy(bssid, mac, ETH_ALEN);
 		break;
 	default:
