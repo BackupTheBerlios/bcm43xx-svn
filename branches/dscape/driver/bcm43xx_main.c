@@ -675,7 +675,7 @@ void bcm43xx_macfilter_clear(struct bcm43xx_private *bcm,
 static void bcm43xx_write_mac_bssid_templates(struct bcm43xx_private *bcm)
 {
 	const u8 *mac = (const u8 *)(bcm->net_dev->dev_addr);
-	const u8 *bssid = mac;//FIXME
+	const u8 *bssid = bcm->bssid;
 	u8 mac_bssid[ETH_ALEN * 2];
 	int i;
 
@@ -3123,11 +3123,8 @@ out:
 
 static void bcm43xx_gen_bssid(struct bcm43xx_private *bcm)
 {
-FIXME();
-//FIXME
-#if 0
 	const u8 *mac = (const u8*)(bcm->net_dev->dev_addr);
-	u8 *bssid = bcm->ieee->bssid;
+	u8 *bssid = bcm->bssid;
 
 	switch (bcm->iw_mode) {
 	case IW_MODE_ADHOC:
@@ -3143,7 +3140,6 @@ FIXME();
 	default:
 		assert(0);
 	}
-#endif
 }
 
 static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,

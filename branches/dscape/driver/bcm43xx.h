@@ -719,6 +719,7 @@ struct bcm43xx_private {
 
 	/* Informational stuff. */
 	char nick[IW_ESSID_MAX_SIZE + 1];
+	u8 bssid[ETH_ALEN];
 
 	struct bcm43xx_key key[54];
 	
