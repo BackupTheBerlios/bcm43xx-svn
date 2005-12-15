@@ -66,6 +66,14 @@ static int modparam_bad_frames_preempt;
 module_param_named(bad_frames_preempt, modparam_bad_frames_preempt, int, 0444);
 MODULE_PARM_DESC(bad_frames_preempt, "enable(1) / disable(0) Bad Frames Preemption");
 
+static int modparam_short_retry = BCM43xx_DEFAULT_SHORT_RETRY_LIMIT;
+module_param_named(short_retry, modparam_short_retry, int, 0444);
+MODULE_PARM_DESC(short_retry, "Short-Retry-Limit (0 - 15)");
+
+static int modparam_long_retry = BCM43xx_DEFAULT_LONG_RETRY_LIMIT;
+module_param_named(long_retry, modparam_long_retry, int, 0444);
+MODULE_PARM_DESC(long_retry, "Long-Retry-Limit (0 - 15)");
+
 static int modparam_locale = -1;
 module_param_named(locale, modparam_locale, int, 0444);
 MODULE_PARM_DESC(country, "Select LocaleCode 0-11 (For travelers)");
@@ -328,29 +336,41 @@ void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf)
 
 void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf)
 {
+	u32 status;
+
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	status |= BCM43xx_SBF_TIME_UPDATE;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+
+	/* Be careful with the in-progress timer.
+	 * First zero out the low register, so we have a full
+	 * register-overflow duration to complete the operation.
+	 */
 	if (bcm->current_core->rev >= 3) {
-		u32 status;
+		u32 lo = (tsf & 0x00000000FFFFFFFFULL);
+		u32 hi = (tsf & 0xFFFFFFFF00000000ULL) >> 32;
 
-		status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-		status |= BCM43xx_SBF_TIME_UPDATE;
-		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
-
-		/* Be careful with the in-progress timer.
-		 * First zero out the low register, so we have a full
-		 * 32bit overflow duration to complete the operation.
-		 */
+		barrier();
 		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW, 0);
-		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH,
-				(tsf & 0xFFFFFFFF00000000ULL) >> 32);
-		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW,
-				(tsf & 0x00000000FFFFFFFFULL));
-
-		status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-		status &= ~BCM43xx_SBF_TIME_UPDATE;
-		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH, hi);
+		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW, lo);
 	} else {
-		TODO();//TODO
+		u16 v0 = (tsf & 0x000000000000FFFFULL);
+		u16 v1 = (tsf & 0x00000000FFFF0000ULL) >> 16;
+		u16 v2 = (tsf & 0x0000FFFF00000000ULL) >> 32;
+		u16 v3 = (tsf & 0xFFFF000000000000ULL) >> 48;
+
+		barrier();
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_0, 0);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_3, v3);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_2, v2);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_1, v1);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_0, v0);
 	}
+
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	status &= ~BCM43xx_SBF_TIME_UPDATE;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
 }
 
 static inline
@@ -1658,9 +1678,9 @@ static inline int build_transmit_status(struct bcm43xx_private *bcm,
 	status->flags = tmp[0];
 	status->cnt1 = (tmp[1] & 0x0f);
 	status->cnt2 = (tmp[1] & 0xf0) >> 4;
-	/* FIXME: 802.11 sequence number? */
+	/* 802.11 sequence number? */
 	status->seq = cpu_to_le16( (u16)(v174 & 0xffff) );
-	/* FIXME: Unknown. */
+	/* Unknown value. */
 	status->unknown = cpu_to_le16( (u16)((v174 >> 16) & 0xff) );
 
 	return 0;
@@ -3008,7 +3028,7 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 			core->phy->minlowsigpos[0] = 0;
 			core->phy->minlowsigpos[1] = 0;
 			core->radio = &bcm->radio[i];
-			core->radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE; //FIXME: Set to AUTO?
+			core->radio->interfmode = BCM43xx_RADIO_INTERFMODE_AUTOWLAN;
 			core->radio->channel = 0xFF;
 			core->radio->initial_channel = 0xFF;
 			core->radio->lofcal = 0xFFFF;
@@ -3054,17 +3074,14 @@ FIXME();
 	u8 *bssid = bcm->ieee->bssid;
 
 	switch (bcm->iw_mode) {
-	case IW_MODE_MASTER:
 	case IW_MODE_ADHOC:
+		random_ether_addr(bssid);
+		break;
+	case IW_MODE_MASTER:
 	case IW_MODE_INFRA:
 	case IW_MODE_REPEAT:
 	case IW_MODE_SECOND:
 	case IW_MODE_MONITOR:
-		/*FIXME: For now we always return the mac address.
-		 *       I hope this is ok. Wikipedia states something about
-		 *       randomizing the bssid in non-MASTER mode... .
-		 *       I did not find something about this in the IEEE specs, yet.
-		 */
 		memcpy(bssid, mac, ETH_ALEN);
 		break;
 	default:
@@ -3126,6 +3143,7 @@ static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 	u32 ucodeflags;
 	int err;
 	u32 sbimconfiglow;
+	u8 limit;
 
 	if (bcm->chip_rev < 5) {
 		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
@@ -3170,9 +3188,14 @@ static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 				    BCM43xx_UCODEFLAGS_OFFSET, ucodeflags);
 	}
 
-	/* FIXME: Short/Long Retry Limit: Using defaults as of http://bcm-specs.sipsolutions.net/SHM: 0x0002 */
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0006, 7);
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0007, 4);
+	/* Short/Long Retry Limit.
+	 * The retry-limit is a 4-bit counter. Enforce this to avoid overflowing
+	 * the chip-internal counter.
+	 */
+	limit = limit_value(modparam_short_retry, 0, 0xF);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0006, limit);
+	limit = limit_value(modparam_long_retry, 0, 0xF);
+	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0007, limit);
 
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0044, 3);
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0046, 2);
@@ -4115,7 +4138,8 @@ static int bcm43xx_setup_modes(struct bcm43xx_private *bcm)
 	err = bcm43xx_setup_modes_aphy(bcm);
 	if (err)
 		goto error;
-	err = bcm43xx_setup_modes_gphy(bcm);
+FIXME();//FIXME: G tempoarly disabled.
+//	err = bcm43xx_setup_modes_gphy(bcm);
 	if (err)
 		goto error;
 	err = bcm43xx_setup_modes_bphy(bcm);
@@ -4785,7 +4809,6 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->name = DRV_NAME;
 	ieee->host_gen_beacon = 1;
 	ieee->rx_includes_fcs = 1;
-//TODO	ieee->fraglist
 	ieee->tx = bcm43xx_net_hard_start_xmit;
 	ieee->open = bcm43xx_net_open;
 	ieee->stop = bcm43xx_net_stop;

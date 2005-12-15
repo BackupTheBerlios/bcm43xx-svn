@@ -34,7 +34,7 @@
 #include "bcm43xx.h"
 
 
-#define BCM43xx_RADIO_DEFAULT_CHANNEL_A		0 /*FIXME: What is the APHY default channel? */
+#define BCM43xx_RADIO_DEFAULT_CHANNEL_A		36
 #define BCM43xx_RADIO_DEFAULT_CHANNEL_BG	6
 #define BCM43xx_RADIO_DEFAULT_ANTENNA		0x0300
 

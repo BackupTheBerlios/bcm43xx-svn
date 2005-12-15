@@ -25,7 +25,7 @@
 #define PFX				DRV_NAME ": "
 
 #define BCM43xx_SWITCH_CORE_MAX_RETRIES	10
-#define BCM43xx_IRQWAIT_MAX_RETRIES	50 /* FIXME: need more? 50 == 500usec */
+#define BCM43xx_IRQWAIT_MAX_RETRIES	50
 #define BCM43xx_TX_TIMEOUT		(10 * HZ)
 
 #define BCM43xx_IO_SIZE			8192
@@ -111,7 +111,7 @@
 #define BCM43xx_BFL_BTCOEXIST		0x0001 /* implements Bluetooth coexistance */
 #define BCM43xx_BFL_PACTRL		0x0002 /* GPIO 9 controlling the PA */
 #define BCM43xx_BFL_AIRLINEMODE		0x0004 /* implements GPIO 13 radio disable indication */
-#define BCM43xx_BFL_RSSI		0x0008 /* FIXME: what's this? */
+#define BCM43xx_BFL_RSSI		0x0008 /* software calculates nrssi slope. */
 #define BCM43xx_BFL_ENETSPI		0x0010 /* has ephy roboswitch spi */
 #define BCM43xx_BFL_XTAL_NOSLOW		0x0020 /* no slow clock available */
 #define BCM43xx_BFL_CCKHIPWR		0x0040 /* can do high power CCK transmission */
@@ -312,7 +312,6 @@
 					 BCM43xx_IRQ_XMIT_STATUS)
 
 /* Values/Masks for the device TX header */
-//TODO: add missing.
 #define BCM43xx_TXHDRFLAG_EXPECTACK		0x0001
 #define BCM43xx_TXHDRFLAG_FIRSTFRAGMENT		0x0008
 #define BCM43xx_TXHDRFLAG_DESTPSMODE		0x0020
@@ -353,6 +352,9 @@
 #define BCM43xx_OFDM_RATE_36MB		0x48
 #define BCM43xx_OFDM_RATE_48MB		0x60
 #define BCM43xx_OFDM_RATE_54MB		0x6C
+
+#define BCM43xx_DEFAULT_SHORT_RETRY_LIMIT	7
+#define BCM43xx_DEFAULT_LONG_RETRY_LIMIT	4
 
 
 #ifdef assert
