@@ -4170,8 +4170,7 @@ static int bcm43xx_setup_modes(struct bcm43xx_private *bcm)
 	err = bcm43xx_setup_modes_aphy(bcm);
 	if (err)
 		goto error;
-FIXME();//FIXME: G tempoarly disabled.
-//	err = bcm43xx_setup_modes_gphy(bcm);
+	err = bcm43xx_setup_modes_gphy(bcm);
 	if (err)
 		goto error;
 	err = bcm43xx_setup_modes_bphy(bcm);
