@@ -557,14 +557,14 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	int ofdm_modulation;
 	u8 fallback_bitrate;
 	int fallback_ofdm_modulation;
-	u16 tmp;
+	u16 flags = 0;
+	u16 control = 0;
+	u16 wsec_rate = 0;
 
 	/* Now construct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
 
-	//TODO: Some RTS/CTS stuff has to be done.
 	//TODO: Encryption stuff.
-	//TODO: others?
 
 	bitrate = txctl->tx_rate;
 	ofdm_modulation = !(bcm43xx_is_cck_rate(bitrate));
@@ -588,32 +588,34 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 				  fallback_bitrate, fallback_ofdm_modulation);
 
 	/* Set the CONTROL field */
-	tmp = 0;
 	if (ofdm_modulation)
-		tmp |= BCM43xx_TXHDRCTL_OFDM;
+		control |= BCM43xx_TXHDRCTL_OFDM;
 	if (bcm->short_preamble) //FIXME: could be the other way around, please test
-		tmp |= BCM43xx_TXHDRCTL_SHORT_PREAMBLE;
-	tmp |= (phy->antenna_diversity << BCM43xx_TXHDRCTL_ANTENNADIV_SHIFT)
-		& BCM43xx_TXHDRCTL_ANTENNADIV_MASK;
-	txhdr->control = cpu_to_le16(tmp);
+		control |= BCM43xx_TXHDRCTL_SHORT_PREAMBLE;
+	control |= (phy->antenna_diversity << BCM43xx_TXHDRCTL_ANTENNADIV_SHIFT)
+		   & BCM43xx_TXHDRCTL_ANTENNADIV_MASK;
 
 	/* Set the FLAGS field */
-	tmp = 0;
 	if (!txctl->no_ack)
-		tmp |= BCM43xx_TXHDRFLAG_EXPECTACK;
+		flags |= BCM43xx_TXHDRFLAG_EXPECTACK;
 	if (1 /* FIXME: PS poll?? */)
-		tmp |= 0x10; // FIXME: unknown meaning.
+		flags |= 0x10; // FIXME: unknown meaning.
 	if (fallback_ofdm_modulation)
-		tmp |= BCM43xx_TXHDRFLAG_FALLBACKOFDM;
+		flags |= BCM43xx_TXHDRFLAG_FALLBACKOFDM;
 	if (is_first_fragment)
-		tmp |= BCM43xx_TXHDRFLAG_FIRSTFRAGMENT;
-	txhdr->flags = cpu_to_le16(tmp);
+		flags |= BCM43xx_TXHDRFLAG_FIRSTFRAGMENT;
 
 	/* Set WSEC/RATE field */
-	//TODO: rts, wsec
-	tmp = (txhdr->plcp.raw[0] << BCM43xx_TXHDR_RATE_SHIFT)
-	       & BCM43xx_TXHDR_RATE_MASK;
-	txhdr->wsec_rate = cpu_to_le16(tmp);
+	wsec_rate |= (txhdr->plcp.raw[0] << BCM43xx_TXHDR_RATE_SHIFT)
+		     & BCM43xx_TXHDR_RATE_MASK;
+
+	if (txctl->use_rts_cts) {
+		//TODO
+	}
+
+	txhdr->flags = cpu_to_le16(flags);
+	txhdr->control = cpu_to_le16(control);
+	txhdr->wsec_rate = cpu_to_le16(wsec_rate);
 
 //bcm43xx_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
