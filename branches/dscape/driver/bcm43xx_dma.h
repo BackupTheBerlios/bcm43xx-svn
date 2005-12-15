@@ -118,6 +118,9 @@ struct bcm43xx_dmadesc_meta {
 	struct sk_buff *skb;
 	/* DMA base bus-address of the descriptor buffer. */
 	dma_addr_t dmaaddr;
+	/* ieee80211 TX status. Only used once per 802.11 frag. */
+	u8 must_xmit_txstat:1;
+	struct ieee80211_tx_status txstat;
 };
 
 struct bcm43xx_dmaring {

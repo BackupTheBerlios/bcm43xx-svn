@@ -180,39 +180,6 @@ void free_descriptor_buffer(struct bcm43xx_dmaring *ring,
 	meta->skb = NULL;
 }
 
-/* Free all stuff belonging to a complete TX frame.
- * Begin at slot.
- * This is to be called on completion IRQ.
- */
-static void free_descriptor_frame(struct bcm43xx_dmaring *ring,
-				  int slot)
-{
-	struct bcm43xx_dmadesc *desc;
-	struct bcm43xx_dmadesc_meta *meta;
-	int is_last_fragment;
-
-	assert(ring->tx);
-	assert(get_desc_ctl(ring->vbase + slot) & BCM43xx_DMADTOR_FRAMESTART);
-
-	while (1) {
-		assert(slot >= 0 && slot < ring->nr_slots);
-		desc = ring->vbase + slot;
-		meta = ring->meta + slot;
-
-		is_last_fragment = !!(get_desc_ctl(desc) & BCM43xx_DMADTOR_FRAMEEND);
-		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
-		free_descriptor_buffer(ring, desc, meta, 1);
-		/* Everything belonging to the slot is unmapped
-		 * and freed, so we can return it.
-		 */
-		return_slot(ring, slot);
-
-		if (is_last_fragment)
-			break;
-		slot = next_slot(ring, slot);
-	}
-}
-
 static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
 {
 	int err = -ENOMEM;
@@ -779,6 +746,15 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	slot = request_slot(ring);
 	desc = ring->vbase + slot;
 	meta = ring->meta + slot;
+
+	/* We inspect the txstatus on the FRAMESTART descriptor later
+	 * on xmit-status IRQ.
+	 */
+	meta->must_xmit_txstat = 1;
+	memset(&meta->txstat, 0, sizeof(meta->txstat));
+	meta->txstat.req_tx_status = ctl->req_tx_status;
+	meta->txstat.rate_ctrl_probe = ctl->rate_ctrl_probe;
+
 	meta->skb = skb;
 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
 	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
@@ -832,13 +808,49 @@ bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 			      struct bcm43xx_xmitstatus *status)
 {
 	struct bcm43xx_dmaring *ring;
+	struct bcm43xx_dmadesc *desc;
+	struct bcm43xx_dmadesc_meta *meta;
+	int is_last_fragment;
 	int slot;
 
 	ring = parse_cookie(bcm, status->cookie, &slot);
 	assert(ring);
+	assert(ring->tx);
 	assert(irqs_disabled());
 	spin_lock(&ring->lock);
-	free_descriptor_frame(ring, slot);
+
+	assert(get_desc_ctl(ring->vbase + slot) & BCM43xx_DMADTOR_FRAMESTART);
+	while (1) {
+		assert(slot >= 0 && slot < ring->nr_slots);
+		desc = ring->vbase + slot;
+		meta = ring->meta + slot;
+
+		is_last_fragment = !!(get_desc_ctl(desc) & BCM43xx_DMADTOR_FRAMEEND);
+		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
+
+		if (meta->must_xmit_txstat) {
+			meta->must_xmit_txstat = 0;
+			/* Call back to inform the ieee80211 subsystem about the
+			 * status of the transmission.
+			 * Some fields of txstat are already filled in dma_tx().
+			 */
+			meta->txstat.ack = !!(status->flags & BCM43xx_TXSTAT_FLAG_ACK);
+			meta->txstat.retry_count = status->cnt2;
+			//FIXME: Fill in more information?
+			ieee80211_tx_status_irqsafe(bcm->net_dev, meta->skb, &(meta->txstat));
+			meta->skb = NULL;
+		} else
+			free_descriptor_buffer(ring, desc, meta, 1);
+		/* Everything belonging to the slot is unmapped
+		 * and freed, so we can return it.
+		 */
+		return_slot(ring, slot);
+
+		if (is_last_fragment)
+			break;
+		slot = next_slot(ring, slot);
+	}
+
 	spin_unlock(&ring->lock);
 }
 
