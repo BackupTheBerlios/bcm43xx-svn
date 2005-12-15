@@ -509,6 +509,39 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 					     (ofdm_modulation));		\
 	} while (0)
 
+static inline
+u8 bcm43xx_calc_fallback_rate(u8 bitrate)
+{
+	switch (bitrate) {
+	case BCM43xx_CCK_RATE_1MB:
+		return BCM43xx_CCK_RATE_1MB;
+	case BCM43xx_CCK_RATE_2MB:
+		return BCM43xx_CCK_RATE_1MB;
+	case BCM43xx_CCK_RATE_5MB:
+		return BCM43xx_CCK_RATE_2MB;
+	case BCM43xx_CCK_RATE_11MB:
+		return BCM43xx_CCK_RATE_5MB;
+	case BCM43xx_OFDM_RATE_6MB:
+		return BCM43xx_CCK_RATE_5MB;
+	case BCM43xx_OFDM_RATE_9MB:
+		return BCM43xx_OFDM_RATE_6MB;
+	case BCM43xx_OFDM_RATE_12MB:
+		return BCM43xx_OFDM_RATE_9MB;
+	case BCM43xx_OFDM_RATE_18MB:
+		return BCM43xx_OFDM_RATE_12MB;
+	case BCM43xx_OFDM_RATE_24MB:
+		return BCM43xx_OFDM_RATE_18MB;
+	case BCM43xx_OFDM_RATE_36MB:
+		return BCM43xx_OFDM_RATE_24MB;
+	case BCM43xx_OFDM_RATE_48MB:
+		return BCM43xx_OFDM_RATE_36MB;
+	case BCM43xx_OFDM_RATE_54MB:
+		return BCM43xx_OFDM_RATE_48MB;
+	}
+	assert(0);
+	return 0;
+}
+
 void fastcall
 bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 		       struct bcm43xx_txhdr *txhdr,
@@ -535,7 +568,7 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 
 	bitrate = txctl->tx_rate;
 	ofdm_modulation = !(bcm43xx_is_cck_rate(bitrate));
-	fallback_bitrate = bitrate;//FIXME
+	fallback_bitrate = bcm43xx_calc_fallback_rate(bitrate);
 	fallback_ofdm_modulation = !(bcm43xx_is_cck_rate(fallback_bitrate));
 
 	/* Set Frame Control from 80211 header. */
@@ -566,8 +599,7 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 
 	/* Set the FLAGS field */
 	tmp = 0;
-	if (!is_multicast_ether_addr(wireless_header->addr1) &&
-	    !is_broadcast_ether_addr(wireless_header->addr1))
+	if (!txctl->no_ack)
 		tmp |= BCM43xx_TXHDRFLAG_EXPECTACK;
 	if (1 /* FIXME: PS poll?? */)
 		tmp |= 0x10; // FIXME: unknown meaning.
