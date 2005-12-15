@@ -542,6 +542,28 @@ u8 bcm43xx_calc_fallback_rate(u8 bitrate)
 	return 0;
 }
 
+static inline
+__le16 bcm43xx_calc_duration_id(const struct ieee80211_hdr *wireless_header,
+				u8 bitrate)
+{
+	const u16 frame_ctl = le16_to_cpu(wireless_header->frame_control);
+	__le16 duration_id = wireless_header->duration_id;
+
+	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
+	case WLAN_FC_TYPE_DATA:
+	case WLAN_FC_TYPE_MGMT:
+		//TODO: Steal the code from ieee80211, once it is completed there.
+		break;
+	case WLAN_FC_TYPE_CTRL:
+		/* Use the original duration/id. */
+		break;
+	default:
+		assert(0);
+	}
+
+	return duration_id;
+}
+
 void fastcall
 bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 		       struct bcm43xx_txhdr *txhdr,
@@ -576,8 +598,8 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	/* Copy address1 from 80211 header. */
 	memcpy(txhdr->mac1, wireless_header->addr1, 6);
 	/* Set the fallback duration ID. */
-	//FIXME: We use the original durid for now.
-	txhdr->fallback_dur_id = wireless_header->duration_id;
+	txhdr->fallback_dur_id = bcm43xx_calc_duration_id(wireless_header,
+							  fallback_bitrate);
 	/* Set the cookie (used as driver internal ID for the frame) */
 	txhdr->cookie = cpu_to_le16(cookie);
 
