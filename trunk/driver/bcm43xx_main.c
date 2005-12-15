@@ -336,29 +336,41 @@ void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf)
 
 void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf)
 {
+	u32 status;
+
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	status |= BCM43xx_SBF_TIME_UPDATE;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+
+	/* Be careful with the in-progress timer.
+	 * First zero out the low register, so we have a full
+	 * register-overflow duration to complete the operation.
+	 */
 	if (bcm->current_core->rev >= 3) {
-		u32 status;
+		u32 lo = (tsf & 0x00000000FFFFFFFFULL);
+		u32 hi = (tsf & 0xFFFFFFFF00000000ULL) >> 32;
 
-		status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-		status |= BCM43xx_SBF_TIME_UPDATE;
-		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
-
-		/* Be careful with the in-progress timer.
-		 * First zero out the low register, so we have a full
-		 * 32bit overflow duration to complete the operation.
-		 */
+		barrier();
 		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW, 0);
-		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH,
-				(tsf & 0xFFFFFFFF00000000ULL) >> 32);
-		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW,
-				(tsf & 0x00000000FFFFFFFFULL));
-
-		status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-		status &= ~BCM43xx_SBF_TIME_UPDATE;
-		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_HIGH, hi);
+		bcm43xx_write32(bcm, BCM43xx_MMIO_REV3PLUS_TSF_LOW, lo);
 	} else {
-		TODO();//TODO
+		u16 v0 = (tsf & 0x000000000000FFFFULL);
+		u16 v1 = (tsf & 0x00000000FFFF0000ULL) >> 16;
+		u16 v2 = (tsf & 0x0000FFFF00000000ULL) >> 32;
+		u16 v3 = (tsf & 0xFFFF000000000000ULL) >> 48;
+
+		barrier();
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_0, 0);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_3, v3);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_2, v2);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_1, v1);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_0, v0);
 	}
+
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	status &= ~BCM43xx_SBF_TIME_UPDATE;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
 }
 
 static inline
