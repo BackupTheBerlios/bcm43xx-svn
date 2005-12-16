@@ -1385,6 +1385,35 @@ void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 	}
 }
 
+void bcm43xx_key_write(struct bcm43xx_private *bcm,
+		       u8 index, u8 algorithm, const u8 *_key)
+{
+	const u32 *key = (const u32 *)_key;
+	u16 off = bcm->security_offset;
+	u16 i;
+	int wep = 0;
+
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + index,
+			    ((index << 4) | (algorithm & 0x0F)));
+
+	if (algorithm != BCM43xx_SEC_ALGO_WEP &&
+	    algorithm != BCM43xx_SEC_ALGO_WEP104)
+		off += 4 * 8; /* Skip first 4 key-areas. */
+	else
+		wep = 1;
+	for (i = 0; i < 4; i++) {
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+				    off + (i * 2),
+				    be16_to_cpu(*key));
+		if (wep) {
+			bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+					    off + (i * 2) + (4 * 8),
+					    be16_to_cpu(*key));
+		}
+		key++;
+	}
+}
+
 void bcm43xx_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
 		     u8 flags, u8 macaddr[6], u8 material[16])
 {
@@ -1396,7 +1425,7 @@ void bcm43xx_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
 					+ 8 * (index / 4) + index % 4;
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + 2 * index,
 			    (index << 4 | algorithm));
-	
+
 	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 0));
 	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 4));
 	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 8));
@@ -4206,6 +4235,12 @@ error:
 	goto out;
 }
 
+static void bcm43xx_security_init(struct bcm43xx_private *bcm)
+{
+	bcm->security_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
+						  0x0056) * 2;
+}
+
 /* This is the opposite of bcm43xx_init_board() */
 static void bcm43xx_free_board(struct bcm43xx_private *bcm)
 {
@@ -4314,6 +4349,7 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
 	bcm43xx_setup_modes(bcm);
+	bcm43xx_security_init(bcm);
 	ieee80211_hw_initialized(bcm->net_dev, bcm->ieee);
 	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
 	ieee80211_netif_oper(bcm->net_dev, NETIF_START);
@@ -4860,6 +4896,7 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->name = DRV_NAME;
 	ieee->host_gen_beacon = 1;
 	ieee->rx_includes_fcs = 1;
+	ieee->device_hides_wep = 1; /* Decryption is done in hardware. */
 	ieee->tx = bcm43xx_net_hard_start_xmit;
 	ieee->open = bcm43xx_net_open;
 	ieee->stop = bcm43xx_net_stop;

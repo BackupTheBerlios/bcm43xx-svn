@@ -356,6 +356,15 @@
 #define BCM43xx_DEFAULT_SHORT_RETRY_LIMIT	7
 #define BCM43xx_DEFAULT_LONG_RETRY_LIMIT	4
 
+/* Security algorithms. */
+enum {
+	BCM43xx_SEC_ALGO_WEP		= 1,
+	BCM43xx_SEC_ALGO_UNKNOWN,
+	BCM43xx_SEC_ALGO_AES,
+	BCM43xx_SEC_ALGO_WEP104,
+	BCM43xx_SEC_ALGO_TKIP,
+};
+
 
 #ifdef assert
 # undef assert
@@ -721,6 +730,8 @@ struct bcm43xx_private {
 	char nick[IW_ESSID_MAX_SIZE + 1];
 	u8 bssid[ETH_ALEN];
 
+	/* encryption/decryption */
+	u16 security_offset;
 	struct bcm43xx_key key[54];
 	
 	/* Debugging stuff follows. */
