@@ -1393,10 +1393,10 @@ void bcm43xx_key_write(struct bcm43xx_private *bcm,
 	u32 value;
 	u16 i;
 
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + index,
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + (index * 2),
 			    ((index << 4) | (algorithm & 0x0F)));
 	for (i = 0; i < 4; i++, key++) {
-		off = bcm->security_offset + (i * 2) + (index * 8);
+		off = bcm->security_offset + (i * 4) + (index * 16);
 		value = be32_to_cpu(*key);
 		if (algorithm == BCM43xx_SEC_ALGO_WEP ||
 		    algorithm == BCM43xx_SEC_ALGO_WEP104) {
@@ -1405,7 +1405,7 @@ void bcm43xx_key_write(struct bcm43xx_private *bcm,
 					    off, value);
 		}
 		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
-				    off + (4 * 8), value);
+				    off + (4 * 16), value);
 	}
 }
 
@@ -1414,10 +1414,10 @@ void bcm43xx_keymac_write(struct bcm43xx_private *bcm,
 {
 	if (bcm->current_core->rev >= 5) {
 		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC,
-				    index * 8,
+				    index * 2,
 				    be32_to_cpu(*((const u32 *)addr)));
 		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC,
-				    (index * 8) + 2,
+				    (index * 2) + 1,
 				    be16_to_cpu(*((const u16 *)(addr + 4))));
 	} else {
 		TODO();//TODO
