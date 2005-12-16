@@ -1390,14 +1390,14 @@ void bcm43xx_key_write(struct bcm43xx_private *bcm,
 {
 	const u32 *key = (const u32 *)_key;
 	u16 off;
-	u16 value;
+	u32 value;
 	u16 i;
 
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + index,
 			    ((index << 4) | (algorithm & 0x0F)));
 	for (i = 0; i < 4; i++, key++) {
 		off = bcm->security_offset + (i * 2) + (index * 8);
-		value = be16_to_cpu(*key);
+		value = be32_to_cpu(*key);
 		if (algorithm == BCM43xx_SEC_ALGO_WEP ||
 		    algorithm == BCM43xx_SEC_ALGO_WEP104) {
 			assert(index <= 3);
@@ -1409,6 +1409,22 @@ void bcm43xx_key_write(struct bcm43xx_private *bcm,
 	}
 }
 
+void bcm43xx_keymac_write(struct bcm43xx_private *bcm,
+			  u8 index, const u8 *addr)
+{
+	if (bcm->current_core->rev >= 5) {
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC,
+				    index * 8,
+				    be32_to_cpu(*((const u32 *)addr)));
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC,
+				    (index * 8) + 2,
+				    be16_to_cpu(*((const u16 *)(addr + 4))));
+	} else {
+		TODO();//TODO
+	}
+}
+
+#if 0
 void bcm43xx_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
 		     u8 flags, u8 macaddr[6], u8 material[16])
 {
@@ -1462,6 +1478,7 @@ void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
 
 	bcm43xx_write16(bcm, 0x043C, 0x0000);
 }
+#endif
 
 /* Puts the index of the current core into user supplied core variable.
  * This function reads the value from the device.
