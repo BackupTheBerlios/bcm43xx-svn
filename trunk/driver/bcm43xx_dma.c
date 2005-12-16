@@ -199,39 +199,6 @@ void free_descriptor_buffer(struct bcm43xx_dmaring *ring,
 	}
 }
 
-/* Free all stuff belonging to a complete TX frame.
- * Begin at slot.
- * This is to be called on completion IRQ.
- */
-static void free_descriptor_frame(struct bcm43xx_dmaring *ring,
-				  int slot)
-{
-	struct bcm43xx_dmadesc *desc;
-	struct bcm43xx_dmadesc_meta *meta;
-	int is_last_fragment;
-
-	assert(ring->tx);
-	assert(get_desc_ctl(ring->vbase + slot) & BCM43xx_DMADTOR_FRAMESTART);
-
-	while (1) {
-		assert(slot >= 0 && slot < ring->nr_slots);
-		desc = ring->vbase + slot;
-		meta = ring->meta + slot;
-
-		is_last_fragment = !!(get_desc_ctl(desc) & BCM43xx_DMADTOR_FRAMEEND);
-		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
-		free_descriptor_buffer(ring, desc, meta, 1);
-		/* Everything belonging to the slot is unmapped
-		 * and freed, so we can return it.
-		 */
-		return_slot(ring, slot);
-
-		if (is_last_fragment)
-			break;
-		slot = next_slot(ring, slot);
-	}
-}
-
 static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
 {
 	int err = -ENOMEM;
@@ -864,13 +831,36 @@ bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 			      struct bcm43xx_xmitstatus *status)
 {
 	struct bcm43xx_dmaring *ring;
+	struct bcm43xx_dmadesc *desc;
+	struct bcm43xx_dmadesc_meta *meta;
+	int is_last_fragment;
 	int slot;
 
 	ring = parse_cookie(bcm, status->cookie, &slot);
 	assert(ring);
+	assert(ring->tx);
 	assert(irqs_disabled());
 	spin_lock(&ring->lock);
-	free_descriptor_frame(ring, slot);
+
+	assert(get_desc_ctl(ring->vbase + slot) & BCM43xx_DMADTOR_FRAMESTART);
+	while (1) {
+		assert(slot >= 0 && slot < ring->nr_slots);
+		desc = ring->vbase + slot;
+		meta = ring->meta + slot;
+
+		is_last_fragment = !!(get_desc_ctl(desc) & BCM43xx_DMADTOR_FRAMEEND);
+		unmap_descbuffer(ring, meta->dmaaddr, meta->skb->len, 1);
+		free_descriptor_buffer(ring, desc, meta, 1);
+		/* Everything belonging to the slot is unmapped
+		 * and freed, so we can return it.
+		 */
+		return_slot(ring, slot);
+
+		if (is_last_fragment)
+			break;
+		slot = next_slot(ring, slot);
+	}
+
 	spin_unlock(&ring->lock);
 }
 
