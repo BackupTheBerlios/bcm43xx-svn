@@ -1389,28 +1389,23 @@ void bcm43xx_key_write(struct bcm43xx_private *bcm,
 		       u8 index, u8 algorithm, const u8 *_key)
 {
 	const u32 *key = (const u32 *)_key;
-	u16 off = bcm->security_offset;
+	u16 off;
+	u16 value;
 	u16 i;
-	int wep = 0;
 
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + index,
 			    ((index << 4) | (algorithm & 0x0F)));
-
-	if (algorithm != BCM43xx_SEC_ALGO_WEP &&
-	    algorithm != BCM43xx_SEC_ALGO_WEP104)
-		off += 4 * 8; /* Skip first 4 key-areas. */
-	else
-		wep = 1;
-	for (i = 0; i < 4; i++) {
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
-				    off + (i * 2),
-				    be16_to_cpu(*key));
-		if (wep) {
+	for (i = 0; i < 4; i++, key++) {
+		off = bcm->security_offset + (i * 2) + (index * 8);
+		value = be16_to_cpu(*key);
+		if (algorithm == BCM43xx_SEC_ALGO_WEP ||
+		    algorithm == BCM43xx_SEC_ALGO_WEP104) {
+			assert(index <= 3);
 			bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
-					    off + (i * 2) + (4 * 8),
-					    be16_to_cpu(*key));
+					    off, value);
 		}
-		key++;
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+				    off + (4 * 8), value);
 	}
 }
 
