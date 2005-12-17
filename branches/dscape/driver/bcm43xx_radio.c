@@ -149,11 +149,12 @@ u8 bcm43xx_radio_aci_scan(struct bcm43xx_private *bcm)
 	u8 ret[13];
 	unsigned int channel = bcm->current_core->radio->channel;
 	unsigned int i, j, start, end;
+	unsigned long phylock_flags;
 
 	if (!((bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) && (bcm->current_core->phy->rev > 0)))
 		return 0;
 
-	bcm43xx_phy_lock(bcm);
+	bcm43xx_phy_lock(bcm, phylock_flags);
 	bcm43xx_radio_lock(bcm);
 	bcm43xx_phy_write(bcm, 0x0802,
 	                  bcm43xx_phy_read(bcm, 0x0802) & 0xFFFC);
@@ -184,7 +185,7 @@ u8 bcm43xx_radio_aci_scan(struct bcm43xx_private *bcm)
 			ret[j] = 1;
 	}
 	bcm43xx_radio_unlock(bcm);
-	bcm43xx_phy_unlock(bcm);
+	bcm43xx_phy_unlock(bcm, phylock_flags);
 	return ret[channel - 1];
 }
 

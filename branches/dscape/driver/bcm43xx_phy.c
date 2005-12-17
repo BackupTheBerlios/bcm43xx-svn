@@ -81,9 +81,9 @@ static const s8 bcm43xx_tssi2dbm_g_table[] = {
 static void bcm43xx_phy_initg(struct bcm43xx_private *bcm);
 
 
-void bcm43xx_phy_lock(struct bcm43xx_private *bcm)
+void bcm43xx_raw_phy_lock(struct bcm43xx_private *bcm)
 {
-	assert(!in_interrupt());
+	assert(irqs_disabled());
 	if (bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD) == 0x00000000)
 		return;
 	if (bcm->current_core->rev < 3) {
@@ -96,9 +96,9 @@ void bcm43xx_phy_lock(struct bcm43xx_private *bcm)
 	}
 }
 
-void bcm43xx_phy_unlock(struct bcm43xx_private *bcm)
+void bcm43xx_raw_phy_unlock(struct bcm43xx_private *bcm)
 {
-	assert(!in_interrupt());
+	assert(irqs_disabled());
 	if (bcm->current_core->rev < 3) {
 		if (!spin_is_locked(&bcm->current_core->phy->lock))
 			return;
@@ -1700,6 +1700,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 	s16 desired_pwr, estimated_pwr, pwr_adjust;
 	s16 radio_att_delta, baseband_att_delta;
 	s16 radio_attenuation, baseband_attenuation;
+	unsigned long phylock_flags;
 
 	if (bcm->current_core->phy->savedpctlreg == 0xFFFF)
 		return;
@@ -1814,13 +1815,13 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
 		radio_attenuation = limit_value(radio_attenuation, 0, 9);
 
-		bcm43xx_phy_lock(bcm);
+		bcm43xx_phy_lock(bcm, phylock_flags);
 		bcm43xx_radio_lock(bcm);
 		bcm43xx_radio_set_txpower_bg(bcm, baseband_attenuation,
 					     radio_attenuation, txpower);
 		bcm43xx_phy_lo_mark_current_used(bcm);
 		bcm43xx_radio_unlock(bcm);
-		bcm43xx_phy_unlock(bcm);
+		bcm43xx_phy_unlock(bcm, phylock_flags);
 		break;
 	default:
 		assert(0);

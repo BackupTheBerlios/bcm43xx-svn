@@ -4820,10 +4820,13 @@ static int bcm43xx_net_config(struct net_device *net_dev,
 			bcm43xx_short_slot_timing_disable(bcm);
 	}
 
-	radio->power_level = conf->power_level;
+	if (conf->power_level != 0) {
+		radio->power_level = conf->power_level;
+		bcm43xx_phy_xmitpower(bcm);
+	}
 //FIXME: This does not seem to wake up:
 #if 0
-	if (radio->power_level == 0) {
+	if (conf->power_level == 0) {
 		if (radio->enabled)
 			bcm43xx_radio_turn_off(bcm);
 	} else {
