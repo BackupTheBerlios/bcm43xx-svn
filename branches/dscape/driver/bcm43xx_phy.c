@@ -1755,13 +1755,9 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		max_pwr -= bcm->sprom.antennagain_bgphy + 0x6;
 		
 		//TODO: Limit max_pwr as per the regulatory domain.
-		
-		/*TODO: Get desired_pwr from wx_handlers or the stack
-		limit_value(desired_pwr, 0, max_pwr);
-		*/
 
-		desired_pwr = max_pwr; /* remove this when we have a real desired_pwr */
-		
+		desired_pwr = limit_value(bcm->current_core->radio->power_level, 0, max_pwr);
+
 		pwr_adjust = estimated_pwr - desired_pwr;
 		radio_att_delta = -(pwr_adjust + 7) >> 3;
 		baseband_att_delta = -(pwr_adjust >> 1) - (4 * radio_att_delta);

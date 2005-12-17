@@ -533,6 +533,10 @@ struct bcm43xx_radioinfo {
 	 * 3: tx_CTL2
 	 */
 	u16 txpower[4];
+	/* Desired TX power level (in dBm).
+	 * This is set by the user and adjusted in bcm43xx_phy_xmitpower(). */
+	u8 power_level;
+
 	/* Current Interference Mitigation mode */
 	int interfmode;
 	/* Stack of saved values from the Interference Mitigation code */

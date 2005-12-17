@@ -861,6 +861,7 @@ static int bcm43xx_read_radioinfo(struct bcm43xx_private *bcm)
 		bcm->current_core->radio->txpower[2] = 3;
 	else
 		bcm->current_core->radio->txpower[2] = 0;
+	bcm->current_core->radio->power_level = ~0;
 
 	/* Initialize the in-memory nrssi Lookup Table. */
 	for (i = 0; i < 64; i++)
@@ -4797,22 +4798,40 @@ static int bcm43xx_net_config(struct net_device *net_dev,
 			      struct ieee80211_conf *conf)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	struct bcm43xx_radioinfo *radio;
+	struct bcm43xx_phyinfo *phy;
 	unsigned long flags;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	if (conf->channel != bcm->current_core->radio->channel)
+	radio = bcm->current_core->radio;
+	phy = bcm->current_core->phy;
+
+	if (conf->channel != radio->channel)
 		bcm43xx_radio_selectchannel(bcm, conf->channel, 0);
 
 	if (conf->mode != bcm->iw_mode)
 		bcm43xx_set_iwmode(bcm, conf->mode);
 
 	if (conf->short_slot_time != bcm->short_slot) {
-		assert(bcm->current_core->phy->type == BCM43xx_PHYTYPE_G);
+		assert(phy->type == BCM43xx_PHYTYPE_G);
 		if (conf->short_slot_time)
 			bcm43xx_short_slot_timing_enable(bcm);
 		else
 			bcm43xx_short_slot_timing_disable(bcm);
 	}
+
+	radio->power_level = conf->power_level;
+//FIXME: This does not seem to wake up:
+#if 0
+	if (radio->power_level == 0) {
+		if (radio->enabled)
+			bcm43xx_radio_turn_off(bcm);
+	} else {
+		if (!radio->enabled)
+			bcm43xx_radio_turn_on(bcm);
+	}
+#endif
+
 	//TODO: phymode
 	//TODO: antennas
 
