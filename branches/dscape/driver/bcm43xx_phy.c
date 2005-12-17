@@ -1757,7 +1757,9 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		
 		//TODO: Limit max_pwr as per the regulatory domain.
 
-		desired_pwr = limit_value(bcm->current_core->radio->power_level, 0, max_pwr);
+		desired_pwr = bcm->current_core->radio->power_level;
+		/* Convert the desired_pwr to Q5.2 and limit it. */
+		desired_pwr = limit_value((desired_pwr << 2), 0, max_pwr);
 
 		pwr_adjust = estimated_pwr - desired_pwr;
 		radio_att_delta = -(pwr_adjust + 7) >> 3;
