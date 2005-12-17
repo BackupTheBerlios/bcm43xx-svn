@@ -1703,6 +1703,9 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 
 	if (bcm->current_core->phy->savedpctlreg == 0xFFFF)
 		return;
+	if ((bcm->board_type == 0x0416) &&
+	    (bcm->board_vendor == PCI_VENDOR_ID_BROADCOM))
+		return;
 
 	switch (bcm->current_core->phy->type) {
 	case BCM43xx_PHYTYPE_A:
@@ -1712,9 +1715,6 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		break;
 	case BCM43xx_PHYTYPE_B:
 	case BCM43xx_PHYTYPE_G:
-		if ((bcm->board_type == 0x0416) &&
-		    (bcm->board_vendor == PCI_VENDOR_ID_APPLE))
-			return;
 
 		tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0058);
 		v0 = (s8)(tmp & 0x00FF);
@@ -1722,36 +1722,49 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x005A);
 		v2 = (s8)(tmp & 0x00FF);
 		v3 = (s8)((tmp & 0xFF00) >> 8);
-		if ((v0 == 0x7F && v1 == 0x7F) || (v2 == 0x7F && v3 == 0x7F)) {
+		tmp = 0;
+		if (v0 == 0x7F || v1 == 0x7F || v2 == 0x7F || v3 == 0x7F) {
 			tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0070);
 			v0 = (s8)(tmp & 0x00FF);
 			v1 = (s8)((tmp & 0xFF00) >> 8);
 			tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0072);
 			v2 = (s8)(tmp & 0x00FF);
 			v3 = (s8)((tmp & 0xFF00) >> 8);
-			if ((v0 == 0x7F && v1 == 0x7F) || (v2 == 0x7F && v3 == 0x7F))
+			if (v0 == 0x7F || v1 == 0x7F || v2 == 0x7F || v3 == 0x7F)
 				return;
 			v0 = (v0 + 0x20) & 0x3F;
 			v1 = (v1 + 0x20) & 0x3F;
 			v2 = (v2 + 0x20) & 0x3F;
 			v3 = (v3 + 0x20) & 0x3F;
+			tmp = 1;
 		}
 		bcm43xx_radio_clear_tssi(bcm);
 
 		average = (v0 + v1 + v2 + v3 + 2) / 4;
-		//TODO: If FIXME, substract 13
+
+		if (tmp && (bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x005E) & 0x8))
+			average -= 13;
 		estimated_pwr = bcm43xx_phy_estimate_power_out(bcm, average);
 
-		//FIXME: Is this adjustment correct?
 		max_pwr = bcm->sprom.maxpower_bgphy;
-		if (!(bcm->sprom.boardflags & BCM43xx_BFL_PACTRL))
-			max_pwr -= 0xC;
-		desired_pwr = min((u16)(estimated_pwr + (estimated_pwr * bcm->sprom.antennagain_bgphy)),
-				  (u16)max_pwr);
+		
+		if ((bcm->sprom.boardflags & BCM43xx_BFL_PACTRL)
+		    && (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G))
+			max_pwr -= 0x3;
+		
+		max_pwr -= bcm->sprom.antennagain_bgphy + 0x6;
+		
+		//TODO: Limit max_pwr as per the regulatory domain.
+		
+		/*TODO: Get desired_pwr from wx_handlers or the stack
+		limit_value(desired_pwr, 0, max_pwr);
+		*/
 
+		desired_pwr = max_pwr; /* remove this when we have a real desired_pwr */
+		
 		pwr_adjust = estimated_pwr - desired_pwr;
-		radio_att_delta = -(pwr_adjust + 7) / 8;
-		baseband_att_delta = -(pwr_adjust / 2) - (4 * radio_att_delta);
+		radio_att_delta = -(pwr_adjust + 7) >> 3;
+		baseband_att_delta = -(pwr_adjust >> 1) - (4 * radio_att_delta);
 		if ((radio_att_delta == 0) && (baseband_att_delta == 0)) {
 			bcm43xx_phy_lo_mark_current_used(bcm);
 			return;
@@ -1766,12 +1779,12 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		/* baseband_attenuation affects the lower level 4 times as
 		 * much as radio attenuation. So adjust them.
 		 */
-		while (baseband_attenuation < 1 && radio_attenuation > 0) {
+		while (baseband_attenuation < 0 && radio_attenuation > 0) {
 			radio_attenuation--;
 			baseband_attenuation += 4;
 		}
 		/* adjust maximum values */
-		while (baseband_attenuation > 5 && radio_attenuation < 9) {
+		while (baseband_attenuation > 11 && radio_attenuation < 9) {
 			baseband_attenuation -= 4;
 			radio_attenuation++;
 		}
@@ -1779,13 +1792,15 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 			radio_attenuation = 0;
 
 		txpower = bcm->current_core->radio->txpower[2];
-		if (bcm->current_core->radio->version == 0x2050) {
-			if (radio_attenuation == 0) {
+		if ((bcm->current_core->radio->version == 0x2050) &&
+		    !((bcm->current_core->radio->revision > 2) &&
+		      (bcm->current_core->radio->revision < 6))) {
+			if (radio_attenuation <= 1) {
 				if (txpower == 0) {
 					txpower = 3;
 					radio_attenuation += 2;
 					baseband_attenuation += 2;
-				} else if (!(bcm->sprom.boardflags & BCM43xx_BFL_PACTRL)) {
+				} else if (bcm->sprom.boardflags & BCM43xx_BFL_PACTRL) {
 					baseband_attenuation += 4 * (radio_attenuation - 2);
 					radio_attenuation = 2;
 				}
