@@ -4918,6 +4918,7 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->queues = 1;
 	ieee->get_tx_stats = bcm43xx_net_get_tx_stats;
 	ieee->conf_tx = bcm43xx_net_conf_tx;
+	ieee->wep_include_iv = 1;
 
 	net_dev = ieee80211_register_hw(ieee, sizeof(*bcm));
 	if (!net_dev) {
