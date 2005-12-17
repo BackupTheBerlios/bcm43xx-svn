@@ -927,7 +927,7 @@ bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 			 * Some fields of txstat are already filled in dma_tx().
 			 */
 			meta->txstat.ack = !!(status->flags & BCM43xx_TXSTAT_FLAG_ACK);
-			meta->txstat.retry_count = status->cnt2;
+			meta->txstat.retry_count = status->cnt2 - 1;
 			//FIXME: Fill in more information?
 			ieee80211_tx_status_irqsafe(bcm->net_dev, meta->skb, &(meta->txstat));
 			meta->skb = NULL;
