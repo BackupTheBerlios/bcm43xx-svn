@@ -35,8 +35,18 @@
 
 struct bcm43xx_private;
 
-void bcm43xx_phy_lock(struct bcm43xx_private *bcm);
-void bcm43xx_phy_unlock(struct bcm43xx_private *bcm);
+void bcm43xx_raw_phy_lock(struct bcm43xx_private *bcm);
+#define bcm43xx_phy_lock(bcm, flags) \
+	do {					\
+		local_irq_save(flags);		\
+		bcm43xx_raw_phy_lock(bcm);	\
+	} while (0)
+void bcm43xx_raw_phy_unlock(struct bcm43xx_private *bcm);
+#define bcm43xx_phy_unlock(bcm, flags) \
+	do {					\
+		bcm43xx_raw_phy_unlock(bcm);	\
+		local_irq_restore(flags);	\
+	} while (0)
 
 u16 bcm43xx_phy_read(struct bcm43xx_private *bcm, u16 offset);
 void bcm43xx_phy_write(struct bcm43xx_private *bcm, u16 offset, u16 val);
