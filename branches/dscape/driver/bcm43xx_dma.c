@@ -182,34 +182,41 @@ void free_descriptor_buffer(struct bcm43xx_dmaring *ring,
 
 static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
 {
-	int err = -ENOMEM;
 	struct device *dev = &(ring->bcm->pci_dev->dev);
+	int cnt = 5;
+	void *old_vbase = NULL;
+	dma_addr_t old_dmabase;
+	gfp_t gfp_flags = GFP_KERNEL;
 
-	ring->vbase = dma_alloc_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
-					 &(ring->dmabase), GFP_KERNEL);
-	if (!ring->vbase) {
-		printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
-		goto out;
+	while (1) {
+		ring->vbase = dma_alloc_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
+						 &(ring->dmabase), gfp_flags);
+		if (old_vbase) {
+			dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
+					  old_vbase, old_dmabase);
+		}
+		if (!ring->vbase) {
+			printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
+			return -ENOMEM;
+		}
+		if (ring->dmabase + BCM43xx_DMA_RINGMEMSIZE <= BCM43xx_DMA_BUSADDRMAX)
+			break;
+		if (--cnt == 0) {
+			dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
+					  ring->vbase, ring->dmabase);
+			printk(KERN_ERR PFX "Unable to allocate DMA "
+					    "ringmemory under 1G\n");
+			return -ENOMEM;
+		}
+		/* Try again. */
+		gfp_flags |= GFP_DMA;
+		old_vbase = ring->vbase;
+		old_dmabase = ring->dmabase;
 	}
+	assert(!(ring->dmabase & 0x000003FF));
 	memset(ring->vbase, 0, BCM43xx_DMA_RINGMEMSIZE);
 
-	/* sanity checks... */
-	if (ring->dmabase & 0x000003FF) {
-		printk(KERN_ERR PFX "Error: DMA ringmemory not 1024 byte aligned!\n");
-		goto err_free;
-	}
-	if (ring->dmabase & ~BCM43xx_DMA_DMABUSADDRMASK) {
-		printk(KERN_ERR PFX "Error: DMA ringmemory above 1G mark!\n");
-		goto err_free;
-	}
-	err = 0;
-out:
-	return err;
-
-err_free:
-	dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
-			  ring->vbase, ring->dmabase);
-	goto out;
+	return 0;
 }
 
 static void free_ringmemory(struct bcm43xx_dmaring *ring)
@@ -312,17 +319,38 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 	u32 desc_addr;
 	u32 desc_ctl;
 	const int slot = (int)(desc - ring->vbase);
+	struct sk_buff *skb, *old_skb = NULL;
+	int cnt = 5;
 
 	assert(slot >= 0 && slot < ring->nr_slots);
 	assert(!ring->tx);
 
-	meta->skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
-	if (unlikely(!meta->skb))
-		return -ENOMEM;
-	meta->skb->dev = ring->bcm->net_dev;
-
-	dmaaddr = map_descbuffer(ring, meta->skb->data, ring->rx_buffersize, 0);
+	while (1) {
+		skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
+		if (unlikely(old_skb)) {
+			unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
+			dev_kfree_skb_any(old_skb);
+		}
+		if (unlikely(!skb))
+			return -ENOMEM;
+		dmaaddr = map_descbuffer(ring, skb->data,
+					 ring->rx_buffersize, 0);
+		if (likely(dmaaddr + ring->rx_buffersize <= BCM43xx_DMA_BUSADDRMAX))
+			break;
+		if (--cnt == 0) {
+			unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
+			dev_kfree_skb_any(skb);
+			dprintk(KERN_ERR PFX "Unable to allocate DMA RX "
+					     "buffer under 1G\n");
+			return -ENOMEM;
+		}
+		/* Try again. */
+		gfp_flags |= GFP_DMA;
+		old_skb = meta->skb;
+	}
+	meta->skb = skb;
 	meta->dmaaddr = dmaaddr;
+	skb->dev = ring->bcm->net_dev;
 	desc_addr = (u32)(dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
 	desc_ctl = (BCM43xx_DMADTOR_BYTECNT_MASK &
 		    (u32)(ring->rx_buffersize - ring->frameoffset));
@@ -331,9 +359,9 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 	set_desc_addr(desc, desc_addr);
 	set_desc_ctl(desc, desc_ctl);
 
-	rxhdr = (struct bcm43xx_rxhdr *)(meta->skb->data);
-	rxhdr->frame_length = cpu_to_le16(0x0000);
-	rxhdr->flags1 = cpu_to_le16(0x0000);
+	rxhdr = (struct bcm43xx_rxhdr *)(skb->data);
+	rxhdr->frame_length = 0;
+	rxhdr->flags1 = 0;
 
 	return 0;
 }
@@ -688,6 +716,57 @@ struct bcm43xx_dmaring * parse_cookie(struct bcm43xx_private *bcm,
 	return ring;
 }
 
+static inline
+int reallocate_under_1G(struct bcm43xx_dmaring *ring,
+		        struct sk_buff **_skb, dma_addr_t *_dmaaddr)
+{
+	int cnt = 5;
+	dma_addr_t dmaaddr = *_dmaaddr;
+	struct sk_buff *old_skb = NULL, *orig_skb = *_skb;
+	struct sk_buff *skb = orig_skb;
+
+	while (1) {
+		unmap_descbuffer(ring, dmaaddr, skb->len, 1);
+		skb = __dev_alloc_skb(orig_skb->len, GFP_ATOMIC | GFP_DMA);
+		if (unlikely(!skb)) {
+			dprintk(KERN_ERR PFX "Unable to allocate DMA TX buffer\n");
+			return -ENOMEM;
+		}
+		if (unlikely(old_skb)) {
+			unmap_descbuffer(ring, dmaaddr, old_skb->len, 1);
+			dev_kfree_skb_irq(old_skb);
+		}
+		memcpy(skb_put(skb, orig_skb->len), orig_skb->data, orig_skb->len);
+		dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
+		if (likely(dmaaddr + skb->len <= BCM43xx_DMA_BUSADDRMAX))
+			break;
+		if (--cnt == 0) {
+			unmap_descbuffer(ring, dmaaddr, skb->len, 1);
+			dev_kfree_skb_irq(skb);
+			dprintk(KERN_ERR PFX "Unable to allocate DMA TX "
+					     "buffer under 1G\n");
+			return -ENOMEM;
+		}
+		/* Again. */
+		old_skb = skb;
+	}
+	dev_kfree_skb_irq(orig_skb);
+	*_skb = skb;
+	*_dmaaddr = dmaaddr;
+
+	return 0;
+}
+
+static inline
+int horrible_1G_hack(struct bcm43xx_dmaring *ring,
+		     struct sk_buff **skb, dma_addr_t *dmaaddr)
+{
+	if (likely(*dmaaddr + (*skb)->len <= BCM43xx_DMA_BUSADDRMAX))
+		return 0;
+	/* Busaddress > 1G. Try to reallocate... */
+	return reallocate_under_1G(ring, skb, dmaaddr);
+}
+
 static inline void dmacontroller_poke_tx(struct bcm43xx_dmaring *ring,
 					 int slot)
 {
@@ -735,6 +814,12 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 
 	meta->skb = hdr_skb;
 	meta->dmaaddr = map_descbuffer(ring, hdr_skb->data, hdr_skb->len, 1);
+	if (unlikely(horrible_1G_hack(ring, &meta->skb, &meta->dmaaddr))) {
+		return_slot(ring, slot);
+		dev_kfree_skb_irq(hdr_skb);
+		return -ENOMEM;
+	}
+
 	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
 	desc_ctl = BCM43xx_DMADTOR_FRAMESTART |
 		   (BCM43xx_DMADTOR_BYTECNT_MASK & (u32)(hdr_skb->len));
@@ -757,6 +842,13 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 
 	meta->skb = skb;
 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
+	if (unlikely(horrible_1G_hack(ring, &meta->skb, &meta->dmaaddr))) {
+		return_slot(ring, prev_slot(ring, slot));
+		return_slot(ring, slot);
+		dev_kfree_skb_irq(hdr_skb);
+		return -ENOMEM;
+	}
+
 	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
 	desc_ctl = (BCM43xx_DMADTOR_BYTECNT_MASK & (u32)(skb->len));
 	if (slot == ring->nr_slots - 1)
