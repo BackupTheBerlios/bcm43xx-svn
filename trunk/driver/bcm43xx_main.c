@@ -2663,7 +2663,7 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	bcm43xx_radio_set_interference_mitigation(bcm, tmp);
 
 	bcm43xx_phy_set_antenna_diversity(bcm);
-	bcm43xx_radio_set_txantenna(bcm, BCM43xx_RADIO_DEFAULT_ANTENNA);
+	bcm43xx_radio_set_txantenna(bcm, BCM43xx_RADIO_TXANTENNA_DEFAULT);
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
 		value16 = bcm43xx_read16(bcm, 0x005E);
 		value16 |= 0x0004;

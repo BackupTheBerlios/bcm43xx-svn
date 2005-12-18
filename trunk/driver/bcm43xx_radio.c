@@ -1290,11 +1290,12 @@ void bcm43xx_radio_set_txantenna(struct bcm43xx_private *bcm, u32 val)
 {
 	u16 tmp;
 
+	val <<= 8;
 	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0022) & 0xFCFF;
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0022, tmp | val);
-	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x03a8) & 0xFCFF;
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x03a8, tmp | val);
-	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0054) & 0xFFCFF;
+	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x03A8) & 0xFCFF;
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x03A8, tmp | val);
+	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0054) & 0xFCFF;
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0054, tmp | val);
 }
 
