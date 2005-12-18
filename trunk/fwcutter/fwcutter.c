@@ -87,7 +87,7 @@ static void write_big_endian(FILE *f, byte *buffer, int len)
 	}
 }
 
-static void write_fw(const char *infilename, const char *outfilename, uint8_t flags, byte *data, int len)
+static void write_fw(const char *outfilename, uint8_t flags, byte *data, int len)
 {
 	FILE* fw;
 	char outfile[2048];
@@ -112,7 +112,7 @@ static void write_fw(const char *infilename, const char *outfilename, uint8_t fl
 	fclose(fw);
 }
 
-static void write_iv(const char *infilename, uint8_t flags, byte *data)
+static void write_iv(uint8_t flags, byte *data)
 {
 	FILE* fw;
 	char ivfilename[2048];
@@ -121,7 +121,7 @@ static void write_iv(const char *infilename, uint8_t flags, byte *data)
 	for (i = 1; i <= 10; i++) {
 
 		if ((flags & MISSING_INITVAL_08) && (i==8)) {
-			printf("*****: Sorry, initval08 is not available in driver file \"%s\".\n", infilename);
+			printf("*****: Sorry, initval08 is not available in driver file \"%s\".\n", cmdargs.infile);
 			printf("*****: Extracting firmware from an old driver is bad. Choose a more recent one.\n");
 			printf("*****: Luckily bcm43xx driver doesn't include initval08 uploads at the moment.\n");
 			printf("*****: But this can be added in the future...\n");
@@ -223,7 +223,7 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 	if (length > 0) {
 		printf("extracting %s ...\n", outfile);
 		filedata = read_file(cmdargs.infile);
-		write_fw(cmdargs.infile, outfile, flags, filedata + pos, length);
+		write_fw(outfile, flags, filedata + pos, length);
 		free(filedata);
 	} else {
 		printf("*****: Sorry, it's not posible to extract \"%s\".\n", outfile);
@@ -253,13 +253,13 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 	}
 }
 
-static void extract_iv(const char *infile, uint8_t flags, uint32_t pos)
+static void extract_iv(uint8_t flags, uint32_t pos)
 {
 	byte* filedata;
 
 	if (pos > 0) {
-		filedata = read_file(infile);
-		write_iv(infile, flags, filedata + pos);
+		filedata = read_file(cmdargs.infile);
+		write_iv(flags, filedata + pos);
 		free(filedata);
 	}
 }
@@ -548,7 +548,7 @@ int main(int argc, char *argv[])
 	extract_fw(FIRMWARE_UCODE_11, file->flags, file->uc11_pos, file->uc11_length);
 	extract_fw(FIRMWARE_PCM_4, file->flags, file->pcm4_pos, file->pcm4_length);
 	extract_fw(FIRMWARE_PCM_5, file->flags, file->pcm5_pos, file->pcm5_length);
-	extract_iv(cmdargs.infile, file->flags, file->iv_pos);
+	extract_iv(file->flags, file->iv_pos);
 
 	err = 0;
 out_close:
