@@ -21,13 +21,16 @@ fwcutter -l		prints a list of supported driver source files.
 
 After extraction, run make installfw which will copy bcm43xx_*.fw to 
 FIRMWARE_INSTALL_DIR (which defaults to /lib/firmware) for
-usage by the bcm43xx driver.
+usage by the bcm43xx driver. An alternative way is using the -w option.
 
 Different distributions use different target directories for the firmware 
 files. If the driver complains about missing firmware files look for the 
 correct directory. For some distributions you have to use 
 /lib/hotplug/firmware or /usr/lib/hotplug/firmware for FIRMWARE_INSTALL_DIR,
 but other directories are also possible.
+
+Extraction doesn't depend on the system you're using. You can even 
+extract firmware on ppc from a mips driver. Cross-extraction is allowed.
 
 
 Where can I find some driver source files?
