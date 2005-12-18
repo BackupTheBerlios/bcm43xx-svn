@@ -36,7 +36,16 @@
 
 #define BCM43xx_RADIO_DEFAULT_CHANNEL_A		36
 #define BCM43xx_RADIO_DEFAULT_CHANNEL_BG	6
-#define BCM43xx_RADIO_DEFAULT_ANTENNA		0x0300
+
+/* Force antenna 0. */
+#define BCM43xx_RADIO_TXANTENNA_0		0
+/* Force antenna 1. */
+#define BCM43xx_RADIO_TXANTENNA_1		1
+/* Use the RX antenna, that was selected for the most recently
+ * received food PLCP header.
+ */
+#define BCM43xx_RADIO_TXANTENNA_LASTPLCP	3
+#define BCM43xx_RADIO_TXANTENNA_DEFAULT		BCM43xx_RADIO_TXANTENNA_LASTPLCP
 
 #define BCM43xx_RADIO_INTERFMODE_NONE		0
 #define BCM43xx_RADIO_INTERFMODE_NONWLAN	1
