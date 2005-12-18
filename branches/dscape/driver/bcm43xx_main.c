@@ -4931,7 +4931,6 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->name = DRV_NAME;
 	ieee->host_gen_beacon = 1;
 	ieee->rx_includes_fcs = 1;
-	ieee->device_hides_wep = 1; /* Decryption is done in hardware. */
 	ieee->tx = bcm43xx_net_hard_start_xmit;
 	ieee->open = bcm43xx_net_open;
 	ieee->stop = bcm43xx_net_stop;
