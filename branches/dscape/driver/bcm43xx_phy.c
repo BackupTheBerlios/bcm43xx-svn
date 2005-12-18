@@ -54,28 +54,28 @@ static const s8 bcm43xx_tssi2dbm_b_table[] = {
 	0x25, 0x23, 0x21, 0x1F,
 	0x1D, 0x1A, 0x17, 0x14,
 	0x10, 0x0C, 0x06, 0x00,
-	0xF9, 0xF9, 0xF9, 0xF9,
-	0xF9, 0xF9, 0xF9, 0xF9,
-	0xF9, 0xF9, 0xF9, 0xF9
+	  -7,   -7,   -7,   -7,
+	  -7,   -7,   -7,   -7,
+	  -7,   -7,   -7,   -7,
 };
 
 static const s8 bcm43xx_tssi2dbm_g_table[] = {
-	0x4D, 0x4D, 0x4D, 0x4C,
-	0x4C, 0x4C, 0x4B, 0x4B,
-	0x4A, 0x4A, 0x49, 0x49,
-	0x49, 0x48, 0x48, 0x47,
-	0x47, 0x46, 0x46, 0x45,
-	0x44, 0x44, 0x43, 0x43,
-	0x42, 0x41, 0x41, 0x40,
-	0x3F, 0x3F, 0x3E, 0x3D,
-	0x3C, 0x3B, 0x3A, 0x39,
-	0x38, 0x37, 0x36, 0x35,
-	0x34, 0x32, 0x31, 0x2F,
-	0x2D, 0x2B, 0x28, 0x25,
-	0x21, 0x1C, 0x16, 0x0E,
-	0x05, 0xF9, 0xEC, 0xEC,
-	0xEC, 0xEC, 0xEC, 0xEC, 
-	0xEC, 0xEC, 0xEC, 0xEC
+	 77,  77,  77,  76,
+	 76,  76,  75,  75,
+	 74,  74,  73,  73,
+	 73,  72,  72,  71,
+	 71,  70,  70,  69,
+	 68,  68,  67,  67,
+	 66,  65,  65,  64,
+	 63,  63,  62,  61,
+	 60,  59,  58,  57,
+	 56,  55,  54,  53,
+	 52,  50,  49,  47,
+	 45,  43,  40,  37,
+	 33,  28,  22,  14,
+	  5,  -7, -20, -20,
+	-20, -20, -20, -20,
+	-20, -20, -20, -20,
 };
 
 static void bcm43xx_phy_initg(struct bcm43xx_private *bcm);
@@ -1659,63 +1659,66 @@ void bcm43xx_phy_lo_mark_all_unused(struct bcm43xx_private *bcm)
 }
 
 /* http://bcm-specs.sipsolutions.net/EstimatePowerOut
- * This function converts a TSSI value to dBm.
+ * This function converts a TSSI value to dBm in Q5.2
  */
 static s8 bcm43xx_phy_estimate_power_out(struct bcm43xx_private *bcm, s8 tssi)
 {
-	s8 tssi2dbm = 0;
+	s8 dbm = 0;
 	s32 tmp;
 
 	tmp = bcm->current_core->phy->idle_tssi;
 	tmp += tssi;
-	tmp -= (s8)(bcm->current_core->phy->savedpctlreg);
+	tmp -= bcm->current_core->phy->savedpctlreg;
 
 	switch (bcm->current_core->phy->type) {
 		case BCM43xx_PHYTYPE_A:
 			tmp += 0x80;
 			tmp = limit_value(tmp, 0x00, 0xFF);
-			tssi2dbm = bcm->current_core->phy->tssi2dbm[tmp];
+			dbm = bcm->current_core->phy->tssi2dbm[tmp];
 			TODO(); //TODO: There's a FIXME on the specs
 			break;
 		case BCM43xx_PHYTYPE_B:
 		case BCM43xx_PHYTYPE_G:
 			tmp = limit_value(tmp, 0x00, 0x3F);
-			tssi2dbm = bcm->current_core->phy->tssi2dbm[tmp];
+			dbm = bcm->current_core->phy->tssi2dbm[tmp];
 			break;
 		default:
 			assert(0);
 	}
 
-	return tssi2dbm;
+	return dbm;
 }
 
 /* http://bcm-specs.sipsolutions.net/RecalculateTransmissionPower */
 void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 {
-	u16 tmp;
-	u16 txpower;
-	s8 v0, v1, v2, v3;
-	s8 average;
-	u8 max_pwr;
-	s16 desired_pwr, estimated_pwr, pwr_adjust;
-	s16 radio_att_delta, baseband_att_delta;
-	s16 radio_attenuation, baseband_attenuation;
-	unsigned long phylock_flags;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 
-	if (bcm->current_core->phy->savedpctlreg == 0xFFFF)
+	if (phy->savedpctlreg == 0xFFFF)
 		return;
 	if ((bcm->board_type == 0x0416) &&
 	    (bcm->board_vendor == PCI_VENDOR_ID_BROADCOM))
 		return;
 
-	switch (bcm->current_core->phy->type) {
-	case BCM43xx_PHYTYPE_A:
+	switch (phy->type) {
+	case BCM43xx_PHYTYPE_A: {
 
 		TODO(); //TODO: Nothing for A PHYs yet :-/
 
 		break;
+	}
 	case BCM43xx_PHYTYPE_B:
-	case BCM43xx_PHYTYPE_G:
+	case BCM43xx_PHYTYPE_G: {
+		u16 tmp;
+		u16 txpower;
+		s8 v0, v1, v2, v3;
+		s8 average;
+		u8 max_pwr;
+		s16 desired_pwr, estimated_pwr, pwr_adjust;
+		s16 radio_att_delta, baseband_att_delta;
+		s16 radio_attenuation, baseband_attenuation;
+		unsigned long phylock_flags;
 
 		tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0058);
 		v0 = (s8)(tmp & 0x00FF);
@@ -1748,16 +1751,16 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		estimated_pwr = bcm43xx_phy_estimate_power_out(bcm, average);
 
 		max_pwr = bcm->sprom.maxpower_bgphy;
-		
-		if ((bcm->sprom.boardflags & BCM43xx_BFL_PACTRL)
-		    && (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G))
+
+		if ((bcm->sprom.boardflags & BCM43xx_BFL_PACTRL) &&
+		    (phy->type == BCM43xx_PHYTYPE_G))
 			max_pwr -= 0x3;
-		
+
 		max_pwr -= bcm->sprom.antennagain_bgphy + 0x6;
-		
+
 		//TODO: Limit max_pwr as per the regulatory domain.
 
-		desired_pwr = bcm->current_core->radio->power_level;
+		desired_pwr = radio->power_level;
 		/* Convert the desired_pwr to Q5.2 and limit it. */
 		desired_pwr = limit_value((desired_pwr << 2), 0, max_pwr);
 
@@ -1770,30 +1773,27 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		}
 
 		/* Calculate the new attenuation values. */
-		baseband_attenuation = bcm->current_core->radio->txpower[0];
+		baseband_attenuation = radio->txpower[0];
 		baseband_attenuation += baseband_att_delta;
-		radio_attenuation = bcm->current_core->radio->txpower[1];
+		radio_attenuation = radio->txpower[1];
 		radio_attenuation += radio_att_delta;
 
-		/* baseband_attenuation affects the lower level 4 times as
-		 * much as radio attenuation. So adjust them.
+		/* Get baseband and radio attenuation values into their permitted ranges.
+		 * baseband 0-11, radio 0-9.
+		 * Radio attenuation affects power level 4 times as much as baseband.
 		 */
-		while (baseband_attenuation < 0 && radio_attenuation > 0) {
-			radio_attenuation--;
-			baseband_attenuation += 4;
-		}
-		/* adjust maximum values */
-		while (baseband_attenuation > 11 && radio_attenuation < 9) {
-			baseband_attenuation -= 4;
-			radio_attenuation++;
-		}
-		if (radio_attenuation < 0)
+		if (radio_attenuation < 0) {
+			baseband_attenuation -= (4 * -radio_attenuation);
 			radio_attenuation = 0;
+		} else if (radio_attenuation > 9) {
+			baseband_attenuation += (4 * (radio_attenuation - 9));
+			radio_attenuation = 9;
+		}
+		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
 
-		txpower = bcm->current_core->radio->txpower[2];
-		if ((bcm->current_core->radio->version == 0x2050) &&
-		    !((bcm->current_core->radio->revision > 2) &&
-		      (bcm->current_core->radio->revision < 6))) {
+		txpower = radio->txpower[2];
+		if ((radio->version == 0x2050) &&
+		    !((radio->revision > 2) && (radio->revision < 6))) {
 			if (radio_attenuation <= 1) {
 				if (txpower == 0) {
 					txpower = 3;
@@ -1814,6 +1814,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 				}
 			}
 		}
+		radio->txpower[2] = txpower;
 		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
 		radio_attenuation = limit_value(radio_attenuation, 0, 9);
 
@@ -1825,6 +1826,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		bcm43xx_radio_unlock(bcm);
 		bcm43xx_phy_unlock(bcm, phylock_flags);
 		break;
+	}
 	default:
 		assert(0);
 	}
