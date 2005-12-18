@@ -42,7 +42,7 @@
 /* Force antenna 1. */
 #define BCM43xx_RADIO_TXANTENNA_1		1
 /* Use the RX antenna, that was selected for the most recently
- * received food PLCP header.
+ * received good PLCP header.
  */
 #define BCM43xx_RADIO_TXANTENNA_LASTPLCP	3
 #define BCM43xx_RADIO_TXANTENNA_DEFAULT		BCM43xx_RADIO_TXANTENNA_LASTPLCP
