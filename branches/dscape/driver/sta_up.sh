@@ -1,7 +1,17 @@
 #!/bin/bash
 
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
-	echo "Usage: $0 wlan0 sta0 192.168.1.101 /etc/wpa_supplicant.conf"
+	echo "$0, an ugly script to configure and bring up a STA (802.11 station)"
+	echo "device for the linux devicescape 802.11 stack."
+	echo
+	echo "Usage:"
+	echo "$0 [ wlan_device  sta_device  local_ip  wpasupplicant_config ]"
+	echo
+	echo "Examples:"
+	echo "Run with default parameters:  $0"
+	echo "Manually define parameters:   $0 wlan0 sta0 192.168.1.1 ./wpasupp.conf"
+	echo
+	echo "Default parameters are:  $0 wlan0 sta0 192.168.1.101 /etc/wpa_supplicant.conf"
 	exit 1
 fi
 
