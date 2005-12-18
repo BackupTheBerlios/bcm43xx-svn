@@ -340,6 +340,10 @@ static const struct file * find_file(FILE *fd)
 			printf("  filename :  %s\n", files[i].name);
 			printf("  version  :  %s\n", files[i].version);
 			printf("  MD5      :  %s\n\n", files[i].md5);
+			if (files[i].flags & MISSING_INITVAL_80211_A) {
+				printf("WARNING! This firmware doesn't include support for 802.11a cards.\n");
+				printf("WARNING! Use this firmware only for 802.11b/g cards.\n\n");
+			}
 			return &(files[i]);
 		}
 	}
