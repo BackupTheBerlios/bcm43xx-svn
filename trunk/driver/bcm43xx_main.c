@@ -954,18 +954,18 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO0);
 	if (value == 0x0000)
 		value = 0xFFFF;
-	bcm->sprom.wl0gpio0 = (value & 0x00FF);
+	bcm->sprom.wl0gpio0 = value & 0x00FF;
 	bcm->sprom.wl0gpio1 = (value & 0xFF00) >> 8;
 	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO2);
 	if (value == 0x0000)
 		value = 0xFFFF;
-	bcm->sprom.wl0gpio2 = (value & 0x00FF);
+	bcm->sprom.wl0gpio2 = value & 0x00FF;
 	bcm->sprom.wl0gpio3 = (value & 0xFF00) >> 8;
 
 	/* maxpower */
 	value = sprom_read(bcm, BCM43xx_SPROM_MAXPWR);
-	bcm->sprom.maxpower_aphy = (value & 0x00FF);
-	bcm->sprom.maxpower_bgphy = (value & 0xFF00) >> 8;
+	bcm->sprom.maxpower_aphy = (value & 0xFF00) >> 8;
+	bcm->sprom.maxpower_bgphy = value & 0x00FF;
 
 	/* pa1b* */
 	value = sprom_read(bcm, BCM43xx_SPROM_PA1B0);
@@ -977,7 +977,7 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 
 	/* idle tssi target */
 	value = sprom_read(bcm, BCM43xx_SPROM_IDL_TSSI_TGT);
-	bcm->sprom.idle_tssi_tgt_aphy = (value & 0x00FF);
+	bcm->sprom.idle_tssi_tgt_aphy = value & 0x00FF;
 	bcm->sprom.idle_tssi_tgt_bgphy = (value & 0xFF00) >> 8;
 
 	/* boardflags */
@@ -990,8 +990,9 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	value = sprom_read(bcm, BCM43xx_SPROM_ANTENNA_GAIN);
 	if (value == 0x0000 || value == 0xFFFF)
 		value = 0x0202;
-	bcm->sprom.antennagain_aphy = (value & 0x00FF);
-	bcm->sprom.antennagain_bgphy = (value & 0xFF00) >> 8;
+	/* convert values to Q5.2 */
+	bcm->sprom.antennagain_aphy = ((value & 0xFF00) >> 8) * 4;
+	bcm->sprom.antennagain_bgphy = (value & 0x00FF) * 4;
 
 	/* SPROM version, crc8 */
 	value = sprom_read(bcm, BCM43xx_SPROM_VERSION);
