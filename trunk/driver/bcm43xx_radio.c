@@ -1396,32 +1396,38 @@ void bcm43xx_radio_set_txpower_a(struct bcm43xx_private *bcm, u16 txpower)
 }
 
 void bcm43xx_radio_set_txpower_bg(struct bcm43xx_private *bcm,
-                                 u16 baseband_attenuation, u16 attenuation,
+                                 u16 baseband_attenuation, u16 radio_attenuation,
 			         u16 txpower)
 {
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+
 	if (baseband_attenuation == 0xFFFF)
-		baseband_attenuation = bcm->current_core->radio->txpower[0];
+		baseband_attenuation = radio->txpower[0];
 	else
-		bcm->current_core->radio->txpower[0] = baseband_attenuation;
-	if (attenuation == 0xFFFF)
-		attenuation = bcm->current_core->radio->txpower[1];
+		radio->txpower[0] = baseband_attenuation;
+	if (radio_attenuation == 0xFFFF)
+		radio_attenuation = radio->txpower[1];
 	else
-		baseband_attenuation = attenuation;
+		radio->txpower[1] = radio_attenuation;
 	if (txpower == 0xFFFF)
-		txpower = bcm->current_core->radio->txpower[2];
+		txpower = radio->txpower[2];
 	else
-		bcm->current_core->radio->txpower[2] = txpower;
+		radio->txpower[2] = txpower;
+
+	assert(/*baseband_attenuation >= 0 &&*/ baseband_attenuation <= 11);
+	assert(/*radio_attenuation >= 0 &&*/ radio_attenuation <= 9);
+	assert(/*txpower >= 0 &&*/ txpower <= 7);
 
 	bcm43xx_phy_set_baseband_attenuation(bcm, baseband_attenuation);
-	bcm43xx_radio_write16(bcm, 0x0043, attenuation);
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0064, attenuation);
-	if (bcm->current_core->radio->version == 0x2050) {
+	bcm43xx_radio_write16(bcm, 0x0043, radio_attenuation);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0064, radio_attenuation);
+	if (radio->version == 0x2050) {
 		bcm43xx_radio_write16(bcm, 0x0052,
 		                      (bcm43xx_radio_read16(bcm, 0x0052) & 0xFF8F)
 				       | (txpower << 4));
 	}
-
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G)
+	if (phy->type == BCM43xx_PHYTYPE_G)
 		bcm43xx_phy_lo_adjust(bcm, 0);
 }
 
