@@ -24,7 +24,7 @@ static const struct file {
 		.version     = "3.30.15.p3 (3.1.1b2)",
 		.md5         = "a8275cc50107a13b5be15d067b2245a0",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x42550,
 		.uc2_pos     = 0x45630,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x493bc,  .uc4_length  = 0x44a0,
@@ -37,7 +37,7 @@ static const struct file {
 		.version     = "3.30.15.p3 (3.1.2b3)",
 		.md5         = "55134c1298abaa85f190331f016d4d36",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x42c24,
 		.uc2_pos     = 0x45d04,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x49a90,  .uc4_length  = 0x44a0,
@@ -50,7 +50,7 @@ static const struct file {
 		.version     = "3.30.15.p7 (3.2)",
 		.md5         = "e74e8d2df2e4eb97e28602f3b2dd4647",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x40efc,
 		.uc2_pos     = 0x43fdc,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x47d68,  .uc4_length  = 0x44a0,
@@ -75,7 +75,7 @@ static const struct file {
 		.version     = "3.50.37.p4 (3.4.3f1)",			/* 09/29/2004 */
 		.md5         = "c672b8c218c5dc4a55060bdfa9f58a69",
 		.flags       = BYTE_ORDER_BIG_ENDIAN | 
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x4f378,
 		.uc2_pos     = 0x52e60,  .uc2_length  = 0x3d30,
 		.uc4_pos     = 0x56b94,  .uc4_length  = 0x45c8,
@@ -136,7 +136,7 @@ static const struct file {
 		.version     = "3.90.34.0.p11 (400.17)",	       /* 09/13/2005 (??) */
 		.md5         = "ca0f34df2f0bfb8b5cfd83b5848d2bf5",
 		.flags       = BYTE_ORDER_BIG_ENDIAN | 
-		               SUPPORT_INCOMPLETE,
+		               MISSING_INITVAL_80211_A,
 		.iv_pos      = 0x4ff2c,                                /* A-PHY init vals empty */
 		.uc2_pos     = 0x5181c,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x55764,  .uc4_length  = 0x4df0,
@@ -149,7 +149,7 @@ static const struct file {
 		.version     = "3.90.34.0.p11 (400.17)",
 		.md5         = "dc3a69aac95c68fe8edc760e39bbb2c9",
 		.flags       = BYTE_ORDER_BIG_ENDIAN | 
-		               SUPPORT_INCOMPLETE,
+		               MISSING_INITVAL_80211_A,
 		.iv_pos      = 0x50efc,                                /* A-PHY init vals empty */
 		.uc2_pos     = 0x527ec,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x56734,  .uc4_length  = 0x4df0,
@@ -162,7 +162,7 @@ static const struct file {
 		.version     = "3.90.34.0.p13 (401.2)",                /* 07/10/2005 */
 		.md5         = "6ecf38e5ab6997c7ec483c0d637f5c68",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
-		               SUPPORT_INCOMPLETE,
+		               MISSING_INITVAL_80211_A,
 		.iv_pos      = 0x50fcc,                                /* A-PHY init vals empty */
 		.uc2_pos     = 0x528bc,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x56804,  .uc4_length  = 0x4df0,
@@ -175,7 +175,7 @@ static const struct file {
 		.version     = "3.90.34.0.p16 (404.2)",
 		.md5         = "7200d1aef5f413ebc811046d068b40dc",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
-		               SUPPORT_INCOMPLETE,
+		               MISSING_INITVAL_80211_A,
 		.iv_pos      = 0x511ec,                                /* A-PHY init vals empty */
 		.uc2_pos     = 0x52adc,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x56a24,  .uc4_length  = 0x4df0,
@@ -188,7 +188,7 @@ static const struct file {
 		.version     = "3.90.34.0.p16 (404.2)",
 		.md5         = "86cc708e8df3b035a1dbea41ac4eb7d2",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
-		               SUPPORT_INCOMPLETE,
+		               MISSING_INITVAL_80211_A,
 		.iv_pos      = 0x5021c,                                /* A-PHY init vals empty */
 		.uc2_pos     = 0x51b0c,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x55a54,  .uc4_length  = 0x4df0,
@@ -200,21 +200,20 @@ static const struct file {
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.8.0",                             /* 10/04/2002 */ 
 		.md5         = "288923b401e87ef76b7ae2652601ee47",
-		.flags       = SUPPORT_IMPOSSIBLE,                     /* file differs from later ones */
+		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
 	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.53.6",                            /* 04/28/2003 */ 
 		.md5         = "b43c593fd7c2a47cdc40580fe341f674",
-		.flags       = SUPPORT_IMPOSSIBLE,                     /* file differs from later ones */
+		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
 	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.20.23.0",                            /* 06/13/2003 */ 
 		.md5         = "1b1cf5e962c15abca83d1ef2b3906e2f",     /* pcm5 not available, driver is too old */
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN | 
-		               INIT_VAL_08_MISSING | 
-		               SUPPORT_INCOMPLETE,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x2a1d0,
 		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3da8,
 		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4470,
@@ -226,7 +225,7 @@ static const struct file {
 		.version     = "3.30.15.0",                            /* 07/17/2003 */ 
 		.md5         = "ebf36d658d0da5b1ea667fa403919c26", 
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN | 
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x2c658,
 		.uc2_pos     = 0x2f738,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x334c8,  .uc4_length  = 0x44a0,
@@ -491,7 +490,7 @@ static const struct file {
 		.version     = "3.31.16.0 ?", /*FIXME: version correct? */
 		.md5         = "31e6cac8a8129bf8f91291293e017329",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       INIT_VAL_08_MISSING,
+			       MISSING_INITVAL_08,
 		.iv_pos      = 0x40,
 		.uc2_pos     = 0x3120,   .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x6eac,   .uc4_length  = 0x44a0,
@@ -528,7 +527,7 @@ static const struct file {
 		.version     = "3.31.15.0",                            /* 07/28/2003 */
 		.md5         = "a85af65b5ae1d64ee11eab714faab843",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x32270,
 		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
@@ -541,7 +540,7 @@ static const struct file {
 		.version     = "3.31.15.0",                            /* 07/28/2003 */
 		.md5         = "98dd50a95b02c8bcb3725c770df81dfc",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x32270,
 		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
@@ -638,7 +637,7 @@ static const struct file {
 		.version     = "3.31.16.0",                            /* 08/06/2003 */
 		.md5         = "463633e7bf0efc6c0f8eac2514a71024",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x32270,
 		.uc2_pos     = 0x35350,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x390dc,  .uc4_length  = 0x44a0,
@@ -651,7 +650,7 @@ static const struct file {
 		.version     = "3.31.16.0",                            /* 06/08/2003 */
 		.md5         = "22b90e4cbeee45ad7f78ff536c65712a",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x38020,
 		.uc2_pos     = 0x3b100,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x3ee8c,  .uc4_length  = 0x44a0,
@@ -664,7 +663,7 @@ static const struct file {
 		.version     = "3.31.16.0",                            /* 06/08/2003 */
 		.md5         = "dfce35a8b5cb6e53e1ab75342c7e7194",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x38020,
 		.uc2_pos     = 0x3b100,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x3ee8c,  .uc4_length  = 0x44a0,
@@ -690,7 +689,7 @@ static const struct file {
 		.version     = "3.31.16.0",                            /* 08/06/2003 */
 		.md5         = "c3e663cb78b2fc299088de69fc11a9a9",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               INIT_VAL_08_MISSING,
+		               MISSING_INITVAL_08,
 		.iv_pos      = 0x317b0,
 		.uc2_pos     = 0x34890,  .uc2_length  = 0x3d88,
 		.uc4_pos     = 0x3861c,  .uc4_length  = 0x44a0,
