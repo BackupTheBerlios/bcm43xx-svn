@@ -677,6 +677,7 @@ bcm43xx_radio_interference_mitigation_enable(struct bcm43xx_private *bcm,
 		bcm43xx_phy_write(bcm, 0x04AC, 0x32F5);
 		break;
 	case BCM43xx_RADIO_INTERFMODE_MANUALWLAN:
+FIXME();//FIXME: This is broken for me. -mb
 		if (bcm43xx_phy_read(bcm, 0x0033) == 0x0800)
 			break;
 
