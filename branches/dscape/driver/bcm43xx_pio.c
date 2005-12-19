@@ -361,7 +361,7 @@ static void cancel_transfers(struct bcm43xx_pioqueue *queue)
 {
 	struct bcm43xx_pio_txpacket *packet, *tmp_packet;
 
-	netif_tx_disable(queue->bcm->net_dev);
+	ieee80211_netif_oper(queue->bcm->net_dev, NETIF_DETACH);
 	assert(queue->bcm->shutting_down);
 	cancel_delayed_work(&queue->txwork);
 	flush_workqueue(queue->bcm->workqueue);
@@ -466,7 +466,7 @@ int pio_transfer_txb(struct bcm43xx_pioqueue *queue,
 
 	/* Suspend TX, if we are out of packets in the "free" queue. */
 	if (unlikely(list_empty(&queue->txfree))) {
-		netif_stop_queue(queue->bcm->net_dev);
+		ieee80211_netif_oper(queue->bcm->net_dev, NETIF_STOP);
 		queue->tx_suspended = 1;
 	}
 
@@ -504,7 +504,7 @@ bcm43xx_pio_handle_xmitstatus(struct bcm43xx_private *bcm,
 	free_txpacket(packet);
 	if (unlikely(queue->tx_suspended)) {
 		queue->tx_suspended = 0;
-		netif_wake_queue(queue->bcm->net_dev);
+		ieee80211_netif_oper(queue->bcm->net_dev, NETIF_WAKE);
 	}
 
 	/* If there are packets on the txqueue,

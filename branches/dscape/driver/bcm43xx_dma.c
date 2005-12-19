@@ -79,7 +79,7 @@ int request_slot(struct bcm43xx_dmaring *ring)
 	 * if we are running low on free slots.
 	 */
 	if (unlikely(free_slots(ring) < ring->suspend_mark)) {
-		netif_stop_queue(ring->bcm->net_dev);
+		ieee80211_netif_oper(ring->bcm->net_dev, NETIF_STOP);
 		ring->suspended = 1;
 	}
 
@@ -100,7 +100,7 @@ void return_slot(struct bcm43xx_dmaring *ring, int slot)
 	if (unlikely(ring->suspended)) {
 		if (free_slots(ring) >= ring->resume_mark) {
 			ring->suspended = 0;
-			netif_wake_queue(ring->bcm->net_dev);
+			ieee80211_netif_oper(ring->bcm->net_dev, NETIF_WAKE);
 		}
 	}
 }

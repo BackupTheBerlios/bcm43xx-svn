@@ -3344,7 +3344,7 @@ static void bcm43xx_chip_reset(void *_bcm)
 	struct bcm43xx_private *bcm = _bcm;
 	int err;
 
-	netif_tx_disable(bcm->net_dev);
+	ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
 	tasklet_disable(&bcm->isr_tasklet);
 	bcm43xx_free_board(bcm);
 	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
@@ -3353,7 +3353,7 @@ static void bcm43xx_chip_reset(void *_bcm)
 		printk(KERN_ERR PFX "Chip reset failed!\n");
 		return;
 	}
-	netif_wake_queue(bcm->net_dev);
+	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
 }
 
 /* Call this function on _really_ fatal error conditions.
@@ -5046,7 +5046,7 @@ static int bcm43xx_suspend(struct pci_dev *pdev, pm_message_t state)
 		try_to_shutdown = 1;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
-	netif_device_detach(net_dev);
+	ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
 	if (try_to_shutdown) {
 		err = bcm43xx_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
 		if (unlikely(err)) {
@@ -5088,7 +5088,7 @@ static int bcm43xx_resume(struct pci_dev *pdev)
 		return err;
 	}
 
-	netif_device_attach(net_dev);
+	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
 
 	dprintk(KERN_INFO PFX "Device resumed.\n");
 
