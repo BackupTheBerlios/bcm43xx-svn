@@ -37,13 +37,14 @@ typedef unsigned char byte;
 #define MISSING_INITVAL_08       0x10  /* initval 8 is missing */
 #define MISSING_INITVAL_80211_A  0x20  /* initvals 3,7,9,10 (802.11a cards) are empty */
 
+#define FIRMWARE_UCODE_OFFSET    100
 #define FIRMWARE_UNDEFINED       0
 #define FIRMWARE_PCM_4           4
 #define FIRMWARE_PCM_5           5
-#define FIRMWARE_UCODE_2         102
-#define FIRMWARE_UCODE_4         104
-#define FIRMWARE_UCODE_5         105
-#define FIRMWARE_UCODE_11        111
+#define FIRMWARE_UCODE_2         (FIRMWARE_UCODE_OFFSET + 2)
+#define FIRMWARE_UCODE_4         (FIRMWARE_UCODE_OFFSET + 4)
+#define FIRMWARE_UCODE_5         (FIRMWARE_UCODE_OFFSET + 5)
+#define FIRMWARE_UCODE_11        (FIRMWARE_UCODE_OFFSET + 11)
 
 
 #define fwcutter_stringify_1(x)	#x
@@ -211,7 +212,7 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 	case FIRMWARE_UCODE_5:
 	case FIRMWARE_UCODE_11:
 		snprintf(outfile, sizeof(fwname), "bcm43xx_microcode%i%s.fw", 
-			 fwtype - 100, cmdargs.postfix);
+			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
 		break;
 	case FIRMWARE_PCM_4:
 	case FIRMWARE_PCM_5:
