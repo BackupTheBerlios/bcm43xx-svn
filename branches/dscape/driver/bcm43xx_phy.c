@@ -1789,6 +1789,15 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		} else if (radio_attenuation > 9) {
 			baseband_attenuation += (4 * (radio_attenuation - 9));
 			radio_attenuation = 9;
+		} else {
+			while (baseband_attenuation < 0 && radio_attenuation > 0) {
+				baseband_attenuation += 4;
+				radio_attenuation--;
+			}
+			while (baseband_attenuation > 11 && radio_attenuation < 9) {
+				baseband_attenuation -= 4;
+				radio_attenuation++;
+			}
 		}
 		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
 
