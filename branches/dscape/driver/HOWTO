@@ -1,0 +1,83 @@
+****                                    ****
+****  HOWTO get bcm43xx-dscape running  ****
+****                                    ****
+
+This is a port of the bcm43xx driver for the devicescape ieee802.11
+stack. The devicescape ieee802.11 stack is an advanced out-of-mainline
+802.11 protocol module.
+I will call the "devicescape ieee802.11 stack" simply "dscape" in the
+following text.
+
+
+*** Setting up the bcm43xx driver with dscape is currently non-trivial,
+*** as several modifications to the kernel and the userland
+*** wpa_supplicant tool are required. We are working on it...
+
+
+1)  You need to patch the kernel with latest ieee80211-devicescape patchset:
+    ftp://ftp.kernel.org/pub/linux/kernel/people/jbenc/ieee80211-devicescape-XXXXXX.tar.bz2
+    These patches are diffed against the netdev-2.6 GIT tree. See
+    the file GIT-ORIGIN for more information.
+    But these patches usually also apply (with some hunk offsets) to
+    latest mainline kernels.
+    Patch the kernel, compile and install it.
+    When configuring, enable "Networking/Generic IEEE 802.11 Networking Stack"
+    Reboot.
+    If you configured dscape as modules, load the dscape modules:
+    modprobe rate_control
+    modprobe 80211
+    It is important to load rate_control before 80211. (Yes, it should be
+    done automatically... Working on it.)
+
+2)  Add dscape support to wpa_supplicant:
+    Download latest stable version of wpa_supplicant from:
+    http://hostap.epitest.fi/
+    (As of this writing, latest stable is 0.4.7)
+    Download the corresponding dscape-support patch from:
+    ftp://ftp.kernel.org/pub/linux/kernel/people/jbenc/ieee80211-utils/wpa_supplicant/wpa_supplicant-0.4.7_dscape-02.patch
+    Patch wpa_supplicant (No, I won't describe the patching
+    process here ;) ), compile and install it.
+
+3)  Set up a wpa_supplicant config file in /etc/wpa_supplicant.conf
+    Here is an example for an AES WPA encrypted network:
+
+	# WPA AES encryption
+	ctrl_interface=/var/run/wpa_supplicant
+	network={
+		ssid="ACCESSPOINT_SSID"
+		key_mgmt=WPA-PSK
+		proto=WPA
+		pairwise=CCMP TKIP
+		group=CCMP TKIP
+		psk="MY PASSPHRASE"
+		priority=3
+	}
+
+4)  Download and compile the bcm43xx-dscape driver.
+    Snapshots can be downloaded from:
+    ftp://ftp.berlios.de/pub/bcm43xx/snapshots/bcm43xx-dscape-XXXXXXXX.tar.bz2
+    UnTar the archive and type make to build the driver.
+
+5)  Take a bottle of your favourite beer, open it and take a swallow.
+
+6)  Now it's time to bring the driver up.
+    Do insmod ./bcm43xx.ko to load the driver.
+    There is an ugly bash script to bring the driver up after insmod.
+    It's found in the bcm43xx-dscape package and is called "sta_up.sh"
+    Call ./sta_up.sh --help to get some usage information.
+    It may suffice to call ./sta_up.sh without any parameters. See
+    the help. Default parameters, which are used when called without parameters,
+    are explained there.
+
+7)  If you want to access the internet, make sure your default route
+    is correctly set up with your gateway's IP:
+    route add default gw 192.168.xxx.xxx
+
+8)  Take another swallow from your bottle of beer and test if it works:
+    ping www.kernel.org
+
+9)  If it works, drink the rest of your beer. Otherwise read this HOWTO again,
+    and again and again. Complain to bcm43xx-dev@lists.berlios.de, if it still
+    does not work.
+
+
