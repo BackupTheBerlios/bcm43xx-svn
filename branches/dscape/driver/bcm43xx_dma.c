@@ -872,6 +872,8 @@ static inline int dma_tx(struct bcm43xx_dmaring *ring,
 	assert(irqs_disabled());
 	spin_lock(&ring->lock);
 	err = dma_tx_fragment(ring, skb, ctl);
+	if (likely(!err))
+		ring->nr_tx_packets++;
 	spin_unlock(&ring->lock);
 
 	return err;
