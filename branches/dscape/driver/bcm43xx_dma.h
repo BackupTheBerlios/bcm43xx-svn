@@ -91,10 +91,6 @@
 #define BCM43xx_DMA1_RXBUFFERSIZE	(2304 + 100)
 #define BCM43xx_DMA4_RXBUFFERSIZE	16
 #define BCM43xx_DMA_RX_COPYTHRESHOLD	256
-/* Suspend the tx queue, if less than this percent slots are free. */
-#define BCM43xx_TXSUSPEND_PERCENT	20
-/* Resume the tx queue, if more than this percent slots are free. */
-#define BCM43xx_TXRESUME_PERCENT	50
 
 
 struct sk_buff;
@@ -138,9 +134,8 @@ struct bcm43xx_dmaring {
 	int used_slots;
 	/* Currently used slot in the ring. */
 	int current_slot;
-	/* Marks to suspend/resume the queue. */
-	int suspend_mark;
-	int resume_mark;
+	/* Total number of packets sent. Statistics only. */
+	unsigned int nr_tx_packets;
 	/* Frameoffset in octets. */
 	u32 frameoffset;
 	/* Descriptor buffer size. */

@@ -75,14 +75,6 @@ int request_slot(struct bcm43xx_dmaring *ring)
 	ring->current_slot = slot;
 	ring->used_slots++;
 
-	/* Check the number of available slots and suspend TX,
-	 * if we are running low on free slots.
-	 */
-	if (unlikely(free_slots(ring) < ring->suspend_mark)) {
-		ieee80211_netif_oper(ring->bcm->net_dev, NETIF_STOP);
-		ring->suspended = 1;
-	}
-
 	return slot;
 }
 
@@ -93,16 +85,6 @@ void return_slot(struct bcm43xx_dmaring *ring, int slot)
 	assert(ring->tx);
 
 	ring->used_slots--;
-
-	/* Check if TX is suspended and check if we have
-	 * enough free slots to resume it again.
-	 */
-	if (unlikely(ring->suspended)) {
-		if (free_slots(ring) >= ring->resume_mark) {
-			ring->suspended = 0;
-			ieee80211_netif_oper(ring->bcm->net_dev, NETIF_WAKE);
-		}
-	}
 }
 
 static inline
@@ -512,9 +494,6 @@ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_private *bcm,
 	spin_lock_init(&ring->lock);
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
-	ring->suspend_mark = ring->nr_slots * BCM43xx_TXSUSPEND_PERCENT / 100;
-	ring->resume_mark = ring->nr_slots * BCM43xx_TXRESUME_PERCENT / 100;
-	assert(ring->suspend_mark < ring->resume_mark);
 	ring->mmio_base = dma_controller_base;
 	if (tx) {
 		ring->tx = 1;
@@ -870,12 +849,14 @@ static inline int dma_tx(struct bcm43xx_dmaring *ring,
 	int err;
 
 	assert(ring->tx);
-	if (unlikely(free_slots(ring) < 2)) {
-		/* The queue should be stopped,
-		 * if we are low on free slots.
-		 * If this ever triggers, we have to lower the suspend_mark.
+
+#define SLOTS_PER_PACKET  2
+	if (unlikely(free_slots(ring) < SLOTS_PER_PACKET)) {
+		/* This should never trigger, as the ieee80211 stack
+		 * recognizes if the device queue is full and does
+		 * not send data anymore.
 		 */
-		dprintkl(KERN_ERR PFX "Out of DMA descriptor slots!\n");
+		printk(KERN_ERR PFX "DMA queue overflow\n");
 		return -ENOMEM;
 	}
 
@@ -954,9 +935,9 @@ void bcm43xx_dma_get_tx_stats(struct bcm43xx_private *bcm,
 
 	ring = bcm->current_core->dma->tx_ring1;
 	data = &(stats->data[0]);
-	data->len = ring->used_slots;
-	data->limit = ring->nr_slots;
-	data->count = 0;//FIXME?
+	data->len = ring->used_slots / SLOTS_PER_PACKET;
+	data->limit = ring->nr_slots / SLOTS_PER_PACKET;
+	data->count = ring->nr_tx_packets;
 }
 
 static inline
