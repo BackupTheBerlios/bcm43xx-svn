@@ -1895,10 +1895,10 @@ static inline void handle_irq_noise(struct bcm43xx_private *bcm)
 	/* Get the noise samples. */
 	assert(bcm->noisecalc.nr_samples <= 8);
 	i = bcm->noisecalc.nr_samples;
-	assert(noise[0] < sizeof(radio->nrssi_lt));
-	assert(noise[1] < sizeof(radio->nrssi_lt));
-	assert(noise[2] < sizeof(radio->nrssi_lt));
-	assert(noise[3] < sizeof(radio->nrssi_lt));
+	noise[0] = limit_value(noise[0], 0, ARRAY_SIZE(radio->nrssi_lt) - 1);
+	noise[1] = limit_value(noise[1], 0, ARRAY_SIZE(radio->nrssi_lt) - 1);
+	noise[2] = limit_value(noise[2], 0, ARRAY_SIZE(radio->nrssi_lt) - 1);
+	noise[3] = limit_value(noise[3], 0, ARRAY_SIZE(radio->nrssi_lt) - 1);
 	bcm->noisecalc.samples[i][0] = radio->nrssi_lt[noise[0]];
 	bcm->noisecalc.samples[i][1] = radio->nrssi_lt[noise[1]];
 	bcm->noisecalc.samples[i][2] = radio->nrssi_lt[noise[2]];
