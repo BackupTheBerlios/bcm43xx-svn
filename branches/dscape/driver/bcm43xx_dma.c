@@ -1025,6 +1025,9 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 	u32 status;
 	u16 descptr;
 	int slot, current_slot;
+#ifdef BCM43xx_DEBUG
+	int used_slots = 0;
+#endif
 
 	assert(!ring->tx);
 	assert(irqs_disabled());
@@ -1035,22 +1038,14 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 	current_slot = descptr / sizeof(struct bcm43xx_dmadesc);
 	assert(current_slot >= 0 && current_slot < ring->nr_slots);
 
-#ifdef BCM43xx_DEBUG
-	{
-		int used_slots;
-
-		if (current_slot >= ring->current_slot)
-			used_slots = current_slot - ring->current_slot + 1;
-		else
-			used_slots = ring->nr_slots - ring->current_slot + current_slot + 1;
-		if (used_slots > ring->max_used_slots)
-			ring->max_used_slots = used_slots;
-	}
-#endif /* BCM43xx_DEBUG */
-
 	slot = ring->current_slot;
-	for ( ; slot != current_slot; slot = next_slot(ring, slot))
+	for ( ; slot != current_slot; slot = next_slot(ring, slot)) {
 		dma_rx(ring, &slot);
+#ifdef BCM43xx_DEBUG
+		if (++used_slots > ring->max_used_slots)
+			ring->max_used_slots = used_slots;
+#endif
+	}
 	bcm43xx_write32(ring->bcm,
 			ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
 			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
