@@ -614,10 +614,10 @@ static void bcm43xx_destroy_dmaring(struct bcm43xx_dmaring *ring)
 	if (!ring)
 		return;
 
-	dprintk(KERN_INFO PFX "DMA 0x%04x (%s) max used slots: %d\n",
+	dprintk(KERN_INFO PFX "DMA 0x%04x (%s) max used slots: %d/%d\n",
 		ring->mmio_base,
 		(ring->tx) ? "TX" : "RX",
-		ring->max_used_slots);
+		ring->max_used_slots, ring->nr_slots);
 	/* Device IRQs are disabled prior entering this function,
 	 * so no need to take care of concurrency with rx handler stuff.
 	 */

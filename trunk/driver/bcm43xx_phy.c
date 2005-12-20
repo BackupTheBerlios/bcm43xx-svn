@@ -1326,17 +1326,6 @@ void bcm43xx_phy_lo_g_state(struct bcm43xx_private *bcm,
 
 	/* Note that in_pair and out_pair can point to the same pair. Be careful. */
 
-#ifdef BCM43xx_DEBUG
-	{
-		/* Revert the poison values. We must begin at 0. */
-		if (lowest_transition.low == -20) {
-			assert(lowest_transition.high == -20);
-			lowest_transition.low = 0;
-			lowest_transition.high = 0;
-		}
-	}
-#endif /* BCM43xx_DEBUG */
-
 	bcm43xx_lo_write(bcm, &lowest_transition);
 	lowest_deviation = bcm43xx_phy_lo_g_singledeviation(bcm, r27);
 	do {
@@ -1425,7 +1414,7 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 	u8 oldchannel;
 
 	//XXX: What are these?
-	u8 r27, r31;
+	u8 r27 = 0, r31;
 
 	oldchannel = bcm->current_core->radio->channel;
 	/* Setup */
@@ -1478,17 +1467,6 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 		bcm43xx_phy_lo_g_measure_txctl2(bcm);
 	bcm43xx_phy_write(bcm, 0x080F, 0x8078);
 
-#ifdef BCM43xx_DEBUG
-	{
-		/* Poison all LOpairs. */
-		for (i = 0; i < BCM43xx_LO_COUNT; i++) {
-			tmp_control = bcm->current_core->phy->_lo_pairs + i;
-			tmp_control->high = -20;
-			tmp_control->low = -20;
-		}
-	}
-#endif /* BCM43xx_DEBUG */
-
 	/* Measure */
 	control.low = 0;
 	control.high = 0;
@@ -1501,11 +1479,11 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 				control.high = 0;
 			} else if (((i % 2 == 1) && (oldi % 2 == 1)) ||
 				  ((i % 2 == 0) && (oldi % 2 == 0))) {
-				control.low = bcm43xx_get_lopair(phy, oldi, 0)->low;
-				control.high = bcm43xx_get_lopair(phy, oldi, 0)->high;
+				tmp_control = bcm43xx_get_lopair(phy, oldi, 0);
+				memcpy(&control, tmp_control, sizeof(control));
 			} else {
-				control.low = bcm43xx_get_lopair(phy, 3, 0)->low;
-				control.high = bcm43xx_get_lopair(phy, 3, 0)->high;
+				tmp_control = bcm43xx_get_lopair(phy, 3, 0);
+				memcpy(&control, tmp_control, sizeof(control));
 			}
 		}
 		/* Loop over each possible BasebandAttenuation/2 */
@@ -1513,19 +1491,21 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 			if (bcm43xx_is_initializing(bcm)) {
 				tmp = i * 2 + j;
 				r27 = 0;
+				r31 = 0;
 				if (tmp > 14) {
 					r31 = 1;
 					if (tmp > 17)
 						r27 = 1;
 					if (tmp > 19)
 						r27 = 2;
-				} else
-					r31 = 0;
+				}
 			} else {
-				control.low = bcm43xx_get_lopair(phy, i, j * 2)->low;
-				control.high = bcm43xx_get_lopair(phy, i, j * 2)->high;
+				tmp_control = bcm43xx_get_lopair(phy, i, j * 2);
+				if (!tmp_control->used)
+					continue;
+				memcpy(&control, tmp_control, sizeof(control));
 				r27 = 3;
-				r31 = 1;
+				r31 = 0;
 			}
 			bcm43xx_radio_write16(bcm, 0x43, i);
 			bcm43xx_radio_write16(bcm, 0x52,
@@ -1549,9 +1529,9 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 		/* Loop over each possible BasebandAttenuation/2 */
 		for (j = 0; j < 4; j++) {
 			if (bcm43xx_is_initializing(bcm)) {
-				control.low = bcm43xx_get_lopair(phy, i - 9, j * 2)->low;
-				control.high = bcm43xx_get_lopair(phy, i - 9, j * 2)->high;
-				tmp = (i - 9) * 2 + j - 5;
+				tmp_control = bcm43xx_get_lopair(phy, i - 9, j * 2);
+				memcpy(&control, tmp_control, sizeof(control));
+				tmp = (i - 9) * 2 + j - 5;//FIXME: This is wrong, as the following if statement can never trigger.
 				r27 = 0;
 				r31 = 0;
 				if (tmp > 14) {
@@ -1562,10 +1542,12 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 						r27 = 2;
 				}
 			} else {
-				control.low = bcm43xx_get_lopair(phy, i - 9, j * 2)->low;
-				control.high = bcm43xx_get_lopair(phy, i - 9, j * 2)->high;
+				tmp_control = bcm43xx_get_lopair(phy, i - 9, j * 2);
+				if (!tmp_control->used)
+					continue;
+				memcpy(&control, tmp_control, sizeof(control));
 				r27 = 3;
-				r31 = 1;
+				r31 = 0;
 			}
 			bcm43xx_radio_write16(bcm, 0x43, i - 9);
 			bcm43xx_radio_write16(bcm, 0x52,

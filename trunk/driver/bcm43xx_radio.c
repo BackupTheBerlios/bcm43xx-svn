@@ -388,10 +388,10 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		}
 		break;
 	case BCM43xx_PHYTYPE_G:
-FIXME();//FIXME: Something is broken here. This is called when enabling WLAN interfmode.
-	//	 If this is done at runtime, I get an XMIT ERROR and transmission is
-	//	 broken. I guess some important register is overwritten by accident.
-	//	 The XMIT ERROR comes from the dummy_transmissions in set_gains.
+//FIXME: Something is broken here. This is called when enabling WLAN interfmode.
+//	 If this is done at runtime, I get an XMIT ERROR and transmission is
+//	 broken. I guess some important register is overwritten by accident.
+//	 The XMIT ERROR comes from the dummy_transmissions in set_gains.
 
 		backup[0] = bcm43xx_radio_read16(bcm, 0x007A);
 		backup[1] = bcm43xx_radio_read16(bcm, 0x0052);
