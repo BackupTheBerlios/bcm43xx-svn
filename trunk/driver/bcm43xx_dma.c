@@ -1070,7 +1070,7 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 
 		if (current_slot >= ring->current_slot)
 			used_slots = current_slot - ring->current_slot + 1;
-		else if (current_slot < ring->current_slot)
+		else
 			used_slots = ring->nr_slots - ring->current_slot + current_slot + 1;
 		if (used_slots > ring->max_used_slots)
 			ring->max_used_slots = used_slots;
