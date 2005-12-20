@@ -313,10 +313,11 @@ static void bcm43xx_phy_agcsetup(struct bcm43xx_private *bcm)
 
 static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	u16 i;
 
-	assert(bcm->current_core->phy->type == BCM43xx_PHYTYPE_G);
-	if (bcm->current_core->phy->rev == 1) {
+	assert(phy->type == BCM43xx_PHYTYPE_G);
+	if (phy->rev == 1) {
 		bcm43xx_phy_write(bcm, 0x0406, 0x4F19);
 		bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
 				  (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0xFC3F) | 0x0340);
@@ -330,18 +331,17 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 		for (i = 0; i < BCM43xx_ILT_ROTOR_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x2000 + i, bcm43xx_ilt_rotor[i]);
 	} else {
-		FIXME();//FIXME: 0xBA98 should be in 0-64, 0x7654 should be 6-bit!
+		/* nrssi values are signed 6-bit values. Not sure why we write 0x7654 here... */
 		bcm43xx_nrssi_hw_write(bcm, 0xBA98, (s16)0x7654);
-		
-		if (bcm->current_core->phy->rev == 2) {
+
+		if (phy->rev == 2) {
 			bcm43xx_phy_write(bcm, 0x04C0, 0x1861);
 			bcm43xx_phy_write(bcm, 0x04C1, 0x0271);
-		} else if (bcm->current_core->phy->rev > 2) {
+		} else if (phy->rev > 2) {
 			bcm43xx_phy_write(bcm, 0x04C0, 0x0098);
 			bcm43xx_phy_write(bcm, 0x04C1, 0x0070);
 			bcm43xx_phy_write(bcm, 0x04C9, 0x0080);
 		}
-
 		bcm43xx_phy_write(bcm, 0x042B, bcm43xx_phy_read(bcm, 0x042B) | 0x800);
 
 		for (i = 0; i < 64; i++)
@@ -350,24 +350,24 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 			bcm43xx_ilt_write16(bcm, 0x1800 + i, bcm43xx_ilt_noiseg2[i]);
 	}
 	
-	if (bcm->current_core->phy->rev <= 2)
+	if (phy->rev <= 2)
 		for (i = 0; i < BCM43xx_ILT_NOISESCALEG_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg1[i]);
-	else if ((bcm->current_core->phy->rev == 7) && (bcm43xx_phy_read(bcm, 0x0449) & 0x0200))
+	else if ((phy->rev == 7) && (bcm43xx_phy_read(bcm, 0x0449) & 0x0200))
 		for (i = 0; i < BCM43xx_ILT_NOISESCALEG_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg3[i]);
 	else
 		for (i = 0; i < BCM43xx_ILT_NOISESCALEG_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x1400 + i, bcm43xx_ilt_noisescaleg2[i]);
 	
-	if (bcm->current_core->phy->rev == 2)
+	if (phy->rev == 2)
 		for (i = 0; i < BCM43xx_ILT_SIGMASQR_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x5000 + i, bcm43xx_ilt_sigmasqr1[i]);
-	else if ((bcm->current_core->phy->rev > 2) && (bcm->current_core->phy->rev <= 7))
+	else if ((phy->rev > 2) && (phy->rev <= 7))
 		for (i = 0; i < BCM43xx_ILT_SIGMASQR_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x5000 + i, bcm43xx_ilt_sigmasqr2[i]);
 	
-	if (bcm->current_core->phy->rev == 1) {
+	if (phy->rev == 1) {
 		for (i = 0; i < BCM43xx_ILT_RETARD_SIZE; i++)
 			bcm43xx_ilt_write16(bcm, 0x2400 + i, bcm43xx_ilt_retard[i]);
 		for (i = 0; i < 4; i++) {
@@ -377,15 +377,14 @@ static void bcm43xx_phy_setupg(struct bcm43xx_private *bcm)
 			bcm43xx_ilt_write16(bcm, 0x5410 + i, 0x0020);
 		}
 		bcm43xx_phy_agcsetup(bcm);
-		
+
 		if ((bcm->board_vendor == PCI_VENDOR_ID_BROADCOM) &&
 		    (bcm->board_type == 0x0416) &&
 		    (bcm->board_revision == 0x0017))
 			return;
-		
+
 		bcm43xx_ilt_write16(bcm, 0x5001, 0x0002);
 		bcm43xx_ilt_write16(bcm, 0x5002, 0x0001);
-		
 	} else {
 		for (i = 0; i <= 0x2F; i++)
 			bcm43xx_ilt_write16(bcm, 0x1000 + i, 0x0820);
