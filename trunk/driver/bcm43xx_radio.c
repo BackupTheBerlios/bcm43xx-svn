@@ -388,6 +388,11 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		}
 		break;
 	case BCM43xx_PHYTYPE_G:
+FIXME();//FIXME: Something is broken here. This is called when enabling WLAN interfmode.
+	//	 If this is done at runtime, I get an XMIT ERROR and transmission is
+	//	 broken. I guess some important register is overwritten by accident.
+	//	 The XMIT ERROR comes from the dummy_transmissions in set_gains.
+
 		backup[0] = bcm43xx_radio_read16(bcm, 0x007A);
 		backup[1] = bcm43xx_radio_read16(bcm, 0x0052);
 		backup[2] = bcm43xx_radio_read16(bcm, 0x0043);
@@ -846,20 +851,20 @@ bcm43xx_radio_interference_mitigation_disable(struct bcm43xx_private *bcm,
 int bcm43xx_radio_set_interference_mitigation(struct bcm43xx_private *bcm,
 					      int mode)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	int currentmode;
 
-	if (bcm->current_core->phy->type != BCM43xx_PHYTYPE_G)
-		return -ENODEV;
-	if (bcm->current_core->phy->rev == 0)
-		return -ENODEV;
-	if (!bcm->current_core->phy->connected)
+	if ((phy->type != BCM43xx_PHYTYPE_G) ||
+	    (phy->rev == 0) ||
+	    (!phy->connected))
 		return -ENODEV;
 
-	bcm->current_core->radio->aci_wlan_automatic = 0;
+	radio->aci_wlan_automatic = 0;
 	switch (mode) {
 	case BCM43xx_RADIO_INTERFMODE_AUTOWLAN:
-		bcm->current_core->radio->aci_wlan_automatic = 1;
-		if (bcm->current_core->radio->aci_enable)
+		radio->aci_wlan_automatic = 1;
+		if (radio->aci_enable)
 			mode = BCM43xx_RADIO_INTERFMODE_MANUALWLAN;
 		else
 			mode = BCM43xx_RADIO_INTERFMODE_NONE;
@@ -872,18 +877,18 @@ int bcm43xx_radio_set_interference_mitigation(struct bcm43xx_private *bcm,
 		return -EINVAL;
 	}
 
-	currentmode = bcm->current_core->radio->interfmode;
+	currentmode = radio->interfmode;
 	if (currentmode == mode)
 		return 0;
 	if (currentmode != BCM43xx_RADIO_INTERFMODE_NONE)
 		bcm43xx_radio_interference_mitigation_disable(bcm, currentmode);
 
 	if (mode == BCM43xx_RADIO_INTERFMODE_NONE) {
-		bcm->current_core->radio->aci_enable = 0;
-		bcm->current_core->radio->aci_hw_rssi = 0;
+		radio->aci_enable = 0;
+		radio->aci_hw_rssi = 0;
 	} else
 		bcm43xx_radio_interference_mitigation_enable(bcm, mode);
-	bcm->current_core->radio->interfmode = mode;
+	radio->interfmode = mode;
 
 	return 0;
 }
