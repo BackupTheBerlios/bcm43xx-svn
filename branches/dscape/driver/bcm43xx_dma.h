@@ -87,7 +87,7 @@
 
 /* DMA engine tuning knobs */
 #define BCM43xx_TXRING_SLOTS		512
-#define BCM43xx_RXRING_SLOTS		512
+#define BCM43xx_RXRING_SLOTS		64
 #define BCM43xx_DMA1_RXBUFFERSIZE	(2304 + 100)
 #define BCM43xx_DMA4_RXBUFFERSIZE	16
 #define BCM43xx_DMA_RX_COPYTHRESHOLD	256
@@ -146,6 +146,10 @@ struct bcm43xx_dmaring {
 	u16 mmio_base;
 	u8 tx:1,	/* TRUE, if this is a TX ring. */
 	   suspended:1;	/* TRUE, if transfers are suspended on this ring. */
+#ifdef BCM43xx_DEBUG
+	/* Maximum number of used slots. */
+	int max_used_slots;
+#endif /* BCM43xx_DEBUG */
 };
 
 

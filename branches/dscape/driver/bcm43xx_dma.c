@@ -75,6 +75,11 @@ int request_slot(struct bcm43xx_dmaring *ring)
 	ring->current_slot = slot;
 	ring->used_slots++;
 
+#ifdef BCM43xx_DEBUG
+	if (ring->used_slots > ring->max_used_slots)
+		ring->max_used_slots = ring->used_slots;
+#endif /* BCM43xx_DEBUG */
+
 	return slot;
 }
 
@@ -539,6 +544,10 @@ static void bcm43xx_destroy_dmaring(struct bcm43xx_dmaring *ring)
 	if (!ring)
 		return;
 
+	dprintk(KERN_INFO PFX "DMA 0x%04x (%s) max used slots: %d\n",
+		ring->mmio_base,
+		(ring->tx) ? "TX" : "RX",
+		ring->max_used_slots);
 	/* Device IRQs are disabled prior entering this function,
 	 * so no need to take care of concurrency with rx handler stuff.
 	 */
@@ -1020,6 +1029,19 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 	descptr = (status & BCM43xx_DMA_RXSTAT_DPTR_MASK);
 	current_slot = descptr / sizeof(struct bcm43xx_dmadesc);
 	assert(current_slot >= 0 && current_slot < ring->nr_slots);
+
+#ifdef BCM43xx_DEBUG
+	{
+		int used_slots;
+
+		if (current_slot >= ring->current_slot)
+			used_slots = current_slot - ring->current_slot + 1;
+		else if (current_slot < ring->current_slot)
+			used_slots = ring->nr_slots - ring->current_slot + current_slot + 1;
+		if (used_slots > ring->max_used_slots)
+			ring->max_used_slots = used_slots;
+	}
+#endif /* BCM43xx_DEBUG */
 
 	slot = ring->current_slot;
 	for ( ; slot != current_slot; slot = next_slot(ring, slot))
