@@ -5,20 +5,19 @@ if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
 	echo "device for the linux devicescape 802.11 stack."
 	echo
 	echo "Usage:"
-	echo "$0 [ wlan_device  sta_device  local_ip  wpasupplicant_config ]"
+	echo "$0 [ wlan_device  local_ip  wpasupplicant_config ]"
 	echo
 	echo "Examples:"
 	echo "Run with default parameters:  $0"
-	echo "Manually define parameters:   $0 wlan0 sta0 192.168.1.1 ./wpasupp.conf"
+	echo "Manually define parameters:   $0 wlan0 192.168.1.1 ./wpasupp.conf"
 	echo
-	echo "Default parameters are:  $0 wlan0 sta0 192.168.1.101 /etc/wpa_supplicant.conf"
+	echo "Default parameters are:  $0 wlan0 192.168.1.101 /etc/wpa_supplicant.conf"
 	exit 1
 fi
 
 wlan_dev="$1"
-sta_dev="$2"
-ip_addr="$3"
-wpasupp_conf="$4"
+ip_addr="$2"
+wpasupp_conf="$3"
 
 if [ -z "$wlan_dev" ]; then
 	wlan_dev="wlan0"
@@ -32,6 +31,13 @@ fi
 if [ -z "$wpasupp_conf" ]; then
 	wpasupp_conf="/etc/wpa_supplicant.conf"
 fi
+
+idx=$(echo $wlan_dev | awk '{ gsub("[^0-9]", "", $0); printf($0); }')
+if [ -z "$idx" ]; then
+	echo "Invalid wlan_device parameter \"$wlan_dev\".  Example: wlan0"
+	exit 1
+fi
+sta_dev="sta$idx"
 
 function run()
 {
