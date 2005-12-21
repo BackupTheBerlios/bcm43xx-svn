@@ -88,7 +88,6 @@
 #define BCM43xx_RXRING_SLOTS		64
 #define BCM43xx_DMA1_RXBUFFERSIZE	(2304 + 100)
 #define BCM43xx_DMA4_RXBUFFERSIZE	16
-#define BCM43xx_DMA_RX_COPYTHRESHOLD	256
 /* Suspend the tx queue, if less than this percent slots are free. */
 #define BCM43xx_TXSUSPEND_PERCENT	20
 /* Resume the tx queue, if more than this percent slots are free. */

@@ -979,7 +979,7 @@ bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 
 static inline
 void dma_rx(struct bcm43xx_dmaring *ring,
-	    int slot)
+	    int *slot)
 {
 	struct bcm43xx_dmadesc *desc;
 	struct bcm43xx_dmadesc_meta *meta;
@@ -989,8 +989,8 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 	int err;
 	dma_addr_t dmaaddr;
 
-	desc = ring->vbase + slot;
-	meta = ring->meta + slot;
+	desc = ring->vbase + *slot;
+	meta = ring->meta + *slot;
 
 	sync_descbuffer_for_cpu(ring, meta->dmaaddr, ring->rx_buffersize);
 	skb = meta->skb;
@@ -1004,32 +1004,38 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 			barrier();
 			len = le16_to_cpu(rxhdr->frame_length);
 		} while (len == 0 && i++ < 5);
-		if (unlikely(len == 0)) {
-			dprintkl(KERN_ERR PFX "DMA RX: len zero, dropping...\n");
+		if (len == 0)
 			goto drop;
-		}
 	}
 	if (unlikely(len > ring->rx_buffersize)) {
-		//FIXME: Can this trigger, if we span multiple descbuffers?
-		dprintkl(KERN_ERR PFX "DMA RX: invalid length\n");
+		/* The data did not fit into one descriptor buffer
+		 * and is split over multiple buffers.
+		 * This should never happen, as we try to allocate buffers
+		 * big enough. So simply ignore this packet.
+		 */
+		int cnt = 1;
+		s32 tmp = len - ring->rx_buffersize;
+
+		for ( ; tmp > 0; tmp -= ring->rx_buffersize) {
+			*slot = next_slot(ring, *slot);
+			cnt++;
+		}
+		printkl(KERN_ERR PFX "DMA RX buffer too small. %d dropped.\n",
+		        cnt);
 		goto drop;
 	}
 	len -= IEEE80211_FCS_LEN;
 
-	if (1/*len > BCM43xx_DMA_RX_COPYTHRESHOLD*/) {
-		dmaaddr = meta->dmaaddr;
-		err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
-		if (unlikely(err)) {
-			dprintkl(KERN_ERR PFX "DMA RX: setup_rx_descbuffer() failed\n");
-			goto drop;
-		}
-
-		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
-		skb_put(skb, len + ring->frameoffset);
-		skb_pull(skb, ring->frameoffset);
-	} else {
-		//TODO
+	dmaaddr = meta->dmaaddr;
+	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
+	if (unlikely(err)) {
+		dprintkl(KERN_ERR PFX "DMA RX: setup_rx_descbuffer() failed\n");
+		goto drop;
 	}
+
+	unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
+	skb_put(skb, len + ring->frameoffset);
+	skb_pull(skb, ring->frameoffset);
 
 	if (ring->mmio_base == BCM43xx_MMIO_DMA4_BASE) {
 		bcm43xx_rx_transmitstatus(ring->bcm,
@@ -1037,7 +1043,6 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 		dev_kfree_skb_irq(skb);
 		return;
 	}
-
 	err = bcm43xx_rx(ring->bcm, skb, rxhdr);
 	if (err) {
 		dev_kfree_skb_irq(skb);
@@ -1054,6 +1059,9 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 	u32 status;
 	u16 descptr;
 	int slot, current_slot;
+#ifdef BCM43xx_DEBUG
+	int used_slots = 0;
+#endif
 
 	assert(!ring->tx);
 	assert(irqs_disabled());
@@ -1064,22 +1072,14 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 	current_slot = descptr / sizeof(struct bcm43xx_dmadesc);
 	assert(current_slot >= 0 && current_slot < ring->nr_slots);
 
-#ifdef BCM43xx_DEBUG
-	{
-		int used_slots;
-
-		if (current_slot >= ring->current_slot)
-			used_slots = current_slot - ring->current_slot + 1;
-		else
-			used_slots = ring->nr_slots - ring->current_slot + current_slot + 1;
-		if (used_slots > ring->max_used_slots)
-			ring->max_used_slots = used_slots;
-	}
-#endif /* BCM43xx_DEBUG */
-
 	slot = ring->current_slot;
-	for ( ; slot != current_slot; slot = next_slot(ring, slot))
-		dma_rx(ring, slot);
+	for ( ; slot != current_slot; slot = next_slot(ring, slot)) {
+		dma_rx(ring, &slot);
+#ifdef BCM43xx_DEBUG
+		if (++used_slots > ring->max_used_slots)
+			ring->max_used_slots = used_slots;
+#endif
+	}
 	bcm43xx_write32(ring->bcm,
 			ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
 			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
