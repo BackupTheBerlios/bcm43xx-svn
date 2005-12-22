@@ -440,12 +440,6 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 	/* "data" and "raw" address the same memory area,
 	 * but with different data types.
 	 */
-
-	/*TODO: This can be optimized, but first let's get it working. */
-
-	/* Account for hardware-appended FCS. */
-	octets += 4;
-
 	if (ofdm_modulation) {
 		switch (bitrate) {
 		case BCM43xx_OFDM_RATE_6MB:
@@ -498,8 +492,6 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 			assert(0);
 		}
 	}
-
-//bcm43xx_printk_bitdump(raw, 4, 0, "PLCP");
 }
 
 #define bcm43xx_generate_plcp_hdr(plcp, octets, bitrate, ofdm_modulation) \
@@ -564,6 +556,29 @@ __le16 bcm43xx_calc_duration_id(const struct ieee80211_hdr *wireless_header,
 	return duration_id;
 }
 
+static int get_hdrlen(u16 frame_control)
+{
+	int len = 2 + 2 + (3 * 6) + 2;
+	u16 stype = WLAN_FC_GET_STYPE(frame_control);
+
+	switch (WLAN_FC_GET_TYPE(frame_control)) {
+	case WLAN_FC_TYPE_DATA:
+		if ((frame_control & WLAN_FC_FROMDS) &&
+		    (frame_control & WLAN_FC_TODS))
+			len = 2 + 2 + (3 * 6) + 2 + 6;
+		if (stype == WLAN_FC_STYPE_QOS_DATA)
+			len += 2;
+		break;
+	case WLAN_FC_TYPE_CTRL:
+		len = 2 + 2 + 6;
+		if ((stype != WLAN_FC_STYPE_CTS) &&
+		    (stype != WLAN_FC_STYPE_ACK))
+			len += 6;
+	}
+
+	return len;
+}
+
 void fastcall
 bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 		       struct bcm43xx_txhdr *txhdr,
@@ -575,18 +590,18 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 {
 	const struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	const struct ieee80211_hdr *wireless_header = (const struct ieee80211_hdr *)fragment_data;
+	const int use_encryption = (!txctl->do_not_encrypt && txctl->key_idx >= 0);
 	u8 bitrate;
-	int ofdm_modulation;
 	u8 fallback_bitrate;
+	int ofdm_modulation;
 	int fallback_ofdm_modulation;
+	u16 plcp_fragment_len = fragment_len;
 	u16 flags = 0;
 	u16 control = 0;
 	u16 wsec_rate = 0;
 
 	/* Now construct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
-
-	//TODO: Encryption stuff.
 
 	bitrate = txctl->tx_rate;
 	ofdm_modulation = !(bcm43xx_is_cck_rate(bitrate));
@@ -603,10 +618,21 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	/* Set the cookie (used as driver internal ID for the frame) */
 	txhdr->cookie = cpu_to_le16(cookie);
 
+	/* Hardware appends FCS. */
+	plcp_fragment_len += FCS_LEN;
+	if (use_encryption) {
+		int wlhdr_len = get_hdrlen(le16_to_cpu(wireless_header->frame_control));
+
+		/* Hardware appends ICV. */
+		plcp_fragment_len += txctl->icv_len;
+		wsec_rate |= (((u16)(txctl->key_idx) & 0x000F) << 4);
+		wsec_rate |= bcm->key[txctl->key_idx].algorithm;
+		memcpy(txhdr->wep_iv, ((u8 *)wireless_header) + wlhdr_len, 4);
+	}
 	/* Generate the PLCP header and the fallback PLCP header. */
-	bcm43xx_generate_plcp_hdr(&txhdr->plcp, fragment_len,
+	bcm43xx_generate_plcp_hdr(&txhdr->plcp, plcp_fragment_len,
 				  bitrate, ofdm_modulation);
-	bcm43xx_generate_plcp_hdr(&txhdr->fallback_plcp, fragment_len,
+	bcm43xx_generate_plcp_hdr(&txhdr->fallback_plcp, plcp_fragment_len,
 				  fallback_bitrate, fallback_ofdm_modulation);
 
 	/* Set the CONTROL field */
@@ -638,8 +664,6 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	txhdr->flags = cpu_to_le16(flags);
 	txhdr->control = cpu_to_le16(control);
 	txhdr->wsec_rate = cpu_to_le16(wsec_rate);
-
-//bcm43xx_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
 
 static
@@ -1387,8 +1411,8 @@ void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 	}
 }
 
-void bcm43xx_key_write(struct bcm43xx_private *bcm,
-		       u8 index, u8 algorithm, const u8 *_key)
+static void key_write(struct bcm43xx_private *bcm,
+		      u8 index, u8 algorithm, const u8 *_key)
 {
 	const u32 *key = (const u32 *)_key;
 	u16 off;
@@ -1411,8 +1435,13 @@ void bcm43xx_key_write(struct bcm43xx_private *bcm,
 	}
 }
 
-void bcm43xx_keymac_write(struct bcm43xx_private *bcm,
-			  u8 index, const u8 *addr)
+static void key_read(struct bcm43xx_private *bcm,
+		     u8 index, u8 algorithm, u8 *_key)
+{//TODO
+}
+
+static void keymac_write(struct bcm43xx_private *bcm,
+			 u8 index, const u8 *addr)
 {
 	if (bcm->current_core->rev >= 5) {
 		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC,
@@ -1426,34 +1455,30 @@ void bcm43xx_keymac_write(struct bcm43xx_private *bcm,
 	}
 }
 
-#if 0
-void bcm43xx_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
-		     u8 flags, u8 macaddr[6], u8 material[16])
+static int bcm43xx_key_write(struct bcm43xx_private *bcm,
+			     u8 index, u8 algorithm,
+			     const u8 *_key, int key_len,
+			     const u8 *mac_addr)
 {
-	u16 sec_offset;
-	
-	index += 4; /* first four keys are the ones a station can have */
-	
-	sec_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0056) * 2
-					+ 8 * (index / 4) + index % 4;
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + 2 * index,
-			    (index << 4 | algorithm));
+	u8 key[16] = { 0 };
 
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 0));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 4));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 8));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 12));
-	
-	if (bcm->current_core->rev >= 5) {
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, index * 8, le32_to_cpup((__le32 *)&macaddr[0]));
-		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, index * 8 + 4, le16_to_cpup((__le16 *)&macaddr[4]));
-	} else {
-		//FIXME: incomplete specs.
-	}
-	
-	memcpy(bcm->key[index].macaddr, macaddr, 6);
+	if (index >= ARRAY_SIZE(bcm->key))
+		return -EINVAL;
+	if (key_len > ARRAY_SIZE(key))
+		return -EINVAL;
+	if (algorithm < 1 || algorithm > 5)
+		return -EINVAL;
+
+	memcpy(key, _key, key_len);
+	key_write(bcm, index, algorithm, key);
+	keymac_write(bcm, index, mac_addr);
+
+	bcm->key[index].algorithm = algorithm;
+
+	return 0;
 }
 
+#if 0
 void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
 {
 	u16 tmp;
@@ -4752,7 +4777,7 @@ void fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 		skb_pull(skb, sizeof(struct bcm43xx_plcp_hdr6));
 	}
 	/* The SKB contains the PAYLOAD (wireless header + data)
-	 * at this point. The FCS at the end is stripped.
+	 * at this point.
 	 */
 
 	memset(&status, 0, sizeof(status));
@@ -4842,6 +4867,71 @@ static int bcm43xx_net_config(struct net_device *net_dev,
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return 0;
+}
+
+static int bcm43xx_net_set_key(struct net_device *net_dev,
+			       set_key_cmd cmd,
+			       u8 *addr,
+			       struct ieee80211_key_conf *key,
+			       int aid)
+{
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	unsigned long flags;
+	u8 algorithm;
+	u8 index;
+	int err = -EINVAL;
+
+	switch (key->alg) {
+	default:
+	case ALG_NONE:
+	case ALG_NULL:
+		algorithm = BCM43xx_SEC_ALGO_NONE;
+		break;
+	case ALG_WEP:
+		if (key->keylen == 5)
+			algorithm = BCM43xx_SEC_ALGO_WEP;
+		else
+			algorithm = BCM43xx_SEC_ALGO_WEP104;
+		break;
+	case ALG_TKIP:
+		algorithm = BCM43xx_SEC_ALGO_TKIP;
+		break;
+	case ALG_CCMP:
+		algorithm = BCM43xx_SEC_ALGO_AES;
+		break;
+	}
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	switch (cmd) {
+	case SET_KEY:
+		index = (u8)(key->keyidx);
+		err = bcm43xx_key_write(bcm, index, algorithm,
+					key->key, key->keylen,
+					addr);
+		if (err)
+			goto out_unlock;
+		key->hw_key_idx = index;
+		key->force_sw_encrypt = 0;
+		if (key->default_tx_key)
+			bcm->default_key_idx = index;
+		break;
+	case DISABLE_KEY:
+		//TODO
+		err = 0;
+		break;
+	case REMOVE_ALL_KEYS:
+		//TODO
+		err = 0;
+		break;
+	case ENABLE_COMPRESSION:
+	case DISABLE_COMPRESSION:
+		err = 0;
+		break;
+	}
+out_unlock:
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	return err;
 }
 
 static int bcm43xx_net_conf_tx(struct net_device *net_dev,
@@ -4945,6 +5035,7 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->stop = bcm43xx_net_stop;
 	ieee->reset = bcm43xx_net_reset;
 	ieee->config = bcm43xx_net_config;
+//TODO	ieee->set_key = bcm43xx_net_set_key;
 	ieee->get_stats = bcm43xx_net_get_stats;
 	ieee->queues = 1;
 	ieee->get_tx_stats = bcm43xx_net_get_tx_stats;
