@@ -4364,7 +4364,7 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
 	bcm43xx_setup_modes(bcm);
 	bcm43xx_security_init(bcm);
-	ieee80211_hw_initialized(bcm->net_dev, bcm->ieee);
+	ieee80211_update_hw(bcm->net_dev, bcm->ieee);
 	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
 	ieee80211_netif_oper(bcm->net_dev, NETIF_START);
 	ieee80211_netif_oper(bcm->net_dev, NETIF_WAKE);
@@ -4903,10 +4903,9 @@ static int bcm43xx_net_stop(struct net_device *net_dev)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	if (bcm->initialized) {
-		bcm43xx_disable_interrupts_sync(bcm, NULL);
-		bcm43xx_free_board(bcm);
-	}
+	assert(bcm->initialized);
+	bcm43xx_disable_interrupts_sync(bcm, NULL);
+	bcm43xx_free_board(bcm);
 
 	return 0;
 }
@@ -4942,7 +4941,7 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->conf_tx = bcm43xx_net_conf_tx;
 	ieee->wep_include_iv = 1;
 
-	net_dev = ieee80211_register_hw(ieee, sizeof(*bcm));
+	net_dev = ieee80211_alloc_hw(sizeof(*bcm), NULL);
 	if (!net_dev) {
 		printk(KERN_ERR PFX
 		       "could not allocate ieee80211 device %s\n",
@@ -4997,6 +4996,9 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	err = bcm43xx_attach_board(bcm);
 	if (err)
 		goto err_free_netdev;
+	err = ieee80211_register_hw(net_dev, ieee);
+	if (err)
+		goto err_detach_board;
 
 	bcm43xx_debugfs_add_device(bcm);
 
@@ -5004,8 +5006,10 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 out:
 	return err;
 
+err_detach_board:
+	bcm43xx_detach_board(bcm);
 err_free_netdev:
-	ieee80211_unregister_hw(net_dev);
+	ieee80211_free_hw(net_dev);
 err_free_ieee:
 	kfree(ieee);
 	goto out;
@@ -5019,14 +5023,10 @@ static void __devexit bcm43xx_remove_one(struct pci_dev *pdev)
 
 	bcm43xx_debugfs_remove_device(bcm);
 
-	/* Workaround: ieee80211_unregister_hw() calls bcm43xx_net_stop(),
-	 *             but the device is detached at this time.
-	 */
-	bcm43xx_net_stop(net_dev);
-
-	bcm43xx_detach_board(bcm);
 	ieee80211_unregister_hw(net_dev);
+	bcm43xx_detach_board(bcm);
 	kfree(ieee);
+	ieee80211_free_hw(net_dev);
 }
 
 #ifdef CONFIG_PM

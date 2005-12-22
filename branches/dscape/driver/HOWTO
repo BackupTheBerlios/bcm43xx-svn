@@ -18,16 +18,19 @@ following text.
     ftp://ftp.kernel.org/pub/linux/kernel/people/jbenc/ieee80211-devicescape-XXXXXX.tar.bz2
     These patches are diffed against the netdev-2.6 GIT tree. See
     the file GIT-ORIGIN for more information.
-    But these patches usually also apply (with some hunk offsets) to
-    latest mainline kernels.
+    It is usually a good idea to apply them to the netdev-2.6 code.
+    (Applying to mainline is also possible, but requires some
+     manual merging work.)
+
+    Getting latest netdev-2.6 kernel using Cogito:
+    cg-clone http://www.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+
     Patch the kernel, compile and install it.
     When configuring, enable "Networking/Generic IEEE 802.11 Networking Stack"
     Reboot.
     If you configured dscape as modules, load the dscape modules:
-    modprobe rate_control
     modprobe 80211
-    It is important to load rate_control before 80211. (Yes, it should be
-    done automatically... Working on it.)
+    modprobe rate_control
 
 2)  Add dscape support to wpa_supplicant:
     Download latest stable version of wpa_supplicant from:
