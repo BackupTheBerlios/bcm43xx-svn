@@ -4903,11 +4903,21 @@ static int bcm43xx_net_stop(struct net_device *net_dev)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	assert(bcm->initialized);
-	bcm43xx_disable_interrupts_sync(bcm, NULL);
-	bcm43xx_free_board(bcm);
+	if (bcm->initialized) {
+		bcm43xx_disable_interrupts_sync(bcm, NULL);
+		bcm43xx_free_board(bcm);
+	}
 
 	return 0;
+}
+
+/* Initialization of struct net_device, just after allocation. */
+static void bcm43xx_netdev_setup(struct net_device *net_dev)
+{
+#ifdef CONFIG_NET_POLL_CONTROLLER
+	net_dev->poll_controller = bcm43xx_net_poll_controller;
+#endif
+	net_dev->wireless_handlers = &bcm43xx_wx_handlers_def;
 }
 
 static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
@@ -4941,18 +4951,13 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	ieee->conf_tx = bcm43xx_net_conf_tx;
 	ieee->wep_include_iv = 1;
 
-	net_dev = ieee80211_alloc_hw(sizeof(*bcm), NULL);
+	net_dev = ieee80211_alloc_hw(sizeof(*bcm), bcm43xx_netdev_setup);
 	if (!net_dev) {
 		printk(KERN_ERR PFX
 		       "could not allocate ieee80211 device %s\n",
 		       pci_name(pdev));
 		goto err_free_ieee;
 	}
-#ifdef CONFIG_NET_POLL_CONTROLLER
-	net_dev->poll_controller = bcm43xx_net_poll_controller;
-#endif
-	net_dev->wireless_handlers = &bcm43xx_wx_handlers_def;
-
 	/* initialize the bcm43xx_private struct */
 	bcm = bcm43xx_priv(net_dev);
 	memset(bcm, 0, sizeof(*bcm));
