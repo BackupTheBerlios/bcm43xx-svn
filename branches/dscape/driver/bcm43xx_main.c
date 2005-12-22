@@ -621,13 +621,19 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	/* Hardware appends FCS. */
 	plcp_fragment_len += FCS_LEN;
 	if (use_encryption) {
-		int wlhdr_len = get_hdrlen(le16_to_cpu(wireless_header->frame_control));
+		u16 key_idx = (u16)(txctl->key_idx);
+		struct bcm43xx_key *key = &(bcm->key[key_idx]);
+		int wlhdr_len;
 
-		/* Hardware appends ICV. */
-		plcp_fragment_len += txctl->icv_len;
-		wsec_rate |= (((u16)(txctl->key_idx) & 0x000F) << 4);
-		wsec_rate |= bcm->key[txctl->key_idx].algorithm;
-		memcpy(txhdr->wep_iv, ((u8 *)wireless_header) + wlhdr_len, 4);
+		if (key->enabled) {
+			/* Hardware appends ICV. */
+			plcp_fragment_len += txctl->icv_len;
+
+			wsec_rate |= ((key_idx & 0x000F) << 4);
+			wsec_rate |= key->algorithm;
+			wlhdr_len = get_hdrlen(le16_to_cpu(wireless_header->frame_control));
+			memcpy(txhdr->wep_iv, ((u8 *)wireless_header) + wlhdr_len, 4);
+		}
 	}
 	/* Generate the PLCP header and the fallback PLCP header. */
 	bcm43xx_generate_plcp_hdr(&txhdr->plcp, plcp_fragment_len,
@@ -1435,11 +1441,6 @@ static void key_write(struct bcm43xx_private *bcm,
 	}
 }
 
-static void key_read(struct bcm43xx_private *bcm,
-		     u8 index, u8 algorithm, u8 *_key)
-{//TODO
-}
-
 static void keymac_write(struct bcm43xx_private *bcm,
 			 u8 index, const u8 *addr)
 {
@@ -1478,34 +1479,33 @@ static int bcm43xx_key_write(struct bcm43xx_private *bcm,
 	return 0;
 }
 
-#if 0
-void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
+static void bcm43xx_clear_keys(struct bcm43xx_private *bcm)
 {
-	u16 tmp;
-	int i, j;
-	
-	for (i = 0; i <= 0x1FC; i += 0x4)
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, i + 0x0180, 0x00000000);
-	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0056);
-	for (i = 0; i <= 0x1FC; i += 0x4)
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, i + tmp, 0x00000000);
-	
-	if (bcm->current_core->rev < 5) {
-		for (i = 16; i <= 25; i += 3) {
-			bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_CONTROL, i | 0x20);
-			for (j = 0; j < 3; j++)
-				bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_DATA, 0x0000);
-		}
-	} else {
-		for (i = 0; i < 12; i++) {
-			bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, i * 6, 0x00000000);
-			bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, i * 6 + 4, 0x0000);
+	static const u8 zero_mac[ETH_ALEN] = { 0 };
+	const u32 zero_key = 0;
+	u16 off;
+	u16 i, j;
+	u16 nr_keys = 54;
+
+	if (bcm->current_core->rev < 5)
+		nr_keys = 16;
+	assert(nr_keys <= ARRAY_SIZE(bcm->key));
+
+	for (i = 0; i < nr_keys; i++) {
+		bcm->key[i].enabled = 0;
+		keymac_write(bcm, i, zero_mac);
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
+				    0x100 + (i * 2), 0x0000);
+	}
+	for (i = 0; i < nr_keys + 4; i++) {
+		for (j = 0; j < 4; j++) {
+			off = bcm->security_offset + (j * 4) + (i * 16);
+			bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+					    off, zero_key);
 		}
 	}
-
-	bcm43xx_write16(bcm, 0x043C, 0x0000);
+printk("keys cleared\n");
 }
-#endif
 
 /* Puts the index of the current core into user supplied core variable.
  * This function reads the value from the device.
@@ -4278,6 +4278,7 @@ static void bcm43xx_security_init(struct bcm43xx_private *bcm)
 {
 	bcm->security_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
 						  0x0056) * 2;
+	bcm43xx_clear_keys(bcm);
 }
 
 /* This is the opposite of bcm43xx_init_board() */
@@ -4901,10 +4902,12 @@ static int bcm43xx_net_set_key(struct net_device *net_dev,
 		break;
 	}
 
+	index = (u8)(key->keyidx);
+	if (index >= ARRAY_SIZE(bcm->key))
+		goto out;
 	spin_lock_irqsave(&bcm->lock, flags);
 	switch (cmd) {
 	case SET_KEY:
-		index = (u8)(key->keyidx);
 		err = bcm43xx_key_write(bcm, index, algorithm,
 					key->key, key->keylen,
 					addr);
@@ -4914,13 +4917,14 @@ static int bcm43xx_net_set_key(struct net_device *net_dev,
 		key->force_sw_encrypt = 0;
 		if (key->default_tx_key)
 			bcm->default_key_idx = index;
+		bcm->key[index].enabled = 1;
 		break;
 	case DISABLE_KEY:
-		//TODO
+		bcm->key[index].enabled = 0;
 		err = 0;
 		break;
 	case REMOVE_ALL_KEYS:
-		//TODO
+		bcm43xx_clear_keys(bcm);
 		err = 0;
 		break;
 	case ENABLE_COMPRESSION:
@@ -4930,7 +4934,7 @@ static int bcm43xx_net_set_key(struct net_device *net_dev,
 	}
 out_unlock:
 	spin_unlock_irqrestore(&bcm->lock, flags);
-
+out:
 	return err;
 }
 

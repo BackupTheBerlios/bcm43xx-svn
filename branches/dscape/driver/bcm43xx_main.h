@@ -60,33 +60,32 @@ _bcm43xx_declare_plcp_hdr(6);
 struct bcm43xx_txhdr {
 	union {
 		struct {
-			u16 flags;
-			u16 wsec_rate;
-			u16 frame_control;
+			__le16 flags;
+			__le16 wsec_rate;
+			__le16 frame_control;
 			u16 unknown_zeroed_0;
-			u16 control;
-			unsigned char wep_iv[10];
-			unsigned char unknown_wsec_tkip_data[3]; //FIXME
+			__le16 control;
+			u8 wep_iv[10];
+			u8 unknown_wsec_tkip_data[3]; //FIXME
 			PAD_BYTES(3);
-			unsigned char mac1[6];
+			u8 mac1[6];
 			u16 unknown_zeroed_1;
 			struct bcm43xx_plcp_hdr4 rts_cts_fallback_plcp;
-			u16 rts_cts_dur_fallback;
+			__le16 rts_cts_dur_fallback;
 			struct bcm43xx_plcp_hdr4 fallback_plcp;
-			u16 fallback_dur_id;
+			__le16 fallback_dur_id;
 			PAD_BYTES(2);
-			u16 cookie;
-			u16 unknown_scb_stuff; //FIXME
+			__le16 cookie;
+			__le16 unknown_scb_stuff; //FIXME
 			struct bcm43xx_plcp_hdr6 rts_cts_plcp;
-			u16 rts_cts_frame_type;
-			u16 rts_cts_dur;
-			unsigned char rts_cts_mac1[6];
-			unsigned char rts_cts_mac2[6];
+			__le16 rts_cts_frame_type;
+			__le16 rts_cts_dur;
+			u8 rts_cts_mac1[6];
+			u8 rts_cts_mac2[6];
 			PAD_BYTES(2);
 			struct bcm43xx_plcp_hdr6 plcp;
 		} __attribute__((__packed__));
-
-		unsigned char raw[82];
+		u8 raw[82];
 	} __attribute__((__packed__));
 } __attribute__((__packed__));
 

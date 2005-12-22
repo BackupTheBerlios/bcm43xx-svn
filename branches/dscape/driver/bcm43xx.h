@@ -633,8 +633,8 @@ struct bcm43xx_stats {
 };
 
 struct bcm43xx_key {
+	u8 enabled:1;
 	u8 algorithm;
-//	u8 macaddr[6];
 };
 
 struct bcm43xx_private {
