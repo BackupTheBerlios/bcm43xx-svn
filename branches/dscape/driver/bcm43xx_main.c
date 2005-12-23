@@ -5123,10 +5123,14 @@ static void __devexit bcm43xx_remove_one(struct pci_dev *pdev)
 
 	bcm43xx_debugfs_remove_device(bcm);
 
+	/* Bring down the device early to stop all TX and RX operation. */
+	ieee80211_netif_oper(net_dev, NETIF_DETACH);
+	bcm43xx_net_stop(net_dev);
+
 	ieee80211_unregister_hw(net_dev);
 	bcm43xx_detach_board(bcm);
-	kfree(ieee);
 	ieee80211_free_hw(net_dev);
+	kfree(ieee);
 }
 
 #ifdef CONFIG_PM
