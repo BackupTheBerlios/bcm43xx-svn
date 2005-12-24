@@ -72,6 +72,18 @@ static const struct file {
 	},
 	{
 		.name        = "AppleAirPort2",
+		.version     = "3.50.37.p4 (3.4.2b1)",
+		.md5         = "1739c357ade1d04c9be47e8604afb1c2",
+		.flags       = BYTE_ORDER_BIG_ENDIAN,
+		.iv_pos      = 0x4f2b8,
+		.uc2_pos     = 0x52da0,  .uc2_length  = 0x3d30,
+		.uc4_pos     = 0x56ad4,  .uc4_length  = 0x45c8,
+		.uc5_pos     = 0x5b0a0,  .uc5_length  = 0x5500,
+		.pcm4_pos    = 0x605a4,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x60a20,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "AppleAirPort2",
 		.version     = "3.50.37.p4 (3.4.3f1)",			/* 09/29/2004 */
 		.md5         = "c672b8c218c5dc4a55060bdfa9f58a69",
 		.flags       = BYTE_ORDER_BIG_ENDIAN | 
