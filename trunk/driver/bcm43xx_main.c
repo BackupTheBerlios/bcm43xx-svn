@@ -3052,7 +3052,7 @@ static void bcm43xx_gen_bssid(struct bcm43xx_private *bcm)
 }
 
 static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
-				      u16 double_rate,
+				      u16 rate,
 				      int is_ofdm)
 {
 	u16 offset;
@@ -3061,7 +3061,7 @@ static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
 		offset = 0x480;
 	else
 		offset = 0x4C0;
-	offset += (double_rate & 0x000F);
+	offset += (bcm43xx_plcp_get_ratecode(rate) & 0x000F) * 2;
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, offset + 0x20,
 			    bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, offset));
 }
