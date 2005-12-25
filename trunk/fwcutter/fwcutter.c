@@ -284,9 +284,9 @@ static void print_file(const struct file *file)
 
 	if (!(file->flags & DRIVER_UNSUPPORTED)) {
 		if (file->flags & MISSING_INITVAL_80211_A)
-			printf(" b/g  ");
+			printf("b/g  ");
 		else
-			printf(" a/b/g");
+			printf("a/b/g");
 	}
 
 	printf("  %s", file->md5);
@@ -298,13 +298,15 @@ static void print_supported_files(void)
 	int i;
 
 	print_banner();
-	printf("Extracting firmware is possible from these binary driver files:\n\n");
+	printf("\nExtracting firmware is possible from these binary driver files:\n\n");
+	printf("<filename>\t<version>\t       <802.11><MD5 checksum>\n\n");
 	for (i = 0; i < FILES; i++) {
 		if (files[i].flags & DRIVER_UNSUPPORTED)
 			continue;
 		print_file(&files[i]);
 	}
-	printf("\nExtracting firmware is IMPOSSIBLE from these binary driver files:\n\n");
+	printf("\n\nExtracting firmware is IMPOSSIBLE from these binary driver files:\n\n");
+	printf("<filename>\t<version>\t          <MD5 checksum>\n\n");
 	for (i = 0; i < FILES; i++) {
 		if (!(files[i].flags & DRIVER_UNSUPPORTED))
 			continue;
