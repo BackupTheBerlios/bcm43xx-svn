@@ -838,60 +838,60 @@ static void bcm43xx_phy_initb6(struct bcm43xx_private *bcm)
 		bcm43xx_radio_write16(bcm, 0x007D, 0x0088);
 	}
 	if ((radio->manufact == 0x17F) &&
-            (radio->version == 0x2050) &&
-            (radio->revision == 6)) {
-                bcm43xx_radio_write16(bcm, 0x0051, 0x0000);
-                bcm43xx_radio_write16(bcm, 0x0052, 0x0040);
-                bcm43xx_radio_write16(bcm, 0x0053, 0x00B7);
-                bcm43xx_radio_write16(bcm, 0x0054, 0x0098);
-                bcm43xx_radio_write16(bcm, 0x005A, 0x0088);
-                bcm43xx_radio_write16(bcm, 0x005B, 0x008B);
+	    (radio->version == 0x2050) &&
+	    (radio->revision == 6)) {
+		bcm43xx_radio_write16(bcm, 0x0051, 0x0000);
+		bcm43xx_radio_write16(bcm, 0x0052, 0x0040);
+		bcm43xx_radio_write16(bcm, 0x0053, 0x00B7);
+		bcm43xx_radio_write16(bcm, 0x0054, 0x0098);
+		bcm43xx_radio_write16(bcm, 0x005A, 0x0088);
+		bcm43xx_radio_write16(bcm, 0x005B, 0x008B);
 		bcm43xx_radio_write16(bcm, 0x005C, 0x00B5);
-                bcm43xx_radio_write16(bcm, 0x005D, 0x0088);
-                bcm43xx_radio_write16(bcm, 0x005E, 0x0088);
-                bcm43xx_radio_write16(bcm, 0x007D, 0x0088);
-                bcm43xx_radio_write16(bcm, 0x007C, 0x0001);
-                bcm43xx_radio_write16(bcm, 0x007E, 0x0008);
+		bcm43xx_radio_write16(bcm, 0x005D, 0x0088);
+		bcm43xx_radio_write16(bcm, 0x005E, 0x0088);
+		bcm43xx_radio_write16(bcm, 0x007D, 0x0088);
+		bcm43xx_radio_write16(bcm, 0x007C, 0x0001);
+		bcm43xx_radio_write16(bcm, 0x007E, 0x0008);
 	}
-        if ((radio->manufact == 0x17F) &&
-            (radio->version == 0x2050) &&
-            (radio->revision == 7)) {
-                bcm43xx_radio_write16(bcm, 0x0051, 0x0000);
-                bcm43xx_radio_write16(bcm, 0x0052, 0x0040);
-                bcm43xx_radio_write16(bcm, 0x0053, 0x00B7);
-                bcm43xx_radio_write16(bcm, 0x0054, 0x0098);
-                bcm43xx_radio_write16(bcm, 0x005A, 0x0088);
-                bcm43xx_radio_write16(bcm, 0x005B, 0x00A8);
-                bcm43xx_radio_write16(bcm, 0x005C, 0x0075);
-                bcm43xx_radio_write16(bcm, 0x005D, 0x00F5);
-                bcm43xx_radio_write16(bcm, 0x005E, 0x00B8);
-                bcm43xx_radio_write16(bcm, 0x007D, 0x00E8);
-                bcm43xx_radio_write16(bcm, 0x007C, 0x0001);
-                bcm43xx_radio_write16(bcm, 0x007E, 0x0008);
+	if ((radio->manufact == 0x17F) &&
+	    (radio->version == 0x2050) &&
+	    (radio->revision == 7)) {
+		bcm43xx_radio_write16(bcm, 0x0051, 0x0000);
+		bcm43xx_radio_write16(bcm, 0x0052, 0x0040);
+		bcm43xx_radio_write16(bcm, 0x0053, 0x00B7);
+		bcm43xx_radio_write16(bcm, 0x0054, 0x0098);
+		bcm43xx_radio_write16(bcm, 0x005A, 0x0088);
+		bcm43xx_radio_write16(bcm, 0x005B, 0x00A8);
+		bcm43xx_radio_write16(bcm, 0x005C, 0x0075);
+		bcm43xx_radio_write16(bcm, 0x005D, 0x00F5);
+		bcm43xx_radio_write16(bcm, 0x005E, 0x00B8);
+		bcm43xx_radio_write16(bcm, 0x007D, 0x00E8);
+		bcm43xx_radio_write16(bcm, 0x007C, 0x0001);
+		bcm43xx_radio_write16(bcm, 0x007E, 0x0008);
 		bcm43xx_radio_write16(bcm, 0x007B, 0x0000);
-        }
-        if ((radio->manufact == 0x17F) &&
-            (radio->version == 0x2050) &&
-            (radio->revision == 8)) {
-                bcm43xx_radio_write16(bcm, 0x0051, 0x0000);
-                bcm43xx_radio_write16(bcm, 0x0052, 0x0040);
-                bcm43xx_radio_write16(bcm, 0x0053, 0x00B7);
-                bcm43xx_radio_write16(bcm, 0x0054, 0x0098);
-                bcm43xx_radio_write16(bcm, 0x005A, 0x0088);
-                bcm43xx_radio_write16(bcm, 0x005B, 0x006B);
-                bcm43xx_radio_write16(bcm, 0x005C, 0x000F);
+	}
+	if ((radio->manufact == 0x17F) &&
+	    (radio->version == 0x2050) &&
+	    (radio->revision == 8)) {
+		bcm43xx_radio_write16(bcm, 0x0051, 0x0000);
+		bcm43xx_radio_write16(bcm, 0x0052, 0x0040);
+		bcm43xx_radio_write16(bcm, 0x0053, 0x00B7);
+		bcm43xx_radio_write16(bcm, 0x0054, 0x0098);
+		bcm43xx_radio_write16(bcm, 0x005A, 0x0088);
+		bcm43xx_radio_write16(bcm, 0x005B, 0x006B);
+		bcm43xx_radio_write16(bcm, 0x005C, 0x000F);
 		if (bcm->sprom.boardflags & 0x8000) {
 			bcm43xx_radio_write16(bcm, 0x005D, 0x00FA);
-                        bcm43xx_radio_write16(bcm, 0x005E, 0x00D8);
+			bcm43xx_radio_write16(bcm, 0x005E, 0x00D8);
 		} else {
-	                bcm43xx_radio_write16(bcm, 0x005D, 0x00F5);
-        	        bcm43xx_radio_write16(bcm, 0x005E, 0x00B8);
+			bcm43xx_radio_write16(bcm, 0x005D, 0x00F5);
+			bcm43xx_radio_write16(bcm, 0x005E, 0x00B8);
 		}
 		bcm43xx_radio_write16(bcm, 0x0073, 0x0003);
-                bcm43xx_radio_write16(bcm, 0x007D, 0x00A8);
-                bcm43xx_radio_write16(bcm, 0x007C, 0x0001);
-                bcm43xx_radio_write16(bcm, 0x007E, 0x0008);
-        }
+		bcm43xx_radio_write16(bcm, 0x007D, 0x00A8);
+		bcm43xx_radio_write16(bcm, 0x007C, 0x0001);
+		bcm43xx_radio_write16(bcm, 0x007E, 0x0008);
+	}
 	val = 0x1E1F;
 	for (offset = 0x0088; offset < 0x0098; offset++) {
 		bcm43xx_phy_write(bcm, offset, val);
@@ -927,8 +927,8 @@ static void bcm43xx_phy_initb6(struct bcm43xx_private *bcm)
 	bcm43xx_radio_write16(bcm, 0x007C, (bcm43xx_radio_read16(bcm, 0x007C) | 0x0002));
 	bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
 	if ((bcm->current_core->radio->manufact == 0x17F) &&
-            (bcm->current_core->radio->version == 0x2050) &&
-            (bcm->current_core->radio->revision == 2)) {
+	    (bcm->current_core->radio->version == 0x2050) &&
+	    (bcm->current_core->radio->revision == 2)) {
 		bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
 		bcm43xx_radio_write16(bcm, 0x005A, 0x0070);
 		bcm43xx_radio_write16(bcm, 0x005B, 0x007B);
