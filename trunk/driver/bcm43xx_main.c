@@ -434,6 +434,39 @@ u8 bcm43xx_plcp_get_bitrate(struct bcm43xx_plcp_hdr4 *plcp,
 }
 
 static inline
+u8 bcm43xx_plcp_get_ratecode(const u8 bitrate)
+{
+	switch (bitrate) {
+	case IEEE80211_OFDM_RATE_6MB:
+		return 0xB;
+	case IEEE80211_OFDM_RATE_9MB:
+		return 0xF;
+	case IEEE80211_OFDM_RATE_12MB:
+		return 0xA;
+	case IEEE80211_OFDM_RATE_18MB:
+		return 0xE;
+	case IEEE80211_OFDM_RATE_24MB:
+		return 0x9;
+	case IEEE80211_OFDM_RATE_36MB:
+		return 0xD;
+	case IEEE80211_OFDM_RATE_48MB:
+		return 0x8;
+	case IEEE80211_OFDM_RATE_54MB:
+		return 0xC;
+	case IEEE80211_CCK_RATE_1MB:
+		return 0x0A;
+	case IEEE80211_CCK_RATE_2MB:
+		return 0x14;
+	case IEEE80211_CCK_RATE_5MB:
+		return 0x37;
+	case IEEE80211_CCK_RATE_11MB:
+		return 0x6E;
+	default:
+		assert(0);
+	}
+}
+
+static inline
 void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 				  u16 octets, const u8 bitrate,
 				  const int ofdm_modulation)
@@ -448,26 +481,7 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 	octets += IEEE80211_FCS_LEN;
 
 	if (ofdm_modulation) {
-		switch (bitrate) {
-		case IEEE80211_OFDM_RATE_6MB:
-			*data = 0xB;	break;
-		case IEEE80211_OFDM_RATE_9MB:
-			*data = 0xF;	break;
-		case IEEE80211_OFDM_RATE_12MB:
-			*data = 0xA;	break;
-		case IEEE80211_OFDM_RATE_18MB:
-			*data = 0xE;	break;
-		case IEEE80211_OFDM_RATE_24MB:
-			*data = 0x9;	break;
-		case IEEE80211_OFDM_RATE_36MB:
-			*data = 0xD;	break;
-		case IEEE80211_OFDM_RATE_48MB:
-			*data = 0x8;	break;
-		case IEEE80211_OFDM_RATE_54MB:
-			*data = 0xC;	break;
-		default:
-			assert(0);
-		}
+		*data = bcm43xx_plcp_get_ratecode(bitrate);
 		assert(!(octets & 0xF000));
 		*data |= (octets << 5);
 		*data = cpu_to_le32(*data);
@@ -485,19 +499,7 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		} else
 			raw[1] = 0x04;
 		*data |= cpu_to_le32(plen << 16);
-
-		switch (bitrate) {
-		case IEEE80211_CCK_RATE_1MB:
-			raw[0] = 0x0A;	break;
-		case IEEE80211_CCK_RATE_2MB:
-			raw[0] = 0x14;	break;
-		case IEEE80211_CCK_RATE_5MB:
-			raw[0] = 0x37;	break;
-		case IEEE80211_CCK_RATE_11MB:
-			raw[0] = 0x6E;	break;
-		default:
-			assert(0);
-		}
+		raw[0] = bcm43xx_plcp_get_ratecode(bitrate);
 	}
 
 //bcm43xx_printk_bitdump(raw, 4, 0, "PLCP");
