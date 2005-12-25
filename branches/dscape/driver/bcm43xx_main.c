@@ -433,6 +433,39 @@ u8 bcm43xx_plcp_get_bitrate(struct bcm43xx_plcp_hdr4 *plcp,
 }
 
 static inline
+u8 bcm43xx_plcp_get_ratecode(const u8 bitrate)
+{
+	switch (bitrate) {
+	case BCM43xx_OFDM_RATE_6MB:
+		return 0xB;
+	case BCM43xx_OFDM_RATE_9MB:
+		return 0xF;
+	case BCM43xx_OFDM_RATE_12MB:
+		return 0xA;
+	case BCM43xx_OFDM_RATE_18MB:
+		return 0xE;
+	case BCM43xx_OFDM_RATE_24MB:
+		return 0x9;
+	case BCM43xx_OFDM_RATE_36MB:
+		return 0xD;
+	case BCM43xx_OFDM_RATE_48MB:
+		return 0x8;
+	case BCM43xx_OFDM_RATE_54MB:
+		return 0xC;
+	case BCM43xx_CCK_RATE_1MB:
+		return 0x0A;
+	case BCM43xx_CCK_RATE_2MB:
+		return 0x14;
+	case BCM43xx_CCK_RATE_5MB:
+		return 0x37;
+	case BCM43xx_CCK_RATE_11MB:
+		return 0x6E;
+	}
+	assert(0);
+	return 0;
+}
+
+static inline
 void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 				  u16 octets, const u8 bitrate,
 				  const int ofdm_modulation)
@@ -441,26 +474,7 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 	 * but with different data types.
 	 */
 	if (ofdm_modulation) {
-		switch (bitrate) {
-		case BCM43xx_OFDM_RATE_6MB:
-			*data = 0xB;	break;
-		case BCM43xx_OFDM_RATE_9MB:
-			*data = 0xF;	break;
-		case BCM43xx_OFDM_RATE_12MB:
-			*data = 0xA;	break;
-		case BCM43xx_OFDM_RATE_18MB:
-			*data = 0xE;	break;
-		case BCM43xx_OFDM_RATE_24MB:
-			*data = 0x9;	break;
-		case BCM43xx_OFDM_RATE_36MB:
-			*data = 0xD;	break;
-		case BCM43xx_OFDM_RATE_48MB:
-			*data = 0x8;	break;
-		case BCM43xx_OFDM_RATE_54MB:
-			*data = 0xC;	break;
-		default:
-			assert(0);
-		}
+		*data = bcm43xx_plcp_get_ratecode(bitrate);
 		assert(!(octets & 0xF000));
 		*data |= (octets << 5);
 		*data = cpu_to_le32(*data);
@@ -478,19 +492,7 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		} else
 			raw[1] = 0x04;
 		*data |= cpu_to_le32(plen << 16);
-
-		switch (bitrate) {
-		case BCM43xx_CCK_RATE_1MB:
-			raw[0] = 0x0A;	break;
-		case BCM43xx_CCK_RATE_2MB:
-			raw[0] = 0x14;	break;
-		case BCM43xx_CCK_RATE_5MB:
-			raw[0] = 0x37;	break;
-		case BCM43xx_CCK_RATE_11MB:
-			raw[0] = 0x6E;	break;
-		default:
-			assert(0);
-		}
+		raw[0] = bcm43xx_plcp_get_ratecode(bitrate);
 	}
 }
 
@@ -3211,7 +3213,7 @@ static void bcm43xx_gen_bssid(struct bcm43xx_private *bcm)
 }
 
 static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
-				      u16 double_rate,
+				      u16 rate,
 				      int is_ofdm)
 {
 	u16 offset;
@@ -3220,7 +3222,7 @@ static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
 		offset = 0x480;
 	else
 		offset = 0x4C0;
-	offset += (double_rate & 0x000F);
+	offset += (bcm43xx_plcp_get_ratecode(rate) & 0x000F) * 2;
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, offset + 0x20,
 			    bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, offset));
 }
