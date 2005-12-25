@@ -433,7 +433,24 @@ u8 bcm43xx_plcp_get_bitrate(struct bcm43xx_plcp_hdr4 *plcp,
 }
 
 static inline
-u8 bcm43xx_plcp_get_ratecode(const u8 bitrate)
+u8 bcm43xx_plcp_get_ratecode_cck(const u8 bitrate)
+{
+	switch (bitrate) {
+	case BCM43xx_CCK_RATE_1MB:
+		return 0x0A;
+	case BCM43xx_CCK_RATE_2MB:
+		return 0x14;
+	case BCM43xx_CCK_RATE_5MB:
+		return 0x37;
+	case BCM43xx_CCK_RATE_11MB:
+		return 0x6E;
+	}
+	assert(0);
+	return 0;
+}
+
+static inline
+u8 bcm43xx_plcp_get_ratecode_ofdm(const u8 bitrate)
 {
 	switch (bitrate) {
 	case BCM43xx_OFDM_RATE_6MB:
@@ -452,14 +469,6 @@ u8 bcm43xx_plcp_get_ratecode(const u8 bitrate)
 		return 0x8;
 	case BCM43xx_OFDM_RATE_54MB:
 		return 0xC;
-	case BCM43xx_CCK_RATE_1MB:
-		return 0x0A;
-	case BCM43xx_CCK_RATE_2MB:
-		return 0x14;
-	case BCM43xx_CCK_RATE_5MB:
-		return 0x37;
-	case BCM43xx_CCK_RATE_11MB:
-		return 0x6E;
 	}
 	assert(0);
 	return 0;
@@ -474,7 +483,7 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 	 * but with different data types.
 	 */
 	if (ofdm_modulation) {
-		*data = bcm43xx_plcp_get_ratecode(bitrate);
+		*data = bcm43xx_plcp_get_ratecode_ofdm(bitrate);
 		assert(!(octets & 0xF000));
 		*data |= (octets << 5);
 		*data = cpu_to_le32(*data);
@@ -492,7 +501,7 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		} else
 			raw[1] = 0x04;
 		*data |= cpu_to_le32(plen << 16);
-		raw[0] = bcm43xx_plcp_get_ratecode(bitrate);
+		raw[0] = bcm43xx_plcp_get_ratecode_cck(bitrate);
 	}
 }
 
@@ -3218,11 +3227,13 @@ static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
 {
 	u16 offset;
 
-	if (is_ofdm)
+	if (is_ofdm) {
 		offset = 0x480;
-	else
+		offset += (bcm43xx_plcp_get_ratecode_ofdm(rate) & 0x000F) * 2;
+	} else {
 		offset = 0x4C0;
-	offset += (bcm43xx_plcp_get_ratecode(rate) & 0x000F) * 2;
+		offset += (bcm43xx_plcp_get_ratecode_cck(rate) & 0x000F) * 2;
+	}
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, offset + 0x20,
 			    bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, offset));
 }
