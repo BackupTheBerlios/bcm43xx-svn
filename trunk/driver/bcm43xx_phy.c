@@ -83,32 +83,38 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm);
 
 void bcm43xx_raw_phy_lock(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+
 	assert(irqs_disabled());
-	if (bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD) == 0x00000000)
+	if (bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD) == 0x00000000) {
+		phy->is_locked = 0;
 		return;
+	}
 	if (bcm->current_core->rev < 3) {
 		bcm43xx_mac_suspend(bcm);
-		spin_lock(&bcm->current_core->phy->lock);
+		spin_lock(&phy->lock);
 	} else {
-		if (bcm->ieee->iw_mode == IW_MODE_MASTER)
-			return;
-		bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
+		if (bcm->ieee->iw_mode != IW_MODE_MASTER)
+			bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
 	}
+	phy->is_locked = 1;
 }
 
 void bcm43xx_raw_phy_unlock(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+
 	assert(irqs_disabled());
 	if (bcm->current_core->rev < 3) {
-		if (!spin_is_locked(&bcm->current_core->phy->lock))
-			return;
-		spin_unlock(&bcm->current_core->phy->lock);
-		bcm43xx_mac_enable(bcm);
+		if (phy->is_locked) {
+			spin_unlock(&phy->lock);
+			bcm43xx_mac_enable(bcm);
+		}
 	} else {
-		if (bcm->ieee->iw_mode == IW_MODE_MASTER)
-			return;
-		bcm43xx_power_saving_ctl_bits(bcm, -1, -1);
+		if (bcm->ieee->iw_mode != IW_MODE_MASTER)
+			bcm43xx_power_saving_ctl_bits(bcm, -1, -1);
 	}
+	phy->is_locked = 0;
 }
 
 u16 bcm43xx_phy_read(struct bcm43xx_private *bcm, u16 offset)

@@ -487,7 +487,8 @@ struct bcm43xx_phyinfo {
 	u16 minlowsig[2];
 	u16 minlowsigpos[2];
 	u8 connected:1,
-	   calibrated:1;
+	   calibrated:1,
+	   is_locked:1; /* used in bcm43xx_phy_{un}lock() */
 	/* LO Measurement Data.
 	 * Use bcm43xx_get_lopair() to get a value.
 	 */
