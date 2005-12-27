@@ -416,9 +416,9 @@ u8 bcm43xx_plcp_get_ratecode_cck(const u8 bitrate)
 		return 0x37;
 	case IEEE80211_CCK_RATE_11MB:
 		return 0x6E;
-	default:
-		assert(0);
 	}
+	assert(0);
+	return 0;
 }
 
 static inline
@@ -441,9 +441,9 @@ u8 bcm43xx_plcp_get_ratecode_ofdm(const u8 bitrate)
 		return 0x8;
 	case IEEE80211_OFDM_RATE_54MB:
 		return 0xC;
-	default:
-		assert(0);
 	}
+	assert(0);
+	return 0;
 }
 
 static inline
