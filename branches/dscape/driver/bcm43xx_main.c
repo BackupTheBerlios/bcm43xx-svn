@@ -2858,6 +2858,7 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 			core->phy->minlowsig[1] = 0xFFFF;
 			core->phy->minlowsigpos[0] = 0;
 			core->phy->minlowsigpos[1] = 0;
+			spin_lock_init(&core->phy->lock);
 			core->radio = &bcm->radio[i];
 			core->radio->interfmode = BCM43xx_RADIO_INTERFMODE_AUTOWLAN;
 			core->radio->channel = 0xFF;
