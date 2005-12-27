@@ -103,58 +103,30 @@ MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
 
 static struct pci_device_id bcm43xx_pci_tbl[] = {
 
+	/* Detailed list maintained at:
+	 * http://openfacts.berlios.de/index-en.phtml?title=Bcm43xxDevices
+	 */
+
 	/* Broadcom 4303 802.11b */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x1028, 0x0407, 0, 0, 0 }, /* Dell TrueMobile 1180 Mini-PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x103c, 0x12f3, 0, 0, 0 }, /* HP Compaq NX9110 802.11b Mini-PCI card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x1043, 0x0120, 0, 0, 0 }, /* Asus WL-103b PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4301, 0x1737, 0x4301, 0, 0, 0 }, /* Linksys WMP11 rev2.7 */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
 	/* Broadcom 4307 802.11b */
-//	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
 	/* Broadcom 4318 802.11b/g */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1028, 0x0005, 0, 0, 0 }, /* Dell TrueMobile 1370 Mini-PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x103c, 0x1355, 0, 0, 0 }, /* Compag v2000z Mini-PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1043, 0x120f, 0, 0, 0 }, /* Asus Z9200K Laptop */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x106b, 0x4318, 0, 0, 0 }, /* Apple AirPort Extreme 2 Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1468, 0x0311, 0, 0, 0 }, /* AMBITG T60H906.00 */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1468, 0x0312, 0, 0, 0 }, /* Acer Aspire 3003LCi Laptop */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x16ec, 0x0119, 0, 0, 0 }, /* U.S.Robotics Wireless MAXg PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x1799, 0x7000, 0, 0, 0 }, /* Belkin F5D7000 PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4318, 0x17f9, 0x0006, 0, 0, 0 }, /* Amilo A1650 Laptop */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
 	/* Broadcom 4306 802.11b/g */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x02fa, 0x3010, 0, 0, 0 }, /* Siemens Gigaset PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1028, 0x0001, 0, 0, 0 }, /* Dell TrueMobile 1300 Mini-PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1028, 0x0002, 0, 0, 0 }, /* Dell TrueMobile 1300 PCMCIA Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1028, 0x0003, 0, 0, 0 }, /* Dell TrueMobile 1350 Mini-PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12f4, 0, 0, 0 }, /* HP nx9105 Laptop */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12f8, 0, 0, 0 }, /* HP zd8000 Laptop */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x103c, 0x12fa, 0, 0, 0 }, /* Compaq Presario R3xxx PCI on board */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1043, 0x100f, 0, 0, 0 }, /* Asus WL-100G PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1043, 0x120f, 0, 0, 0 }, /* Asus M6R on board */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1057, 0x7025, 0, 0, 0 }, /* Motorola WN825G PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x106b, 0x004e, 0, 0, 0 }, /* Apple AirPort Extreme Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1154, 0x0325, 0, 0, 0 }, /* Buffalo WLI-PCI-G54 */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x14e4, 0x0013, 0, 0, 0 }, /* Linksys WMP54G PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x14e4, 0x0417, 0, 0, 0 }, /* TRENDnet TEW-401PC */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1737, 0x0015, 0, 0, 0 }, /* Linksys WMP54GS PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1737, 0x4320, 0, 0, 0 }, /* Linksys WPC54G PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1799, 0x7001, 0, 0, 0 }, /* Belkin F5D7001 PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1799, 0x7010, 0, 0, 0 }, /* Belkin F5D7010 PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x1799, 0x7011, 0, 0, 0 }, /* Belkin F5D7011 PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4320, 0x185f, 0x1220, 0, 0, 0 }, /* Linksys WMP54G PCI Card */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
 	/* Broadcom 4306 802.11a */
 //	{ PCI_VENDOR_ID_BROADCOM, 0x4321, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
 	/* Broadcom 4309 802.11a/b/g */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4324, 0x1028, 0x0001, 0, 0, 0 }, /* Dell TrueMobile 1400 Mini-PCI Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4324, 0x1028, 0x0003, 0, 0, 0 }, /* Dell TrueMobile 1450 Mini-PCI Card */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4324, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
 	/* Broadcom 43XG 802.11b/g */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4325, 0x1414, 0x0003, 0, 0, 0 }, /* Microsoft MN-720 PC Card */
-	{ PCI_VENDOR_ID_BROADCOM, 0x4325, 0x1414, 0x0004, 0, 0, 0 }, /* Microsoft MN-730 PCI Card */
+	{ PCI_VENDOR_ID_BROADCOM, 0x4325, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
 	/* required last entry */
 	{ 0, },

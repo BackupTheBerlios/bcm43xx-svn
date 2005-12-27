@@ -934,9 +934,9 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 			backup[8] = bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS);
 			backup[9] = bcm43xx_phy_read(bcm, 0x0802);
 			bcm43xx_phy_write(bcm, 0x0814,
-                                          (bcm43xx_phy_read(bcm, 0x0814) | 0x0003));
+			                  (bcm43xx_phy_read(bcm, 0x0814) | 0x0003));
 			bcm43xx_phy_write(bcm, 0x0815,
-                                          (bcm43xx_phy_read(bcm, 0x0815) & 0xFFFC));	
+			                  (bcm43xx_phy_read(bcm, 0x0815) & 0xFFFC));	
 			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
 			                  (bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0x7FFF));
 			bcm43xx_phy_write(bcm, 0x0802,
@@ -960,7 +960,7 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 		if (bcm->current_core->phy->version >= 2)
 			bcm43xx_write16(bcm, 0x03E6, 0x0040);
 		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
-                                (bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT) | 0x2000));
+		                (bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT) | 0x2000));
 	}
 
 	ret = bcm43xx_radio_calibrationvalue(bcm);
@@ -1403,7 +1403,7 @@ void bcm43xx_radio_set_txpower_a(struct bcm43xx_private *bcm, u16 txpower)
 
 void bcm43xx_radio_set_txpower_bg(struct bcm43xx_private *bcm,
                                  u16 baseband_attenuation, u16 radio_attenuation,
-			         u16 txpower)
+                                 u16 txpower)
 {
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
@@ -1451,8 +1451,8 @@ int bcm43xx_radio_turn_on(struct bcm43xx_private *bcm)
 		bcm43xx_phy_write(bcm, 0x0011, bcm43xx_phy_read(bcm, 0x0011) & 0xFFF7);
 		bcm43xx_radio_init2060(bcm);	
 		break;
-        case BCM43xx_PHYTYPE_B:
-        case BCM43xx_PHYTYPE_G:
+	case BCM43xx_PHYTYPE_B:
+	case BCM43xx_PHYTYPE_G:
 		bcm43xx_phy_write(bcm, 0x0015, 0x8000);
 		bcm43xx_phy_write(bcm, 0x0015, 0xCC00);
 		bcm43xx_phy_write(bcm, 0x0015, ((bcm->current_core->phy->connected) ? 0x00C0 : 0x0000));
