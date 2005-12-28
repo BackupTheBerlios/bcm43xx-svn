@@ -1903,7 +1903,7 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 			else
 				phy->idle_tssi = 62;
 		if (phy->type == BCM43xx_PHYTYPE_B) {
-			dyn_tssi2dbm = (s8 *) kmalloc(256, GFP_KERNEL);
+			dyn_tssi2dbm = kmalloc(256, GFP_KERNEL);
 			if (dyn_tssi2dbm == NULL) {
 				printk(KERN_ERR PFX "Could not allocate memory"
 						    "for tssi2dbm table\n");
@@ -1920,7 +1920,7 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 					break;
 			}
 		} else {
-			dyn_tssi2dbm = (s8 *) kmalloc(64, GFP_KERNEL);
+			dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
 			if (dyn_tssi2dbm == NULL) {
 				printk(KERN_ERR PFX "Could not allocate memory"
 						    "for tssi2dbm table\n");
