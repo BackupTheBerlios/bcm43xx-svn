@@ -3610,6 +3610,9 @@ static void bcm43xx_detach_board(struct bcm43xx_private *bcm)
 	/* Do _not_ access the chip, after it is detached. */
 	iounmap(bcm->mmio_addr);
 
+	if (bcm->phy->dyn_tssi_tbl)
+		kfree(bcm->phy->tssi2dbm);
+	
 	pci_release_regions(pci_dev);
 	pci_disable_device(pci_dev);
 

@@ -1679,13 +1679,13 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 {
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
-
+	
 	if (phy->savedpctlreg == 0xFFFF)
 		return;
 	if ((bcm->board_type == 0x0416) &&
 	    (bcm->board_vendor == PCI_VENDOR_ID_BROADCOM))
 		return;
-
+	
 	switch (phy->type) {
 	case BCM43xx_PHYTYPE_A: {
 
@@ -1712,6 +1712,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		v2 = (s8)(tmp & 0x00FF);
 		v3 = (s8)((tmp & 0xFF00) >> 8);
 		tmp = 0;
+
 		if (v0 == 0x7F || v1 == 0x7F || v2 == 0x7F || v3 == 0x7F) {
 			tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0070);
 			v0 = (s8)(tmp & 0x00FF);
@@ -1733,6 +1734,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 
 		if (tmp && (bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x005E) & 0x8))
 			average -= 13;
+
 		estimated_pwr = bcm43xx_phy_estimate_power_out(bcm, average);
 
 		max_pwr = bcm->sprom.maxpower_bgphy;
@@ -1745,7 +1747,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		max_pwr = min(REG - bcm->sprom.antennagain_bgphy - 0x6, max_pwr)
 			where REG is the max power as per the regulatory domain
 		*/
-		
+
 		/*TODO: Get desired_pwr from wx_handlers or the stack
 		limit_value(desired_pwr, 0, max_pwr);
 		*/
@@ -1830,21 +1832,53 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 	}
 }
 
+static inline
+s32 bcm43xx_tssi2dbm_ad(s32 num, s32 den)
+{
+	if (num < 0)
+		return num/den;
+	else
+		return (num+den/2)/den;
+}
+
+static inline
+s8 bcm43xx_tssi2dbm_entry(s8 entry [], s8 index, s16 pab0, s16 pab1, s16 pab2)
+{
+	s32 m1, m2, f = 256, q, delta;
+	s8 i = 0;
+	
+	m1 = bcm43xx_tssi2dbm_ad(16 * pab0 + index * pab1, 32);
+	m2 = max(bcm43xx_tssi2dbm_ad(32768 + index * pab2, 256), 1);
+	do {
+		if (i > 15)
+			return -EINVAL;
+		q = bcm43xx_tssi2dbm_ad(f * 256 -
+					bcm43xx_tssi2dbm_ad(m2 * f, 16), 2048);
+		delta = abs(q - f);
+		f = q;
+		i++;
+	} while (delta < 2);
+	entry[index] = limit_value(bcm43xx_tssi2dbm_ad(m1 * f, 8192), -127, 128);
+	return 0;
+}
+	
 /* http://bcm-specs.sipsolutions.net/TSSI_to_DBM_Table */
 int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 {
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	s16 pab0, pab1, pab2;
-
+	s8 idx;
+	s8 *dyn_tssi2dbm;
+	
 	if (phy->type == BCM43xx_PHYTYPE_A) {
-		pab0 = (s16)(bcm->sprom.pa0b0);
-		pab1 = (s16)(bcm->sprom.pa0b1);
-		pab2 = (s16)(bcm->sprom.pa0b2);
-	} else {
 		pab0 = (s16)(bcm->sprom.pa1b0);
 		pab1 = (s16)(bcm->sprom.pa1b1);
 		pab2 = (s16)(bcm->sprom.pa1b2);
+	} else {
+		pab0 = (s16)(bcm->sprom.pa0b0);
+		pab1 = (s16)(bcm->sprom.pa0b1);
+		pab2 = (s16)(bcm->sprom.pa0b2);
 	}
 
 	if ((bcm->chip_id == 0x4301) && (radio->version != 0x2050)) {
@@ -1857,14 +1891,51 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 	    pab0 != -1 && pab1 != -1 && pab2 != -1) {
 		/* The pabX values are set in SPROM. Use them. */
 		if (phy->type == BCM43xx_PHYTYPE_A)
-			phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_aphy);
+			if ((s8)bcm->sprom.idle_tssi_tgt_aphy != 0 &&
+			    (s8)bcm->sprom.idle_tssi_tgt_aphy != -1)
+				phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_aphy);
+			else
+				phy->idle_tssi = 62;
 		else
-			phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
+			if ((s8)bcm->sprom.idle_tssi_tgt_bgphy != 0 &&
+			    (s8)bcm->sprom.idle_tssi_tgt_bgphy != -1)
+				phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
+			else
+				phy->idle_tssi = 62;
 		if (phy->type == BCM43xx_PHYTYPE_B) {
-			TODO(); //TODO: incomplete specs.
+			dyn_tssi2dbm = (s8 *) kmalloc(256, GFP_KERNEL);
+			if (dyn_tssi2dbm == NULL) {
+				printk(KERN_ERR PFX "Could not allocate memory"
+						    "for tssi2dbm table\n");
+				return -ENOMEM;
+			}
+			for (idx = -128; ; idx++) {
+				if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
+					phy->tssi2dbm = NULL;
+					printk(KERN_ERR PFX "Could not generate "
+							    "tssi2dBm table\n");
+					return -ENODEV;
+				}
+				if (idx == 127)
+					break;
+			}
+		} else {
+			dyn_tssi2dbm = (s8 *) kmalloc(64, GFP_KERNEL);
+			if (dyn_tssi2dbm == NULL) {
+				printk(KERN_ERR PFX "Could not allocate memory"
+						    "for tssi2dbm table\n");
+				return -ENOMEM;
+			}
+			for (idx = 0; idx < 64; idx++)
+				if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
+					phy->tssi2dbm = NULL;
+					printk(KERN_ERR PFX "Could not generate "
+							    "tssi2dBm table\n");
+					return -ENODEV;
+				}
 		}
-		TODO(); //TODO: incomplete specs.
-		return -ENODEV;
+		phy->tssi2dbm = dyn_tssi2dbm;
+		phy->dyn_tssi_tbl = 1;
 	} else {
 		/* pabX values not set in SPROM. */
 		switch (phy->type) {
