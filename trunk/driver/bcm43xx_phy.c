@@ -1755,7 +1755,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		desired_pwr = max_pwr; /* remove this when we have a real desired_pwr */
 
 		pwr_adjust = desired_pwr - estimated_pwr;
-		
+
 		radio_att_delta = -(pwr_adjust + 7) >> 3;
 		baseband_att_delta = -(pwr_adjust >> 1) - (4 * radio_att_delta);
 		if ((radio_att_delta == 0) && (baseband_att_delta == 0)) {
@@ -1861,7 +1861,7 @@ s8 bcm43xx_tssi2dbm_entry(s8 entry [], s8 index, s16 pab0, s16 pab1, s16 pab2)
 	entry[index] = limit_value(bcm43xx_tssi2dbm_ad(m1 * f, 8192), -127, 128);
 	return 0;
 }
-	
+
 /* http://bcm-specs.sipsolutions.net/TSSI_to_DBM_Table */
 int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 {

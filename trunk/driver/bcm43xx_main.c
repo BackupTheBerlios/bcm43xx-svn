@@ -3655,9 +3655,6 @@ static void bcm43xx_detach_board(struct bcm43xx_private *bcm)
 	bcm43xx_chipset_detach(bcm);
 	/* Do _not_ access the chip, after it is detached. */
 	iounmap(bcm->mmio_addr);
-
-	if (bcm->current_core->phy->dyn_tssi_tbl)
-		kfree(bcm->current_core->phy->tssi2dbm);
 	
 	pci_release_regions(pci_dev);
 	pci_disable_device(pci_dev);
@@ -3665,6 +3662,8 @@ static void bcm43xx_detach_board(struct bcm43xx_private *bcm)
 	/* Free allocated structures/fields */
 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
 		kfree(bcm->phy[i]._lo_pairs);
+		if (bcm->phy[i].dyn_tssi_tbl)
+			kfree(bcm->phy[i].tssi2dbm);
 	}
 }	
 
@@ -3887,6 +3886,8 @@ out:
 err_80211_unwind:
 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
 		kfree(bcm->phy[i]._lo_pairs);
+		if (bcm->phy[i].dyn_tssi_tbl)
+			kfree(bcm->phy[i].tssi2dbm);
 	}
 err_chipset_detach:
 	bcm43xx_chipset_detach(bcm);
