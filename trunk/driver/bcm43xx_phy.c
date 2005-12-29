@@ -1453,7 +1453,7 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 
 	bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT, 0x0000);
 	bcm43xx_phy_write(bcm, 0x002E, 0x007F);
-	bcm43xx_phy_write(bcm, 0x0078, 0x080F);
+	bcm43xx_phy_write(bcm, 0x080F, 0x0078);
 	bcm43xx_phy_write(bcm, 0x0035, regstack[7] & ~(1 << 7));
 	bcm43xx_radio_write16(bcm, 0x007A, regstack[10] & 0xFFF0);
 	bcm43xx_phy_write(bcm, 0x002B, 0x0203);
