@@ -1854,7 +1854,7 @@ s8 bcm43xx_tssi2dbm_entry(s8 entry [], s8 index, s16 pab0, s16 pab1, s16 pab2)
 		delta = abs(q - f);
 		f = q;
 		i++;
-	} while (delta < 2);
+	} while (delta >= 2);
 	entry[index] = limit_value(bcm43xx_tssi2dbm_ad(m1 * f, 8192), -127, 128);
 	return 0;
 }
