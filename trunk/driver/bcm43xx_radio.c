@@ -618,7 +618,7 @@ bcm43xx_radio_interference_mitigation_enable(struct bcm43xx_private *bcm,
 {
 	int i = 0;
 	u16 *stack = bcm->current_core->radio->interfstack;
-	u16 tmp;
+	u16 tmp, flipped;
 
 	switch (mode) {
 	case BCM43xx_RADIO_INTERFMODE_NONWLAN:
@@ -629,11 +629,12 @@ bcm43xx_radio_interference_mitigation_enable(struct bcm43xx_private *bcm,
 			                  bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & ~0x4000);
 			break;
 		}
-		tmp = ((bcm43xx_phy_read(bcm, 0x0078) & 0x001E) >> 1);
+		tmp = (bcm43xx_radio_read16(bcm, 0x0078) & 0x001E);
+		flipped = flip_4bit(tmp);
+		if ((flipped >> 1) >= 4)
+			tmp = flipped - 3;
 		tmp = flip_4bit(tmp);
-		if (tmp >= 4)
-			tmp = flip_4bit(tmp - 3);
-		bcm43xx_phy_write(bcm, 0x0078, tmp << 1);
+		bcm43xx_radio_write16(bcm, 0x0078, tmp << 1);
 
 		bcm43xx_calc_nrssi_threshold(bcm);
 
@@ -766,7 +767,7 @@ bcm43xx_radio_interference_mitigation_disable(struct bcm43xx_private *bcm,
 {
 	int i = 0;
 	u16 *stack = bcm->current_core->radio->interfstack;
-	u16 tmp;
+	u16 tmp, flipped;
 
 	switch (mode) {
 	case BCM43xx_RADIO_INTERFMODE_NONWLAN:
@@ -777,11 +778,12 @@ bcm43xx_radio_interference_mitigation_disable(struct bcm43xx_private *bcm,
 			                  bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0x4000);
 			break;
 		}
-		tmp = ((bcm43xx_phy_read(bcm, 0x0078) & 0x001E) >> 1);
+		tmp = (bcm43xx_radio_read16(bcm, 0x0078) & 0x001E);
+		flipped = flip_4bit(tmp);
+		if ((flipped >> 1) >= 0x000C)
+			tmp = flipped + 3;
 		tmp = flip_4bit(tmp);
-		if (tmp >= 0x000C)
-			tmp = flip_4bit(tmp + 3);
-		bcm43xx_phy_write(bcm, 0x0078, tmp << 1);
+		bcm43xx_radio_write16(bcm, 0x0078, tmp << 1);
 
 		bcm43xx_calc_nrssi_threshold(bcm);
 
