@@ -1304,58 +1304,95 @@ void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 	}
 }
 
-void bcm43xx_key_add(struct bcm43xx_private *bcm, u8 index, u8 algorithm,
-		     u8 flags, u8 macaddr[6], u8 material[16])
+
+static void key_write(struct bcm43xx_private *bcm,
+		      u8 index, u8 algorithm, const u8 *_key)
 {
-	u16 sec_offset;
-	
-	index += 4; /* first four keys are the ones a station can have */
-	
-	sec_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0056) * 2
-					+ 8 * (index / 4) + index % 4;
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + 2 * index,
-			    (index << 4 | algorithm));
-	
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 0));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 4));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 8));
-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, sec_offset, *(((u32 *)material) + 12));
-	
-	if (bcm->current_core->rev >= 5) {
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, index * 8, le32_to_cpup((__le32 *)&macaddr[0]));
-		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, index * 8 + 4, le16_to_cpup((__le16 *)&macaddr[4]));
-	} else {
-		//FIXME: incomplete specs.
+	const u32 *key = (const u32 *)_key;
+	u16 off;
+	u32 value;
+	u16 i;
+
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + (index * 2),
+			    ((index << 4) | (algorithm & 0x0F)));
+	for (i = 0; i < 4; i++, key++) {
+		off = bcm->security_offset + (i * 4) + (index * 16);
+		value = be32_to_cpu(*key);
+		if (algorithm == BCM43xx_SEC_ALGO_WEP ||
+		    algorithm == BCM43xx_SEC_ALGO_WEP104) {
+			assert(index <= 3);
+			bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+					    off, value);
+		}
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+				    off + (4 * 16), value);
 	}
-	
-	memcpy(bcm->key[index].macaddr, macaddr, 6);
 }
 
-void bcm43xx_wep_clear(struct bcm43xx_private *bcm)
+static void keymac_write(struct bcm43xx_private *bcm,
+			 u8 index, const u8 *addr)
 {
-	u16 tmp;
-	int i, j;
-	
-	for (i = 0; i <= 0x1FC; i += 0x4)
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, i + 0x0180, 0x00000000);
-	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0056);
-	for (i = 0; i <= 0x1FC; i += 0x4)
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, i + tmp, 0x00000000);
-	
-	if (bcm->current_core->rev < 5) {
-		for (i = 16; i <= 25; i += 3) {
-			bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_CONTROL, i | 0x20);
-			for (j = 0; j < 3; j++)
-				bcm43xx_write16(bcm, BCM43xx_MMIO_MACFILTER_DATA, 0x0000);
-		}
+	if (bcm->current_core->rev >= 5) {
+		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC,
+				    index * 2,
+				    be32_to_cpu(*((const u32 *)addr)));
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC,
+				    (index * 2) + 1,
+				    be16_to_cpu(*((const u16 *)(addr + 4))));
 	} else {
-		for (i = 0; i < 12; i++) {
-			bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC, i * 6, 0x00000000);
-			bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC, i * 6 + 4, 0x0000);
+		TODO();//TODO
+	}
+}
+
+static int bcm43xx_key_write(struct bcm43xx_private *bcm,
+			     u8 index, u8 algorithm,
+			     const u8 *_key, int key_len,
+			     const u8 *mac_addr)
+{
+	u8 key[16] = { 0 };
+
+	if (index >= ARRAY_SIZE(bcm->key))
+		return -EINVAL;
+	if (key_len > ARRAY_SIZE(key))
+		return -EINVAL;
+	if (algorithm < 1 || algorithm > 5)
+		return -EINVAL;
+
+	memcpy(key, _key, key_len);
+	key_write(bcm, index, algorithm, key);
+	keymac_write(bcm, index, mac_addr);
+
+	bcm->key[index].algorithm = algorithm;
+
+	return 0;
+}
+
+static void bcm43xx_clear_keys(struct bcm43xx_private *bcm)
+{
+	static const u8 zero_mac[ETH_ALEN] = { 0 };
+	const u32 zero_key = 0;
+	u16 off;
+	u16 i, j;
+	u16 nr_keys = 54;
+
+	if (bcm->current_core->rev < 5)
+		nr_keys = 16;
+	assert(nr_keys <= ARRAY_SIZE(bcm->key));
+
+	for (i = 0; i < nr_keys; i++) {
+		bcm->key[i].enabled = 0;
+		keymac_write(bcm, i, zero_mac);
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
+				    0x100 + (i * 2), 0x0000);
+	}
+	for (i = 0; i < nr_keys + 4; i++) {
+		for (j = 0; j < 4; j++) {
+			off = bcm->security_offset + (j * 4) + (i * 16);
+			bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+					    off, zero_key);
 		}
 	}
-
-	bcm43xx_write16(bcm, 0x043C, 0x0000);
+printk("keys cleared\n");
 }
 
 /* Puts the index of the current core into user supplied core variable.
@@ -3469,6 +3506,13 @@ static void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
 			   BCM43xx_PERIODIC_3_DELAY);
 }
 
+static void bcm43xx_security_init(struct bcm43xx_private *bcm)
+{
+	bcm->security_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
+						  0x0056) * 2;
+	bcm43xx_clear_keys(bcm);
+}
+
 /* This is the opposite of bcm43xx_init_board() */
 static void bcm43xx_free_board(struct bcm43xx_private *bcm)
 {
@@ -3568,6 +3612,7 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
 	dprintk(KERN_INFO PFX "80211 cores initialized\n");
+	bcm43xx_security_init(bcm);
 	bcm43xx_softmac_init(bcm);
 
 	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_DYNAMIC);

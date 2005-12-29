@@ -348,6 +348,15 @@
 #define BCM43xx_DEFAULT_SHORT_RETRY_LIMIT	7
 #define BCM43xx_DEFAULT_LONG_RETRY_LIMIT	4
 
+/* Security algorithms. */
+enum {
+	BCM43xx_SEC_ALGO_NONE = 0, /* unencrypted, as of TX header. */
+	BCM43xx_SEC_ALGO_WEP,
+	BCM43xx_SEC_ALGO_UNKNOWN,
+	BCM43xx_SEC_ALGO_AES,
+	BCM43xx_SEC_ALGO_WEP104,
+	BCM43xx_SEC_ALGO_TKIP,
+};
 
 #ifdef assert
 # undef assert
@@ -613,7 +622,8 @@ struct bcm43xx_stats {
 };
 
 struct bcm43xx_key {
-	u8 macaddr[6];
+	u8 enabled:1;
+	u8 algorithm;
 };
 
 struct bcm43xx_private {
@@ -716,7 +726,10 @@ struct bcm43xx_private {
 	/* Informational stuff. */
 	char nick[IW_ESSID_MAX_SIZE + 1];
 
+	/* encryption/decryption */
+	u16 security_offset;
 	struct bcm43xx_key key[54];
+	u8 default_key_idx;
 	
 	/* Debugging stuff follows. */
 #ifdef BCM43xx_DEBUG
