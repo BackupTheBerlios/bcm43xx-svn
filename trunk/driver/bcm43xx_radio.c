@@ -410,7 +410,7 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 				  bcm43xx_phy_read(bcm, 0x0802) & ~0x8000);
 		bcm43xx_phy_write(bcm, 0x0802,
 				  bcm43xx_phy_read(bcm, 0x0802) & ~(0x0001 | 0x0002));
-		bcm43xx_phy_write(bcm, 0x03E2, 0x8000);
+		bcm43xx_write16(bcm, 0x03E2, backup[7] | 0x8000);
 
 		bcm43xx_set_all_gains(bcm, 0, 8, 0);
 		bcm43xx_radio_write16(bcm, 0x007A,
