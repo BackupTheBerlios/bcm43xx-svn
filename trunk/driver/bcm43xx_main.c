@@ -4135,7 +4135,74 @@ static void bcm43xx_ieee80211_set_chan(struct net_device *net_dev,
 /* set_security() callback in struct ieee80211_device */
 static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 					   struct ieee80211_security *sec)
-{/*TODO*/
+{
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	struct ieee80211_security *secinfo = &bcm->ieee->sec;
+	unsigned long flags;
+	int keyidx;
+	
+	dprintk(KERN_INFO PFX "set security called\n");
+	
+	spin_lock_irqsave(&bcm->lock, flags);
+	
+	for (keyidx = 0; keyidx<WEP_KEYS; keyidx++)
+		if (sec->flags & (1<<keyidx)) {
+			secinfo->encode_alg[keyidx] = sec->encode_alg[keyidx];
+			secinfo->key_sizes[keyidx] = sec->key_sizes[keyidx];
+			memcpy(secinfo->keys[keyidx], sec->keys[keyidx], SCM_KEY_LEN);
+		}
+	
+	if (sec->flags & SEC_ACTIVE_KEY) {
+		secinfo->active_key = sec->active_key;
+		dprintk(KERN_INFO PFX "   .active_key = %d\n", sec->active_key);
+	}
+	if (sec->flags & SEC_UNICAST_GROUP) {
+		secinfo->unicast_uses_group = sec->unicast_uses_group;
+		dprintk(KERN_INFO PFX "   .unicast_uses_group = %d\n", sec->unicast_uses_group);
+	}
+	if (sec->flags & SEC_LEVEL) {
+		secinfo->level = sec->level;
+		dprintk(KERN_INFO PFX "   .level = %d\n", sec->level);
+	}
+	if (sec->flags & SEC_ENABLED) {
+		secinfo->enabled = sec->enabled;
+		dprintk(KERN_INFO PFX "   .enabled = %d\n", sec->enabled);
+	}
+	if (sec->flags & SEC_ENCRYPT) {
+		secinfo->encrypt = sec->encrypt;
+		dprintk(KERN_INFO PFX "   .encrypt = %d\n", sec->encrypt);
+	}
+	if (bcm->initialized) {
+		/* upload WEP keys to hardware */
+		char null_address[6] = { 0 };
+		u8 algorithm = 0;
+		for (keyidx = 0; keyidx<WEP_KEYS; keyidx++) {
+			if (!(sec->flags & (1<<keyidx)))
+				break;
+			switch (sec->encode_alg[keyidx]) {
+				case SEC_ALG_NONE: algorithm = BCM43xx_SEC_ALGO_NONE; break;
+				case SEC_ALG_WEP:
+					algorithm = BCM43xx_SEC_ALGO_WEP;
+					if (secinfo->key_sizes[keyidx] == 13)
+						algorithm = BCM43xx_SEC_ALGO_WEP104;
+					break;
+				case SEC_ALG_TKIP:
+					FIXME();
+					algorithm = BCM43xx_SEC_ALGO_TKIP;
+					break;
+				case SEC_ALG_CCMP:
+					FIXME();
+					algorithm = BCM43xx_SEC_ALGO_AES;
+					break;
+				default:
+					assert(0);
+					break;
+			}
+			/* this isn't really necessary at this time.... we use host crypto right now. */
+			bcm43xx_key_write(bcm, keyidx, algorithm, sec->keys[keyidx], secinfo->key_sizes[keyidx], &null_address[0]);
+		}	
+	}
+	spin_unlock_irqrestore(&bcm->lock, flags);
 }
 
 /* hard_start_xmit() callback in struct ieee80211_device */
@@ -4277,6 +4344,8 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	}
 	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
 
+	bcm->ieee->host_encrypt = 1;
+	bcm->ieee->host_decrypt = 1;
 	bcm->ieee->iw_mode = BCM43xx_INITIAL_IWMODE;
 	bcm->ieee->tx_headroom = sizeof(struct bcm43xx_txhdr);
 	bcm->ieee->set_security = bcm43xx_ieee80211_set_security;
