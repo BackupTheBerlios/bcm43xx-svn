@@ -2690,7 +2690,8 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 		bcm43xx_write16(bcm, 0x005E, value16);
 	}
 	bcm43xx_write32(bcm, 0x0100, 0x01000000);
-	bcm43xx_write32(bcm, 0x010C, 0x01000000);
+	if (bcm->current_core->rev < 5)
+		bcm43xx_write32(bcm, 0x010C, 0x01000000);
 
 	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	value32 &= ~ BCM43xx_SBF_MODE_NOTADHOC;
