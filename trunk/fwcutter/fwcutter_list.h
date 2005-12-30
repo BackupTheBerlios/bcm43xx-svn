@@ -684,6 +684,18 @@ static const struct file {
 	{
 		.name        = "wl_ap.o",
 		.version     = "3.90.37.0",                            /* 15/02/2005 */
+		.md5         = "0538296d46a854d2facc9a0db2088180",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x3eac0,
+		.uc2_pos     = 0x42730,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x4667c,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x4b470,  .uc5_length  = 0x57e0,
+		.pcm4_pos    = 0x50c54,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x51178,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "wl_ap.o",
+		.version     = "3.90.37.0",                            /* 15/02/2005 */
 		.md5         = "6c9073531a528dd455b716b5e821e696",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
 		.iv_pos      = 0x3eac0,
@@ -722,6 +734,18 @@ static const struct file {
 	{
 		.name        = "wl_apsta.o",
 		.version     = "3.90.37.0",                            /* 15/02/2005 */
+		.md5         = "2922e6c48917eacd6c8c094347d2ec4b",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x4ebc0,
+		.uc2_pos     = 0x52830,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x5677c,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x5b570,  .uc5_length  = 0x57e0,
+		.pcm4_pos    = 0x60d54,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x61278,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "wl_apsta.o",
+		.version     = "3.90.37.0",                            /* 15/02/2005 */
 		.md5         = "f9fa565a766e8befeb495a8a8c0c134b",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
 		.iv_pos      = 0x4ebc0,
@@ -756,6 +780,18 @@ static const struct file {
 		.uc5_pos     = 0x3cac0,  .uc5_length  = 0x4ec0,
 		.pcm4_pos    = 0x41984,  .pcm4_length = 0x478,
 		.pcm5_pos    = 0x41e00,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "wl_sta.o",
+		.version     = "3.90.37.0",                            /* 15/02/2005 */
+		.md5         = "4631d4d4c3ab943462e1ea24f4dba7bd",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x47040,
+		.uc2_pos     = 0x4acb0,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x4ebfc,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x539f0,  .uc5_length  = 0x57e0,
+		.pcm4_pos    = 0x591d4,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x596f8,  .pcm5_length = 0x520,
 	},
 	{
 		.name        = "wl_sta.o",
