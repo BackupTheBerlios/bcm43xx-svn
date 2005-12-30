@@ -2612,6 +2612,7 @@ void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
 			int iw_mode)
 {
 	unsigned long flags;
+	u32 status;
 
 	spin_lock_irqsave(&bcm->ieee->lock, flags);
 	bcm->ieee->iw_mode = iw_mode;
@@ -2624,7 +2625,37 @@ void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
 	if (!bcm->initialized)
 		return;
 
-	TODO();//TODO
+	bcm43xx_mac_disable(bcm);
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	/* Reset status to infrastructured mode */
+	status &= ~(BCM43xx_SBF_MODE_AP |
+		    BCM43xx_SBF_MODE_MONITOR |
+		    BCM43xx_SBF_MODE_PROMISC);
+	status |= BCM43xx_SBF_MODE_NOTADHOC;
+
+	switch (iw_mode) {
+	case IW_MODE_MONITOR:
+		status |= (BCM43xx_SBF_MODE_PROMISC |
+			   BCM43xx_SBF_MODE_MONITOR);
+		break;
+	case IW_MODE_ADHOC:
+		status &= ~BCM43xx_SBF_MODE_NOTADHOC;
+		break;
+	case IW_MODE_MASTER:
+	case IW_MODE_SECOND:
+	case IW_MODE_REPEAT:
+		/* TODO: No AP/Repeater mode for now :-/ */
+		TODO();
+		break;
+	case IW_MODE_INFRA:
+		/* nothing to be done here... */
+		break;
+	default:
+		printk(KERN_ERR PFX "Unknown iwmode %d\n", iw_mode);
+	}
+
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+	bcm43xx_mac_enable(bcm);
 }
 
 /* This is the opposite of bcm43xx_chip_init() */
