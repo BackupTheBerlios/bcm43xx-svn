@@ -1852,8 +1852,8 @@ s8 bcm43xx_tssi2dbm_entry(s8 entry [], s8 index, s16 pab0, s16 pab1, s16 pab2)
 	do {
 		if (i > 15)
 			return -EINVAL;
-		q = bcm43xx_tssi2dbm_ad(f * 256 -
-					bcm43xx_tssi2dbm_ad(m2 * f, 16), 2048);
+		q = bcm43xx_tssi2dbm_ad(f * 4096 -
+					bcm43xx_tssi2dbm_ad(m2 * f, 16) * f, 2048);
 		delta = abs(q - f);
 		f = q;
 		i++;
