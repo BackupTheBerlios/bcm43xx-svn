@@ -730,6 +730,57 @@ static int bcm43xx_wx_get_shortpreamble(struct net_device *net_dev,
 	return 0;
 }
 
+static int bcm43xx_wx_set_swencryption(struct net_device *net_dev,
+				       struct iw_request_info *info,
+				       union iwreq_data *data,
+				       char *extra)
+{
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	unsigned long flags;
+	int on;
+	
+	wx_enter();
+	
+	on = *((int *)extra);
+	spin_lock_irqsave(&bcm->lock, flags);
+	bcm->ieee->host_encrypt = !!on;
+	bcm->ieee->host_decrypt = !!on;
+	bcm->ieee->host_build_iv = !on;
+	if (on)
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
+			bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) | 0x4000);
+	else
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
+			bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) & ~0x4000);
+	
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	
+	return 0;
+}
+
+static int bcm43xx_wx_get_swencryption(struct net_device *net_dev,
+				       struct iw_request_info *info,
+				       union iwreq_data *data,
+				       char *extra)
+{
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	unsigned long flags;
+	int on;
+	
+	wx_enter();
+	
+	spin_lock_irqsave(&bcm->lock, flags);
+	on = bcm->ieee->host_encrypt;
+	spin_unlock_irqrestore(&bcm->lock, flags);
+	
+	if (on)
+		strncpy(extra, "1 (SW encryption enabled) ", MAX_WX_STRING);
+	else
+		strncpy(extra, "0 (SW encryption disabled) ", MAX_WX_STRING);
+	data->data.length = strlen(extra + 1);
+	
+	return 0;
+}
 
 #ifdef WX
 # undef WX
@@ -784,12 +835,18 @@ static const iw_handler bcm43xx_priv_wx_handlers[] = {
 	bcm43xx_wx_set_shortpreamble,
 	/* Get Short Preamble mode. */
 	bcm43xx_wx_get_shortpreamble,
+	/* Enable/Disable Software Encryption mode */
+	bcm43xx_wx_set_swencryption,
+	/* Get Software Encryption mode */
+	bcm43xx_wx_get_swencryption,
 };
 
 #define PRIV_WX_SET_INTERFMODE		(SIOCIWFIRSTPRIV + 0)
 #define PRIV_WX_GET_INTERFMODE		(SIOCIWFIRSTPRIV + 1)
 #define PRIV_WX_SET_SHORTPREAMBLE	(SIOCIWFIRSTPRIV + 2)
 #define PRIV_WX_GET_SHORTPREAMBLE	(SIOCIWFIRSTPRIV + 3)
+#define PRIV_WX_SET_SWENCRYPTION	(SIOCIWFIRSTPRIV + 4)
+#define PRIV_WX_GET_SWENCRYPTION	(SIOCIWFIRSTPRIV + 5)
 
 static const struct iw_priv_args bcm43xx_priv_wx_args[] = {
 	{
@@ -811,6 +868,16 @@ static const struct iw_priv_args bcm43xx_priv_wx_args[] = {
 		.cmd		= PRIV_WX_GET_SHORTPREAMBLE,
 		.get_args	= IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | MAX_WX_STRING,
 		.name		= "get_shortpreambl",
+	},
+	{
+		.cmd		= PRIV_WX_SET_SWENCRYPTION,
+		.set_args	= IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+		.name		= "set_swencryption",
+	},
+	{
+		.cmd		= PRIV_WX_GET_SWENCRYPTION,
+		.get_args	= IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | MAX_WX_STRING,
+		.name		= "get_swencryption",
 	},
 };
 

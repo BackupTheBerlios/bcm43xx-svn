@@ -502,6 +502,7 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 {
 	const struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	const struct ieee80211_hdr_1addr *wireless_header = (const struct ieee80211_hdr_1addr *)fragment_data;
+	const struct ieee80211_security *secinfo = &bcm->ieee->sec;
 	u8 bitrate;
 	int ofdm_modulation;
 	u8 fallback_bitrate;
@@ -560,9 +561,10 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	txhdr->flags = cpu_to_le16(tmp);
 
 	/* Set WSEC/RATE field */
-	//TODO: rts, wsec
-	tmp = (txhdr->plcp.raw[0] << BCM43xx_TXHDR_RATE_SHIFT)
-	       & BCM43xx_TXHDR_RATE_MASK;
+	tmp = (bcm->key[secinfo->active_key].algorithm << BCM43xx_TXHDR_WSEC_ALGO_SHIFT)
+	       & BCM43xx_TXHDR_WSEC_ALGO_MASK;
+	tmp |= (secinfo->active_key << BCM43xx_TXHDR_WSEC_KEYINDEX_SHIFT)
+	       & BCM43xx_TXHDR_WSEC_KEYINDEX_MASK;
 	txhdr->wsec_rate = cpu_to_le16(tmp);
 
 //bcm43xx_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
@@ -4117,6 +4119,13 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	}
 
 	frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
+	
+	if ((frame_ctl & IEEE80211_FCTL_PROTECTED) && !bcm->ieee->host_decrypt) {
+		/* trim IV and ICV */
+		skb_pull(skb, 4);
+		skb_trim(skb, skb->len - 4);
+	}
+	
 	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
 	case IEEE80211_FTYPE_MGMT:
 		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
@@ -4204,7 +4213,7 @@ static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 		secinfo->encrypt = sec->encrypt;
 		dprintk(KERN_INFO PFX "   .encrypt = %d\n", sec->encrypt);
 	}
-	if (bcm->initialized) {
+	if (bcm->initialized && bcm->ieee->host_encrypt) {
 		/* upload WEP keys to hardware */
 		char null_address[6] = { 0 };
 		u8 algorithm = 0;
@@ -4230,9 +4239,10 @@ static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 					assert(0);
 					break;
 			}
-			/* this isn't really necessary at this time.... we use host crypto right now. */
 			bcm43xx_key_write(bcm, keyidx, algorithm, sec->keys[keyidx], secinfo->key_sizes[keyidx], &null_address[0]);
-		}	
+			bcm->key[keyidx].enabled = 1;
+			bcm->key[keyidx].algorithm = algorithm;
+		}
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
@@ -4376,8 +4386,11 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	}
 	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
 
+	/* default to sw encryption for now */
+	bcm->ieee->host_build_iv = 0;
 	bcm->ieee->host_encrypt = 1;
 	bcm->ieee->host_decrypt = 1;
+	
 	bcm->ieee->iw_mode = BCM43xx_INITIAL_IWMODE;
 	bcm->ieee->tx_headroom = sizeof(struct bcm43xx_txhdr);
 	bcm->ieee->set_security = bcm43xx_ieee80211_set_security;
