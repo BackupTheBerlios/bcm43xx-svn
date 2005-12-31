@@ -4138,9 +4138,15 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	frame_ctl = le16_to_cpu(wlhdr->frame_ctl);
 	
 	if ((frame_ctl & IEEE80211_FCTL_PROTECTED) && !bcm->ieee->host_decrypt) {
+		frame_ctl &= ~IEEE80211_FCTL_PROTECTED;
+		wlhdr->frame_ctl = cpu_to_le16(frame_ctl);		
 		/* trim IV and ICV */
+		/* FIXME: this must be done only for WEP encrypted packets */
+		memmove(skb->data + 4, skb->data, 24);
 		skb_pull(skb, 4);
+		memmove(skb->data + skb->len - 8, skb->data + skb->len - 4, 4);
 		skb_trim(skb, skb->len - 4);
+		/* do _not_ use wlhdr again without reassigning it */
 	}
 	
 	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
