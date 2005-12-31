@@ -203,7 +203,6 @@ static byte* read_file(const char* filename)
 static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t length)
 {
 	byte* filedata;
-	char fwname[1024];
 	char outfile[1024];
 
 	switch (fwtype) {
@@ -211,14 +210,16 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 	case FIRMWARE_UCODE_4:
 	case FIRMWARE_UCODE_5:
 	case FIRMWARE_UCODE_11:
-		snprintf(outfile, sizeof(fwname), "bcm43xx_microcode%i%s.fw", 
+		snprintf(outfile, sizeof(outfile), "bcm43xx_microcode%i%s.fw", 
 			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
 		break;
 	case FIRMWARE_PCM_4:
 	case FIRMWARE_PCM_5:
-		snprintf(outfile, sizeof(fwname), "bcm43xx_pcm%i%s.fw", 
+		snprintf(outfile, sizeof(outfile), "bcm43xx_pcm%i%s.fw", 
 			 fwtype, cmdargs.postfix);
 		break;
+	default:
+		snprintf(outfile, sizeof(outfile), "bcm43xx_unknown.fw");
 	}
 
 	if (length > 0) {
