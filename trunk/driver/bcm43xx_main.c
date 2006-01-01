@@ -4118,11 +4118,8 @@ int bcm43xx_rx_packet(struct bcm43xx_private *bcm,
 	int err;
 
 	err = ieee80211_rx(bcm->ieee, skb, stats);
-	if (unlikely(err == 0)) {
-		dprintkl(KERN_ERR PFX "ieee80211_rx() failed\n");
+	if (unlikely(err == 0))
 		return -EINVAL;
-	}
-
 	return 0;
 }
 
