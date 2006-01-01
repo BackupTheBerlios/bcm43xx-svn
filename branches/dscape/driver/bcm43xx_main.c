@@ -879,116 +879,180 @@ err_unsupported_radio:
 	return -ENODEV;
 }
 
-static inline
-u16 sprom_read(struct bcm43xx_private *bcm,
-	       u16 offset)
+static inline u8 bcm43xx_crc8(u8 crc, u8 data)
 {
-	return bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (2 * offset));
+	static const u8 t[] = {
+		0x00, 0xF7, 0xB9, 0x4E, 0x25, 0xD2, 0x9C, 0x6B,
+		0x4A, 0xBD, 0xF3, 0x04, 0x6F, 0x98, 0xD6, 0x21,
+		0x94, 0x63, 0x2D, 0xDA, 0xB1, 0x46, 0x08, 0xFF,
+		0xDE, 0x29, 0x67, 0x90, 0xFB, 0x0C, 0x42, 0xB5,
+		0x7F, 0x88, 0xC6, 0x31, 0x5A, 0xAD, 0xE3, 0x14,
+		0x35, 0xC2, 0x8C, 0x7B, 0x10, 0xE7, 0xA9, 0x5E,
+		0xEB, 0x1C, 0x52, 0xA5, 0xCE, 0x39, 0x77, 0x80,
+		0xA1, 0x56, 0x18, 0xEF, 0x84, 0x73, 0x3D, 0xCA,
+		0xFE, 0x09, 0x47, 0xB0, 0xDB, 0x2C, 0x62, 0x95,
+		0xB4, 0x43, 0x0D, 0xFA, 0x91, 0x66, 0x28, 0xDF,
+		0x6A, 0x9D, 0xD3, 0x24, 0x4F, 0xB8, 0xF6, 0x01,
+		0x20, 0xD7, 0x99, 0x6E, 0x05, 0xF2, 0xBC, 0x4B,
+		0x81, 0x76, 0x38, 0xCF, 0xA4, 0x53, 0x1D, 0xEA,
+		0xCB, 0x3C, 0x72, 0x85, 0xEE, 0x19, 0x57, 0xA0,
+		0x15, 0xE2, 0xAC, 0x5B, 0x30, 0xC7, 0x89, 0x7E,
+		0x5F, 0xA8, 0xE6, 0x11, 0x7A, 0x8D, 0xC3, 0x34,
+		0xAB, 0x5C, 0x12, 0xE5, 0x8E, 0x79, 0x37, 0xC0,
+		0xE1, 0x16, 0x58, 0xAF, 0xC4, 0x33, 0x7D, 0x8A,
+		0x3F, 0xC8, 0x86, 0x71, 0x1A, 0xED, 0xA3, 0x54,
+		0x75, 0x82, 0xCC, 0x3B, 0x50, 0xA7, 0xE9, 0x1E,
+		0xD4, 0x23, 0x6D, 0x9A, 0xF1, 0x06, 0x48, 0xBF,
+		0x9E, 0x69, 0x27, 0xD0, 0xBB, 0x4C, 0x02, 0xF5,
+		0x40, 0xB7, 0xF9, 0x0E, 0x65, 0x92, 0xDC, 0x2B,
+		0x0A, 0xFD, 0xB3, 0x44, 0x2F, 0xD8, 0x96, 0x61,
+		0x55, 0xA2, 0xEC, 0x1B, 0x70, 0x87, 0xC9, 0x3E,
+		0x1F, 0xE8, 0xA6, 0x51, 0x3A, 0xCD, 0x83, 0x74,
+		0xC1, 0x36, 0x78, 0x8F, 0xE4, 0x13, 0x5D, 0xAA,
+		0x8B, 0x7C, 0x32, 0xC5, 0xAE, 0x59, 0x17, 0xE0,
+		0x2A, 0xDD, 0x93, 0x64, 0x0F, 0xF8, 0xB6, 0x41,
+		0x60, 0x97, 0xD9, 0x2E, 0x45, 0xB2, 0xFC, 0x0B,
+		0xBE, 0x49, 0x07, 0xF0, 0x9B, 0x6C, 0x22, 0xD5,
+		0xF4, 0x03, 0x4D, 0xBA, 0xD1, 0x26, 0x68, 0x9F,
+	};
+	return t[crc ^ data];
 }
 
-/* Read the SPROM and store its adjusted values in bcm->sprom */
+static u8 bcm43xx_sprom_crc8(const u16 *sprom)
+{
+	int word;
+	u8 crc = 0xFF;
+
+	for (word = 0; word < BCM43xx_SPROM_SIZE - 1; word++) {
+		crc = bcm43xx_crc8(crc, sprom[word] & 0x00FF);
+		crc = bcm43xx_crc8(crc, (sprom[word] & 0xFF00) >> 8);
+	}
+	crc = bcm43xx_crc8(crc, sprom[BCM43xx_SPROM_VERSION] & 0x00FF);
+	crc ^= 0xFF;
+
+	return crc;
+}
+
 static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 {
+	int i;
 	u16 value;
+	u16 *sprom;
+	u8 crc, expected_crc;
+
+	sprom = kmalloc(BCM43xx_SPROM_SIZE * sizeof(u16),
+			GFP_KERNEL);
+	if (!sprom) {
+		printk(KERN_ERR PFX "read_sprom OOM\n");
+		return -ENOMEM;
+	}
+	for (i = 0; i < BCM43xx_SPROM_SIZE; i++)
+		sprom[i] = bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (i * 2));
+
+	/* CRC-8 check. */
+	crc = bcm43xx_sprom_crc8(sprom);
+	expected_crc = (sprom[BCM43xx_SPROM_VERSION] & 0xFF00) >> 8;
+	if (crc != expected_crc) {
+		printk(KERN_WARNING PFX "WARNING: Invalid SPROM checksum "
+					"(0x%02X, expected: 0x%02X)\n",
+		       crc, expected_crc);
+	}
 
 	/* boardflags2 */
-	value = sprom_read(bcm, BCM43xx_SPROM_BOARDFLAGS2);
+	value = sprom[BCM43xx_SPROM_BOARDFLAGS2];
 	bcm->sprom.boardflags2 = value;
 
 	/* il0macaddr */
-	value = sprom_read(bcm, BCM43xx_SPROM_IL0MACADDR + 0);
+	value = sprom[BCM43xx_SPROM_IL0MACADDR + 0];
 	*(((u16 *)bcm->sprom.il0macaddr) + 0) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM43xx_SPROM_IL0MACADDR + 1);
+	value = sprom[BCM43xx_SPROM_IL0MACADDR + 1];
 	*(((u16 *)bcm->sprom.il0macaddr) + 1) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM43xx_SPROM_IL0MACADDR + 2);
+	value = sprom[BCM43xx_SPROM_IL0MACADDR + 2];
 	*(((u16 *)bcm->sprom.il0macaddr) + 2) = cpu_to_be16(value);
 
 	/* et0macaddr */
-	value = sprom_read(bcm, BCM43xx_SPROM_ET0MACADDR + 0);
+	value = sprom[BCM43xx_SPROM_ET0MACADDR + 0];
 	*(((u16 *)bcm->sprom.et0macaddr) + 0) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM43xx_SPROM_ET0MACADDR + 1);
+	value = sprom[BCM43xx_SPROM_ET0MACADDR + 1];
 	*(((u16 *)bcm->sprom.et0macaddr) + 1) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM43xx_SPROM_ET0MACADDR + 2);
+	value = sprom[BCM43xx_SPROM_ET0MACADDR + 2];
 	*(((u16 *)bcm->sprom.et0macaddr) + 2) = cpu_to_be16(value);
 
 	/* et1macaddr */
-	value = sprom_read(bcm, BCM43xx_SPROM_ET1MACADDR + 0);
+	value = sprom[BCM43xx_SPROM_ET1MACADDR + 0];
 	*(((u16 *)bcm->sprom.et1macaddr) + 0) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM43xx_SPROM_ET1MACADDR + 1);
+	value = sprom[BCM43xx_SPROM_ET1MACADDR + 1];
 	*(((u16 *)bcm->sprom.et1macaddr) + 1) = cpu_to_be16(value);
-	value = sprom_read(bcm, BCM43xx_SPROM_ET1MACADDR + 2);
+	value = sprom[BCM43xx_SPROM_ET1MACADDR + 2];
 	*(((u16 *)bcm->sprom.et1macaddr) + 2) = cpu_to_be16(value);
 
-	/* ethernat phy settings */
-	value = sprom_read(bcm, BCM43xx_SPROM_ETHPHY);
+	/* ethernet phy settings */
+	value = sprom[BCM43xx_SPROM_ETHPHY];
 	bcm->sprom.et0phyaddr = (value & 0x001F);
 	bcm->sprom.et1phyaddr = (value & 0x03E0) >> 5;
 	bcm->sprom.et0mdcport = (value & (1 << 14)) >> 14;
 	bcm->sprom.et1mdcport = (value & (1 << 15)) >> 15;
 
 	/* boardrev, antennas, locale */
-	value = sprom_read(bcm, BCM43xx_SPROM_BOARDREV);
+	value = sprom[BCM43xx_SPROM_BOARDREV];
 	bcm->sprom.boardrev = (value & 0x00FF);
 	bcm->sprom.locale = (value & 0x0F00) >> 8;
 	bcm->sprom.antennas_aphy = (value & 0x3000) >> 12;
 	bcm->sprom.antennas_bgphy = (value & 0xC000) >> 14;
 
 	/* pa0b* */
-	value = sprom_read(bcm, BCM43xx_SPROM_PA0B0);
+	value = sprom[BCM43xx_SPROM_PA0B0];
 	bcm->sprom.pa0b0 = value;
-	value = sprom_read(bcm, BCM43xx_SPROM_PA0B1);
+	value = sprom[BCM43xx_SPROM_PA0B1];
 	bcm->sprom.pa0b1 = value;
-	value = sprom_read(bcm, BCM43xx_SPROM_PA0B2);
+	value = sprom[BCM43xx_SPROM_PA0B2];
 	bcm->sprom.pa0b2 = value;
 
 	/* wl0gpio* */
-	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO0);
+	value = sprom[BCM43xx_SPROM_WL0GPIO0];
 	if (value == 0x0000)
 		value = 0xFFFF;
 	bcm->sprom.wl0gpio0 = value & 0x00FF;
 	bcm->sprom.wl0gpio1 = (value & 0xFF00) >> 8;
-	value = sprom_read(bcm, BCM43xx_SPROM_WL0GPIO2);
+	value = sprom[BCM43xx_SPROM_WL0GPIO2];
 	if (value == 0x0000)
 		value = 0xFFFF;
 	bcm->sprom.wl0gpio2 = value & 0x00FF;
 	bcm->sprom.wl0gpio3 = (value & 0xFF00) >> 8;
 
 	/* maxpower */
-	value = sprom_read(bcm, BCM43xx_SPROM_MAXPWR);
+	value = sprom[BCM43xx_SPROM_MAXPWR];
 	bcm->sprom.maxpower_aphy = (value & 0xFF00) >> 8;
 	bcm->sprom.maxpower_bgphy = value & 0x00FF;
 
 	/* pa1b* */
-	value = sprom_read(bcm, BCM43xx_SPROM_PA1B0);
+	value = sprom[BCM43xx_SPROM_PA1B0];
 	bcm->sprom.pa1b0 = value;
-	value = sprom_read(bcm, BCM43xx_SPROM_PA1B1);
+	value = sprom[BCM43xx_SPROM_PA1B1];
 	bcm->sprom.pa1b1 = value;
-	value = sprom_read(bcm, BCM43xx_SPROM_PA1B2);
+	value = sprom[BCM43xx_SPROM_PA1B2];
 	bcm->sprom.pa1b2 = value;
 
 	/* idle tssi target */
-	value = sprom_read(bcm, BCM43xx_SPROM_IDL_TSSI_TGT);
+	value = sprom[BCM43xx_SPROM_IDL_TSSI_TGT];
 	bcm->sprom.idle_tssi_tgt_aphy = value & 0x00FF;
 	bcm->sprom.idle_tssi_tgt_bgphy = (value & 0xFF00) >> 8;
 
 	/* boardflags */
-	value = sprom_read(bcm, BCM43xx_SPROM_BOARDFLAGS);
+	value = sprom[BCM43xx_SPROM_BOARDFLAGS];
 	if (value == 0xFFFF)
 		value = 0x0000;
 	bcm->sprom.boardflags = value;
 
 	/* antenna gain */
-	value = sprom_read(bcm, BCM43xx_SPROM_ANTENNA_GAIN);
+	value = sprom[BCM43xx_SPROM_ANTENNA_GAIN];
 	if (value == 0x0000 || value == 0xFFFF)
 		value = 0x0202;
 	/* convert values to Q5.2 */
 	bcm->sprom.antennagain_aphy = ((value & 0xFF00) >> 8) * 4;
 	bcm->sprom.antennagain_bgphy = (value & 0x00FF) * 4;
 
-	/* SPROM version, crc8 */
-	value = sprom_read(bcm, BCM43xx_SPROM_VERSION);
-	bcm->sprom.spromversion = value;
-
+	kfree(sprom);
 	return 0;
 }
 
