@@ -443,6 +443,7 @@ enum {
 	BCM43xx_LOCALE_NONE,
 };
 
+#define BCM43xx_SPROM_SIZE	64 /* in 16-bit words. */
 struct bcm43xx_sprominfo {
 	u16 boardflags2;
 	u8 il0macaddr[6];
@@ -473,7 +474,6 @@ struct bcm43xx_sprominfo {
 	u16 boardflags;
 	u16 antennagain_aphy;
 	u16 antennagain_bgphy;
-	u16 spromversion;
 };
 
 /* Value pair to measure the LocalOscillator. */
