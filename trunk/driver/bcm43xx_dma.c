@@ -219,41 +219,6 @@ static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
 				  ring->vbase, ring->dmabase);
 		return -ENOMEM;
 	}
-
-	//FIXME
-#if 0
-	struct device *dev = &(ring->bcm->pci_dev->dev);
-	int cnt = 5;
-	void *old_vbase = NULL;
-	dma_addr_t old_dmabase;
-	gfp_t gfp_flags = GFP_KERNEL;
-
-	while (1) {
-		ring->vbase = dma_alloc_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
-						 &(ring->dmabase), gfp_flags);
-		if (old_vbase) {
-			dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
-					  old_vbase, old_dmabase);
-		}
-		if (!ring->vbase) {
-			printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
-			return -ENOMEM;
-		}
-		if (ring->dmabase + BCM43xx_DMA_RINGMEMSIZE <= BCM43xx_DMA_BUSADDRMAX)
-			break;
-		if (--cnt == 0) {
-			dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
-					  ring->vbase, ring->dmabase);
-			printk(KERN_ERR PFX "Unable to allocate DMA "
-					    "ringmemory under 1G\n");
-			return -ENOMEM;
-		}
-		/* Try again. */
-		gfp_flags |= GFP_DMA;
-		old_vbase = ring->vbase;
-		old_dmabase = ring->dmabase;
-	}
-#endif
 	assert(!(ring->dmabase & 0x000003FF));
 	memset(ring->vbase, 0, BCM43xx_DMA_RINGMEMSIZE);
 
@@ -360,8 +325,7 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 	u32 desc_addr;
 	u32 desc_ctl;
 	const int slot = (int)(desc - ring->vbase);
-	struct sk_buff *skb;//, *old_skb = NULL;
-//	int cnt = 5;
+	struct sk_buff *skb;
 
 	assert(slot >= 0 && slot < ring->nr_slots);
 	assert(!ring->tx);
@@ -375,31 +339,6 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 		dev_kfree_skb_any(skb);
 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RX SKB >1G\n");
 	}
-#if 0
-	while (1) {
-		skb = __dev_alloc_skb(ring->rx_buffersize, gfp_flags);
-		if (unlikely(old_skb)) {
-			unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
-			dev_kfree_skb_any(old_skb);
-		}
-		if (unlikely(!skb))
-			return -ENOMEM;
-		dmaaddr = map_descbuffer(ring, skb->data,
-					 ring->rx_buffersize, 0);
-		if (likely(dmaaddr + ring->rx_buffersize <= BCM43xx_DMA_BUSADDRMAX))
-			break;
-		if (--cnt == 0) {
-			unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
-			dev_kfree_skb_any(skb);
-			dprintk(KERN_ERR PFX "Unable to allocate DMA RX "
-					     "buffer under 1G\n");
-			return -ENOMEM;
-		}
-		/* Try again. */
-		gfp_flags |= GFP_DMA;
-		old_skb = meta->skb;
-	}
-#endif
 	meta->skb = skb;
 	meta->dmaaddr = dmaaddr;
 	skb->dev = ring->bcm->net_dev;
