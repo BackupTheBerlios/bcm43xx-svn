@@ -798,7 +798,7 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	int slot;
 	struct bcm43xx_dmadesc *desc;
 	struct bcm43xx_dmadesc_meta *meta;
-	u32 desc_ctl = 0;
+	u32 desc_ctl;
 	u32 desc_addr;
 
 	assert(skb_shinfo(skb)->nr_frags == 0);
@@ -808,8 +808,6 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	meta = ring->meta + slot;
 
 	if (cur_frag == 0) {
-		/* This is the first fragment. */
-		desc_ctl |= BCM43xx_DMADTOR_FRAMESTART;
 		/* Save the txb pointer for freeing in xmitstatus IRQ */
 		meta->txb = txb;
 	}
@@ -835,61 +833,19 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA TX SKB >1G\n");
 		return -ENOMEM;
 	}
-#if 0
-	if (unlikely(meta->dmaaddr + skb->len > BCM43xx_DMA_BUSADDRMAX)) {
-		/* Busaddress > 1G. Try again. */
-		int cnt = 5;
-		struct sk_buff *old_skb = NULL, *orig_skb = skb;
-
-		/* We must not free the original skb here, as it is freed
-		 * as part of the txb free.
-		 */
-		while (1) {
-			unmap_descbuffer(ring, meta->dmaaddr, skb->len, 1);
-			skb = __dev_alloc_skb(orig_skb->len, GFP_ATOMIC | GFP_DMA);
-			if (unlikely(!skb)) {
-				return_slot(ring, slot);
-				dprintk(KERN_ERR PFX "Unable to allocate DMA TX buffer\n");
-				return -ENOMEM;
-			}
-			if (unlikely(old_skb)) {
-				unmap_descbuffer(ring, meta->dmaaddr, old_skb->len, 1);
-				dev_kfree_skb_irq(old_skb);
-			}
-			mark_skb_mustfree(skb, 1);
-			memcpy(skb_put(skb, orig_skb->len), orig_skb->data, orig_skb->len);
-			meta->dmaaddr = map_descbuffer(ring, skb->data,
-						       skb->len, 1);
-			if (likely(meta->dmaaddr + skb->len <= BCM43xx_DMA_BUSADDRMAX))
-				break;
-			if (--cnt == 0) {
-				unmap_descbuffer(ring, meta->dmaaddr, skb->len, 1);
-				dev_kfree_skb_irq(skb);
-				return_slot(ring, slot);
-				dprintk(KERN_ERR PFX "Unable to allocate DMA TX "
-						     "buffer under 1G\n");
-				return -ENOMEM;
-			}
-			/* Again. */
-		}
-		meta->skb = skb;
-	}
-#endif
 
 	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
+	desc_ctl = BCM43xx_DMADTOR_FRAMESTART | BCM43xx_DMADTOR_FRAMEEND;
+	desc_ctl |= BCM43xx_DMADTOR_COMPIRQ;
 	desc_ctl |= (BCM43xx_DMADTOR_BYTECNT_MASK &
 		     (u32)(meta->skb->len - ring->frameoffset));
 	if (slot == ring->nr_slots - 1)
 		desc_ctl |= BCM43xx_DMADTOR_DTABLEEND;
 
-	if (cur_frag == txb->nr_frags - 1) {
-		/* This is the last fragment */
-		desc_ctl |= BCM43xx_DMADTOR_FRAMEEND | BCM43xx_DMADTOR_COMPIRQ;
-		set_desc_ctl(desc, desc_ctl);
-		set_desc_addr(desc, desc_addr);
-		/* Now transfer the whole frame. */
-		dmacontroller_poke_tx(ring, slot);
-	}
+	set_desc_ctl(desc, desc_ctl);
+	set_desc_addr(desc, desc_addr);
+	/* Now transfer the whole frame. */
+	dmacontroller_poke_tx(ring, slot);
 
 	return 0;
 }
