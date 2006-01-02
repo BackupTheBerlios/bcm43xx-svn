@@ -984,7 +984,7 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 {
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
-
+	
 	if (phy->rev == 1)
 		bcm43xx_phy_initb5(bcm);
 	else if (phy->rev >= 2 && phy->rev <= 7)
@@ -993,6 +993,8 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 		bcm43xx_phy_inita(bcm);
 
 	if (phy->rev >= 2) {
+		u8 tmp;
+		
 		bcm43xx_phy_write(bcm, 0x0814, 0x0000);
 		bcm43xx_phy_write(bcm, 0x0815, 0x0000);
 		if (phy->rev == 2)
@@ -1000,10 +1002,11 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 		else if (phy->rev >= 3)
 			bcm43xx_phy_write(bcm, 0x0811, 0x0400);
 		bcm43xx_phy_write(bcm, 0x0015, 0x00C0);
-		if ((bcm43xx_phy_read(bcm, 0x0400) & 0xFF) == 3) {
+		tmp = bcm43xx_phy_read(bcm, 0x0400) & 0xFF;
+		if (tmp == 3) {
 			bcm43xx_phy_write(bcm, 0x04C2, 0x1816);
 			bcm43xx_phy_write(bcm, 0x04C3, 0x8606);
-		} else if ((bcm43xx_phy_read(bcm, 0x0400) & 0xFF) <= 5) {
+		} else if (tmp == 4 || tmp == 5) {
 			bcm43xx_phy_write(bcm, 0x04C2, 0x1816);
 			bcm43xx_phy_write(bcm, 0x04C3, 0x8006);
 			bcm43xx_phy_write(bcm, 0x04CC, (bcm43xx_phy_read(bcm, 0x04CC)
@@ -1839,7 +1842,7 @@ s32 bcm43xx_tssi2dbm_ad(s32 num, s32 den)
 }
 
 static inline
-s8 bcm43xx_tssi2dbm_entry(s8 entry [], s8 index, s16 pab0, s16 pab1, s16 pab2)
+s8 bcm43xx_tssi2dbm_entry(s8 entry [], u8 index, s16 pab0, s16 pab1, s16 pab2)
 {
 	s32 m1, m2, f = 256, q, delta;
 	s8 i = 0;
@@ -1865,7 +1868,7 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	s16 pab0, pab1, pab2;
-	s8 idx;
+	u8 idx;
 	s8 *dyn_tssi2dbm;
 	
 	if (phy->type == BCM43xx_PHYTYPE_A) {
@@ -1887,50 +1890,32 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 	if (pab0 != 0 && pab1 != 0 && pab2 != 0 &&
 	    pab0 != -1 && pab1 != -1 && pab2 != -1) {
 		/* The pabX values are set in SPROM. Use them. */
-		if (phy->type == BCM43xx_PHYTYPE_A)
+		if (phy->type == BCM43xx_PHYTYPE_A) {
 			if ((s8)bcm->sprom.idle_tssi_tgt_aphy != 0 &&
 			    (s8)bcm->sprom.idle_tssi_tgt_aphy != -1)
 				phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_aphy);
 			else
 				phy->idle_tssi = 62;
-		else
+		} else {
 			if ((s8)bcm->sprom.idle_tssi_tgt_bgphy != 0 &&
 			    (s8)bcm->sprom.idle_tssi_tgt_bgphy != -1)
 				phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
 			else
 				phy->idle_tssi = 62;
-		if (phy->type == BCM43xx_PHYTYPE_B) {
-			dyn_tssi2dbm = kmalloc(256, GFP_KERNEL);
-			if (dyn_tssi2dbm == NULL) {
-				printk(KERN_ERR PFX "Could not allocate memory"
-						    "for tssi2dbm table\n");
-				return -ENOMEM;
-			}
-			for (idx = -128; ; idx++) {
-				if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
-					phy->tssi2dbm = NULL;
-					printk(KERN_ERR PFX "Could not generate "
-							    "tssi2dBm table\n");
-					return -ENODEV;
-				}
-				if (idx == 127)
-					break;
-			}
-		} else {
-			dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
-			if (dyn_tssi2dbm == NULL) {
-				printk(KERN_ERR PFX "Could not allocate memory"
-						    "for tssi2dbm table\n");
-				return -ENOMEM;
-			}
-			for (idx = 0; idx < 64; idx++)
-				if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
-					phy->tssi2dbm = NULL;
-					printk(KERN_ERR PFX "Could not generate "
-							    "tssi2dBm table\n");
-					return -ENODEV;
-				}
 		}
+		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
+		if (dyn_tssi2dbm == NULL) {
+			printk(KERN_ERR PFX "Could not allocate memory"
+					    "for tssi2dbm table\n");
+			return -ENOMEM;
+		}
+		for (idx = 0; idx < 64; idx++)
+			if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
+				phy->tssi2dbm = NULL;
+				printk(KERN_ERR PFX "Could not generate "
+						    "tssi2dBm table\n");
+				return -ENODEV;
+			}
 		phy->tssi2dbm = dyn_tssi2dbm;
 		phy->dyn_tssi_tbl = 1;
 	} else {
