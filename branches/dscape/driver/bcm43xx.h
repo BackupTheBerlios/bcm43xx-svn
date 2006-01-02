@@ -674,7 +674,8 @@ struct bcm43xx_private {
 	    reg124_set_0x4:1,		/* Some variable to keep track of IRQ stuff. */
 	    powersaving:1,		/* TRUE if we are in PowerSaving mode. FALSE otherwise. */
 	    short_preamble:1,		/* TRUE, if short preamble is enabled. */
-	    short_slot:1;		/* TRUE, if short slot timing is enabled. */
+	    short_slot:1,		/* TRUE, if short slot timing is enabled. */
+	    firmware_norelease:1;	/* Do not release the firmware. Used on suspend. */
 
 	struct bcm43xx_stats stats;
 
@@ -755,6 +756,12 @@ struct bcm43xx_private {
 	u16 security_offset;
 	struct bcm43xx_key key[54];
 	u8 default_key_idx;
+
+	/* Firmware. */
+	const struct firmware *ucode;
+	const struct firmware *pcm;
+	const struct firmware *initvals0;
+	const struct firmware *initvals1;
 
 	/* Debugging stuff follows. */
 #ifdef BCM43xx_DEBUG
