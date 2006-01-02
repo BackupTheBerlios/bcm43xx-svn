@@ -1161,43 +1161,62 @@ void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm)
 }
 
 static void key_write(struct bcm43xx_private *bcm,
-		      u8 index, u8 algorithm, const u8 *_key)
+		      u8 index, u8 algorithm, const u16 *key)
 {
-	const u32 *key = (const u32 *)_key;
-	u16 off;
-	u32 value;
-	u16 i;
-
+	unsigned int i, basic_wep = 0;
+	u32 offset;
+	u16 value;
+ 
+	/* Write associated key information */
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + (index * 2),
 			    ((index << 4) | (algorithm & 0x0F)));
-	for (i = 0; i < 8; i++, key++) {
-		off = bcm->security_offset + (i * 2) + (index * 16);
-		if (i % 2)
-			value = le16_to_cpu(*key);
-		
-		if (algorithm == BCM43xx_SEC_ALGO_WEP ||
-		    algorithm == BCM43xx_SEC_ALGO_WEP104) {
-			assert(index <= 3);
-			bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
-					    off, value);
-		}
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
-				    off + (4 * 16), value);
+ 
+	/* The first 4 WEP keys need extra love */
+	if (((algorithm == BCM43xx_SEC_ALGO_WEP) ||
+	    (algorithm == BCM43xx_SEC_ALGO_WEP104)) && (index < 4))
+		basic_wep = 1;
+ 
+	/* Write key payload, 8 little endian words */
+	offset = bcm->security_offset + (index * BCM43xx_SEC_KEYSIZE);
+	for (i = 0; i < (BCM43xx_SEC_KEYSIZE / sizeof(u16)); i++) {
+		value = cpu_to_le16(key[i]);
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
+				    offset + (i * 2), value);
+ 
+		if (!basic_wep)
+			continue;
+ 
+		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
+				    offset + (i * 2) + 4 * BCM43xx_SEC_KEYSIZE,
+				    value);
 	}
 }
 
 static void keymac_write(struct bcm43xx_private *bcm,
-			 u8 index, const u8 *addr)
+			 u8 index, const u32 *addr)
 {
+	/* for keys 0-3 there is no associated mac address */
+	if (index < 4)
+		return;
+
+	index -= 4;
 	if (bcm->current_core->rev >= 5) {
-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_HWMAC,
+		bcm43xx_shm_write32(bcm,
+				    BCM43xx_SHM_HWMAC,
 				    index * 2,
-				    be32_to_cpu(*((const u32 *)addr)));
-		bcm43xx_shm_write16(bcm, BCM43xx_SHM_HWMAC,
+				    cpu_to_be32(*addr));
+		bcm43xx_shm_write16(bcm,
+				    BCM43xx_SHM_HWMAC,
 				    (index * 2) + 1,
-				    be16_to_cpu(*((const u16 *)(addr + 4))));
+				    cpu_to_be16(*((u16 *)(addr + 1))));
 	} else {
-		TODO();//TODO
+		if (index < 8) {
+			TODO(); /* Put them in the macaddress filter */
+		} else {
+			TODO();
+			/* Put them BCM43xx_SHM_SHARED, stating index 0x0120.
+			   Keep in mind to update the count of keymacs in 0x003E as well! */
+		}
 	}
 }
 
@@ -1206,7 +1225,7 @@ static int bcm43xx_key_write(struct bcm43xx_private *bcm,
 			     const u8 *_key, int key_len,
 			     const u8 *mac_addr)
 {
-	u8 key[16] = { 0 };
+	u8 key[BCM43xx_SEC_KEYSIZE] = { 0 };
 
 	if (index >= ARRAY_SIZE(bcm->key))
 		return -EINVAL;
@@ -1216,8 +1235,8 @@ static int bcm43xx_key_write(struct bcm43xx_private *bcm,
 		return -EINVAL;
 
 	memcpy(key, _key, key_len);
-	key_write(bcm, index, algorithm, key);
-	keymac_write(bcm, index, mac_addr);
+	key_write(bcm, index, algorithm, (const u16 *)key);
+	keymac_write(bcm, index, (const u32 *)mac_addr);
 
 	bcm->key[index].algorithm = algorithm;
 
@@ -1226,11 +1245,9 @@ static int bcm43xx_key_write(struct bcm43xx_private *bcm,
 
 static void bcm43xx_clear_keys(struct bcm43xx_private *bcm)
 {
-	static const u8 zero_mac[ETH_ALEN] = { 0 };
-	const u32 zero_key = 0;
-	u16 off;
-	u16 i, j;
-	u16 nr_keys = 54;
+	static const u32 zero_mac[2] = { 0 };
+	unsigned int i,j, nr_keys = 54;
+	u16 offset;
 
 	if (bcm->current_core->rev < 5)
 		nr_keys = 16;
@@ -1238,18 +1255,17 @@ static void bcm43xx_clear_keys(struct bcm43xx_private *bcm)
 
 	for (i = 0; i < nr_keys; i++) {
 		bcm->key[i].enabled = 0;
+		/* returns for i < 4 immediately */
 		keymac_write(bcm, i, zero_mac);
 		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
 				    0x100 + (i * 2), 0x0000);
-	}
-	for (i = 0; i < nr_keys + 4; i++) {
-		for (j = 0; j < 4; j++) {
-			off = bcm->security_offset + (j * 4) + (i * 16);
-			bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
-					    off, zero_key);
+		for (j = 0; j < 8; j++) {
+			offset = bcm->security_offset + (j * 4) + (i * BCM43xx_SEC_KEYSIZE);
+			bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
+					    offset, 0x0000);
 		}
 	}
-printk("keys cleared\n");
+	dprintk(KERN_INFO PFX "Keys cleared\n");
 }
 
 /* Puts the index of the current core into user supplied core variable.

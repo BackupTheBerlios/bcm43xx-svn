@@ -360,6 +360,8 @@
 #define BCM43xx_DEFAULT_SHORT_RETRY_LIMIT	7
 #define BCM43xx_DEFAULT_LONG_RETRY_LIMIT	4
 
+/* Max size of a security key */
+#define BCM43xx_SEC_KEYSIZE			16
 /* Security algorithms. */
 enum {
 	BCM43xx_SEC_ALGO_NONE = 0, /* unencrypted, as of TX header. */
