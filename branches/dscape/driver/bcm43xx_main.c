@@ -4030,6 +4030,8 @@ static void bcm43xx_security_init(struct bcm43xx_private *bcm)
 	bcm->security_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
 						  0x0056) * 2;
 	bcm43xx_clear_keys(bcm);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
+		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x00060) | 0x4000);
 }
 
 /* This is the opposite of bcm43xx_init_board() */
