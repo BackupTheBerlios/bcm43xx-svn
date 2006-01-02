@@ -114,6 +114,7 @@ static int bcm43xx_wx_set_channelfreq(struct net_device *net_dev,
 				      char *extra)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	struct ieee80211softmac_device *softmac = bcm->softmac
 	unsigned long flags;
 	u8 channel;
 	int freq;
@@ -133,7 +134,7 @@ static int bcm43xx_wx_set_channelfreq(struct net_device *net_dev,
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	if (bcm->initialized) {
-		//TODO: Tell softmac to disassociate.
+		ieee80211softmac_deassoc(softmac);
 		bcm43xx_mac_suspend(bcm);
 		err = bcm43xx_radio_selectchannel(bcm, channel, 0);
 		bcm43xx_mac_enable(bcm);
@@ -194,7 +195,8 @@ static int bcm43xx_wx_set_mode(struct net_device *net_dev,
 		mode = BCM43xx_INITIAL_IWMODE;
 
 	spin_lock_irqsave(&bcm->lock, flags);
-	bcm43xx_set_iwmode(bcm, mode);
+	if (bcm->ieee->iwmode != mode)
+		bcm43xx_set_iwmode(bcm, mode);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
 	return 0;
