@@ -984,6 +984,7 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 {
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	u16 tmp;
 	
 	if (phy->rev == 1)
 		bcm43xx_phy_initb5(bcm);
@@ -993,8 +994,6 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 		bcm43xx_phy_inita(bcm);
 
 	if (phy->rev >= 2) {
-		u8 tmp;
-		
 		bcm43xx_phy_write(bcm, 0x0814, 0x0000);
 		bcm43xx_phy_write(bcm, 0x0815, 0x0000);
 		if (phy->rev == 2)
