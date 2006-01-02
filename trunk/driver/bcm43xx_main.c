@@ -4142,11 +4142,11 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 		wlhdr->frame_ctl = cpu_to_le16(frame_ctl);		
 		/* trim IV and ICV */
 		/* FIXME: this must be done only for WEP encrypted packets */
-		if (skb->len < 32)
+		if (skb->len < 32) {
 			dprintkl(KERN_ERR PFX "RX packet dropped (PROTECTED flag "
 					      "set and length < 32)\n");
 			return -EINVAL;
-		else {		
+		} else {		
 			memmove(skb->data + 4, skb->data, 24);
 			skb_pull(skb, 4);
 			skb_trim(skb, skb->len - 4);
