@@ -331,26 +331,6 @@ static int bcm43xx_wx_get_rangeparams(struct net_device *net_dev,
 	return 0;
 }
 
-static int bcm43xx_wx_set_apmac(struct net_device *net_dev,
-				struct iw_request_info *info,
-				union iwreq_data *data,
-				char *extra)
-{
-	wx_enter();
-	/*TODO*/
-	return 0;
-}
-
-static int bcm43xx_wx_get_apmac(struct net_device *net_dev,
-				struct iw_request_info *info,
-				union iwreq_data *data,
-				char *extra)
-{
-	wx_enter();
-	/*TODO*/
-	return 0;
-}
-
 static int bcm43xx_wx_set_nick(struct net_device *net_dev,
 			       struct iw_request_info *info,
 			       union iwreq_data *data,
@@ -963,8 +943,8 @@ static const iw_handler bcm43xx_wx_handlers[] = {
 	/* Informative stuff */
 	WX(SIOCGIWRANGE)	= bcm43xx_wx_get_rangeparams,
 	/* Access Point manipulation */
-//TODO	WX(SIOCSIWAP)		= bcm43xx_wx_set_apmac,
-//TODO	WX(SIOCGIWAP)		= bcm43xx_wx_get_apmac,
+	WX(SIOCSIWAP)           = ieee80211softmac_wx_set_wap,
+	WX(SIOCGIWAP)           = ieee80211softmac_wx_get_wap,
 	WX(SIOCSIWSCAN)		= ieee80211softmac_wx_trigger_scan,
 	WX(SIOCGIWSCAN)		= ieee80211softmac_wx_get_scan_results,
 	/* 802.11 specific support */
