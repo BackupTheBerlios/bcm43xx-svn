@@ -2731,6 +2731,18 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 	u16 pci_device, chip_id_16;
 	u8 core_count;
 
+	memset(&bcm->core_chipcommon, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_pci, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_v90, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_pcmcia, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_80211, 0, sizeof(struct bcm43xx_coreinfo)
+				    * BCM43xx_MAX_80211_CORES);
+
+	memset(&bcm->phy, 0, sizeof(struct bcm43xx_phyinfo)
+			     * BCM43xx_MAX_80211_CORES);
+	memset(&bcm->radio, 0, sizeof(struct bcm43xx_radioinfo)
+			       * BCM43xx_MAX_80211_CORES);
+
 	/* map core 0 */
 	err = _switch_core(bcm, 0);
 	if (err)
@@ -2853,7 +2865,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
 			break;
 		case BCM43xx_COREID_V90:
 			core = &bcm->core_v90;
@@ -2861,7 +2872,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple V90 cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
 			break;
 		case BCM43xx_COREID_PCMCIA:
 			core = &bcm->core_pcmcia;
@@ -2869,7 +2879,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple PCMCIA cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
 			break;
 		case BCM43xx_COREID_ETHERNET:
 			core = &bcm->core_ethernet;
@@ -2877,7 +2886,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple Ethernet cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
 			break;
 		case BCM43xx_COREID_80211:
 			for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
@@ -2917,7 +2925,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				err = -ENODEV;
 				goto out;
 			}
-			memset(core, 0, sizeof(*core));
 			core->phy = &bcm->phy[i];
 			core->phy->antenna_diversity = 0xffff;
 			core->phy->savedpctlreg = 0xFFFF;
