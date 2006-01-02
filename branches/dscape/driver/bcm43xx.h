@@ -745,8 +745,7 @@ struct bcm43xx_private {
 	struct work_struct periodic_work3;
 #define BCM43xx_PERIODIC_3_DELAY		((HZ * 30) + HZ / 5)
 
-	/* Fatal error handling */
-	struct work_struct fatal_work;
+	struct work_struct restart_work;
 
 	/* Informational stuff. */
 	char nick[IW_ESSID_MAX_SIZE + 1];

@@ -287,4 +287,6 @@ void bcm43xx_mac_enable(struct bcm43xx_private *bcm);
 
 u8 bcm43xx_sprom_crc(const u16 *sprom);
 
+void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason);
+
 #endif /* BCM43xx_MAIN_H_ */

@@ -142,11 +142,6 @@ static struct pci_device_id bcm43xx_pci_tbl[] = {
 };
 
 
-static void bcm43xx_recover_from_fatal(struct bcm43xx_private *bcm, const char *error);
-static void bcm43xx_free_board(struct bcm43xx_private *bcm);
-static int bcm43xx_init_board(struct bcm43xx_private *bcm);
-
-
 static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
 {
 	u32 oldsbf;
@@ -3136,39 +3131,6 @@ err_chip_cleanup:
 	goto out;
 }
 
-/* Hard-reset the chip. Do not call this directly.
- * Use bcm43xx_recover_from_fatal()
- */
-static void bcm43xx_chip_reset(void *_bcm)
-{
-	struct bcm43xx_private *bcm = _bcm;
-	int err;
-
-	ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
-	tasklet_disable(&bcm->isr_tasklet);
-	bcm43xx_free_board(bcm);
-	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
-	err = bcm43xx_init_board(bcm);
-	if (err) {
-		printk(KERN_ERR PFX "Chip reset failed!\n");
-		return;
-	}
-	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
-}
-
-/* Call this function on _really_ fatal error conditions.
- * It will hard-reset the chip.
- * This can be called from interrupt or process context.
- * Make sure to _not_ re-enable device interrupts after this has been called.
- */
-static void bcm43xx_recover_from_fatal(struct bcm43xx_private *bcm, const char *error)
-{
-	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
-	printk(KERN_ERR PFX "FATAL ERROR (%s): Resetting the chip...\n", error);
-	INIT_WORK(&bcm->fatal_work, bcm43xx_chip_reset, bcm);
-	queue_work(bcm->workqueue, &bcm->fatal_work);
-}
-
 static int bcm43xx_chipset_attach(struct bcm43xx_private *bcm)
 {
 	int err;
@@ -4082,7 +4044,6 @@ static void bcm43xx_free_board(struct bcm43xx_private *bcm)
 
 	bcm43xx_pctl_set_crystal(bcm, 0);
 	bcm43xx_free_modes(bcm);
-	destroy_workqueue(bcm->workqueue);
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	bcm->shutting_down = 0;
@@ -4103,15 +4064,9 @@ static int bcm43xx_init_board(struct bcm43xx_private *bcm)
 	bcm->shutting_down = 0;
 	spin_unlock_irqrestore(&bcm->lock, flags);
 
-	bcm->workqueue = create_workqueue(DRV_NAME "_wq");
-	if (!bcm->workqueue) {
-		err = -ENOMEM;
-		goto out;
-	}
-
 	err = bcm43xx_pctl_set_crystal(bcm, 1);
 	if (err)
-		goto err_destroy_wq;
+		goto out;
 	err = bcm43xx_pctl_init(bcm);
 	if (err)
 		goto err_crystal_off;
@@ -4198,8 +4153,6 @@ err_80211_unwind:
 	}
 err_crystal_off:
 	bcm43xx_pctl_set_crystal(bcm, 0);
-err_destroy_wq:
-	destroy_workqueue(bcm->workqueue);
 	goto out;
 }
 
@@ -4573,7 +4526,7 @@ static int bcm43xx_net_reset(struct net_device *net_dev)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	bcm43xx_recover_from_fatal(bcm, "IEEE reset");
+	bcm43xx_controller_restart(bcm, "IEEE reset");
 
 	return 0;
 }
@@ -4771,12 +4724,55 @@ static void bcm43xx_netdev_setup(struct net_device *net_dev)
 	net_dev->wireless_handlers = &bcm43xx_wx_handlers_def;
 }
 
+static void bcm43xx_init_private(struct bcm43xx_private *bcm,
+				 struct net_device *net_dev,
+				 struct pci_dev *pci_dev,
+				 struct ieee80211_hw *ieee,
+				 struct workqueue_struct *wq)
+{
+	bcm->ieee = ieee;
+	bcm->workqueue = wq;
+
+#ifdef DEBUG_ENABLE_MMIO_PRINT
+	bcm43xx_mmioprint_initial(bcm, 1);
+#else
+	bcm43xx_mmioprint_initial(bcm, 0);
+#endif
+#ifdef DEBUG_ENABLE_PCILOG
+	bcm43xx_pciprint_initial(bcm, 1);
+#else
+	bcm43xx_pciprint_initial(bcm, 0);
+#endif
+
+	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
+	bcm->pci_dev = pci_dev;
+	bcm->net_dev = net_dev;
+	if (modparam_bad_frames_preempt)
+		bcm->bad_frames_preempt = 1;
+	spin_lock_init(&bcm->lock);
+	tasklet_init(&bcm->isr_tasklet,
+		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
+		     (unsigned long)bcm);
+	tasklet_disable_nosync(&bcm->isr_tasklet);
+	if (modparam_pio) {
+		bcm->pio_mode = 1;
+	} else {
+		if (pci_set_dma_mask(pci_dev, DMA_30BIT_MASK) == 0) {
+			bcm->pio_mode = 0;
+		} else {
+			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
+			bcm->pio_mode = 1;
+		}
+	}
+}
+
 static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 				      const struct pci_device_id *ent)
 {
 	struct net_device *net_dev;
 	struct bcm43xx_private *bcm;
 	struct ieee80211_hw *ieee;
+	struct workqueue_struct *wq;
 	int err = -ENOMEM;
 
 #ifdef CONFIG_BCM947XX
@@ -4818,45 +4814,18 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	/* initialize the bcm43xx_private struct */
 	bcm = bcm43xx_priv(net_dev);
 	memset(bcm, 0, sizeof(*bcm));
-	bcm->ieee = ieee;
-
-#ifdef DEBUG_ENABLE_MMIO_PRINT
-	bcm43xx_mmioprint_initial(bcm, 1);
-#else
-	bcm43xx_mmioprint_initial(bcm, 0);
-#endif
-#ifdef DEBUG_ENABLE_PCILOG
-	bcm43xx_pciprint_initial(bcm, 1);
-#else
-	bcm43xx_pciprint_initial(bcm, 0);
-#endif
-
-	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
-	bcm->pci_dev = pdev;
-	bcm->net_dev = net_dev;
-	if (modparam_bad_frames_preempt)
-		bcm->bad_frames_preempt = 1;
-	spin_lock_init(&bcm->lock);
-	tasklet_init(&bcm->isr_tasklet,
-		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
-		     (unsigned long)bcm);
-	tasklet_disable_nosync(&bcm->isr_tasklet);
-	if (modparam_pio) {
-		bcm->pio_mode = 1;
-	} else {
-		if (pci_set_dma_mask(pdev, DMA_30BIT_MASK) == 0) {
-			bcm->pio_mode = 0;
-		} else {
-			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
-			bcm->pio_mode = 1;
-		}
+	wq = create_workqueue(DRV_NAME "_wq");
+	if (!wq) {
+		err = -ENOMEM;
+		goto err_free_netdev;
 	}
+	bcm43xx_init_private(bcm, net_dev, pdev, ieee, wq);
 
 	pci_set_drvdata(pdev, net_dev);
 
 	err = bcm43xx_attach_board(bcm);
 	if (err)
-		goto err_free_netdev;
+		goto err_destroy_wq;
 	err = ieee80211_register_hw(net_dev, ieee);
 	if (err)
 		goto err_detach_board;
@@ -4869,6 +4838,8 @@ out:
 
 err_detach_board:
 	bcm43xx_detach_board(bcm);
+err_destroy_wq:
+	destroy_workqueue(wq);
 err_free_netdev:
 	ieee80211_free_hw(net_dev);
 err_free_ieee:
@@ -4890,8 +4861,52 @@ static void __devexit bcm43xx_remove_one(struct pci_dev *pdev)
 
 	ieee80211_unregister_hw(net_dev);
 	bcm43xx_detach_board(bcm);
+	destroy_workqueue(bcm->workqueue);
 	ieee80211_free_hw(net_dev);
 	kfree(ieee);
+}
+
+/* Hard-reset the chip. Do not call this directly.
+ * Use bcm43xx_controller_restart()
+ */
+static void bcm43xx_chip_reset(void *_bcm)
+{
+	struct bcm43xx_private *bcm = _bcm;
+	struct net_device *net_dev = bcm->net_dev;
+	struct pci_dev *pci_dev = bcm->pci_dev;
+	struct ieee80211_hw *ieee = bcm->ieee;
+	struct workqueue_struct *wq = bcm->workqueue;
+	int err = 0;
+	int was_initialized = bcm->initialized;
+
+	ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
+	tasklet_disable(&bcm->isr_tasklet);
+
+	if (was_initialized)
+		bcm43xx_free_board(bcm);
+	bcm43xx_detach_board(bcm);
+	bcm43xx_init_private(bcm, net_dev, pci_dev, ieee, wq);
+	bcm43xx_attach_board(bcm);
+	if (was_initialized)
+		err = bcm43xx_init_board(bcm);
+	if (err) {
+		printk(KERN_ERR PFX "Controller restart failed\n");
+		return;
+	}
+	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
+	printk(KERN_INFO PFX "Controller restarted\n");
+}
+
+/* Hard-reset the chip.
+ * This can be called from interrupt or process context.
+ * Make sure to _not_ re-enable device interrupts after this has been called.
+ */
+void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason)
+{
+	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+	printk(KERN_ERR PFX "Controller RESET (%s) ...\n", reason);
+	INIT_WORK(&bcm->restart_work, bcm43xx_chip_reset, bcm);
+	queue_work(bcm->workqueue, &bcm->restart_work);
 }
 
 #ifdef CONFIG_PM

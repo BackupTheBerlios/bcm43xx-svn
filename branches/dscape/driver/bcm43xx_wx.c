@@ -377,7 +377,7 @@ static int bcm43xx_wx_sprom_write(struct net_device *net_dev,
 			printk("75%%");
 		else if (i % 2)
 			printk(".");
-//TODO		bcm43xx_write16(bcm, BCM43xx_SPROM_BASE + (i * 2), sprom[i]);
+		bcm43xx_write16(bcm, BCM43xx_SPROM_BASE + (i * 2), sprom[i]);
 		mdelay(20);
 	}
 	spromctl &= ~0x10; /* SPROM WRITE enable. */
@@ -389,6 +389,9 @@ static int bcm43xx_wx_sprom_write(struct net_device *net_dev,
 	mdelay(500);
 	printk("100%% ]\n");
 	printk(KERN_INFO PFX "SPROM written.\n");
+
+	bcm43xx_controller_restart(bcm, "SPROM update");
+
 	err = 0;
 out_unlock:
 	spin_unlock_irqrestore(&bcm->lock, flags);
