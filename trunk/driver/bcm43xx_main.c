@@ -536,7 +536,6 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	encrypt_frame = le16_to_cpup(&wireless_header->frame_ctl) & IEEE80211_FCTL_PROTECTED;
 	if (encrypt_frame && !bcm->ieee->host_encrypt) {
 		const struct ieee80211_hdr_3addr *hdr = (struct ieee80211_hdr_3addr *)wireless_header;
-		printk(KERN_INFO PFX "encrypted frame\n");
 		if (fragment_len <= sizeof(struct ieee80211_hdr_3addr)+4) {
 			dprintkl(KERN_ERR PFX "invalid packet with PROTECTED"
 					      "flag set discarded");
