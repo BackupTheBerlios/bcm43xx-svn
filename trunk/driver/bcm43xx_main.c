@@ -496,7 +496,7 @@ void fastcall
 bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 		       struct bcm43xx_txhdr *txhdr,
 		       const unsigned char *fragment_data,
-		       const unsigned int fragment_len,
+		       unsigned int fragment_len,
 		       const int is_first_fragment,
 		       const u16 cookie)
 {
@@ -528,8 +528,13 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	/* Set the fallback duration ID. */
 	//FIXME: We use the original durid for now.
 	txhdr->fallback_dur_id = wireless_header->duration_id;
+
 	/* Set the cookie (used as driver internal ID for the frame) */
 	txhdr->cookie = cpu_to_le16(cookie);
+
+	/* Hardware appends ICV. */
+	if (bcm->key[secinfo->active_key].enabled && !bcm->ieee->host_encrypt)
+		fragment_len += 4;
 
 	/* Generate the PLCP header and the fallback PLCP header. */
 	bcm43xx_generate_plcp_hdr(&txhdr->plcp, fragment_len,
@@ -561,11 +566,13 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	txhdr->flags = cpu_to_le16(tmp);
 
 	/* Set WSEC/RATE field */
-	tmp = (bcm->key[secinfo->active_key].algorithm << BCM43xx_TXHDR_WSEC_ALGO_SHIFT)
-	       & BCM43xx_TXHDR_WSEC_ALGO_MASK;
-	tmp |= (secinfo->active_key << BCM43xx_TXHDR_WSEC_KEYINDEX_SHIFT)
-	       & BCM43xx_TXHDR_WSEC_KEYINDEX_MASK;
-	txhdr->wsec_rate = cpu_to_le16(tmp);
+	if (bcm->key[secinfo->active_key].enabled && !bcm->ieee->host_encrypt) {
+		tmp = (bcm->key[secinfo->active_key].algorithm << BCM43xx_TXHDR_WSEC_ALGO_SHIFT)
+		       & BCM43xx_TXHDR_WSEC_ALGO_MASK;
+		tmp |= (secinfo->active_key << BCM43xx_TXHDR_WSEC_KEYINDEX_SHIFT)
+			& BCM43xx_TXHDR_WSEC_KEYINDEX_MASK;
+		txhdr->wsec_rate = cpu_to_le16(tmp);
+	}
 
 //bcm43xx_printk_bitdump((const unsigned char *)txhdr, sizeof(*txhdr), 1, "TX header");
 }
@@ -3579,6 +3586,8 @@ static void bcm43xx_security_init(struct bcm43xx_private *bcm)
 	bcm->security_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
 						  0x0056) * 2;
 	bcm43xx_clear_keys(bcm);
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
+		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) | 0x4000);
 }
 
 /* This is the opposite of bcm43xx_init_board() */
@@ -4133,10 +4142,13 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 		wlhdr->frame_ctl = cpu_to_le16(frame_ctl);		
 		/* trim IV and ICV */
 		/* FIXME: this must be done only for WEP encrypted packets */
-		memmove(skb->data + 4, skb->data, 24);
-		skb_pull(skb, 4);
-		memmove(skb->data + skb->len - 8, skb->data + skb->len - 4, 4);
-		skb_trim(skb, skb->len - 4);
+		if (skb->len < 32)
+			assert (0);
+		else {		
+			memmove(skb->data + 4, skb->data, 24);
+			skb_pull(skb, 4);
+			skb_trim(skb, skb->len - 4);
+		}
 		/* do _not_ use wlhdr again without reassigning it */
 	}
 	
@@ -4228,35 +4240,38 @@ static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 		dprintk(KERN_INFO PFX "   .encrypt = %d\n", sec->encrypt);
 	}
 	if (bcm->initialized && !bcm->ieee->host_encrypt) {
-		/* upload WEP keys to hardware */
-		char null_address[6] = { 0 };
-		u8 algorithm = 0;
-		for (keyidx = 0; keyidx<WEP_KEYS; keyidx++) {
-			if (!(sec->flags & (1<<keyidx)))
-				break;
-			switch (sec->encode_alg[keyidx]) {
-				case SEC_ALG_NONE: algorithm = BCM43xx_SEC_ALGO_NONE; break;
-				case SEC_ALG_WEP:
-					algorithm = BCM43xx_SEC_ALGO_WEP;
-					if (secinfo->key_sizes[keyidx] == 13)
-						algorithm = BCM43xx_SEC_ALGO_WEP104;
+		if (secinfo->enabled) {
+			/* upload WEP keys to hardware */
+			char null_address[6] = { 0 };
+			u8 algorithm = 0;
+			for (keyidx = 0; keyidx<WEP_KEYS; keyidx++) {
+				if (!(sec->flags & (1<<keyidx)))
 					break;
-				case SEC_ALG_TKIP:
-					FIXME();
-					algorithm = BCM43xx_SEC_ALGO_TKIP;
-					break;
-				case SEC_ALG_CCMP:
-					FIXME();
-					algorithm = BCM43xx_SEC_ALGO_AES;
-					break;
-				default:
-					assert(0);
-					break;
+				switch (sec->encode_alg[keyidx]) {
+					case SEC_ALG_NONE: algorithm = BCM43xx_SEC_ALGO_NONE; break;
+					case SEC_ALG_WEP:
+						algorithm = BCM43xx_SEC_ALGO_WEP;
+						if (secinfo->key_sizes[keyidx] == 13)
+							algorithm = BCM43xx_SEC_ALGO_WEP104;
+						break;
+					case SEC_ALG_TKIP:
+						FIXME();
+						algorithm = BCM43xx_SEC_ALGO_TKIP;
+						break;
+					case SEC_ALG_CCMP:
+						FIXME();
+						algorithm = BCM43xx_SEC_ALGO_AES;
+						break;
+					default:
+						assert(0);
+						break;
+				}
+				bcm43xx_key_write(bcm, keyidx, algorithm, sec->keys[keyidx], secinfo->key_sizes[keyidx], &null_address[0]);
+				bcm->key[keyidx].enabled = 1;
+				bcm->key[keyidx].algorithm = algorithm;
 			}
-			bcm43xx_key_write(bcm, keyidx, algorithm, sec->keys[keyidx], secinfo->key_sizes[keyidx], &null_address[0]);
-			bcm->key[keyidx].enabled = 1;
-			bcm->key[keyidx].algorithm = algorithm;
-		}
+		} else
+				bcm43xx_clear_keys(bcm);
 	}
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }

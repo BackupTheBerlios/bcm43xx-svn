@@ -749,12 +749,6 @@ static int bcm43xx_wx_set_swencryption(struct net_device *net_dev,
 	bcm->ieee->host_encrypt = !!on;
 	bcm->ieee->host_decrypt = !!on;
 	bcm->ieee->host_build_iv = !on;
-	if (on)
-		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
-			bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) | 0x4000);
-	else
-		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
-			bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) & ~0x4000);
 	
 	spin_unlock_irqrestore(&bcm->lock, flags);
 	
