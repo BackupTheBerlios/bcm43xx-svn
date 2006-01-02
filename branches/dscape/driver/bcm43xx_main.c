@@ -1170,13 +1170,15 @@ static void key_write(struct bcm43xx_private *bcm,
 
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x100 + (index * 2),
 			    ((index << 4) | (algorithm & 0x0F)));
-	for (i = 0; i < 4; i++, key++) {
-		off = bcm->security_offset + (i * 4) + (index * 16);
-		value = be32_to_cpu(*key);
+	for (i = 0; i < 8; i++, key++) {
+		off = bcm->security_offset + (i * 2) + (index * 16);
+		if (i % 2)
+			value = le16_to_cpu(*key);
+		
 		if (algorithm == BCM43xx_SEC_ALGO_WEP ||
 		    algorithm == BCM43xx_SEC_ALGO_WEP104) {
 			assert(index <= 3);
-			bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+			bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED,
 					    off, value);
 		}
 		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
