@@ -56,6 +56,8 @@
 #define BCM43xx_MMIO_SHM_CONTROL	0x160
 #define BCM43xx_MMIO_SHM_DATA		0x164
 #define BCM43xx_MMIO_SHM_DATA_UNALIGNED	0x166
+#define BCM43xx_MMIO_XMITSTAT_0		0x170
+#define BCM43xx_MMIO_XMITSTAT_1		0x174
 #define BCM43xx_MMIO_REV3PLUS_TSF_LOW	0x180 /* core rev >= 3 only */
 #define BCM43xx_MMIO_REV3PLUS_TSF_HIGH	0x184 /* core rev >= 3 only */
 #define BCM43xx_MMIO_DMA1_BASE		0x200
@@ -712,9 +714,6 @@ struct bcm43xx_private {
 	u32 dma_reason[4];
 	/* saved irq enable/disable state bitfield. */
 	u32 irq_savedstate;
-	/* List of received transmitstatus blobs. (only on core.rev < 5) */
-	struct list_head xmitstatus_queue;
-	int nr_xmitstatus_queued;
 	/* Link Quality calculation context. */
 	struct bcm43xx_noise_calculation noisecalc;
 
