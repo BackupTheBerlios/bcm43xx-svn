@@ -984,7 +984,7 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 {
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
-
+	
 	if (phy->rev == 1)
 		bcm43xx_phy_initb5(bcm);
 	else if (phy->rev >= 2 && phy->rev <= 7)
@@ -993,6 +993,8 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 		bcm43xx_phy_inita(bcm);
 
 	if (phy->rev >= 2) {
+		u8 tmp;
+		
 		bcm43xx_phy_write(bcm, 0x0814, 0x0000);
 		bcm43xx_phy_write(bcm, 0x0815, 0x0000);
 		if (phy->rev == 2)
@@ -1000,10 +1002,11 @@ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm)
 		else if (phy->rev >= 3)
 			bcm43xx_phy_write(bcm, 0x0811, 0x0400);
 		bcm43xx_phy_write(bcm, 0x0015, 0x00C0);
-		if ((bcm43xx_phy_read(bcm, 0x0400) & 0xFF) == 3) {
+		tmp = bcm43xx_phy_read(bcm, 0x0400) & 0xFF;
+		if (tmp == 3) {
 			bcm43xx_phy_write(bcm, 0x04C2, 0x1816);
 			bcm43xx_phy_write(bcm, 0x04C3, 0x8606);
-		} else if ((bcm43xx_phy_read(bcm, 0x0400) & 0xFF) <= 5) {
+		} else if (tmp == 4 || tmp == 5) {
 			bcm43xx_phy_write(bcm, 0x04C2, 0x1816);
 			bcm43xx_phy_write(bcm, 0x04C3, 0x8006);
 			bcm43xx_phy_write(bcm, 0x04CC, (bcm43xx_phy_read(bcm, 0x04CC)
