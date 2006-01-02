@@ -1842,7 +1842,7 @@ s32 bcm43xx_tssi2dbm_ad(s32 num, s32 den)
 }
 
 static inline
-s8 bcm43xx_tssi2dbm_entry(s8 entry [], s8 index, s16 pab0, s16 pab1, s16 pab2)
+s8 bcm43xx_tssi2dbm_entry(s8 entry [], u8 index, s16 pab0, s16 pab1, s16 pab2)
 {
 	s32 m1, m2, f = 256, q, delta;
 	s8 i = 0;
@@ -1868,7 +1868,7 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	s16 pab0, pab1, pab2;
-	s8 idx;
+	u8 idx;
 	s8 *dyn_tssi2dbm;
 	
 	if (phy->type == BCM43xx_PHYTYPE_A) {
@@ -1902,24 +1902,7 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 				phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
 			else
 				phy->idle_tssi = 62;
-		if (phy->type == BCM43xx_PHYTYPE_B) {
-			dyn_tssi2dbm = kmalloc(256, GFP_KERNEL);
-			if (dyn_tssi2dbm == NULL) {
-				printk(KERN_ERR PFX "Could not allocate memory"
-						    "for tssi2dbm table\n");
-				return -ENOMEM;
-			}
-			for (idx = -128; ; idx++) {
-				if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
-					phy->tssi2dbm = NULL;
-					printk(KERN_ERR PFX "Could not generate "
-							    "tssi2dBm table\n");
-					return -ENODEV;
-				}
-				if (idx == 127)
-					break;
-			}
-		} else {
+
 			dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
 			if (dyn_tssi2dbm == NULL) {
 				printk(KERN_ERR PFX "Could not allocate memory"
