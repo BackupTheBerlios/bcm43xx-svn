@@ -918,7 +918,7 @@ static inline u8 bcm43xx_crc8(u8 crc, u8 data)
 	return t[crc ^ data];
 }
 
-static u8 bcm43xx_sprom_crc8(const u16 *sprom)
+u8 bcm43xx_sprom_crc(const u16 *sprom)
 {
 	int word;
 	u8 crc = 0xFF;
@@ -950,7 +950,7 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 		sprom[i] = bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (i * 2));
 
 	/* CRC-8 check. */
-	crc = bcm43xx_sprom_crc8(sprom);
+	crc = bcm43xx_sprom_crc(sprom);
 	expected_crc = (sprom[BCM43xx_SPROM_VERSION] & 0xFF00) >> 8;
 	if (crc != expected_crc) {
 		printk(KERN_WARNING PFX "WARNING: Invalid SPROM checksum "
