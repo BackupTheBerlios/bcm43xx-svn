@@ -4260,7 +4260,7 @@ static void bcm43xx_ieee80211_set_security(struct net_device *net_dev,
 			u8 algorithm = 0;
 			for (keyidx = 0; keyidx<WEP_KEYS; keyidx++) {
 				if (!(sec->flags & (1<<keyidx)))
-					break;
+					continue;
 				switch (sec->encode_alg[keyidx]) {
 					case SEC_ALG_NONE: algorithm = BCM43xx_SEC_ALGO_NONE; break;
 					case SEC_ALG_WEP:
