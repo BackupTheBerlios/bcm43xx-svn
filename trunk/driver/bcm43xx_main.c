@@ -2807,10 +2807,6 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0034, 0x0000);
 	}
 
-	/* HW decryption needs to be set now */
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
-		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) | 0x4000);
-	
 	/* Probe Response Timeout value */
 	/* FIXME: Default to 0, has to be set by ioctl probably... :-/ */
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0074, 0x0000);
@@ -3241,6 +3237,9 @@ static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 	if (0 /*FIXME: which condition has to be used here? */)
 		ucodeflags |= 0x00000010;
 
+	/* HW decryption needs to be set now */
+	ucodeflags |= 0x40000000;
+	
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
 		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
 		if (bcm->current_core->phy->rev == 1)
