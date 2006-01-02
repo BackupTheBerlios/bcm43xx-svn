@@ -257,4 +257,6 @@ int bcm43xx_pci_write_config_32(struct pci_dev *pdev, int offset, u32 val);
 void bcm43xx_mac_suspend(struct bcm43xx_private *bcm);
 void bcm43xx_mac_enable(struct bcm43xx_private *bcm);
 
+u8 bcm43xx_sprom_crc(const u16 *sprom);
+
 #endif /* BCM43xx_MAIN_H_ */

@@ -30,6 +30,8 @@
 
 /* Interrupt Control PCI Configuration Register. (Only on PCI cores with rev >= 6) */
 #define BCM43xx_PCICFG_ICR		0x94
+/* SPROM control register. */
+#define BCM43xx_PCICFG_SPROMCTL		0x88
 
 /* MMIO offsets */
 #define BCM43xx_MMIO_DMA1_REASON	0x20

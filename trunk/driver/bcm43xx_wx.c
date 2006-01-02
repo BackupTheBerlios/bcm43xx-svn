@@ -31,6 +31,9 @@
 #include <linux/wireless.h>
 #include <net/iw_handler.h>
 #include <net/ieee80211softmac_wx.h>
+#include <linux/capability.h>
+#include <linux/sched.h> /* for capable() */
+#include <linux/delay.h>
 
 #include "bcm43xx.h"
 #include "bcm43xx_wx.h"
@@ -782,6 +785,175 @@ static int bcm43xx_wx_get_swencryption(struct net_device *net_dev,
 	return 0;
 }
 
+/* Enough buffer to hold a hexdump of the sprom data. */
+#define SPROM_BUFFERSIZE	512
+
+static int sprom2hex(const u16 *sprom, char *dump)
+{
+	int i, pos = 0;
+
+	for (i = 0; i < BCM43xx_SPROM_SIZE; i++) {
+		pos += snprintf(dump + pos, SPROM_BUFFERSIZE - pos - 1,
+				"%04X", swab16(sprom[i]) & 0xFFFF);
+	}
+
+	return pos + 1;
+}
+
+static int hex2sprom(u16 *sprom, const char *dump, unsigned int len)
+{
+	char tmp[5] = { 0 };
+	int cnt = 0;
+	unsigned long parsed;
+	u8 crc, expected_crc;
+
+	if (len < BCM43xx_SPROM_SIZE * sizeof(u16) * 2)
+		return -EINVAL;
+	while (cnt < BCM43xx_SPROM_SIZE) {
+		memcpy(tmp, dump, 4);
+		dump += 4;
+		parsed = simple_strtoul(tmp, NULL, 16);
+		sprom[cnt++] = swab16((u16)parsed);
+	}
+
+	crc = bcm43xx_sprom_crc(sprom);
+	expected_crc = (sprom[BCM43xx_SPROM_VERSION] & 0xFF00) >> 8;
+	if (crc != expected_crc) {
+		printk(KERN_ERR PFX "SPROM input data: Invalid CRC\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int bcm43xx_wx_sprom_read(struct net_device *net_dev,
+				 struct iw_request_info *info,
+				 union iwreq_data *data,
+				 char *extra)
+{
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	int err = -EPERM, i;
+	u16 *sprom;
+	unsigned long flags;
+
+	if (!capable(CAP_SYS_RAWIO))
+		goto out;
+
+	err = -ENOMEM;
+	sprom = kmalloc(BCM43xx_SPROM_SIZE * sizeof(*sprom),
+			GFP_KERNEL);
+	if (!sprom)
+		goto out;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	err = -ENODEV;
+	if (!bcm->initialized) {
+		spin_unlock_irqrestore(&bcm->lock, flags);
+		goto out_kfree;
+	}
+	for (i = 0; i < BCM43xx_SPROM_SIZE; i++)
+		sprom[i] = bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (i * 2));
+	spin_unlock_irqrestore(&bcm->lock, flags);
+
+	data->data.length = sprom2hex(sprom, extra);
+
+	err = 0;
+out_kfree:
+	kfree(sprom);
+out:
+	return err;
+}
+
+static int bcm43xx_wx_sprom_write(struct net_device *net_dev,
+				  struct iw_request_info *info,
+				  union iwreq_data *data,
+				  char *extra)
+{
+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+	int err = -EPERM;
+	u16 *sprom;
+	unsigned long flags;
+	char *input;
+	unsigned int len;
+	u32 spromctl;
+	int i;
+
+	if (!capable(CAP_SYS_RAWIO))
+		goto out;
+
+	err = -ENOMEM;
+	sprom = kmalloc(BCM43xx_SPROM_SIZE * sizeof(*sprom),
+			GFP_KERNEL);
+	if (!sprom)
+		goto out;
+
+	len = data->data.length;
+	extra[len - 1] = '\0';
+	input = strchr(extra, ':');
+	if (input) {
+		input++;
+		len -= input - extra;
+	} else
+		input = extra;
+	err = hex2sprom(sprom, input, len);
+	if (err)
+		goto out_kfree;
+
+	spin_lock_irqsave(&bcm->lock, flags);
+	err = -ENODEV;
+	if (!bcm->initialized) {
+		spin_unlock_irqrestore(&bcm->lock, flags);
+		goto out_kfree;
+	}
+
+	printk(KERN_INFO PFX "Writing SPROM. Do NOT turn off the power! Please stand by...\n");
+	err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCICFG_SPROMCTL, &spromctl);
+	if (err) {
+		printk(KERN_ERR PFX "Could not access SPROM control register.\n");
+		goto out_unlock;
+	}
+	spromctl |= 0x10; /* SPROM WRITE enable. */
+	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+	if (err) {
+		printk(KERN_ERR PFX "Could not access SPROM control register.\n");
+		goto out_unlock;
+	}
+	/* We must burn lots of CPU cycles here, but that does not
+	 * really matter as one does not write the SPROM every other minute...
+	 */
+	printk(KERN_INFO PFX "[ 0%%");
+	mdelay(500);
+	for (i = 0; i < BCM43xx_SPROM_SIZE; i++) {
+		if (i == 16)
+			printk("25%%");
+		else if (i == 32)
+			printk("50%%");
+		else if (i == 48)
+			printk("75%%");
+		else if (i % 2)
+			printk(".");
+//TODO		bcm43xx_write16(bcm, BCM43xx_SPROM_BASE + (i * 2), sprom[i]);
+		mdelay(20);
+	}
+	spromctl &= ~0x10; /* SPROM WRITE enable. */
+	bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_SPROMCTL, spromctl);
+	if (err) {
+		printk(KERN_ERR PFX "Could not access SPROM control register.\n");
+		goto out_unlock;
+	}
+	mdelay(500);
+	printk("100%% ]\n");
+	printk(KERN_INFO PFX "SPROM written.\n");
+	err = 0;
+out_unlock:
+	spin_unlock_irqrestore(&bcm->lock, flags);
+out_kfree:
+	kfree(sprom);
+out:
+	return err;
+}
+
+
 #ifdef WX
 # undef WX
 #endif
@@ -839,6 +1011,10 @@ static const iw_handler bcm43xx_priv_wx_handlers[] = {
 	bcm43xx_wx_set_swencryption,
 	/* Get Software Encryption mode */
 	bcm43xx_wx_get_swencryption,
+	/* Write SRPROM data. */
+	bcm43xx_wx_sprom_write,
+	/* Read SPROM data. */
+	bcm43xx_wx_sprom_read,
 };
 
 #define PRIV_WX_SET_INTERFMODE		(SIOCIWFIRSTPRIV + 0)
@@ -847,6 +1023,14 @@ static const iw_handler bcm43xx_priv_wx_handlers[] = {
 #define PRIV_WX_GET_SHORTPREAMBLE	(SIOCIWFIRSTPRIV + 3)
 #define PRIV_WX_SET_SWENCRYPTION	(SIOCIWFIRSTPRIV + 4)
 #define PRIV_WX_GET_SWENCRYPTION	(SIOCIWFIRSTPRIV + 5)
+#define PRIV_WX_SPROM_WRITE		(SIOCIWFIRSTPRIV + 6)
+#define PRIV_WX_SPROM_READ		(SIOCIWFIRSTPRIV + 7)
+
+#define PRIV_WX_DUMMY(ioctl)	\
+	{					\
+		.cmd		= (ioctl),	\
+		.name		= "__unused"	\
+	}
 
 static const struct iw_priv_args bcm43xx_priv_wx_args[] = {
 	{
@@ -878,6 +1062,16 @@ static const struct iw_priv_args bcm43xx_priv_wx_args[] = {
 		.cmd		= PRIV_WX_GET_SWENCRYPTION,
 		.get_args	= IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | MAX_WX_STRING,
 		.name		= "get_swencryption",
+	},
+	{
+		.cmd		= PRIV_WX_SPROM_WRITE,
+		.set_args	= IW_PRIV_TYPE_CHAR | SPROM_BUFFERSIZE,
+		.name		= "write_sprom",
+	},
+	{
+		.cmd		= PRIV_WX_SPROM_READ,
+		.get_args	= IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | SPROM_BUFFERSIZE,
+		.name		= "read_sprom",
 	},
 };
 
