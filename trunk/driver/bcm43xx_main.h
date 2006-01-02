@@ -131,15 +131,14 @@ struct bcm43xx_rxhdr {
 
 /* Transmit Status as received from the hardware. */
 struct bcm43xx_hwxmitstatus {
-	PAD_BYTES(2);
-	PAD_BYTES(2);
-	u16 cookie;
+	PAD_BYTES(4);
+	__le16 cookie;
 	u8 flags;
 	u8 cnt1:4,
 	   cnt2:4;
 	PAD_BYTES(2);
-	u16 seq; //FIXME
-	u16 unknown; //FIXME
+	__le16 seq;
+	__le16 unknown; //FIXME
 } __attribute__((__packed__));
 
 /* Transmit Status in CPU byteorder. */
@@ -225,9 +224,6 @@ int bcm43xx_is_valid_channel(struct bcm43xx_private *bcm,
 
 void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf);
 void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf);
-
-int FASTCALL(bcm43xx_rx_transmitstatus(struct bcm43xx_private *bcm,
-				       const struct bcm43xx_hwxmitstatus *status));
 
 int FASTCALL(bcm43xx_rx(struct bcm43xx_private *bcm,
 			struct sk_buff *skb,

@@ -1753,91 +1753,42 @@ out:
 	return err;
 }
 
-/* Read the Transmit Status from MMIO and build the Transmit Status array. */
-static inline int build_transmit_status(struct bcm43xx_private *bcm,
-					struct bcm43xx_hwxmitstatus *status)
-{
-	u32 v170;
-	u32 v174;
-	u8 tmp[2];
-
-	v170 = bcm43xx_read32(bcm, 0x170);
-	if (v170 == 0x00000000)
-		return -1;
-	v174 = bcm43xx_read32(bcm, 0x174);
-
-	/* Internal Sending ID. */
-	status->cookie = cpu_to_le16( (v170 >> 16) & 0x0000FFFF );
-	/* 2 counters (both 4 bits) in the upper byte and flags in the lower byte. */
-	*((u16 *)tmp) = cpu_to_le16( (u16)((v170 & 0xfff0) | ((v170 & 0xf) >> 1)) );
-	status->flags = tmp[0];
-	status->cnt1 = (tmp[1] & 0x0f);
-	status->cnt2 = (tmp[1] & 0xf0) >> 4;
-	/* 802.11 sequence number? */
-	status->seq = cpu_to_le16( (u16)(v174 & 0xffff) );
-	/* Unknown value. */
-	status->unknown = cpu_to_le16( (u16)((v174 >> 16) & 0xff) );
-
-	return 0;
-}
-
-static inline void interpret_transmit_status(struct bcm43xx_private *bcm,
-					     struct bcm43xx_hwxmitstatus *hwstatus)
-{
-	struct bcm43xx_xmitstatus status;
-
-	status.cookie = le16_to_cpu(hwstatus->cookie);
-	status.flags = hwstatus->flags;
-	status.cnt1 = hwstatus->cnt1;
-	status.cnt2 = hwstatus->cnt2;
-	status.seq = le16_to_cpu(hwstatus->seq);
-	status.unknown = le16_to_cpu(hwstatus->unknown);
-
-	bcm43xx_debugfs_log_txstat(bcm, &status);
-
-	if (status.flags & BCM43xx_TXSTAT_FLAG_IGNORE)
-		return;
-	if (!(status.flags & BCM43xx_TXSTAT_FLAG_ACK)) {
-		//TODO: packet was not acked (was lost)
-	}
-	//TODO: There are more (unknown) flags to test. see bcm43xx_main.h
-
-	if (bcm->pio_mode)
-		bcm43xx_pio_handle_xmitstatus(bcm, &status);
-	else
-		bcm43xx_dma_handle_xmitstatus(bcm, &status);
-}
-
 static inline void handle_irq_transmit_status(struct bcm43xx_private *bcm)
 {
+	u32 v0, v1;
+	u8 tmp[2];
+	struct bcm43xx_xmitstatus stat;
+
 	assert(bcm->current_core->id == BCM43xx_COREID_80211);
+	assert(bcm->current_core->rev >= 5);
 
-	//TODO: In AP mode, this also causes sending of powersave responses.
+	while (1) {
+		v0 = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_0);
+		if (!v0)
+			break;
+		v1 = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
 
-	if (bcm->current_core->rev < 5) {
-		struct bcm43xx_xmitstatus_queue *q, *tmp;
+		stat.cookie = (v0 >> 16) & 0x0000FFFF;
+		*((u16 *)tmp) = (u16)((v0 & 0xFFF0) | ((v0 & 0xF) >> 1));
+		stat.flags = tmp[0];
+		stat.cnt1 = (tmp[1] & 0x0F);
+		stat.cnt2 = (tmp[1] & 0xF0) >> 4;
+		stat.seq = (u16)(v1 & 0xFFFF);
+		stat.unknown = (u16)((v1 >> 16) & 0xFF);
 
-		/* If we received an xmit status, it is already saved
-		 * in the xmit status queue.
-		 */
-		list_for_each_entry_safe(q, tmp, &bcm->xmitstatus_queue, list) {
-			interpret_transmit_status(bcm, &q->status);
-			list_del(&q->list);
-			bcm->nr_xmitstatus_queued--;
-			kfree(q);
+		bcm43xx_debugfs_log_txstat(bcm, &stat);
+
+		if (stat.flags & BCM43xx_TXSTAT_FLAG_IGNORE)
+			continue;
+		if (!(stat.flags & BCM43xx_TXSTAT_FLAG_ACK)) {
+			//TODO: packet was not acked (was lost)
 		}
-		assert(bcm->nr_xmitstatus_queued == 0);
-		assert(list_empty(&bcm->xmitstatus_queue));
-	} else {
-		int res;
-		struct bcm43xx_hwxmitstatus transmit_status;
+		//TODO: There are more (unknown) flags to test. see bcm43xx_main.h
 
-		while (1) {
-			res = build_transmit_status(bcm, &transmit_status);
-			if (res)
-				break;
-			interpret_transmit_status(bcm, &transmit_status);
-		}
+		if (bcm->pio_mode)
+			bcm43xx_pio_handle_xmitstatus(bcm, &stat);
+		else
+			bcm43xx_dma_handle_xmitstatus(bcm, &stat);
 	}
 }
 
@@ -2148,7 +2099,9 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 	bcmirq_handled(BCM43xx_IRQ_RX);
 
 	if (reason & BCM43xx_IRQ_XMIT_STATUS) {
-		handle_irq_transmit_status(bcm);
+		if (bcm->current_core->rev >= 5)
+			handle_irq_transmit_status(bcm);
+		//TODO: In AP mode, this also causes sending of powersave responses.
 		bcmirq_handled(BCM43xx_IRQ_XMIT_STATUS);
 	}
 
@@ -4014,29 +3967,6 @@ err_pci_disable:
 	goto out;
 }
 
-int fastcall bcm43xx_rx_transmitstatus(struct bcm43xx_private *bcm,
-				       const struct bcm43xx_hwxmitstatus *status)
-{
-	struct bcm43xx_xmitstatus_queue *q;
-
-	/*XXX: This code is untested, as we currently do not have a rev < 5 card. */
-dprintkl("processing received xmitstatus...\n");
-
-	if (unlikely(bcm->nr_xmitstatus_queued >= 50)) {
-		dprintkl(KERN_ERR PFX "Transmit Status Queue full!\n");
-		return -ENOSPC;
-	}
-	q = kmalloc(sizeof(*q), GFP_ATOMIC);
-	if (unlikely(!q))
-		return -ENOMEM;
-	INIT_LIST_HEAD(&q->list);
-	memcpy(&q->status, status, sizeof(*status));
-	list_add_tail(&q->list, &bcm->xmitstatus_queue);
-	bcm->nr_xmitstatus_queued++;
-
-	return 0;
-}
-
 static inline
 s8 bcm43xx_rssi_postprocess(struct bcm43xx_private *bcm, u8 in_rssi,
 			    int ofdm, int adjust_2053, int adjust_2050)
@@ -4448,7 +4378,6 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	if (modparam_bad_frames_preempt)
 		bcm->bad_frames_preempt = 1;
 	spin_lock_init(&bcm->lock);
-	INIT_LIST_HEAD(&bcm->xmitstatus_queue);
 	tasklet_init(&bcm->isr_tasklet,
 		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
 		     (unsigned long)bcm);

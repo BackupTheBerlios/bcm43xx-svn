@@ -561,11 +561,14 @@ data_ready:
 		}
 		return;
 	}
+//FIXME
+#if 0
 	if (queue->mmio_base == BCM43xx_MMIO_PIO4_BASE) {
 		bcm43xx_rx_transmitstatus(queue->bcm,
 					  (const struct bcm43xx_hwxmitstatus *)(preamble + 1));
 		return;
 	}
+#endif
 	skb = dev_alloc_skb(len);
 	if (unlikely(!skb)) {
 		pio_rx_error(queue, "out of memory");

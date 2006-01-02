@@ -889,6 +889,26 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 
 	sync_descbuffer_for_cpu(ring, meta->dmaaddr, ring->rx_buffersize);
 	skb = meta->skb;
+
+	if (ring->mmio_base == BCM43xx_MMIO_DMA4_BASE) {
+		/* We received an xmit status. */
+		struct bcm43xx_hwxmitstatus *hw = (struct bcm43xx_hwxmitstatus *)skb->data;
+		struct bcm43xx_xmitstatus stat;
+
+		stat.cookie = le16_to_cpu(hw->cookie);
+		stat.flags = hw->flags;
+		stat.cnt1 = hw->cnt1;
+		stat.cnt2 = hw->cnt2;
+		stat.seq = le16_to_cpu(hw->seq);
+		stat.unknown = le16_to_cpu(hw->unknown);
+
+		bcm43xx_debugfs_log_txstat(ring->bcm, &stat);
+		bcm43xx_dma_handle_xmitstatus(ring->bcm, &stat);
+		/* recycle the descriptor buffer. */
+		sync_descbuffer_for_device(ring, meta->dmaaddr, ring->rx_buffersize);
+
+		return;
+	}
 	rxhdr = (struct bcm43xx_rxhdr *)skb->data;
 	len = le16_to_cpu(rxhdr->frame_length);
 	if (len == 0) {
@@ -932,12 +952,6 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 	skb_put(skb, len + ring->frameoffset);
 	skb_pull(skb, ring->frameoffset);
 
-	if (ring->mmio_base == BCM43xx_MMIO_DMA4_BASE) {
-		bcm43xx_rx_transmitstatus(ring->bcm,
-					  (const struct bcm43xx_hwxmitstatus *)skb->data);
-		dev_kfree_skb_irq(skb);
-		return;
-	}
 	err = bcm43xx_rx(ring->bcm, skb, rxhdr);
 	if (err) {
 		dev_kfree_skb_irq(skb);
