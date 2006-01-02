@@ -1756,7 +1756,7 @@ out:
 static inline void handle_irq_transmit_status(struct bcm43xx_private *bcm)
 {
 	u32 v0, v1;
-	u8 tmp[2];
+	u16 tmp;
 	struct bcm43xx_xmitstatus stat;
 
 	assert(bcm->current_core->id == BCM43xx_COREID_80211);
@@ -1769,10 +1769,10 @@ static inline void handle_irq_transmit_status(struct bcm43xx_private *bcm)
 		v1 = bcm43xx_read32(bcm, BCM43xx_MMIO_XMITSTAT_1);
 
 		stat.cookie = (v0 >> 16) & 0x0000FFFF;
-		*((u16 *)tmp) = (u16)((v0 & 0xFFF0) | ((v0 & 0xF) >> 1));
-		stat.flags = tmp[0];
-		stat.cnt1 = (tmp[1] & 0x0F);
-		stat.cnt2 = (tmp[1] & 0xF0) >> 4;
+		tmp = (u16)((v0 & 0xFFF0) | ((v0 & 0xF) >> 1));
+		stat.flags = tmp & 0xFF;
+		stat.cnt1 = (tmp & 0x0F00) >> 8;
+		stat.cnt2 = (tmp & 0xF000) >> 12;
 		stat.seq = (u16)(v1 & 0xFFFF);
 		stat.unknown = (u16)((v1 >> 16) & 0xFF);
 
