@@ -508,6 +508,7 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	u8 fallback_bitrate;
 	int fallback_ofdm_modulation;
 	u16 tmp;
+	u16 encrypt_frame;
 
 	/* Now construct the TX header. */
 	memset(txhdr, 0, sizeof(*txhdr));
@@ -532,9 +533,19 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	/* Set the cookie (used as driver internal ID for the frame) */
 	txhdr->cookie = cpu_to_le16(cookie);
 
-	/* Hardware appends ICV. */
-	if (bcm->key[secinfo->active_key].enabled && !bcm->ieee->host_encrypt)
+	encrypt_frame = le16_to_cpup(&wireless_header->frame_ctl) & IEEE80211_FCTL_PROTECTED;
+	if (encrypt_frame && !bcm->ieee->host_encrypt) {
+		const struct ieee80211_hdr_3addr *hdr = (struct ieee80211_hdr_3addr *)wireless_header;
+		printk(KERN_INFO PFX "encrypted frame\n");
+		if (fragment_len <= sizeof(struct ieee80211_hdr_3addr)+4) {
+			dprintkl(KERN_ERR PFX "invalid packet with PROTECTED"
+					      "flag set discarded");
+			return;
+		}
+		memcpy(txhdr->wep_iv, hdr->payload, 4);
+		/* Hardware appends ICV. */
 		fragment_len += 4;
+	}
 
 	/* Generate the PLCP header and the fallback PLCP header. */
 	bcm43xx_generate_plcp_hdr(&txhdr->plcp, fragment_len,
@@ -566,7 +577,7 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 	txhdr->flags = cpu_to_le16(tmp);
 
 	/* Set WSEC/RATE field */
-	if (bcm->key[secinfo->active_key].enabled && !bcm->ieee->host_encrypt) {
+	if (encrypt_frame && !bcm->ieee->host_encrypt) {
 		tmp = (bcm->key[secinfo->active_key].algorithm << BCM43xx_TXHDR_WSEC_ALGO_SHIFT)
 		       & BCM43xx_TXHDR_WSEC_ALGO_MASK;
 		tmp |= (secinfo->active_key << BCM43xx_TXHDR_WSEC_KEYINDEX_SHIFT)
@@ -2796,6 +2807,10 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 		bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0034, 0x0000);
 	}
 
+	/* HW decryption needs to be set now */
+	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
+		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) | 0x4000);
+	
 	/* Probe Response Timeout value */
 	/* FIXME: Default to 0, has to be set by ioctl probably... :-/ */
 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0074, 0x0000);
@@ -3586,8 +3601,6 @@ static void bcm43xx_security_init(struct bcm43xx_private *bcm)
 	bcm->security_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
 						  0x0056) * 2;
 	bcm43xx_clear_keys(bcm);
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
-		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x0060) | 0x4000);
 }
 
 /* This is the opposite of bcm43xx_init_board() */
