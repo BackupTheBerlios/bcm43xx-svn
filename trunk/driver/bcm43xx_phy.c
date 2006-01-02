@@ -1890,33 +1890,32 @@ int bcm43xx_phy_init_tssi2dbm_table(struct bcm43xx_private *bcm)
 	if (pab0 != 0 && pab1 != 0 && pab2 != 0 &&
 	    pab0 != -1 && pab1 != -1 && pab2 != -1) {
 		/* The pabX values are set in SPROM. Use them. */
-		if (phy->type == BCM43xx_PHYTYPE_A)
+		if (phy->type == BCM43xx_PHYTYPE_A) {
 			if ((s8)bcm->sprom.idle_tssi_tgt_aphy != 0 &&
 			    (s8)bcm->sprom.idle_tssi_tgt_aphy != -1)
 				phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_aphy);
 			else
 				phy->idle_tssi = 62;
-		else
+		} else {
 			if ((s8)bcm->sprom.idle_tssi_tgt_bgphy != 0 &&
 			    (s8)bcm->sprom.idle_tssi_tgt_bgphy != -1)
 				phy->idle_tssi = (s8)(bcm->sprom.idle_tssi_tgt_bgphy);
 			else
 				phy->idle_tssi = 62;
-
-			dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
-			if (dyn_tssi2dbm == NULL) {
-				printk(KERN_ERR PFX "Could not allocate memory"
-						    "for tssi2dbm table\n");
-				return -ENOMEM;
-			}
-			for (idx = 0; idx < 64; idx++)
-				if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
-					phy->tssi2dbm = NULL;
-					printk(KERN_ERR PFX "Could not generate "
-							    "tssi2dBm table\n");
-					return -ENODEV;
-				}
 		}
+		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
+		if (dyn_tssi2dbm == NULL) {
+			printk(KERN_ERR PFX "Could not allocate memory"
+					    "for tssi2dbm table\n");
+			return -ENOMEM;
+		}
+		for (idx = 0; idx < 64; idx++)
+			if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
+				phy->tssi2dbm = NULL;
+				printk(KERN_ERR PFX "Could not generate "
+						    "tssi2dBm table\n");
+				return -ENODEV;
+			}
 		phy->tssi2dbm = dyn_tssi2dbm;
 		phy->dyn_tssi_tbl = 1;
 	} else {
