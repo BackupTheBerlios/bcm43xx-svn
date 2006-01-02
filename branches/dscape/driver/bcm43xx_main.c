@@ -57,6 +57,10 @@ MODULE_AUTHOR("Stefano Brivio");
 MODULE_AUTHOR("Michael Buesch");
 MODULE_LICENSE("GPL");
 
+#ifdef CONFIG_BCM947XX
+extern char *nvram_get(char *name);
+#endif
+
 /* Module parameters */
 static int modparam_pio;
 module_param_named(pio, modparam_pio, int, 0444);
@@ -107,6 +111,11 @@ static struct pci_device_id bcm43xx_pci_tbl[] = {
 	 * http://openfacts.berlios.de/index-en.phtml?title=Bcm43xxDevices
 	 */
 
+#ifdef CONFIG_BCM947XX
+	/* SB bus on BCM947xx */
+	{ PCI_VENDOR_ID_BROADCOM, 0x0800, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+#endif
+	
 	/* Broadcom 4303 802.11b */
 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 
@@ -933,19 +942,43 @@ u8 bcm43xx_sprom_crc(const u16 *sprom)
 	return crc;
 }
 
+
 static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 {
 	int i;
 	u16 value;
 	u16 *sprom;
 	u8 crc, expected_crc;
+#ifdef CONFIG_BCM947XX
+	char *c;
+#endif
 
-	sprom = kmalloc(BCM43xx_SPROM_SIZE * sizeof(u16),
+	sprom = kzalloc(BCM43xx_SPROM_SIZE * sizeof(u16),
 			GFP_KERNEL);
 	if (!sprom) {
 		printk(KERN_ERR PFX "read_sprom OOM\n");
 		return -ENOMEM;
 	}
+#ifdef CONFIG_BCM947XX
+	sprom[BCM43xx_SPROM_BOARDFLAGS2] = atoi(nvram_get("boardflags2"));
+	sprom[BCM43xx_SPROM_BOARDFLAGS] = atoi(nvram_get("boardflags"));
+
+	if ((c = nvram_get("il0macaddr")) != NULL)
+		e_aton(c, (char *) &(sprom[BCM43xx_SPROM_IL0MACADDR]));
+
+	if ((c = nvram_get("et1macaddr")) != NULL)
+		e_aton(c, (char *) &(sprom[BCM43xx_SPROM_ET1MACADDR]));
+
+	sprom[BCM43xx_SPROM_PA0B0] = atoi(nvram_get("pa0b0"));
+	sprom[BCM43xx_SPROM_PA0B1] = atoi(nvram_get("pa0b1"));
+	sprom[BCM43xx_SPROM_PA0B2] = atoi(nvram_get("pa0b2"));
+
+	sprom[BCM43xx_SPROM_PA1B0] = atoi(nvram_get("pa1b0"));
+	sprom[BCM43xx_SPROM_PA1B1] = atoi(nvram_get("pa1b1"));
+	sprom[BCM43xx_SPROM_PA1B2] = atoi(nvram_get("pa1b2"));
+
+	sprom[BCM43xx_SPROM_BOARDREV] = atoi(nvram_get("boardrev"));
+#else
 	for (i = 0; i < BCM43xx_SPROM_SIZE; i++)
 		sprom[i] = bcm43xx_read16(bcm, BCM43xx_SPROM_BASE + (i * 2));
 
@@ -957,6 +990,7 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 					"(0x%02X, expected: 0x%02X)\n",
 		       crc, expected_crc);
 	}
+#endif
 
 	/* boardflags2 */
 	value = sprom[BCM43xx_SPROM_BOARDFLAGS2];
@@ -1053,6 +1087,7 @@ static int bcm43xx_read_sprom(struct bcm43xx_private *bcm)
 	bcm->sprom.antennagain_bgphy = (value & 0x00FF) * 4;
 
 	kfree(sprom);
+
 	return 0;
 }
 
@@ -1319,6 +1354,12 @@ static int _switch_core(struct bcm43xx_private *bcm, int core)
 			continue;
 		}
 		_get_current_core(bcm, &current_core);
+#ifdef CONFIG_BCM947XX
+		if (bcm->pci_dev->bus->number == 0)
+			bcm->current_core_offset = 0x1000 * core;
+		else
+			bcm->current_core_offset = 0;
+#endif
 	}
 
 	assert(err == 0);
@@ -1472,6 +1513,8 @@ void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy)
 	u32 flags = 0x00040000;
 
 	if ((bcm43xx_core_enabled(bcm)) && (!bcm->pio_mode)) {
+//FIXME: Do we _really_ want #ifndef CONFIG_BCM947XX here?
+#ifndef CONFIG_BCM947XX
 		/* reset all used DMA controllers. */
 		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA1_BASE);
 		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA2_BASE);
@@ -1480,6 +1523,7 @@ void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy)
 		bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA1_BASE);
 		if (bcm->current_core->rev < 5)
 			bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA4_BASE);
+#endif
 	}
 	if (bcm->shutting_down) {
 		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
@@ -2220,10 +2264,21 @@ static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
 	unsigned int i;
 	u32 data;
 
-	res = request_irq(bcm->pci_dev->irq, bcm43xx_interrupt_handler,
+	bcm->irq = bcm->pci_dev->irq;
+#ifdef CONFIG_BCM947XX
+	if (bcm->pci_dev->bus->number == 0) {
+		struct pci_dev *d = NULL;
+		/* FIXME: we will probably need more device IDs here... */
+		d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
+		if (d != NULL) {
+			bcm->irq = d->irq;
+		}
+	}
+#endif
+	res = request_irq(bcm->irq, bcm43xx_interrupt_handler,
 			  SA_SHIRQ, DRV_NAME, bcm);
 	if (res) {
-		printk(KERN_ERR PFX "Cannot register IRQ%d\n", bcm->pci_dev->irq);
+		printk(KERN_ERR PFX "Cannot register IRQ%d\n", bcm->irq);
 		return -EFAULT;
 	}
 	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, 0xffffffff);
@@ -2237,7 +2292,7 @@ static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
 		if (i >= BCM43xx_IRQWAIT_MAX_RETRIES) {
 			printk(KERN_ERR PFX "Card IRQ register not responding. "
 					    "Giving up.\n");
-			free_irq(bcm->pci_dev->irq, bcm);
+			free_irq(bcm->irq, bcm);
 			return -ENODEV;
 		}
 		udelay(10);
@@ -2488,7 +2543,7 @@ static void bcm43xx_chip_cleanup(struct bcm43xx_private *bcm)
 {
 	bcm43xx_radio_turn_off(bcm);
 	bcm43xx_gpio_cleanup(bcm);
-	free_irq(bcm->pci_dev->irq, bcm);
+	free_irq(bcm->irq, bcm);
 }
 
 /* Initialize the chip
@@ -2621,7 +2676,7 @@ err_radio_off:
 err_gpio_cleanup:
 	bcm43xx_gpio_cleanup(bcm);
 err_free_irq:
-	free_irq(bcm->pci_dev->irq, bcm);
+	free_irq(bcm->irq, bcm);
 	goto out;
 }
 	
@@ -2709,12 +2764,13 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 			chip_id_16 = 0x4610;
 		else if ((pci_device >= 0x4710) && (pci_device <= 0x4715))
 			chip_id_16 = 0x4710;
+#ifdef CONFIG_BCM947XX
+		else if ((pci_device >= 0x4320) && (pci_device <= 0x4325))
+			chip_id_16 = 0x4309;
+#endif
 		else {
-			/* Presumably devices not listed above are not
-			 * put into the pci device table for this driver,
-			 * so we should never get here */
-			assert(0);
-			chip_id_16 = 0x2BAD;
+			printk(KERN_ERR PFX "Could not determine Chip ID\n");
+			return -ENODEV;
 		}
 	}
 
@@ -2850,6 +2906,7 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 			case 4:
 			case 5:
 			case 6:
+			case 7:
 			case 9:
 				break;
 			default:
@@ -3168,7 +3225,7 @@ static int bcm43xx_setup_backplane_pci_connection(struct bcm43xx_private *bcm,
 	u32 backplane_flag_nr;
 	u32 value;
 	struct bcm43xx_coreinfo *old_core;
-	int err;
+	int err = 0;
 
 	value = bcm43xx_read32(bcm, BCM43xx_CIR_SBTPSFLAG);
 	backplane_flag_nr = value & BCM43xx_BACKPLANE_FLAG_NR_MASK;
@@ -4252,6 +4309,8 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 		err = -ENODEV;
 		goto err_pci_disable;
 	}
+//FIXME: Why is this check disabled for BCM947XX? What is the IO_SIZE there?
+#ifndef CONFIG_BCM947XX
 	if (mmio_len != BCM43xx_IO_SIZE) {
 		printk(KERN_ERR PFX
 		       "%s: invalid PCI mem region size(s), aborting\n",
@@ -4259,6 +4318,7 @@ static int bcm43xx_attach_board(struct bcm43xx_private *bcm)
 		err = -ENODEV;
 		goto err_pci_disable;
 	}
+#endif
 
 	err = pci_request_regions(pci_dev, DRV_NAME);
 	if (err) {
@@ -4678,7 +4738,7 @@ static void bcm43xx_net_poll_controller(struct net_device *net_dev)
 	unsigned long flags;
 
 	local_irq_save(flags);
-	bcm43xx_interrupt_handler(bcm->pci_dev->irq, bcm, NULL);
+	bcm43xx_interrupt_handler(bcm->irq, bcm, NULL);
 	local_irq_restore(flags);
 }
 #endif /* CONFIG_NET_POLL_CONTROLLER */
@@ -4719,6 +4779,11 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 	struct ieee80211_hw *ieee;
 	int err = -ENOMEM;
 
+#ifdef CONFIG_BCM947XX
+	if ((pdev->bus->number == 0) && (pdev->device != 0x0800))
+		return -ENODEV;
+#endif
+	
 #ifdef DEBUG_SINGLE_DEVICE_ONLY
 	if (strcmp(pci_name(pdev), DEBUG_SINGLE_DEVICE_ONLY))
 		return -ENODEV;

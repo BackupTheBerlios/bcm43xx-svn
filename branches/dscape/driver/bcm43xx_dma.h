@@ -123,6 +123,8 @@ struct bcm43xx_dmaring {
 	struct bcm43xx_private *bcm;
 	/* Kernel virtual base address of the ring memory. */
 	struct bcm43xx_dmadesc *vbase;
+	/* DMA memory offset */
+	dma_addr_t memoffset;
 	/* (Unadjusted) DMA base bus-address of the ring memory. */
 	dma_addr_t dmabase;
 	/* Meta data about all descriptors. */

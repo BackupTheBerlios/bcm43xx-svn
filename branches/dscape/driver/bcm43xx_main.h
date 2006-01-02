@@ -33,6 +33,25 @@
 
 #include "bcm43xx.h"
 
+#ifdef CONFIG_BCM947XX
+#define atoi(str) simple_strtoul(((str != NULL) ? str : ""), NULL, 0)
+
+static inline void e_aton(char *str, char *dest)
+{
+	int i = 0;
+	u16 *d = (u16 *) dest;
+
+	for (;;) {
+		dest[i++] = (char) simple_strtoul(str, NULL, 16);
+		str += 2;
+		if (!*str++ || i == 6)
+			break;
+	}
+	for (i = 0; i < 3; i++)
+		d[i] = cpu_to_be16(d[i]);
+}
+#endif
+
 
 #define _bcm43xx_declare_plcp_hdr(size) \
 	struct bcm43xx_plcp_hdr##size {			\

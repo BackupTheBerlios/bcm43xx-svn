@@ -338,7 +338,7 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 	meta->skb = skb;
 	meta->dmaaddr = dmaaddr;
 	skb->dev = ring->bcm->net_dev;
-	desc_addr = (u32)(dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
+	desc_addr = (u32)(dmaaddr + ring->memoffset);
 	desc_ctl = (BCM43xx_DMADTOR_BYTECNT_MASK &
 		    (u32)(ring->rx_buffersize - ring->frameoffset));
 	if (slot == ring->nr_slots - 1)
@@ -407,7 +407,7 @@ static int dmacontroller_setup(struct bcm43xx_dmaring *ring)
 		/* Set Transmit Descriptor ring address. */
 		bcm43xx_write32(ring->bcm,
 				ring->mmio_base + BCM43xx_DMA_TX_DESC_RING,
-				ring->dmabase + BCM43xx_DMA_DMABUSADDROFFSET);
+				ring->dmabase + ring->memoffset);
 	} else {
 		err = alloc_initial_descbuffers(ring);
 		if (err)
@@ -421,7 +421,7 @@ static int dmacontroller_setup(struct bcm43xx_dmaring *ring)
 		/* Set Receive Descriptor ring address. */
 		bcm43xx_write32(ring->bcm,
 				ring->mmio_base + BCM43xx_DMA_RX_DESC_RING,
-				ring->dmabase + BCM43xx_DMA_DMABUSADDROFFSET);
+				ring->dmabase + ring->memoffset);
 		/* Init the descriptor pointer. */
 		bcm43xx_write32(ring->bcm,
 				ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
@@ -496,6 +496,13 @@ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_private *bcm,
 	if (!ring->meta)
 		goto err_kfree_ring;
 
+	ring->memoffset = BCM43xx_DMA_DMABUSADDROFFSET;
+#ifdef CONFIG_BCM947XX
+	if (bcm->pci_dev->bus->number == 0)
+		ring->memoffset = 0;
+#endif
+	
+	
 	spin_lock_init(&ring->lock);
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
@@ -808,7 +815,7 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 		return -ENOMEM;
 	}
 
-	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
+	desc_addr = (u32)(meta->dmaaddr + ring->memoffset);
 	desc_ctl = BCM43xx_DMADTOR_FRAMESTART |
 		   (BCM43xx_DMADTOR_BYTECNT_MASK & (u32)(hdr_skb->len));
 	if (slot == ring->nr_slots - 1)
@@ -837,7 +844,7 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 		return -ENOMEM;
 	}
 
-	desc_addr = (u32)(meta->dmaaddr + BCM43xx_DMA_DMABUSADDROFFSET);
+	desc_addr = (u32)(meta->dmaaddr + ring->memoffset);
 	desc_ctl = (BCM43xx_DMADTOR_BYTECNT_MASK & (u32)(skb->len));
 	if (slot == ring->nr_slots - 1)
 		desc_ctl |= BCM43xx_DMADTOR_DTABLEEND;

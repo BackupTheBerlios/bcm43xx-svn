@@ -595,6 +595,12 @@ struct bcm43xx_pio {
 #define BCM43xx_COREFLAG_ENABLED	(1 << 1)
 #define BCM43xx_COREFLAG_INITIALIZED	(1 << 2)
 
+#ifdef CONFIG_BCM947XX
+#define core_offset(bcm) (bcm)->current_core_offset
+#else
+#define core_offset(bcm) 0
+#endif
+
 struct bcm43xx_coreinfo {
 	/** Driver internal flags. See BCM43xx_COREFLAG_* */
 	u32 flags;
@@ -652,6 +658,7 @@ struct bcm43xx_private {
 
 	struct net_device *net_dev;
 	struct pci_dev *pci_dev;
+	unsigned int irq;
 
 	void __iomem *mmio_addr;
 	unsigned int mmio_len;
@@ -689,6 +696,10 @@ struct bcm43xx_private {
 
 	/* The currently active core. NULL if not initialized, yet. */
 	struct bcm43xx_coreinfo *current_core;
+#ifdef CONFIG_BCM947XX
+	/** current core memory offset */
+	u32 current_core_offset;
+#endif
 	struct bcm43xx_coreinfo *active_80211_core;
 	/* coreinfo structs for all possible cores follow.
 	 * Note that a core might not exist.
@@ -801,7 +812,7 @@ u16 bcm43xx_read16(struct bcm43xx_private *bcm, u16 offset)
 {
 	u16 value;
 
-	value = ioread16(bcm->mmio_addr + offset);
+	value = ioread16(bcm->mmio_addr + core_offset(bcm) + offset);
 	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "ioread16   offset: 0x%04x, value: 0x%04x\n",
 		       offset, value);
@@ -813,7 +824,7 @@ u16 bcm43xx_read16(struct bcm43xx_private *bcm, u16 offset)
 static inline
 void bcm43xx_write16(struct bcm43xx_private *bcm, u16 offset, u16 value)
 {
-	iowrite16(value, bcm->mmio_addr + offset);
+	iowrite16(value, bcm->mmio_addr + core_offset(bcm) + offset);
 	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "iowrite16  offset: 0x%04x, value: 0x%04x\n",
 		       offset, value);
@@ -825,7 +836,7 @@ u32 bcm43xx_read32(struct bcm43xx_private *bcm, u16 offset)
 {
 	u32 value;
 
-	value = ioread32(bcm->mmio_addr + offset);
+	value = ioread32(bcm->mmio_addr + core_offset(bcm) + offset);
 	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "ioread32   offset: 0x%04x, value: 0x%08x\n",
 		       offset, value);
@@ -837,7 +848,7 @@ u32 bcm43xx_read32(struct bcm43xx_private *bcm, u16 offset)
 static inline
 void bcm43xx_write32(struct bcm43xx_private *bcm, u16 offset, u32 value)
 {
-	iowrite32(value, bcm->mmio_addr + offset);
+	iowrite32(value, bcm->mmio_addr + core_offset(bcm) + offset);
 	if (unlikely(atomic_read(&bcm->mmio_print_cnt) > 0)) {
 		printk(KERN_INFO PFX "iowrite32  offset: 0x%04x, value: 0x%08x\n",
 		       offset, value);
@@ -909,10 +920,10 @@ int bcm43xx_pci_write_config32(struct bcm43xx_private *bcm, int offset, u32 valu
 
 #else /* BCM43xx_DEBUG */
 
-#define bcm43xx_read16(bcm, offset)		ioread16((bcm)->mmio_addr + (offset))
-#define bcm43xx_write16(bcm, offset, value)	iowrite16((value), (bcm)->mmio_addr + (offset))
-#define bcm43xx_read32(bcm, offset)		ioread32((bcm)->mmio_addr + (offset))
-#define bcm43xx_write32(bcm, offset, value)	iowrite32((value), (bcm)->mmio_addr + (offset))
+#define bcm43xx_read16(bcm, offset)		ioread16((bcm)->mmio_addr + core_offset(bcm) + (offset))
+#define bcm43xx_write16(bcm, offset, value)	iowrite16((value), (bcm)->mmio_addr + core_offset(bcm) + (offset))
+#define bcm43xx_read32(bcm, offset)		ioread32((bcm)->mmio_addr + core_offset(bcm) + (offset))
+#define bcm43xx_write32(bcm, offset, value)	iowrite32((value), (bcm)->mmio_addr + core_offset(bcm) + (offset))
 #define bcm43xx_pci_read_config16(bcm, o, v)	pci_read_config_word((bcm)->pci_dev, (o), (v))
 #define bcm43xx_pci_read_config32(bcm, o, v)	pci_read_config_dword((bcm)->pci_dev, (o), (v))
 #define bcm43xx_pci_write_config16(bcm, o, v)	pci_write_config_word((bcm)->pci_dev, (o), (v))
