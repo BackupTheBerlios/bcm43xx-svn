@@ -1424,7 +1424,10 @@ void bcm43xx_radio_set_txpower_bg(struct bcm43xx_private *bcm,
 		radio->txpower[2] = txpower;
 
 	assert(/*baseband_attenuation >= 0 &&*/ baseband_attenuation <= 11);
-	assert(/*radio_attenuation >= 0 &&*/ radio_attenuation <= 9);
+	if (radio->revision < 6)
+		assert(/*radio_attenuation >= 0 &&*/ radio_attenuation <= 9);
+	else
+		assert(/* radio_attenuation >= 0 &&*/ radio_attenuation <= 31);
 	assert(/*txpower >= 0 &&*/ txpower <= 7);
 
 	bcm43xx_phy_set_baseband_attenuation(bcm, baseband_attenuation);
