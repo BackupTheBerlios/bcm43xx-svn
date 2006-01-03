@@ -229,7 +229,10 @@ static void bcm43xx_phy_init_pctl(struct bcm43xx_private *bcm)
 		saved_batt = radio->txpower[0];
 		saved_ratt = radio->txpower[1];
 		saved_txctl1 = radio->txpower[2];
-		bcm43xx_radio_set_txpower_bg(bcm, 11, 9, 0);
+		if ((radio->revision >= 6) && (radio->revision <= 8))
+			bcm43xx_radio_set_txpower_bg(bcm, 0xB, 0x1F, 0);
+		else
+			bcm43xx_radio_set_txpower_bg(bcm, 0xB, 9, 0);
 		must_reset_txpower = 1;
 	}
 	bcm43xx_dummy_transmission(bcm);
@@ -238,7 +241,8 @@ static void bcm43xx_phy_init_pctl(struct bcm43xx_private *bcm)
 
 	if (must_reset_txpower)
 		bcm43xx_radio_set_txpower_bg(bcm, saved_batt, saved_ratt, saved_txctl1);
-	bcm43xx_radio_write16(bcm, 0x0076, bcm43xx_radio_read16(bcm, 0x0076) & 0xFF7B);
+	else
+		bcm43xx_radio_write16(bcm, 0x0076, bcm43xx_radio_read16(bcm, 0x0076) & 0xFF7B);
 	bcm43xx_radio_clear_tssi(bcm);
 }
 
@@ -1799,8 +1803,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
 
 		txpower = radio->txpower[2];
-		if ((radio->version == 0x2050) &&
-		    !((radio->revision > 2) && (radio->revision < 6))) {
+		if ((radio->version == 0x2050) && (radio->revision == 2)) {
 			if (radio_attenuation <= 1) {
 				if (txpower == 0) {
 					txpower = 3;
