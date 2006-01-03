@@ -159,9 +159,17 @@ int bcm43xx_phy_connect(struct bcm43xx_private *bcm, int connect)
 {
 	u32 flags;
 
-	if (bcm->current_core->rev < 5)
+	if (bcm->current_core->rev < 5) {
+		if (connect) {
+			bcm->current_core->phy->connected = 1;
+			dprintk(KERN_INFO PFX "PHY connected\n");
+		} else {
+			bcm->current_core->phy->connected = 0;
+			dprintk(KERN_INFO PFX "PHY disconnected\n");
+		}
 		return 0;
-
+	}
+		
 	flags = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
 	if (connect) {
 		if (!(flags & 0x00010000))

@@ -3073,6 +3073,9 @@ static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
 	if (0 /*FIXME: which condition has to be used here? */)
 		ucodeflags |= 0x00000010;
 
+	/* HW decryption needs to be set now. */
+	ucodeflags |= 0x40000000;
+
 	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
 		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
 		if (bcm->current_core->phy->rev == 1)
@@ -4030,8 +4033,6 @@ static void bcm43xx_security_init(struct bcm43xx_private *bcm)
 	bcm->security_offset = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
 						  0x0056) * 2;
 	bcm43xx_clear_keys(bcm);
-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0060,
-		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x00060) | 0x4000);
 }
 
 /* This is the opposite of bcm43xx_init_board() */
