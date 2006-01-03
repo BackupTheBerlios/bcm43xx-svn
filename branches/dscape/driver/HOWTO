@@ -19,8 +19,9 @@ following text.
     These patches are diffed against the netdev-2.6 GIT tree. See
     the file GIT-ORIGIN for more information.
     It is usually a good idea to apply them to the netdev-2.6 code.
-    (Applying to mainline is also possible, but requires some
-     manual merging work.)
+    If you want a patch against Mainline Vanilla Kernel, there are inofficial
+    patches available at:
+    ftp://ftp.berlios.de/pub/bcm43xx/dscape_vanilla/
 
     Getting latest netdev-2.6 kernel using Cogito:
     cg-clone http://www.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
