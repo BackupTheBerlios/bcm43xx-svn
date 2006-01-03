@@ -972,6 +972,8 @@ static const iw_handler bcm43xx_wx_handlers[] = {
 	/* Power saving */
 //TODO	WX(SIOCSIWPOWER)	= bcm43xx_wx_set_power,
 //TODO	WX(SIOCGIWPOWER)	= bcm43xx_wx_get_power,
+	WX(SIOCSIWGENIE)	= ieee80211softmac_wx_set_genie,
+	WX(SIOCGIWGENIE)	= ieee80211softmac_wx_get_genie,
 };
 #undef WX
 
