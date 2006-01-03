@@ -1806,8 +1806,7 @@ void bcm43xx_phy_xmitpower(struct bcm43xx_private *bcm)
 		baseband_attenuation = limit_value(baseband_attenuation, 0, 11);
 
 		txpower = radio->txpower[2];
-		if ((radio->version == 0x2050) &&
-		    !((radio->revision > 2) && (radio->revision < 6))) {
+		if ((radio->version == 0x2050) && (radio->revision == 2)) {
 			if (radio_attenuation <= 1) {
 				if (txpower == 0) {
 					txpower = 3;
