@@ -2783,7 +2783,7 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	value32 |= BCM43xx_SBF_MODE_NOTADHOC;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
-	/* For now, use promiscuous mode at all times; otherwise we don't
+	/*FIXME: For now, use promiscuous mode at all times; otherwise we don't
 	   get broadcast or multicast packets */
 	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	value32 |= BCM43xx_SBF_MODE_PROMISC;
