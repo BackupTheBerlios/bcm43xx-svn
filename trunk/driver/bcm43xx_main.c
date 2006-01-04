@@ -4543,6 +4543,9 @@ static int bcm43xx_resume(struct pci_dev *pdev)
 	}
 
 	netif_device_attach(net_dev);
+	
+	/*FIXME: This should be handled by softmac instead. */
+	queue_work(bcm->softmac->workqueue,&bcm->softmac->associnfo.work);
 
 	dprintk(KERN_INFO PFX "Device resumed.\n");
 
