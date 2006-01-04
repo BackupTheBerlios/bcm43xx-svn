@@ -4178,8 +4178,6 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 	case IEEE80211_FTYPE_DATA:
 		if (is_packet_for_us)
 			err = bcm43xx_rx_packet(bcm, skb, &stats);
-		else
-			dprintkl(KERN_ERR PFX "RX packet dropped (not for us)\n");
 		break;
 	case IEEE80211_FTYPE_CTL:
 		break;
