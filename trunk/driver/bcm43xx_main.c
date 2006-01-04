@@ -2681,10 +2681,10 @@ void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
 	bcm43xx_mac_suspend(bcm);
 	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	/* Reset status to infrastructured mode */
-	status &= ~(BCM43xx_SBF_MODE_AP |
-		    BCM43xx_SBF_MODE_MONITOR |
-		    BCM43xx_SBF_MODE_PROMISC);
-	status |= BCM43xx_SBF_MODE_NOTADHOC;
+	status &= ~(BCM43xx_SBF_MODE_AP | BCM43xx_SBF_MODE_MONITOR);
+	/*FIXME: We actually set promiscuous mode as well, until we don't
+	 * get the HW mac filter working */
+	status |= BCM43xx_SBF_MODE_NOTADHOC | BCM43xx_SBF_MODE_PROMISC;
 
 	switch (iw_mode) {
 	case IW_MODE_MONITOR:
@@ -2783,12 +2783,13 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 	value32 |= BCM43xx_SBF_MODE_NOTADHOC;
 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
+	/* For now, use promiscuous mode at all times; otherwise we don't
+	   get broadcast or multicast packets */
+	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	value32 |= BCM43xx_SBF_MODE_PROMISC;
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
 
-	if ((iw_mode == IW_MODE_MASTER) && (bcm->net_dev->flags & IFF_PROMISC)) {
-		value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-		value32 |= BCM43xx_SBF_MODE_PROMISC;
-		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, value32);
-	} else if (iw_mode == IW_MODE_MONITOR) {
+	if (iw_mode == IW_MODE_MONITOR) {
 		value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 		value32 |= BCM43xx_SBF_MODE_PROMISC;
 		value32 |= BCM43xx_SBF_MODE_MONITOR;
@@ -4133,15 +4134,20 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 		if (memcmp(wlhdr->addr1, bcm->net_dev->dev_addr, ETH_ALEN) == 0 ||
 		    memcmp(wlhdr->addr3, bcm->ieee->bssid, ETH_ALEN) == 0 ||
 		    is_broadcast_ether_addr(wlhdr->addr1) ||
-		    is_multicast_ether_addr(wlhdr->addr1))
+		    is_multicast_ether_addr(wlhdr->addr1) ||
+		    bcm->net_dev->flags & IFF_PROMISC)
 			is_packet_for_us = 1;
 		break;
 	case IW_MODE_INFRA:
 	default:
+		/* When receiving multicast or broadcast packets, filter out
+		   the packets we send ourself; we shouldn't see those */
 		if (memcmp(wlhdr->addr3, bcm->ieee->bssid, ETH_ALEN) == 0 ||
 		    memcmp(wlhdr->addr1, bcm->net_dev->dev_addr, ETH_ALEN) == 0 ||
-		    is_broadcast_ether_addr(wlhdr->addr1) ||
-		    is_multicast_ether_addr(wlhdr->addr1))
+		    (memcmp(wlhdr->addr3, bcm->net_dev->dev_addr, ETH_ALEN) &&
+		     (is_broadcast_ether_addr(wlhdr->addr1) ||
+		      is_multicast_ether_addr(wlhdr->addr1) ||
+		      bcm->net_dev->flags & IFF_PROMISC)))
 			is_packet_for_us = 1;
 		break;
 	}
