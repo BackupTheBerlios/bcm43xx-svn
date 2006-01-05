@@ -141,12 +141,6 @@ static struct pci_device_id bcm43xx_pci_tbl[] = {
 };
 MODULE_DEVICE_TABLE(pci, bcm43xx_pci_tbl);
 
-
-static void bcm43xx_recover_from_fatal(struct bcm43xx_private *bcm, const char *error);
-static void bcm43xx_free_board(struct bcm43xx_private *bcm);
-static int bcm43xx_init_board(struct bcm43xx_private *bcm);
-
-
 static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
 {
 	u32 oldsbf;
@@ -3320,39 +3314,6 @@ err_chip_cleanup:
 	goto out;
 }
 
-/* Hard-reset the chip. Do not call this directly.
- * Use bcm43xx_recover_from_fatal()
- */
-static void bcm43xx_chip_reset(void *_bcm)
-{
-	struct bcm43xx_private *bcm = _bcm;
-	int err;
-
-	netif_tx_disable(bcm->net_dev);
-	tasklet_disable(&bcm->isr_tasklet);
-	bcm43xx_free_board(bcm);
-	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
-	err = bcm43xx_init_board(bcm);
-	if (err) {
-		printk(KERN_ERR PFX "Chip reset failed!\n");
-		return;
-	}
-	netif_wake_queue(bcm->net_dev);
-}
-
-/* Call this function on _really_ fatal error conditions.
- * It will hard-reset the chip.
- * This can be called from interrupt or process context.
- * Make sure to _not_ re-enable device interrupts after this has been called.
- */
-static void bcm43xx_recover_from_fatal(struct bcm43xx_private *bcm, const char *error)
-{
-	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
-	printk(KERN_ERR PFX "FATAL ERROR (%s): Resetting the chip...\n", error);
-	INIT_WORK(&bcm->fatal_work, bcm43xx_chip_reset, bcm);
-	queue_work(bcm->workqueue, &bcm->fatal_work);
-}
-
 static int bcm43xx_chipset_attach(struct bcm43xx_private *bcm)
 {
 	int err;
@@ -4327,7 +4288,7 @@ static void bcm43xx_net_tx_timeout(struct net_device *net_dev)
 {
 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
 
-	bcm43xx_recover_from_fatal(bcm, "TX timeout");
+	bcm43xx_controller_restart(bcm, "TX timeout");
 }
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
@@ -4360,11 +4321,66 @@ static int bcm43xx_net_stop(struct net_device *net_dev)
 	return 0;
 }
 
+static void bcm43xx_init_private(struct bcm43xx_private *bcm,
+				 struct net_device *net_dev,
+				 struct pci_dev *pci_dev,
+				 struct workqueue_struct *wq)
+{
+	bcm->ieee = netdev_priv(net_dev);
+	bcm->softmac = ieee80211_priv(net_dev);
+	bcm->softmac->set_channel = bcm43xx_ieee80211_set_chan;
+	bcm->workqueue = wq;
+
+#ifdef DEBUG_ENABLE_MMIO_PRINT
+	bcm43xx_mmioprint_initial(bcm, 1);
+#else
+	bcm43xx_mmioprint_initial(bcm, 0);
+#endif
+#ifdef DEBUG_ENABLE_PCILOG
+	bcm43xx_pciprint_initial(bcm, 1);
+#else
+	bcm43xx_pciprint_initial(bcm, 0);
+#endif
+
+	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
+	bcm->pci_dev = pci_dev;
+	bcm->net_dev = net_dev;
+	if (modparam_bad_frames_preempt)
+		bcm->bad_frames_preempt = 1;
+	spin_lock_init(&bcm->lock);
+	tasklet_init(&bcm->isr_tasklet,
+		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
+		     (unsigned long)bcm);
+	tasklet_disable_nosync(&bcm->isr_tasklet);
+	if (modparam_pio) {
+		bcm->pio_mode = 1;
+	} else {
+		if (pci_set_dma_mask(pci_dev, DMA_30BIT_MASK) == 0) {
+			bcm->pio_mode = 0;
+		} else {
+			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
+			bcm->pio_mode = 1;
+		}
+	}
+	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
+
+	/* default to sw encryption for now */
+	bcm->ieee->host_build_iv = 0;
+	bcm->ieee->host_encrypt = 1;
+	bcm->ieee->host_decrypt = 1;
+	
+	bcm->ieee->iw_mode = BCM43xx_INITIAL_IWMODE;
+	bcm->ieee->tx_headroom = sizeof(struct bcm43xx_txhdr);
+	bcm->ieee->set_security = bcm43xx_ieee80211_set_security;
+	bcm->ieee->hard_start_xmit = bcm43xx_ieee80211_hard_start_xmit;
+}
+
 static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 				      const struct pci_device_id *ent)
 {
 	struct net_device *net_dev;
 	struct bcm43xx_private *bcm;
+	struct workqueue_struct *wq;
 	int err;
 
 #ifdef DEBUG_SINGLE_DEVICE_ONLY
@@ -4397,57 +4413,13 @@ static int __devinit bcm43xx_init_one(struct pci_dev *pdev,
 
 	/* initialize the bcm43xx_private struct */
 	bcm = bcm43xx_priv(net_dev);
-	bcm->ieee = netdev_priv(net_dev);
-	bcm->softmac = ieee80211_priv(net_dev);
-	bcm->softmac->set_channel = bcm43xx_ieee80211_set_chan;
-
-#ifdef DEBUG_ENABLE_MMIO_PRINT
-	bcm43xx_mmioprint_initial(bcm, 1);
-#else
-	bcm43xx_mmioprint_initial(bcm, 0);
-#endif
-#ifdef DEBUG_ENABLE_PCILOG
-	bcm43xx_pciprint_initial(bcm, 1);
-#else
-	bcm43xx_pciprint_initial(bcm, 0);
-#endif
-
-	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
-	bcm->pci_dev = pdev;
-	bcm->net_dev = net_dev;
-	if (modparam_bad_frames_preempt)
-		bcm->bad_frames_preempt = 1;
-	spin_lock_init(&bcm->lock);
-	tasklet_init(&bcm->isr_tasklet,
-		     (void (*)(unsigned long))bcm43xx_interrupt_tasklet,
-		     (unsigned long)bcm);
-	tasklet_disable_nosync(&bcm->isr_tasklet);
-	bcm->workqueue = create_workqueue(DRV_NAME "_wq");
-	if (!bcm->workqueue) {
+	memset(bcm, 0, sizeof(*bcm));
+	wq = create_workqueue(DRV_NAME "_wq");
+	if (!wq) {
 		err = -ENOMEM;
 		goto err_free_netdev;
 	}
-	if (modparam_pio) {
-		bcm->pio_mode = 1;
-	} else {
-		if (pci_set_dma_mask(pdev, DMA_30BIT_MASK) == 0) {
-			bcm->pio_mode = 0;
-		} else {
-			printk(KERN_WARNING PFX "DMA not supported. Falling back to PIO.\n");
-			bcm->pio_mode = 1;
-		}
-	}
-	bcm->rts_threshold = BCM43xx_DEFAULT_RTS_THRESHOLD;
-
-	/* default to sw encryption for now */
-	bcm->ieee->host_build_iv = 0;
-	bcm->ieee->host_encrypt = 1;
-	bcm->ieee->host_decrypt = 1;
-	
-	bcm->ieee->iw_mode = BCM43xx_INITIAL_IWMODE;
-	bcm->ieee->tx_headroom = sizeof(struct bcm43xx_txhdr);
-	bcm->ieee->set_security = bcm43xx_ieee80211_set_security;
-	bcm->ieee->hard_start_xmit = bcm43xx_ieee80211_hard_start_xmit;
+	bcm43xx_init_private(bcm, net_dev, pdev, wq);
 
 	pci_set_drvdata(pdev, net_dev);
 
@@ -4472,7 +4444,7 @@ out:
 err_detach_board:
 	bcm43xx_detach_board(bcm);
 err_destroy_wq:
-	destroy_workqueue(bcm->workqueue);
+	destroy_workqueue(wq);
 err_free_netdev:
 	free_ieee80211softmac(net_dev);
 	goto out;
@@ -4488,6 +4460,48 @@ static void __devexit bcm43xx_remove_one(struct pci_dev *pdev)
 	bcm43xx_detach_board(bcm);
 	destroy_workqueue(bcm->workqueue);
 	free_ieee80211softmac(net_dev);
+}
+
+/* Hard-reset the chip. Do not call this directly.
+ * Use bcm43xx_controller_restart()
+ */
+static void bcm43xx_chip_reset(void *_bcm)
+{
+	struct bcm43xx_private *bcm = _bcm;
+	struct net_device *net_dev = bcm->net_dev;
+	struct pci_dev *pci_dev = bcm->pci_dev;
+	struct workqueue_struct *wq = bcm->workqueue;
+	int err = 0;
+	int was_initialized = bcm->initialized;
+
+	netif_stop_queue(bcm->net_dev);
+	tasklet_disable(&bcm->isr_tasklet);
+
+	if (was_initialized)
+		bcm43xx_free_board(bcm);
+	bcm43xx_detach_board(bcm);
+	bcm43xx_init_private(bcm, net_dev, pci_dev, wq);
+	bcm43xx_attach_board(bcm);
+	if (was_initialized)
+		err = bcm43xx_init_board(bcm);
+	if (err) {
+		printk(KERN_ERR PFX "Controller restart failed\n");
+		return;
+	}
+	netif_wake_queue(bcm->net_dev);
+	printk(KERN_INFO PFX "Controller restarted\n");
+}
+
+/* Hard-reset the chip.
+ * This can be called from interrupt or process context.
+ * Make sure to _not_ re-enable device interrupts after this has been called.
+*/
+void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason)
+{
+	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+	printk(KERN_ERR PFX "Controller RESET (%s) ...\n", reason);
+	INIT_WORK(&bcm->restart_work, bcm43xx_chip_reset, bcm);
+	queue_work(bcm->workqueue, &bcm->restart_work);
 }
 
 #ifdef CONFIG_PM
@@ -4553,7 +4567,7 @@ static int bcm43xx_resume(struct pci_dev *pdev)
 	netif_device_attach(net_dev);
 	
 	/*FIXME: This should be handled by softmac instead. */
-	queue_work(bcm->softmac->workqueue,&bcm->softmac->associnfo.work);
+	queue_work(bcm->softmac->workqueue, &bcm->softmac->associnfo.work);
 
 	dprintk(KERN_INFO PFX "Device resumed.\n");
 
