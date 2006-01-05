@@ -2225,22 +2225,170 @@ static irqreturn_t bcm43xx_interrupt_handler(int irq, void *dev_id, struct pt_re
 	return IRQ_HANDLED;
 }
 
-static inline void bcm43xx_write_microcode(struct bcm43xx_private *bcm,
-				    const u32 *data, const unsigned int len)
+static void bcm43xx_release_firmware(struct bcm43xx_private *bcm)
 {
-	unsigned int i;
+	if (bcm->firmware_norelease)
+		return; /* Suspending or controller reset. */
+	release_firmware(bcm->ucode);
+	bcm->ucode = NULL;
+	release_firmware(bcm->pcm);
+	bcm->pcm = NULL;
+	release_firmware(bcm->initvals0);
+	bcm->initvals0 = NULL;
+	release_firmware(bcm->initvals1);
+	bcm->initvals1 = NULL;
+}
+
+static int bcm43xx_request_firmware(struct bcm43xx_private *bcm)
+{
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	u8 rev = bcm->current_core->rev;
+	int err = 0;
+	int nr;
+	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
+
+	if (!bcm->ucode) {
+		snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_microcode%d%s.fw",
+			 (rev >= 5 ? 5 : rev),
+			 modparam_fwpostfix);
+		err = request_firmware(&bcm->ucode, buf, &bcm->pci_dev->dev);
+		if (err) {
+			printk(KERN_ERR PFX 
+			       "Error: Microcode \"%s\" not available or load failed.\n",
+			        buf);
+			goto error;
+		}
+	}
+
+	if (!bcm->pcm) {
+		snprintf(buf, ARRAY_SIZE(buf),
+			 "bcm43xx_pcm%d%s.fw",
+			 (rev < 5 ? 4 : 5),
+			 modparam_fwpostfix);
+		err = request_firmware(&bcm->pcm, buf, &bcm->pci_dev->dev);
+		if (err) {
+			printk(KERN_ERR PFX
+			       "Error: PCM \"%s\" not available or load failed.\n",
+			       buf);
+			goto error;
+		}
+	}
+
+	if (!bcm->initvals0) {
+		if (rev == 2 || rev == 4) {
+			switch (phy->type) {
+			case BCM43xx_PHYTYPE_A:
+				nr = 3;
+				break;
+			case BCM43xx_PHYTYPE_B:
+			case BCM43xx_PHYTYPE_G:
+				nr = 1;
+				break;
+			default:
+				goto err_noinitval;
+			}
+		
+		} else if (rev >= 5) {
+			switch (phy->type) {
+			case BCM43xx_PHYTYPE_A:
+				nr = 7;
+				break;
+			case BCM43xx_PHYTYPE_B:
+			case BCM43xx_PHYTYPE_G:
+				nr = 5;
+				break;
+			default:
+				goto err_noinitval;
+			}
+		} else
+			goto err_noinitval;
+		snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
+			 nr, modparam_fwpostfix);
+
+		err = request_firmware(&bcm->initvals0, buf, &bcm->pci_dev->dev);
+		if (err) {
+			printk(KERN_ERR PFX 
+			       "Error: InitVals \"%s\" not available or load failed.\n",
+			        buf);
+			goto error;
+		}
+		if (bcm->initvals0->size % sizeof(struct bcm43xx_initval)) {
+			printk(KERN_ERR PFX "InitVals fileformat error.\n");
+			goto error;
+		}
+	}
+
+	if (!bcm->initvals1) {
+		if (rev >= 5) {
+			u32 sbtmstatehigh;
+
+			switch (phy->type) {
+			case BCM43xx_PHYTYPE_A:
+				sbtmstatehigh = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+				if (sbtmstatehigh & 0x00010000)
+					nr = 9;
+				else
+					nr = 10;
+				break;
+			case BCM43xx_PHYTYPE_B:
+			case BCM43xx_PHYTYPE_G:
+					nr = 6;
+				break;
+			default:
+				goto err_noinitval;
+			}
+			snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
+				 nr, modparam_fwpostfix);
+
+			err = request_firmware(&bcm->initvals1, buf, &bcm->pci_dev->dev);
+			if (err) {
+				printk(KERN_ERR PFX 
+				       "Error: InitVals \"%s\" not available or load failed.\n",
+			        	buf);
+				goto error;
+			}
+			if (bcm->initvals1->size % sizeof(struct bcm43xx_initval)) {
+				printk(KERN_ERR PFX "InitVals fileformat error.\n");
+				goto error;
+			}
+		}
+	}
+
+out:
+	return err;
+error:
+	bcm43xx_release_firmware(bcm);
+	goto out;
+err_noinitval:
+	printk(KERN_ERR PFX "Error: No InitVals available!\n");
+	err = -ENOENT;
+	goto error;
+}
+
+static void bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
+{
+	const u32 *data;
+	unsigned int i, len;
+
+#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
+	bcm43xx_mmioprint_enable(bcm);
+#else
+	bcm43xx_mmioprint_disable(bcm);
+#endif
+
+	/* Upload Microcode. */
+	data = (u32 *)(bcm->ucode->data);
+	len = bcm->ucode->size / sizeof(u32);
 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_UCODE, 0x0000);
 	for (i = 0; i < len; i++) {
 		bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA,
 				be32_to_cpu(data[i]));
 		udelay(10);
 	}
-}
 
-static inline void bcm43xx_write_pcm(struct bcm43xx_private *bcm,
-			      const u32 *data, const unsigned int len)
-{
-	unsigned int i;
+	/* Upload PCM data. */
+	data = (u32 *)(bcm->pcm->data);
+	len = bcm->pcm->size / sizeof(u32);
 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01ea);
 	bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA, 0x00004000);
 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01eb);
@@ -2249,53 +2397,12 @@ static inline void bcm43xx_write_pcm(struct bcm43xx_private *bcm,
 				be32_to_cpu(data[i]));
 		udelay(10);
 	}
-}
 
-static int bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
-{
-	int err = -ENOENT;
-	const struct firmware *fw;
-	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
-
-#ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
-	bcm43xx_mmioprint_enable(bcm);
-#else
-	bcm43xx_mmioprint_disable(bcm);
-#endif
-
-	snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_microcode%d%s.fw",
-		 (bcm->current_core->rev >= 5 ? 5 : bcm->current_core->rev),
-		 modparam_fwpostfix);
-	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
-		printk(KERN_ERR PFX 
-		       "Error: Microcode \"%s\" not available or load failed.\n",
-		        buf);
-		goto out;
-	}
-	bcm43xx_write_microcode(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
-	release_firmware(fw);
-
-	snprintf(buf, ARRAY_SIZE(buf),
-		 "bcm43xx_pcm%d%s.fw",
-		 (bcm->current_core->rev < 5 ? 4 : 5),
-		 modparam_fwpostfix);
-	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
-		printk(KERN_ERR PFX
-		       "Error: PCM \"%s\" not available or load failed.\n",
-		       buf);
-		goto out;
-	}
-	bcm43xx_write_pcm(bcm, (u32 *)fw->data, fw->size / sizeof(u32));
-	release_firmware(fw);
-
-	err = 0;
-out:
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
 	bcm43xx_mmioprint_disable(bcm);
 #else
 	bcm43xx_mmioprint_enable(bcm);
 #endif
-	return err;
 }
 
 static void bcm43xx_write_initvals(struct bcm43xx_private *bcm,
@@ -2320,121 +2427,26 @@ static void bcm43xx_write_initvals(struct bcm43xx_private *bcm,
 	}
 }
 
-static int bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
+static void bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
 {
-	int err = -ENOENT;
-	u32 sbtmstatehigh;
-	const struct firmware *fw;
-	char buf[21 + sizeof(modparam_fwpostfix) - 1] = { 0 };
-
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
 	bcm43xx_mmioprint_enable(bcm);
 #else
 	bcm43xx_mmioprint_disable(bcm);
 #endif
 
-	if ((bcm->current_core->rev == 2) || (bcm->current_core->rev == 4)) {
-		switch (bcm->current_core->phy->type) {
-			case BCM43xx_PHYTYPE_A:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
-					 3, modparam_fwpostfix);
-				break;
-			case BCM43xx_PHYTYPE_B:
-			case BCM43xx_PHYTYPE_G:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
-					 1, modparam_fwpostfix);
-				break;
-			default:
-				goto out_noinitval;
-		}
-	
-	} else if (bcm->current_core->rev >= 5) {
-		switch (bcm->current_core->phy->type) {
-			case BCM43xx_PHYTYPE_A:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
-					 7, modparam_fwpostfix);
-				break;
-			case BCM43xx_PHYTYPE_B:
-			case BCM43xx_PHYTYPE_G:
-				snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
-					 5, modparam_fwpostfix);
-				break;
-			default:
-				goto out_noinitval;
-		}
-	} else
-		goto out_noinitval;
-
-	if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
-		printk(KERN_ERR PFX 
-		       "Error: InitVals \"%s\" not available or load failed.\n",
-		        buf);
-		goto out;
-	}
-	if (fw->size % sizeof(struct bcm43xx_initval)) {
-		printk(KERN_ERR PFX "InitVals fileformat error.\n");
-		release_firmware(fw);
-		goto out;
+	bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)bcm->initvals0->data,
+			       bcm->initvals0->size / sizeof(struct bcm43xx_initval));
+	if (bcm->initvals1) {
+		bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)bcm->initvals1->data,
+				       bcm->initvals1->size / sizeof(struct bcm43xx_initval));
 	}
 
-	bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)fw->data,
-			       fw->size / sizeof(struct bcm43xx_initval));
-
-	release_firmware(fw);
-
-	if (bcm->current_core->rev >= 5) {
-		switch (bcm->current_core->phy->type) {
-			case BCM43xx_PHYTYPE_A:
-				sbtmstatehigh = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
-				if (sbtmstatehigh & 0x00010000)
-					snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
-						 9, modparam_fwpostfix);
-				else
-					snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
-						 10, modparam_fwpostfix);
-				break;
-			case BCM43xx_PHYTYPE_B:
-			case BCM43xx_PHYTYPE_G:
-					snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
-						 6, modparam_fwpostfix);
-				break;
-			default:
-				goto out_noinitval;
-		}
-	
-		if (request_firmware(&fw, buf, &bcm->pci_dev->dev) != 0) {
-			printk(KERN_ERR PFX 
-			       "Error: InitVals \"%s\" not available or load failed.\n",
-		        	buf);
-			goto out;
-		}
-		if (fw->size % sizeof(struct bcm43xx_initval)) {
-			printk(KERN_ERR PFX "InitVals fileformat error.\n");
-			release_firmware(fw);
-			goto out;
-		}
-
-		bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)fw->data,
-				       fw->size / sizeof(struct bcm43xx_initval));
-	
-		release_firmware(fw);
-		
-	}
-
-	dprintk(KERN_INFO PFX "InitVals written\n");
-	err = 0;
-out:
 #ifdef DEBUG_ENABLE_UCODE_MMIO_PRINT
 	bcm43xx_mmioprint_disable(bcm);
 #else
 	bcm43xx_mmioprint_enable(bcm);
 #endif
-
-	return err;
-
-out_noinitval:
-	printk(KERN_ERR PFX "Error: No InitVals available!\n");
-	goto out;
 }
 
 static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
@@ -2712,6 +2724,7 @@ static void bcm43xx_chip_cleanup(struct bcm43xx_private *bcm)
 	bcm43xx_radio_turn_off(bcm);
 	bcm43xx_gpio_cleanup(bcm);
 	free_irq(bcm->pci_dev->irq, bcm);
+	bcm43xx_release_firmware(bcm);
 }
 
 /* Initialize the chip
@@ -2729,9 +2742,10 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 			BCM43xx_SBF_CORE_READY
 			| BCM43xx_SBF_400);
 
-	err = bcm43xx_upload_microcode(bcm);
+	err = bcm43xx_request_firmware(bcm);
 	if (err)
 		goto out;
+	bcm43xx_upload_microcode(bcm);
 
 	err = bcm43xx_initialize_irq(bcm);
 	if (err)
@@ -2741,9 +2755,7 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	if (err)
 		goto err_free_irq;
 
-	err = bcm43xx_upload_initvals(bcm);
-	if (err)
-		goto err_gpio_cleanup;
+	bcm43xx_upload_initvals(bcm);
 
 	err = bcm43xx_radio_turn_on(bcm);
 	if (err)
@@ -4458,6 +4470,7 @@ static void __devexit bcm43xx_remove_one(struct pci_dev *pdev)
 	bcm43xx_debugfs_remove_device(bcm);
 	unregister_netdev(net_dev);
 	bcm43xx_detach_board(bcm);
+	assert(bcm->ucode == NULL);
 	destroy_workqueue(bcm->workqueue);
 	free_ieee80211softmac(net_dev);
 }
@@ -4477,8 +4490,10 @@ static void bcm43xx_chip_reset(void *_bcm)
 	netif_stop_queue(bcm->net_dev);
 	tasklet_disable(&bcm->isr_tasklet);
 
+	bcm->firmware_norelease = 1;
 	if (was_initialized)
 		bcm43xx_free_board(bcm);
+	bcm->firmware_norelease = 0;
 	bcm43xx_detach_board(bcm);
 	bcm43xx_init_private(bcm, net_dev, pci_dev, wq);
 	bcm43xx_attach_board(bcm);
@@ -4529,7 +4544,9 @@ static int bcm43xx_suspend(struct pci_dev *pdev, pm_message_t state)
 			dprintk(KERN_ERR PFX "Suspend failed.\n");
 			return -EAGAIN;
 		}
+		bcm->firmware_norelease = 1;
 		bcm43xx_free_board(bcm);
+		bcm->firmware_norelease = 0;
 	}
 	bcm43xx_chipset_detach(bcm);
 
