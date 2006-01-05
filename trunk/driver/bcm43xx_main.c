@@ -3037,6 +3037,7 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
 				continue;
 			}
+			break;
 		case BCM43xx_COREID_V90:
 			core = &bcm->core_v90;
 			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
