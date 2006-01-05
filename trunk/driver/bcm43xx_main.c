@@ -2904,6 +2904,18 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 	u16 pci_device, chip_id_16;
 	u8 core_count;
 
+	memset(&bcm->core_chipcommon, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_pci, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_v90, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_pcmcia, 0, sizeof(struct bcm43xx_coreinfo));
+	memset(&bcm->core_80211, 0, sizeof(struct bcm43xx_coreinfo)
+				    * BCM43xx_MAX_80211_CORES);
+
+	memset(&bcm->phy, 0, sizeof(struct bcm43xx_phyinfo)
+			     * BCM43xx_MAX_80211_CORES);
+	memset(&bcm->radio, 0, sizeof(struct bcm43xx_radioinfo)
+			       * BCM43xx_MAX_80211_CORES);
+
 	/* map core 0 */
 	err = _switch_core(bcm, 0);
 	if (err)
