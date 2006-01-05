@@ -3037,15 +3037,12 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
-			break;
 		case BCM43xx_COREID_V90:
 			core = &bcm->core_v90;
 			if (core->flags & BCM43xx_COREFLAG_AVAILABLE) {
 				printk(KERN_WARNING PFX "Multiple V90 cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
 			break;
 		case BCM43xx_COREID_PCMCIA:
 			core = &bcm->core_pcmcia;
@@ -3053,7 +3050,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple PCMCIA cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
 			break;
 		case BCM43xx_COREID_ETHERNET:
 			core = &bcm->core_ethernet;
@@ -3061,7 +3057,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				printk(KERN_WARNING PFX "Multiple Ethernet cores found.\n");
 				continue;
 			}
-			memset(core, 0, sizeof(*core));
 			break;
 		case BCM43xx_COREID_80211:
 			for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
@@ -3100,7 +3095,6 @@ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
 				err = -ENODEV;
 				goto out;
 			}
-			memset(core, 0, sizeof(*core));
 			core->phy = &bcm->phy[i];
 			core->phy->antenna_diversity = 0xffff;
 			core->phy->savedpctlreg = 0xFFFF;
