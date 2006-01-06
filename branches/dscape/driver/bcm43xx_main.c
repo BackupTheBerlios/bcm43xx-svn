@@ -140,6 +140,7 @@ static struct pci_device_id bcm43xx_pci_tbl[] = {
 	/* required last entry */
 	{ 0, },
 };
+MODULE_DEVICE_TABLE(pci, bcm43xx_pci_tbl);
 
 
 static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
