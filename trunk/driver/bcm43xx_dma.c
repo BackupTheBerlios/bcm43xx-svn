@@ -338,6 +338,7 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
 		dev_kfree_skb_any(skb);
 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RX SKB >1G\n");
+		return -ENOMEM;
 	}
 	meta->skb = skb;
 	meta->dmaaddr = dmaaddr;
