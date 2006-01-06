@@ -2515,34 +2515,38 @@ void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
 	if (!bcm->initialized)
 		return;
 
-FIXME();//FIXME
-	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-	if (iw_mode == IW_MODE_MASTER)
-		status |= BCM43xx_SBF_MODE_AP;
-	else
-		status &= ~BCM43xx_SBF_MODE_AP;
-	if (iw_mode == IW_MODE_ADHOC)
-		status &= ~BCM43xx_SBF_MODE_NOTADHOC;
-	else
-		status |= BCM43xx_SBF_MODE_NOTADHOC;
-	if (iw_mode == IW_MODE_MONITOR) {
-		status |= BCM43xx_SBF_MODE_MONITOR;
-		status |= BCM43xx_SBF_MODE_PROMISC;
-	} else {
-		status &= ~BCM43xx_SBF_MODE_MONITOR;
-		if (!(bcm->net_dev->flags & IFF_PROMISC))
-			status &= ~BCM43xx_SBF_MODE_PROMISC;
-	}
-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
 
-	//FIXME: Is this needed?
-	if (iw_mode != IW_MODE_ADHOC && iw_mode != IW_MODE_MASTER) {
-		if ((bcm->chip_id == 0x4306) && (bcm->chip_rev == 3))
-			bcm43xx_write16(bcm, 0x0612, 0x0064);
-		else
-			bcm43xx_write16(bcm, 0x0612, 0x0032);
-	} else
-		bcm43xx_write16(bcm, 0x0612, 0x0002);
+	bcm43xx_mac_suspend(bcm);
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	/* Reset status to infrastructured mode */
+	status &= ~(BCM43xx_SBF_MODE_AP | BCM43xx_SBF_MODE_MONITOR);
+	/*FIXME: We actually set promiscuous mode as well, until we don't
+	 * get the HW mac filter working */
+	status |= BCM43xx_SBF_MODE_NOTADHOC | BCM43xx_SBF_MODE_PROMISC;
+
+	switch (iw_mode) {
+	case IW_MODE_MONITOR:
+		status |= (BCM43xx_SBF_MODE_PROMISC |
+			   BCM43xx_SBF_MODE_MONITOR);
+		break;
+	case IW_MODE_ADHOC:
+		status &= ~BCM43xx_SBF_MODE_NOTADHOC;
+		break;
+	case IW_MODE_MASTER:
+	case IW_MODE_SECOND:
+	case IW_MODE_REPEAT:
+		/* TODO: No AP/Repeater mode for now :-/ */
+		TODO();
+		break;
+	case IW_MODE_INFRA:
+		/* nothing to be done here... */
+		break;
+	default:
+		printk(KERN_ERR PFX "Unknown iwmode %d\n", iw_mode);
+	}
+
+	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+	bcm43xx_mac_enable(bcm);
 }
 
 /* This is the opposite of bcm43xx_chip_init() */
