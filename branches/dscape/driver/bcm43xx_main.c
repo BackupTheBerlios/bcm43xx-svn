@@ -4899,7 +4899,7 @@ static void bcm43xx_chip_reset(void *_bcm)
 	struct pci_dev *pci_dev = bcm->pci_dev;
 	struct ieee80211_hw *ieee = bcm->ieee;
 	struct workqueue_struct *wq = bcm->workqueue;
-	int err = 0;
+	int err;
 	int was_initialized = bcm->initialized;
 
 	ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
@@ -4911,15 +4911,20 @@ static void bcm43xx_chip_reset(void *_bcm)
 	bcm->firmware_norelease = 0;
 	bcm43xx_detach_board(bcm);
 	bcm43xx_init_private(bcm, net_dev, pci_dev, ieee, wq);
-	bcm43xx_attach_board(bcm);
-	if (was_initialized)
+	err = bcm43xx_attach_board(bcm);
+	if (err)
+		goto failure;
+	if (was_initialized) {
 		err = bcm43xx_init_board(bcm);
-	if (err) {
-		printk(KERN_ERR PFX "Controller restart failed\n");
-		return;
+		if (err)
+			goto failure;
 	}
 	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
 	printk(KERN_INFO PFX "Controller restarted\n");
+
+	return;
+failure:
+	printk(KERN_ERR PFX "Controller restart failed\n");
 }
 
 /* Hard-reset the chip.
