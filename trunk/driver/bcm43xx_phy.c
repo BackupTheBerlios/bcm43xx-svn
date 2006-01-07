@@ -229,7 +229,8 @@ static void bcm43xx_phy_init_pctl(struct bcm43xx_private *bcm)
 		saved_batt = radio->txpower[0];
 		saved_ratt = radio->txpower[1];
 		saved_txctl1 = radio->txpower[2];
-		if ((radio->revision >= 6) && (radio->revision <= 8))
+		if ((radio->revision >= 6) && (radio->revision <= 8)
+		    && /*FIXME: incomplete specs for 5 < revision < 9 */ 0)
 			bcm43xx_radio_set_txpower_bg(bcm, 0xB, 0x1F, 0);
 		else
 			bcm43xx_radio_set_txpower_bg(bcm, 0xB, 9, 0);
