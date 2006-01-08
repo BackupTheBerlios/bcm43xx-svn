@@ -752,8 +752,7 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	 */
 	meta->must_xmit_txstat = 1;
 	memset(&meta->txstat, 0, sizeof(meta->txstat));
-	meta->txstat.req_tx_status = ctl->req_tx_status;
-	meta->txstat.rate_ctrl_probe = ctl->rate_ctrl_probe;
+	memcpy(&meta->txstat.control, ctl, sizeof(*ctl));
 
 	meta->skb = skb;
 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
