@@ -288,16 +288,9 @@ static int bcm43xx_wx_get_rangeparams(struct net_device *net_dev,
 
 	range->num_bitrates = 0;
 	i = 0;
-	switch (bcm->current_core->phy->type) {
-	case BCM43xx_PHYTYPE_A:
-	case BCM43xx_PHYTYPE_G:
-		range->num_bitrates += 4;
-		range->bitrate[i++] = IEEE80211_CCK_RATE_1MB;
-		range->bitrate[i++] = IEEE80211_CCK_RATE_2MB;
-		range->bitrate[i++] = IEEE80211_CCK_RATE_5MB;
-		range->bitrate[i++] = IEEE80211_CCK_RATE_11MB;
-	case BCM43xx_PHYTYPE_B:
-		range->num_bitrates += 8;
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_A ||
+	    bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+		range->num_bitrates = 8;
 		range->bitrate[i++] = IEEE80211_OFDM_RATE_6MB;
 		range->bitrate[i++] = IEEE80211_OFDM_RATE_9MB;
 		range->bitrate[i++] = IEEE80211_OFDM_RATE_12MB;
@@ -306,6 +299,14 @@ static int bcm43xx_wx_get_rangeparams(struct net_device *net_dev,
 		range->bitrate[i++] = IEEE80211_OFDM_RATE_36MB;
 		range->bitrate[i++] = IEEE80211_OFDM_RATE_48MB;
 		range->bitrate[i++] = IEEE80211_OFDM_RATE_54MB;
+	}
+	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B ||
+	    bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) {
+		range->num_bitrates += 4;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_1MB;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_2MB;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_5MB;
+		range->bitrate[i++] = IEEE80211_CCK_RATE_11MB;
 	}
 
 	geo = ieee80211_get_geo(bcm->ieee);
