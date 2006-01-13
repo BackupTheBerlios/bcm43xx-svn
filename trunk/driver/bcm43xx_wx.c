@@ -554,6 +554,21 @@ static int bcm43xx_wx_set_encoding(struct net_device *net_dev,
 	return err;
 }
 
+static int bcm43xx_wx_set_encodingext(struct net_device *net_dev,
+                                   struct iw_request_info *info,
+                                   union iwreq_data *data,
+                                   char *extra)
+{
+        struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+        int err;
+
+        wx_enter();
+
+        err = ieee80211_wx_set_encodeext(bcm->ieee, info, data, extra);
+
+        return err;
+}
+
 static int bcm43xx_wx_get_encoding(struct net_device *net_dev,
 				   struct iw_request_info *info,
 				   union iwreq_data *data,
@@ -567,6 +582,21 @@ static int bcm43xx_wx_get_encoding(struct net_device *net_dev,
 	err = ieee80211_wx_get_encode(bcm->ieee, info, data, extra);
 
 	return err;
+}
+
+static int bcm43xx_wx_get_encodingext(struct net_device *net_dev,
+                                   struct iw_request_info *info,
+                                   union iwreq_data *data,
+                                   char *extra)
+{
+        struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+        int err;
+
+        wx_enter();
+
+        err = ieee80211_wx_get_encodeext(bcm->ieee, info, data, extra);
+
+        return err;
 }
 
 static int bcm43xx_wx_set_power(struct net_device *net_dev,
@@ -970,11 +1000,15 @@ static const iw_handler bcm43xx_wx_handlers[] = {
 	/* Encoding */
 	WX(SIOCSIWENCODE)	= bcm43xx_wx_set_encoding,
 	WX(SIOCGIWENCODE)	= bcm43xx_wx_get_encoding,
+	WX(SIOCSIWENCODEEXT)	= bcm43xx_wx_set_encodingext,
+	WX(SIOCGIWENCODEEXT)	= bcm43xx_wx_get_encodingext,
 	/* Power saving */
 //TODO	WX(SIOCSIWPOWER)	= bcm43xx_wx_set_power,
 //TODO	WX(SIOCGIWPOWER)	= bcm43xx_wx_get_power,
 	WX(SIOCSIWGENIE)	= ieee80211softmac_wx_set_genie,
 	WX(SIOCGIWGENIE)	= ieee80211softmac_wx_get_genie,
+	WX(SIOCSIWAUTH)		= ieee80211_wx_set_auth,
+	WX(SIOCGIWAUTH)		= ieee80211_wx_get_auth,
 };
 #undef WX
 

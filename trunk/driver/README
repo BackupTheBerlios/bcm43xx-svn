@@ -18,16 +18,14 @@ Requirements
 1)	Linux Kernel 2.6.15 or later
 	http://www.kernel.org/
 
-	Please configure your kernel with:
-	a) CONFIG_IEEE80211 (required):
-		-> Networking
-		  -> Generic IEEE 802.11 Networking Stack
+	You may want to configure your kernel with:
 
-	b) CONFIG_DEBUG_FS (optional):
+	CONFIG_DEBUG_FS (optional):
 		-> Kernel hacking
 		  -> Debug Filesystem
 
-2)	SoftMAC IEEE 802.11 Networking Stack extension
+2)	SoftMAC IEEE 802.11 Networking Stack extension and patched ieee80211
+	modules:
 	http://softmac.sipsolutions.net/
 
 3)	Firmware Files
