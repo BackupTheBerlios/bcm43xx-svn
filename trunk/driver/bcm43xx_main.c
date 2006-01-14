@@ -4208,13 +4208,14 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 			memmove(skb->data + 4, skb->data, 24);
 			skb_pull(skb, 4);
 			skb_trim(skb, skb->len - 4);
+			stats.len -= 8;
 		}
 		/* do _not_ use wlhdr again without reassigning it */
 	}
 	
 	switch (WLAN_FC_GET_TYPE(frame_ctl)) {
 	case IEEE80211_FTYPE_MGMT:
-		ieee80211_rx_mgt(bcm->ieee, wlhdr, &stats);
+		ieee80211_rx_mgt(bcm->ieee, skb->data, &stats);
 		break;
 	case IEEE80211_FTYPE_DATA:
 		if (is_packet_for_us)
