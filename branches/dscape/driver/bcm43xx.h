@@ -17,6 +17,7 @@
 #include <net/ieee80211_common.h>
 
 #include "bcm43xx_debugfs.h"
+#include "bcm43xx_leds.h"
 
 
 #define DRV_NAME			__stringify(KBUILD_MODNAME)
@@ -620,19 +621,6 @@ struct bcm43xx_coreinfo {
 	struct bcm43xx_pio *pio;
 };
 
-#define BCM43xx_LED_COUNT			4
-#define BCM43xx_LED_OFF				0
-#define BCM43xx_LED_ON				1
-#define BCM43xx_LED_ACTIVITY			2
-#define BCM43xx_LED_RADIO_ALL			3
-#define BCM43xx_LED_RADIO_A			4
-#define BCM43xx_LED_RADIO_B			5
-#define BCM43xx_LED_MODE_BG			6
-#define BCM43xx_LED_ASSOC			10
-#define BCM43xx_LED_INACTIVE			11
-#define BCM43xx_LED_ACTIVELOW			(1 << 7)
-
-
 /* Context information for a noise calculation (Link Quality). */
 struct bcm43xx_noise_calculation {
 	struct bcm43xx_coreinfo *core_at_start;
@@ -644,6 +632,9 @@ struct bcm43xx_noise_calculation {
 
 struct bcm43xx_stats {
 	u8 link_quality;
+	/* Store the last TX/RX times here for updating the leds. */
+	unsigned long last_tx;
+	unsigned long last_rx;
 };
 
 struct bcm43xx_key {
@@ -692,8 +683,8 @@ struct bcm43xx_private {
 	u8 chip_rev;
 
 	struct bcm43xx_sprominfo sprom;
-
-	u8 leds[BCM43xx_LED_COUNT];
+#define BCM43xx_NR_LEDS		4
+	struct bcm43xx_led leds[BCM43xx_NR_LEDS];
 
 	/* The currently active core. NULL if not initialized, yet. */
 	struct bcm43xx_coreinfo *current_core;

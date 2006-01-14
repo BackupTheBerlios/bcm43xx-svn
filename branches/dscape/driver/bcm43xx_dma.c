@@ -861,6 +861,7 @@ bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 			break;
 		slot = next_slot(ring, slot);
 	}
+	bcm->stats.last_tx = jiffies;
 
 	spin_unlock(&ring->lock);
 }
