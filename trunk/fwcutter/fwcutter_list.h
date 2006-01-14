@@ -208,6 +208,19 @@ static const struct file {
 		.pcm4_pos    = 0x60034,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x60554,  .pcm5_length = 0x520,
 	},
+	{
+		.name        = "AppleAirPort3",
+		.version     = "3.90.34.0.p3 (3.6f2)",
+		.md5         = "5aa65bf75ae1bee0f81092a076d1ad1d",
+		.flags       = BYTE_ORDER_BIG_ENDIAN |
+		               MISSING_INITVAL_80211_A,
+		.iv_pos      = 0x49910,
+		.uc2_pos     = 0x4b200,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x4f148,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x53f38,  .uc5_length  = 0x57e0,
+		.pcm4_pos    = 0x59718,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x59c38,  .pcm5_length = 0x520,
+	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.8.37.0",                             /* 09/23/2002 */ 
