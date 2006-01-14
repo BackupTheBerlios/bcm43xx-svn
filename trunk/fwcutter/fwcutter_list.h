@@ -210,6 +210,12 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
+		.version     = "3.8.37.0",                             /* 09/23/2002 */ 
+		.md5         = "e39e934eccd3b15bbb5f8d8f52f172b2",
+		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
+	},
+	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.10.8.0",                             /* 10/04/2002 */ 
 		.md5         = "288923b401e87ef76b7ae2652601ee47",
 		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
