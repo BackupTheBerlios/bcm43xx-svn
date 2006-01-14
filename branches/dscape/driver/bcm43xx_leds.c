@@ -67,7 +67,7 @@ static void bcm43xx_led_blink_start(struct bcm43xx_led *led,
 	add_timer(&led->blink_timer);
 }
 
-static void bcm43xx_led_blink_stop(struct bcm43xx_led *led)
+static void bcm43xx_led_blink_stop(struct bcm43xx_led *led, int sync)
 {
 	struct bcm43xx_private *bcm = led->bcm;
 	const int index = bcm43xx_led_index(led);
@@ -75,7 +75,10 @@ static void bcm43xx_led_blink_stop(struct bcm43xx_led *led)
 
 	if (!led->blink_interval)
 		return;
-	del_timer(&led->blink_timer);
+	if (unlikely(sync))
+		del_timer_sync(&led->blink_timer);
+	else
+		del_timer(&led->blink_timer);
 	led->blink_interval = 0;
 
 	/* Make sure the LED is turned off. */
@@ -143,7 +146,7 @@ void bcm43xx_leds_exit(struct bcm43xx_private *bcm)
 
 	for (i = 0; i < BCM43xx_NR_LEDS; i++) {
 		led = &(bcm->leds[i]);
-		bcm43xx_led_blink_stop(led);
+		bcm43xx_led_blink_stop(led, 1);
 	}
 	bcm43xx_leds_turn_off(bcm);
 }
@@ -195,7 +198,7 @@ void bcm43xx_leds_update(struct bcm43xx_private *bcm, int activity)
 			if (transferring)
 				bcm43xx_led_blink_start(led, BCM43xx_LEDBLINK_MEDIUM);
 			else
-				bcm43xx_led_blink_stop(led);
+				bcm43xx_led_blink_stop(led, 0);
 			continue;
 		case BCM43xx_LED_APTRANSFER:
 			if (bcm->iw_mode == IW_MODE_MASTER) {
@@ -215,7 +218,7 @@ void bcm43xx_leds_update(struct bcm43xx_private *bcm, int activity)
 			if (turn_on)
 				bcm43xx_led_blink_start(led, interval);
 			else
-				bcm43xx_led_blink_stop(led);
+				bcm43xx_led_blink_stop(led, 0);
 			continue;
 		case BCM43xx_LED_WEIRD:
 			//TODO
