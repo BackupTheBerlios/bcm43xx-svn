@@ -538,29 +538,6 @@ __le16 bcm43xx_calc_duration_id(const struct ieee80211_hdr *wireless_header,
 	return duration_id;
 }
 
-static int get_hdrlen(u16 frame_control)
-{
-	int len = 2 + 2 + (3 * 6) + 2;
-	u16 stype = WLAN_FC_GET_STYPE(frame_control);
-
-	switch (WLAN_FC_GET_TYPE(frame_control)) {
-	case WLAN_FC_TYPE_DATA:
-		if ((frame_control & WLAN_FC_FROMDS) &&
-		    (frame_control & WLAN_FC_TODS))
-			len = 2 + 2 + (3 * 6) + 2 + 6;
-		if (stype == WLAN_FC_STYPE_QOS_DATA)
-			len += 2;
-		break;
-	case WLAN_FC_TYPE_CTRL:
-		len = 2 + 2 + 6;
-		if ((stype != WLAN_FC_STYPE_CTS) &&
-		    (stype != WLAN_FC_STYPE_ACK))
-			len += 6;
-	}
-
-	return len;
-}
-
 void fastcall
 bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 		       struct bcm43xx_txhdr *txhdr,
@@ -613,7 +590,7 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 
 			wsec_rate |= ((key_idx & 0x000F) << 4);
 			wsec_rate |= key->algorithm;
-			wlhdr_len = get_hdrlen(le16_to_cpu(wireless_header->frame_control));
+			wlhdr_len = ieee80211_get_hdrlen(le16_to_cpu(wireless_header->frame_control));
 			memcpy(txhdr->wep_iv, ((u8 *)wireless_header) + wlhdr_len, 4);
 		}
 	}
