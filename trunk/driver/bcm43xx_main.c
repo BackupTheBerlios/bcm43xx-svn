@@ -461,8 +461,6 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 	 * but with different data types.
 	 */
 
-	/*TODO: This can be optimized, but first let's get it working. */
-
 	/* Account for hardware-appended FCS. */
 	octets += IEEE80211_FCS_LEN;
 
