@@ -26,7 +26,7 @@ endif
 
 CFLAGS += -DBCM43xx_VERSION=$(VERSION) -I/lib/modules/$(KVER)/include
 ifneq ($(SOFTMAC_DIR),)
-CFLAGS += -I$(SOFTMAC_DIR)
+CPPFLAGS := -I$(SOFTMAC_DIR) $(CPPFLAGS)
 endif
 
 ifneq ($(KERNELRELEASE),)
