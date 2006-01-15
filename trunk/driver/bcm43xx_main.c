@@ -86,6 +86,10 @@ static int modparam_outdoor;
 module_param_named(outdoor, modparam_outdoor, int, 0444);
 MODULE_PARM_DESC(outdoor, "Set to 1, if you are using the device outdoor, 0 otherwise.");
 
+static int modparam_noleds;
+module_param_named(noleds, modparam_noleds, int, 0444);
+MODULE_PARM_DESC(noleds, "Turn off all LED activity");
+
 #ifdef BCM43xx_DEBUG
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
@@ -1313,44 +1317,6 @@ static void bcm43xx_geo_init(struct bcm43xx_private *bcm)
 	ieee80211_set_geo(bcm->ieee, &geo);
 }
 
-/* Read and adjust LED infos */
-static int bcm43xx_leds_init(struct bcm43xx_private *bcm)
-{
-	int i;
-
-	bcm->leds[0] = bcm->sprom.wl0gpio0;
-	bcm->leds[1] = bcm->sprom.wl0gpio1;
-	bcm->leds[2] = bcm->sprom.wl0gpio2;
-	bcm->leds[3] = bcm->sprom.wl0gpio3;
-
-	for (i = 0; i < BCM43xx_LED_COUNT; i++) {
-		if ((bcm->leds[i] & ~BCM43xx_LED_ACTIVELOW) == BCM43xx_LED_INACTIVE) {
-			bcm->leds[i] = 0xFF;
-			continue;
-		};
-		if (bcm->leds[i] == 0xFF) {
-			switch (i) {
-			case 0:
-				bcm->leds[0] = ((bcm->board_vendor == PCI_VENDOR_ID_COMPAQ)
-				                ? BCM43xx_LED_RADIO_ALL
-				                : BCM43xx_LED_ACTIVITY);
-				break;
-			case 1:
-				bcm->leds[1] = BCM43xx_LED_RADIO_B;
-				break;
-			case 2:
-				bcm->leds[2] = BCM43xx_LED_RADIO_A;
-				break;
-			case 3:
-				bcm->leds[3] = BCM43xx_LED_OFF;
-				break;
-			}
-		}
-	}
-
-	return 0;
-}
-
 /* DummyTransmission function, as documented on 
  * http://bcm-specs.sipsolutions.net/DummyTransmission
  */
@@ -2077,6 +2043,7 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 {
 	u32 reason;
 	u32 dma_reason[4];
+	int activity = 0;
 	unsigned long flags;
 
 #ifdef BCM43xx_DEBUG
@@ -2142,6 +2109,7 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 			bcm43xx_pio_rx(bcm->current_core->pio->queue0);
 		else
 			bcm43xx_dma_rx(bcm->current_core->dma->rx_ring0);
+		activity = 1;
 	}
 	if (dma_reason[3] & BCM43xx_DMAIRQ_RX_DONE) {
 		if (likely(bcm->current_core->rev < 5)) {
@@ -2149,14 +2117,17 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 				bcm43xx_pio_rx(bcm->current_core->pio->queue3);
 			else
 				bcm43xx_dma_rx(bcm->current_core->dma->rx_ring1);
+			activity = 1;
 		} else
 			assert(0);
 	}
 	bcmirq_handled(BCM43xx_IRQ_RX);
 
 	if (reason & BCM43xx_IRQ_XMIT_STATUS) {
-		if (bcm->current_core->rev >= 5)
+		if (bcm->current_core->rev >= 5) {
 			handle_irq_transmit_status(bcm);
+			activity = 1;
+		}
 		//TODO: In AP mode, this also causes sending of powersave responses.
 		bcmirq_handled(BCM43xx_IRQ_XMIT_STATUS);
 	}
@@ -2179,6 +2150,8 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 #endif
 #undef bcmirq_handled
 
+	if (!modparam_noleds)
+		bcm43xx_leds_update(bcm, activity);
 	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
 	spin_unlock_irqrestore(&bcm->lock, flags);
 }
@@ -2538,64 +2511,6 @@ static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
 	return 0;
 }
 
-/* Keep this slim, as we're going to call it from within the interrupt tasklet! */
-static void bcm43xx_update_leds(struct bcm43xx_private *bcm)
-{
-	int id;
-	u16 value = bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_CONTROL);
-	u16 state;
-
-	for (id = 0; id < BCM43xx_LED_COUNT; id++) {
-		if (bcm->leds[id] == 0xFF)
-			continue;
-
-		state = 0;
-
-		switch (bcm->leds[id] & ~BCM43xx_LED_ACTIVELOW) {
-		case BCM43xx_LED_OFF:
-			break;
-		case BCM43xx_LED_ON:
-			state = 1;
-			break;
-		case BCM43xx_LED_RADIO_ALL:
-			state = ((bcm->radio[0].enabled) || (bcm->radio[1].enabled)) ? 1 : 0;
-			break;
-		case BCM43xx_LED_RADIO_A:
-			if ((bcm->phy[0].type == BCM43xx_PHYTYPE_A) && (bcm->radio[0].enabled))
-				state = 1;
-			if ((bcm->phy[1].type == BCM43xx_PHYTYPE_A) && (bcm->radio[1].enabled))
-				state = 1;
-			break;
-		case BCM43xx_LED_RADIO_B:
-			if ((bcm->phy[0].type == BCM43xx_PHYTYPE_B) && (bcm->radio[0].enabled))
-				state = 1;
-			if ((bcm->phy[1].type == BCM43xx_PHYTYPE_B) && (bcm->radio[1].enabled))
-				state = 1;
-			break;
-		case BCM43xx_LED_MODE_BG:
-			if (bcm->ieee->mode == IEEE_G)
-				state = 1;
-			break;
-		case BCM43xx_LED_ASSOC:
-			if (bcm->ieee->state == 3)
-				state = 1;
-			break;
-		/*
-		 * TODO: LED_ACTIVITY
-		 */
-		default:
-			break;
-		};
-
-		if (bcm->leds[id] & BCM43xx_LED_ACTIVELOW)
-			state = 0x0001 & (state ^ 0x0001);
-		value &= ~(1 << id);
-		value |= (state << id);
-	}
-
-	bcm43xx_write16(bcm, BCM43xx_MMIO_GPIO_CONTROL, value);
-}
-
 /* Switch to the core used to write the GPIO register.
  * This is either the ChipCommon, or the PCI core.
  */
@@ -2777,6 +2692,8 @@ void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
 static void bcm43xx_chip_cleanup(struct bcm43xx_private *bcm)
 {
 	bcm43xx_radio_turn_off(bcm);
+	if (!modparam_noleds)
+		bcm43xx_leds_exit(bcm);
 	bcm43xx_gpio_cleanup(bcm);
 	free_irq(bcm->irq, bcm);
 	bcm43xx_release_firmware(bcm);
@@ -2816,7 +2733,10 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 	if (err)
 		goto err_gpio_cleanup;
 
-	bcm43xx_update_leds(bcm);
+	if (modparam_noleds)
+		bcm43xx_leds_turn_off(bcm);
+	else
+		bcm43xx_leds_update(bcm, 0);
 
 	bcm43xx_write16(bcm, 0x03E6, 0x0000);
 	err = bcm43xx_phy_init(bcm);
@@ -4164,7 +4084,7 @@ int fastcall bcm43xx_rx(struct bcm43xx_private *bcm,
 		stats.freq = IEEE80211_24GHZ_BAND;
 	stats.len = skb->len;
 
-
+	bcm->stats.last_rx = jiffies;
 	if (bcm->ieee->iw_mode == IW_MODE_MONITOR)
 		return bcm43xx_rx_packet(bcm, skb, &stats);
 

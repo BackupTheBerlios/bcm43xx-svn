@@ -71,6 +71,8 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	struct net_device *net_dev;
 	struct pci_dev *pci_dev;
 	unsigned long flags;
+	u16 tmp16;
+	int i;
 
 	down(&big_buffer_sem);
 
@@ -114,6 +116,11 @@ static ssize_t devinfo_read_file(struct file *file, char __user *userbuf,
 	fappend_core("first 80211", bcm->core_80211[0]);
 	fappend_core("second 80211", bcm->core_80211[1]);
 #undef fappend_core
+	tmp16 = bcm43xx_read16(bcm, BCM43xx_MMIO_GPIO_CONTROL);
+	fappend("LEDs: ");
+	for (i = 0; i < BCM43xx_NR_LEDS; i++)
+		fappend("%d ", !!(tmp16 & (1 << i)));
+	fappend("\n");
 
 out:
 	spin_unlock_irqrestore(&bcm->lock, flags);
