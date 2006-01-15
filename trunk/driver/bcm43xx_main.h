@@ -54,11 +54,11 @@ static inline void e_aton(char *str, char *dest)
 
 
 #define _bcm43xx_declare_plcp_hdr(size) \
-	struct bcm43xx_plcp_hdr##size {			\
-		union {					\
-			u32 data;			\
-			unsigned char raw[size];	\
-		} __attribute__((__packed__));		\
+	struct bcm43xx_plcp_hdr##size {		\
+		union {				\
+			__le32 data;		\
+			__u8 raw[size];		\
+		} __attribute__((__packed__));	\
 	} __attribute__((__packed__))
 
 /* struct bcm43xx_plcp_hdr4 */
