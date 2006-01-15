@@ -156,16 +156,14 @@ MODULE_DEVICE_TABLE(pci, bcm43xx_pci_tbl);
 
 static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
 {
-	u32 oldsbf;
+	u32 status;
 
-	oldsbf = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
-			oldsbf | BCM43xx_SBF_XFER_REG_BYTESWAP);
+	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+	if (!(status & BCM43xx_SBF_XFER_REG_BYTESWAP))
+		val = swab32(val);
 
-	bcm43xx_write16(bcm, BCM43xx_MMIO_RAM_CONTROL, offset);
+	bcm43xx_write32(bcm, BCM43xx_MMIO_RAM_CONTROL, offset);
 	bcm43xx_write32(bcm, BCM43xx_MMIO_RAM_DATA, val);
-
-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, oldsbf);
 }
 
 static inline
