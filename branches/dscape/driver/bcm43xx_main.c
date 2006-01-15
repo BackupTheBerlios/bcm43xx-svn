@@ -445,14 +445,13 @@ u8 bcm43xx_plcp_get_ratecode_ofdm(const u8 bitrate)
 	return 0;
 }
 
-static inline
-void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
-				  u16 octets, const u8 bitrate,
-				  const int ofdm_modulation)
+static void bcm43xx_generate_plcp_hdr(struct bcm43xx_plcp_hdr4 *plcp,
+				      const u16 octets, const u8 bitrate,
+				      const int ofdm_modulation)
 {
-	/* "data" and "raw" address the same memory area,
-	 * but with different data types.
-	 */
+	__le32 *data = &(plcp->data);
+	__u8 *raw = plcp->raw;
+
 	if (ofdm_modulation) {
 		*data = bcm43xx_plcp_get_ratecode_ofdm(bitrate);
 		assert(!(octets & 0xF000));
@@ -475,13 +474,6 @@ void bcm43xx_do_generate_plcp_hdr(u32 *data, unsigned char *raw,
 		raw[0] = bcm43xx_plcp_get_ratecode_cck(bitrate);
 	}
 }
-
-#define bcm43xx_generate_plcp_hdr(plcp, octets, bitrate, ofdm_modulation) \
-	do {									\
-		bcm43xx_do_generate_plcp_hdr(&((plcp)->data), (plcp)->raw,	\
-					     (octets), (bitrate),		\
-					     (ofdm_modulation));		\
-	} while (0)
 
 static inline
 u8 bcm43xx_calc_fallback_rate(u8 bitrate)
@@ -595,7 +587,8 @@ bcm43xx_generate_txhdr(struct bcm43xx_private *bcm,
 		}
 	}
 	/* Generate the PLCP header and the fallback PLCP header. */
-	bcm43xx_generate_plcp_hdr(&txhdr->plcp, plcp_fragment_len,
+	bcm43xx_generate_plcp_hdr((struct bcm43xx_plcp_hdr4 *)(&txhdr->plcp),
+				  plcp_fragment_len,
 				  bitrate, ofdm_modulation);
 	bcm43xx_generate_plcp_hdr(&txhdr->fallback_plcp, plcp_fragment_len,
 				  fallback_bitrate, fallback_ofdm_modulation);
