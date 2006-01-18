@@ -116,8 +116,8 @@ struct cmdline_args {
 	int verbose;
 	int force;
 
-#define MAX_VPARM	35
-	struct cmdline_vparm vparm[MAX_VPARM + 1];
+#define MAX_VPARM	512
+	struct cmdline_vparm vparm[MAX_VPARM];
 	int nr_vparm;
 };
 extern struct cmdline_args cmdargs;

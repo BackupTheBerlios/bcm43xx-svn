@@ -961,6 +961,11 @@ static int parse_args(int argc, char *argv[])
 	char *param;
 
 	for (i = 1; i < argc; i++) {
+		if (cmdargs.nr_vparm == MAX_VPARM) {
+			prerror("Too many value parameters.\n");
+			return -1;
+		}
+
 		if (arg_match(argv, &i, "--version", "-v", 0)) {
 			print_banner(1);
 			return 1;
