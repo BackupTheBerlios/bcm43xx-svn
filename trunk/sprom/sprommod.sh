@@ -11,6 +11,12 @@ fi
 device="$1"
 shift
 
+args="$@"
+if [ "$1" = "--all" ]; then
+	shift
+	args="`bcm43xx_sprom --help 2>&1| sed 's/  \(--[^ ]*\).*/\1 GET/;t;d' | tr '\n' ' '` $@"
+fi
+
 if [ -z "$device" ]; then
 	echo "No DEVICE given"
 	exit 1
@@ -22,7 +28,7 @@ if [ $err -ne 0 ]; then
 	echo "Could not read SPROM ($err)"
 	exit 1
 fi
-mod_data="$(echo "$orig_data" | bcm43xx_sprom $@)"
+mod_data="$(echo "$orig_data" | bcm43xx_sprom $args)"
 err=$?
 if [ $err -ne 0 ]; then
 	echo "Could not modify SPROM data ($err)"
