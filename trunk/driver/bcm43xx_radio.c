@@ -65,6 +65,7 @@ static u16 flip_4bit(u16 value)
 static void bcm43xx_set_all_gains(struct bcm43xx_private *bcm,
 				  s16 first, s16 second, s16 third);
 static void bcm43xx_set_original_gains(struct bcm43xx_private *bcm);
+static void bcm43xx_synth_pu_workaround(struct bcm43xx_private *bcm, u8 channel);
 
 void bcm43xx_radio_lock(struct bcm43xx_private *bcm)
 {
@@ -306,13 +307,13 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 	/*FIXME: We are not completely sure, if the nrssi values are really s16.
 	 *       We have to check by testing, if the values and the u16 to s16 casts are correct.
 	 */
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	u16 backup[18], tmp = 0;
+	s16 run = 0;
+	s16 nrssi0, nrssi1;
 
-	u16 backup[14];
-	s16 slope = 0;
-	s16 nrssi0;
-	s16 nrssi1;
-
-	switch (bcm->current_core->phy->type) {
+	switch (phy->type) {
 	case BCM43xx_PHYTYPE_B:
 		backup[0] = bcm43xx_radio_read16(bcm, 0x007A);
 		backup[1] = bcm43xx_radio_read16(bcm, 0x0052);
@@ -326,13 +327,14 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		backup[9] = bcm43xx_phy_read(bcm, 0x0059);
 		backup[10] = bcm43xx_phy_read(bcm, 0x0058);
 		backup[11] = bcm43xx_read16(bcm, 0x03E2);
-		backup[12] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
-		backup[13] = bcm43xx_read16(bcm, 0x03E6);
+		backup[12] = bcm43xx_read16(bcm, 0x03E6);
+		backup[13] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
 
-		bcm43xx_radio_write16(bcm, 0x007A,
-				      bcm43xx_radio_read16(bcm, 0x007A) & 0x000F);
+		tmp  = bcm43xx_radio_read16(bcm, 0x007A);
+		tmp &= (phy->rev >= 5) ? 0x007F : 0x000F;
+		bcm43xx_radio_write16(bcm, 0x007A, tmp);
 		bcm43xx_phy_write(bcm, 0x0030, 0x00FF);
-		bcm43xx_write16(bcm, 0x03EC, 0x3F3F);
+		bcm43xx_write16(bcm, 0x03EC, 0x7F7F);
 		bcm43xx_phy_write(bcm, 0x0026, 0x0000);
 		bcm43xx_phy_write(bcm, 0x0015,
 				  bcm43xx_phy_read(bcm, 0x0015) | 0x0020);
@@ -343,7 +345,9 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		nrssi0 = (s16)bcm43xx_phy_read(bcm, 0x0027);
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x007F);
-		if (bcm->current_core->phy->rev == 0) {
+		if (phy->rev >= 2) {
+			bcm43xx_write16(bcm, 0x03E6, 0x0040);
+		} else if (phy->rev == 0) {
 			bcm43xx_write16(bcm, 0x03E6, 0x0122);
 		} else {
 			bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
@@ -351,8 +355,9 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		}
 		bcm43xx_phy_write(bcm, 0x0020, 0x3F3F);
 		bcm43xx_phy_write(bcm, 0x0015, 0xF330);
-		bcm43xx_radio_write16(bcm, 0x0052, 0x0060);
-		bcm43xx_radio_write16(bcm, 0x0043, 0x0000);
+		bcm43xx_radio_write16(bcm, 0x005A, 0x0060);
+		bcm43xx_radio_write16(bcm, 0x0043,
+				      bcm43xx_radio_read16(bcm, 0x0043) & 0x00F0);
 		bcm43xx_phy_write(bcm, 0x005A, 0x0480);
 		bcm43xx_phy_write(bcm, 0x0059, 0x0810);
 		bcm43xx_phy_write(bcm, 0x0058, 0x000D);
@@ -361,15 +366,14 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		nrssi1 = (s16)bcm43xx_phy_read(bcm, 0x0027);
 		bcm43xx_phy_write(bcm, 0x0030, backup[3]);
 		bcm43xx_radio_write16(bcm, 0x007A, backup[0]);
-		bcm43xx_write16(bcm, 0x03E6, 0x0122);
 		bcm43xx_write16(bcm, 0x03E2, backup[11]);
 		bcm43xx_phy_write(bcm, 0x0026, backup[4]);
 		bcm43xx_phy_write(bcm, 0x0015, backup[5]);
 		bcm43xx_phy_write(bcm, 0x002A, backup[6]);
-		if (bcm->current_core->phy->rev == 0)
-			bcm43xx_write16(bcm, 0x03E6, backup[13]);
-		else
-			bcm43xx_write16(bcm, 0x03F4, backup[12]);
+		bcm43xx_synth_pu_workaround(bcm, radio->channel);
+		if (phy->rev != 0)
+			bcm43xx_write16(bcm, 0x03F4, backup[13]);
+
 		bcm43xx_phy_write(bcm, 0x0020, backup[7]);
 		bcm43xx_phy_write(bcm, 0x005A, backup[8]);
 		bcm43xx_phy_write(bcm, 0x0059, backup[9]);
@@ -377,10 +381,11 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		bcm43xx_radio_write16(bcm, 0x0052, backup[1]);
 		bcm43xx_radio_write16(bcm, 0x0043, backup[2]);
 
-		slope = nrssi0 - nrssi1;
-		if (slope == 0)
-			slope = 64;
-		bcm->current_core->radio->nrssislope = 0x400000 / slope;
+		run = nrssi0 - nrssi1;
+		if (run == 0)
+			radio->nrssislope = 0x00010000;
+		else 
+			radio->nrssislope = 0x00400000 / run;
 
 		if (nrssi0 <= -4) {
 			bcm->current_core->radio->nrssi[0] = nrssi0;
@@ -392,7 +397,19 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 //	 If this is done at runtime, I get an XMIT ERROR and transmission is
 //	 broken. I guess some important register is overwritten by accident.
 //	 The XMIT ERROR comes from the dummy_transmissions in set_gains.
+		if (radio->revision >= 9)
+			return;
 
+		if (radio->revision == 8)
+//FIXME: Specs says to calc NRSSIOffset. I guess the threshold is meant.
+			bcm43xx_calc_nrssi_threshold(bcm);
+		
+		bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
+				  bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0x7FFF);
+		bcm43xx_phy_write(bcm, 0x0802,
+				  bcm43xx_phy_read(bcm, 0x0802) & 0xFFFC);
+		bcm43xx_write16(bcm, 0x03E2,
+				bcm43xx_read16(bcm, 0x03E2) | 0x8000);
 		backup[0] = bcm43xx_radio_read16(bcm, 0x007A);
 		backup[1] = bcm43xx_radio_read16(bcm, 0x0052);
 		backup[2] = bcm43xx_radio_read16(bcm, 0x0043);
@@ -401,23 +418,32 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		backup[5] = bcm43xx_phy_read(bcm, 0x0059);
 		backup[6] = bcm43xx_phy_read(bcm, 0x0058);
 		backup[7] = bcm43xx_read16(bcm, 0x03E2);
-		backup[8] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
-		backup[9] = bcm43xx_read16(bcm, 0x03E6);
-
+		backup[8] = bcm43xx_read16(bcm, 0x03E6);
+		backup[9] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
+		if (radio->revision >= 6) {
+			backup[10] = bcm43xx_phy_read(bcm, 0x002E);
+			backup[11] = bcm43xx_phy_read(bcm, 0x002F);
+			backup[12] = bcm43xx_phy_read(bcm, 0x080F);
+			backup[13] = bcm43xx_phy_read(bcm, BCM43xx_PHY_G_LO_CONTROL);
+			backup[14] = bcm43xx_phy_read(bcm, 0x0801);
+			backup[15] = bcm43xx_phy_read(bcm, 0x0060);
+			backup[16] = bcm43xx_phy_read(bcm, 0x0014);
+			backup[17] = bcm43xx_phy_read(bcm, 0x0478);
+			bcm43xx_phy_write(bcm, 0x002E, 0);
+			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_LO_CONTROL, 0);
+			bcm43xx_phy_write(bcm, 0x0478, backup[17] | 0x0100);
+			bcm43xx_phy_write(bcm, 0x0801, backup[14] | 0x0040);
+			bcm43xx_phy_write(bcm, 0x0060, backup[15] | 0x0040);
+			bcm43xx_phy_write(bcm, 0x0014, backup[16] | 0x0200);
+		}
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) | 0x0070);
-		bcm43xx_phy_write(bcm, 0x0802,
-				  bcm43xx_phy_read(bcm, 0x0802) & ~0x8000);
-		bcm43xx_phy_write(bcm, 0x0802,
-				  bcm43xx_phy_read(bcm, 0x0802) & ~(0x0001 | 0x0002));
-		bcm43xx_write16(bcm, 0x03E2, backup[7] | 0x8000);
-
 		bcm43xx_set_all_gains(bcm, 0, 8, 0);
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x00F7);
 		if (bcm->current_core->phy->rev >= 2) {
 			bcm43xx_phy_write(bcm, 0x0812,
-					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0010);
+					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0030);
 			bcm43xx_phy_write(bcm, 0x0811,
 					  (bcm43xx_phy_read(bcm, 0x0811) & 0xFFCF) | 0x0010);
 		}
@@ -431,13 +457,16 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x007F);
-		if (bcm->current_core->phy->rev >= 2)
-			bcm43xx_write16(bcm, 0x03E6, 0x0040);
+		if (phy->rev >= 2)
+//FIXME: Specs say to mask MMIO register 0x0003 here, that seem to be _soo_ wrong.
+			bcm43xx_write16(bcm, 0x03E6, 
+					(bcm43xx_read16(bcm, 0x03E6) & 0xFF9F) |0x0040);
+
 		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT, 0x2000);
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) | 0x000F);
 		bcm43xx_phy_write(bcm, 0x0015, 0xF330);
-		if (bcm->current_core->phy->rev >= 2) {
+		if (phy->rev >= 2) {
 			bcm43xx_phy_write(bcm, 0x0812,
 					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0020);
 			bcm43xx_phy_write(bcm, 0x0811,
@@ -445,26 +474,37 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		}
 
 		bcm43xx_set_all_gains(bcm, 3, 0, 1);
-		bcm43xx_radio_write16(bcm, 0x0052, 0x0060);
-		bcm43xx_radio_write16(bcm, 0x0043, 0x0000);
+		if (phy->rev == 8)
+			bcm43xx_radio_write16(bcm, 0x0043, 0x001F);
+		else {
+			tmp = bcm43xx_radio_read16(bcm, 0x0052) & 0xFF0F;
+			bcm43xx_radio_write16(bcm, 0x0052, tmp | 0x0060);
+			tmp = bcm43xx_radio_read16(bcm, 0x0043) & 0xFFF0;
+			bcm43xx_radio_write16(bcm, 0x0043, tmp | 0x0009);
+		}
 		bcm43xx_phy_write(bcm, 0x005A, 0x0480);
 		bcm43xx_phy_write(bcm, 0x0059, 0x0810);
 		bcm43xx_phy_write(bcm, 0x0058, 0x000D);
 		udelay(20);
-
 		nrssi1 = (s16)((bcm43xx_phy_read(bcm, 0x047F) >> 8) & 0x003F);
 		if (nrssi1 >= 0x0020)
 			nrssi1 -= 0x0040;
-		slope = nrssi0 - nrssi1;
-		if (slope == 0)
-			slope = 64;
-		bcm->current_core->radio->nrssislope = 0x400000 / slope;
-
-		if (nrssi0 > -5) {
+		run = nrssi0 - nrssi1;
+		if (run == 0)
+			radio->nrssislope = 0x00010000;
+		else
+			radio->nrssislope = 0x00400000 / run;
+		if (nrssi0 >= -4) {
 			bcm->current_core->radio->nrssi[0] = nrssi1;
 			bcm->current_core->radio->nrssi[1] = nrssi0;
 		}
-		if (bcm->current_core->phy->rev >= 2) {
+		if (phy->rev >= 6) {
+			bcm43xx_phy_write(bcm, 0x002E, backup[10]);
+			bcm43xx_phy_write(bcm, 0x002F, backup[11]);
+			bcm43xx_phy_write(bcm, 0x080F, backup[12]);
+			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_LO_CONTROL, backup[13]);
+		}
+		if (phy->rev >= 2) {
 			bcm43xx_phy_write(bcm, 0x0812,
 					  bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF);
 			bcm43xx_phy_write(bcm, 0x0811,
@@ -475,20 +515,24 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		bcm43xx_radio_write16(bcm, 0x0052, backup[1]);
 		bcm43xx_radio_write16(bcm, 0x0043, backup[2]);
 		bcm43xx_write16(bcm, 0x03E2, backup[7]);
-		bcm43xx_write16(bcm, 0x03E6, backup[9]);
-		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT, backup[8]);
+		bcm43xx_write16(bcm, 0x03E6, backup[8]);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT, backup[9]);
 		bcm43xx_phy_write(bcm, 0x0015, backup[3]);
 		bcm43xx_phy_write(bcm, 0x005A, backup[4]);
 		bcm43xx_phy_write(bcm, 0x0059, backup[5]);
 		bcm43xx_phy_write(bcm, 0x0058, backup[6]);
+		bcm43xx_synth_pu_workaround(bcm, radio->channel);
 		bcm43xx_phy_write(bcm, 0x0802,
 				  bcm43xx_phy_read(bcm, 0x0802) | (0x0001 | 0x0002));
-
 		bcm43xx_set_original_gains(bcm);
-
 		bcm43xx_phy_write(bcm, 0x0802,
 				  bcm43xx_phy_read(bcm, 0x0802) | 0x8000);
-
+		if (phy->rev >= 6) {
+			bcm43xx_phy_write(bcm, 0x0801, backup[14]);
+			bcm43xx_phy_write(bcm, 0x0060, backup[15]);
+			bcm43xx_phy_write(bcm, 0x0014, backup[16]);
+			bcm43xx_phy_write(bcm, 0x0478, backup[17]);
+		}
 		bcm43xx_nrssi_mem_update(bcm);
 		bcm43xx_calc_nrssi_threshold(bcm);
 		break;
@@ -1175,6 +1219,24 @@ void bcm43xx_radio_set_tx_iq(struct bcm43xx_private *bcm)
 			}
 }
 
+static void bcm43xx_synth_pu_workaround(struct bcm43xx_private *bcm, u8 channel)
+{
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	
+	/* Synthetic PU workaround */
+	if (radio->version == 0x2050 && radio->revision < 6) {
+		if (channel <= 10)
+			bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
+				channel2freq_bg(channel + 4));
+		else
+			bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
+					channel2freq_bg(1));
+		udelay(100);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
+				channel2freq_bg(channel));
+	}
+}
+
 int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
 				u8 channel,
 				int synthetic_pu_workaround)
@@ -1243,21 +1305,9 @@ int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
 		if ((channel < 1) || (channel > 14))
 			return -EINVAL;
 
-		if (synthetic_pu_workaround) {
-			/* Synthetic PU workaround */
-			if (radio->version == 0x2050 &&
-			    radio->revision < 6) {
-				if (channel <= 10)
-					bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
-							channel2freq_bg(channel + 4));
-				else
-					bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
-							channel2freq_bg(1));
-				udelay(100);
-				bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
-						channel2freq_bg(channel));
-			}
-		}
+		if (synthetic_pu_workaround)
+			bcm43xx_synth_pu_workaround(bcm, channel);
+
 		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
 				channel2freq_bg(channel));
 
