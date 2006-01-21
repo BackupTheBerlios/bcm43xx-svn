@@ -2012,8 +2012,6 @@ void bcm43xx_phy_set_antenna_diversity(struct bcm43xx_private *bcm)
 
 	antennadiv = phy->antenna_diversity;
 
-	if (phy->type == BCM43xx_PHYTYPE_A && phy->rev == 3)
-		antennadiv = 0;
 	if (antennadiv == 0xFFFF)
 		antennadiv = 3;
 	assert(antennadiv <= 3);
@@ -2050,25 +2048,54 @@ void bcm43xx_phy_set_antenna_diversity(struct bcm43xx_private *bcm)
 					   & 0xFEFF) | value);
 		}
 
-		if (!phy->connected) {
-			if (antennadiv < 2)
-				value = 0;
+		if (phy->type == BCM43xx_PHYTYPE_G) {
+			if (antennadiv >= 2)
+				bcm43xx_phy_write(bcm, 0x048C,
+						  bcm43xx_phy_read(bcm, 0x048C)
+						   | 0x2000);
 			else
-				value = 0x2000;
-			bcm43xx_phy_write(bcm, 0x048C,
-					  (bcm43xx_phy_read(bcm, 0x048C)
-					   & 0xDFFF) | value);
+				bcm43xx_phy_write(bcm, 0x048C,
+						  bcm43xx_phy_read(bcm, 0x048C)
+						   & ~0x2000);
 			if (phy->rev >= 2) {
 				bcm43xx_phy_write(bcm, 0x0461,
-						  bcm43xx_phy_read(bcm, 0x0461) | 0x0010);
+						  bcm43xx_phy_read(bcm, 0x0461)
+						   | 0x0010);
 				bcm43xx_phy_write(bcm, 0x04AD,
-						  (bcm43xx_phy_read(bcm, 0x04AD) & 0xFF00) | 0x0015);
-				bcm43xx_phy_write(bcm, 0x0427, 0x0008);
+						  (bcm43xx_phy_read(bcm, 0x04AD)
+						   & 0x00FF) | 0x0015);
+				if (phy->rev == 2)
+					bcm43xx_phy_write(bcm, 0x0427, 0x0008);
+				else
+					bcm43xx_phy_write(bcm, 0x0427,
+						(bcm43xx_phy_read(bcm, 0x0427)
+						 & 0x00FF) | 0x0008);
+			}
+			else if (phy->rev >= 6)
+				bcm43xx_phy_write(bcm, 0x049B, 0x00DC);
+		} else {
+			if (phy->rev < 3)
+				bcm43xx_phy_write(bcm, 0x002B,
+						  (bcm43xx_phy_read(bcm, 0x002B)
+						   & 0x00FF) | 0x0024);
+			else {
+				bcm43xx_phy_write(bcm, 0x0061,
+						  bcm43xx_phy_read(bcm, 0x0061)
+						   | 0x0010);
+				if (phy->rev == 3) {
+					bcm43xx_phy_write(bcm, 0x0093, 0x001D);
+					bcm43xx_phy_write(bcm, 0x0027, 0x0008);
+				} else {
+					bcm43xx_phy_write(bcm, 0x0093, 0x003A);
+					bcm43xx_phy_write(bcm, 0x0027,
+						(bcm43xx_phy_read(bcm, 0x0027)
+						 & 0x00FF) | 0x0008);
+				}
 			}
 		}
 		break;
 	case BCM43xx_PHYTYPE_B:
-		if (bcm->current_core->rev == 2 || antennadiv == 2)
+		if (bcm->current_core->rev == 2)
 			value = (3/*automatic*/ << 7);
 		else
 			value = (antennadiv << 7);
