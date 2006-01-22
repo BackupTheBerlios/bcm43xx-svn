@@ -535,7 +535,6 @@ struct bcm43xx_radioinfo {
 	u16 manufact;
 	u16 version;
 	u8 revision;
-	u32 _id; /* raw id value */
 
 	/* 0: baseband attenuation,
 	 * 1: radio attenuation, 

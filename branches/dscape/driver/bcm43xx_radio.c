@@ -782,29 +782,35 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 
 void bcm43xx_calc_nrssi_threshold(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	s16 threshold;
 	s32 a, b;
 	int tmp;
 	s16 tmp16;
 	u16 tmp_u16;
 
-	switch (bcm->current_core->phy->type) {
-	case BCM43xx_PHYTYPE_B:
-		if (bcm->current_core->phy->rev < 2)
+	switch (phy->type) {
+	case BCM43xx_PHYTYPE_B: {
+		int radiotype = 0;
+
+		if (phy->rev < 2)
 			return;
-		if (bcm->current_core->radio->version != 0x2050)
+		if (radio->version != 0x2050)
 			return;
 		if (!(bcm->sprom.boardflags & BCM43xx_BFL_RSSI))
 			return;
 
-		if (bcm->current_core->radio->_id == 0x3205017F
-		    || bcm->current_core->radio->_id == 0x4205017F
-		    || bcm->current_core->radio->_id == 0x52050175) {
+		tmp = radio->revision;
+		if ((radio->manufact == 0x175 && tmp == 5) ||
+		     (radio->manufact == 0x17F && (tmp == 3 || tmp == 4)))
+			radiotype = 1;
+
+		if (radiotype == 1) {
 			threshold = bcm->current_core->radio->nrssi[1] - 5;
 		} else {
-			threshold = 40 * bcm->current_core->radio->nrssi[0];
-			threshold += 33 * (bcm->current_core->radio->nrssi[1]
-					   - bcm->current_core->radio->nrssi[0]);
+			threshold = 40 * radio->nrssi[0];
+			threshold += 33 * (radio->nrssi[1] - radio->nrssi[0]);
 			threshold += 20;
 			threshold /= 10;
 		}
@@ -812,9 +818,7 @@ void bcm43xx_calc_nrssi_threshold(struct bcm43xx_private *bcm)
 		bcm43xx_phy_read(bcm, 0x0020); /* dummy read */
 		bcm43xx_phy_write(bcm, 0x0020, (((u16)threshold) << 8) | 0x001C);
 
-		if (bcm->current_core->radio->_id == 0x3205017F
-		    || bcm->current_core->radio->_id == 0x4205017F
-		    || bcm->current_core->radio->_id == 0x52050175) {
+		if (radiotype == 1) {
 			bcm43xx_phy_write(bcm, 0x0087, 0x0E0D);
 			bcm43xx_phy_write(bcm, 0x0086, 0x0C0B);
 			bcm43xx_phy_write(bcm, 0x0085, 0x0A09);
@@ -825,8 +829,9 @@ void bcm43xx_calc_nrssi_threshold(struct bcm43xx_private *bcm)
 			bcm43xx_phy_write(bcm, 0x0080, 0x0100);
 		}
 		break;
+	}
 	case BCM43xx_PHYTYPE_G:
-		if (!bcm->current_core->phy->connected ||
+		if (!phy->connected ||
 		    !(bcm->sprom.boardflags & BCM43xx_BFL_RSSI)) {
 			tmp16 = bcm43xx_nrssi_hw_read(bcm, 0x20);
 			if (tmp16 >= 0x20)
@@ -841,12 +846,12 @@ void bcm43xx_calc_nrssi_threshold(struct bcm43xx_private *bcm)
 						   & 0xF000) | 0x0AED);
 			}
 		} else {
-			tmp = bcm->current_core->radio->interfmode;
+			tmp = radio->interfmode;
 			if (tmp == BCM43xx_RADIO_INTERFMODE_NONWLAN) {
 				a = -13;
 				b = -17;
 			} else if (tmp == BCM43xx_RADIO_INTERFMODE_NONE &&
-				   !bcm->current_core->radio->aci_enable) {
+				   !radio->aci_enable) {
 				a = -13;
 				b = -10;
 			} else {
@@ -854,12 +859,12 @@ void bcm43xx_calc_nrssi_threshold(struct bcm43xx_private *bcm)
 				b = -9;
 			}
 			a += 0x1B;
-			a *= bcm->current_core->radio->nrssi[1] - bcm->current_core->radio->nrssi[0];
-			a += bcm->current_core->radio->nrssi[0] * 0x40;
+			a *= radio->nrssi[1] - radio->nrssi[0];
+			a += radio->nrssi[0] * 0x40;
 			a /= 64;
 			b += 0x1B;
-			b *= bcm->current_core->radio->nrssi[1] - bcm->current_core->radio->nrssi[0];
-			b += bcm->current_core->radio->nrssi[0] * 0x40;
+			b *= radio->nrssi[1] - radio->nrssi[0];
+			b += radio->nrssi[0] * 0x40;
 			b /= 64;
 
 			a = limit_value(a, -31, 31);
@@ -884,28 +889,30 @@ void bcm43xx_calc_nrssi_threshold(struct bcm43xx_private *bcm)
 # undef stack_restore
 #endif
 #define stack_save(value)  \
-	do {									\
-	 	assert(i < ARRAY_SIZE(bcm->current_core->radio->interfstack));	\
-		stack[i++] = (value);						\
+	do {							\
+	 	assert(i < ARRAY_SIZE(radio->interfstack));	\
+		stack[i++] = (value);				\
 	} while (0)
 
 #define stack_restore()  \
-	({									\
-	 	assert(i < ARRAY_SIZE(bcm->current_core->radio->interfstack));	\
-	 	stack[i++];							\
+	({							\
+	 	assert(i < ARRAY_SIZE(radio->interfstack));	\
+	 	stack[i++];					\
 	})
 
 static void
 bcm43xx_radio_interference_mitigation_enable(struct bcm43xx_private *bcm,
 					     int mode)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	int i = 0;
-	u16 *stack = bcm->current_core->radio->interfstack;
+	u16 *stack = radio->interfstack;
 	u16 tmp, flipped;
 
 	switch (mode) {
 	case BCM43xx_RADIO_INTERFMODE_NONWLAN:
-		if (bcm->current_core->phy->rev != 1) {
+		if (phy->rev != 1) {
 			bcm43xx_phy_write(bcm, 0x042B,
 			                  bcm43xx_phy_read(bcm, 0x042B) & 0x0800);
 			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
@@ -969,7 +976,7 @@ bcm43xx_radio_interference_mitigation_enable(struct bcm43xx_private *bcm,
 		if (bcm43xx_phy_read(bcm, 0x0033) == 0x0800)
 			break;
 
-		bcm->current_core->radio->aci_enable = 1;
+		radio->aci_enable = 1;
 
 		stack_save(bcm43xx_phy_read(bcm, BCM43xx_PHY_RADIO_BITFIELD));
 		stack_save(bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS));
@@ -1048,13 +1055,15 @@ static void
 bcm43xx_radio_interference_mitigation_disable(struct bcm43xx_private *bcm,
 					      int mode)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	int i = 0;
-	u16 *stack = bcm->current_core->radio->interfstack;
+	u16 *stack = radio->interfstack;
 	u16 tmp, flipped;
 
 	switch (mode) {
 	case BCM43xx_RADIO_INTERFMODE_NONWLAN:
-		if (bcm->current_core->phy->rev != 1) {
+		if (phy->rev != 1) {
 			bcm43xx_phy_write(bcm, 0x042B,
 			                  bcm43xx_phy_read(bcm, 0x042B) & ~0x0800);
 			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
@@ -1100,7 +1109,7 @@ bcm43xx_radio_interference_mitigation_disable(struct bcm43xx_private *bcm,
 		if (bcm43xx_phy_read(bcm, 0x0033) != 0x0800)
 			break;
 
-		bcm->current_core->radio->aci_enable = 0;
+		radio->aci_enable = 0;
 
 		bcm43xx_phy_write(bcm, BCM43xx_PHY_RADIO_BITFIELD, stack_restore());
 		bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS, stack_restore());
@@ -1193,6 +1202,8 @@ static u16 bcm43xx_radio_calibrationvalue(struct bcm43xx_private *bcm)
 
 u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	u16 backup[19] = { 0 };
 	u16 ret;
 	u16 i, j;
@@ -1205,13 +1216,13 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 	backup[16] = bcm43xx_phy_read(bcm, 0x005A);
 	backup[17] = bcm43xx_phy_read(bcm, 0x0059);
 	backup[18] = bcm43xx_phy_read(bcm, 0x0058);
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
+	if (phy->type == BCM43xx_PHYTYPE_B) {
 		backup[2] = bcm43xx_phy_read(bcm, 0x0030);
 		backup[3] = bcm43xx_read16(bcm, 0x03EC);
 		bcm43xx_phy_write(bcm, 0x0030, 0x00FF);
 		bcm43xx_write16(bcm, 0x03EC, 0x3F3F);
 	} else {
-		if (bcm->current_core->phy->connected) {
+		if (phy->connected) {
 			backup[4] = bcm43xx_phy_read(bcm, 0x0811);
 			backup[5] = bcm43xx_phy_read(bcm, 0x0812);
 			backup[6] = bcm43xx_phy_read(bcm, 0x0814);
@@ -1239,10 +1250,10 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 	backup[12] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
 
 	// Initialization
-	if (bcm->current_core->phy->version == 0) {
+	if (phy->version == 0) {
 		bcm43xx_write16(bcm, 0x03E6, 0x0122);
 	} else {
-		if (bcm->current_core->phy->version >= 2)
+		if (phy->version >= 2)
 			bcm43xx_write16(bcm, 0x03E6, 0x0040);
 		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
 		                (bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT) | 0x2000));
@@ -1250,12 +1261,12 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 
 	ret = bcm43xx_radio_calibrationvalue(bcm);
 
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B)
+	if (phy->type == BCM43xx_PHYTYPE_B)
 		bcm43xx_radio_write16(bcm, 0x0078, 0x0003);
 
 	bcm43xx_phy_write(bcm, 0x0015, 0xBFAF);
 	bcm43xx_phy_write(bcm, 0x002B, 0x1403);
-	if (bcm->current_core->phy->connected)
+	if (phy->connected)
 		bcm43xx_phy_write(bcm, 0x0812, 0x00B2);
 	bcm43xx_phy_write(bcm, 0x0015, 0xBFA0);
 	bcm43xx_radio_write16(bcm, 0x0051,
@@ -1269,21 +1280,21 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 		bcm43xx_phy_write(bcm, 0x005A, 0x0480);
 		bcm43xx_phy_write(bcm, 0x0059, 0xC810);
 		bcm43xx_phy_write(bcm, 0x0058, 0x000D);
-		if (bcm->current_core->phy->connected)
+		if (phy->connected)
 			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
 		bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
 		udelay(10);
-		if (bcm->current_core->phy->connected)
+		if (phy->connected)
 			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
 		bcm43xx_phy_write(bcm, 0x0015, 0xEFB0);
 		udelay(10);
-		if (bcm->current_core->phy->connected)
+		if (phy->connected)
 			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
 		bcm43xx_phy_write(bcm, 0x0015, 0xFFF0);
 		udelay(10);
 		tmp1 += bcm43xx_phy_read(bcm, 0x002D);
 		bcm43xx_phy_write(bcm, 0x0058, 0x0000);
-		if (bcm->current_core->phy->connected)
+		if (phy->connected)
 			bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
 		bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
 	}
@@ -1301,21 +1312,21 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 			bcm43xx_phy_write(bcm, 0x005A, 0x0D80);
 			bcm43xx_phy_write(bcm, 0x0059, 0xC810);
 			bcm43xx_phy_write(bcm, 0x0058, 0x000D);
-			if (bcm->current_core->phy->connected)
+			if (phy->connected)
 				bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
 			bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
 			udelay(10);
-			if (bcm->current_core->phy->connected)
+			if (phy->connected)
 				bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
 			bcm43xx_phy_write(bcm, 0x0015, 0xEFB0);
 			udelay(10);
-			if (bcm->current_core->phy->connected)
+			if (phy->connected)
 				bcm43xx_phy_write(bcm, 0x0812, 0x30B3); /* 0x30B3 is not a typo */
 			bcm43xx_phy_write(bcm, 0x0015, 0xFFF0);
 			udelay(10);
 			tmp2 += bcm43xx_phy_read(bcm, 0x002D);
 			bcm43xx_phy_write(bcm, 0x0058, 0x0000);
-			if (bcm->current_core->phy->connected)
+			if (phy->connected)
 				bcm43xx_phy_write(bcm, 0x0812, 0x30B2);
 			bcm43xx_phy_write(bcm, 0x0015, 0xAFB0);
 		}
@@ -1334,17 +1345,17 @@ u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm)
 	bcm43xx_phy_write(bcm, 0x0059, backup[17]);
 	bcm43xx_phy_write(bcm, 0x0058, backup[18]);
 	bcm43xx_write16(bcm, 0x03E6, backup[11]);
-	if (bcm->current_core->phy->version != 0)
+	if (phy->version != 0)
 		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT, backup[12]);
 	bcm43xx_phy_write(bcm, 0x0035, backup[10]);
-	bcm43xx_radio_selectchannel(bcm, bcm->current_core->radio->channel, 1);
-	if (bcm->current_core->phy->type == BCM43xx_PHYTYPE_B) {
+	bcm43xx_radio_selectchannel(bcm, radio->channel, 1);
+	if (phy->type == BCM43xx_PHYTYPE_B) {
 		bcm43xx_phy_write(bcm, 0x0030, backup[2]);
 		bcm43xx_write16(bcm, 0x03EC, backup[3]);
 	} else {
 		bcm43xx_write16(bcm, BCM43xx_MMIO_PHY_RADIO,
 				(bcm43xx_read16(bcm, BCM43xx_MMIO_PHY_RADIO) & 0x7FFF));
-		if (bcm->current_core->phy->connected) {
+		if (phy->connected) {
 			bcm43xx_phy_write(bcm, 0x0811, backup[4]);
 			bcm43xx_phy_write(bcm, 0x0812, backup[5]);
 			bcm43xx_phy_write(bcm, 0x0814, backup[6]);
@@ -1422,12 +1433,14 @@ void bcm43xx_radio_set_tx_iq(struct bcm43xx_private *bcm)
 	u16 tmp = bcm43xx_radio_read16(bcm, 0x001E);
 	int i, j;
 	
-	for (i = 0; i < 5; i++)
-		for (j = 0; j < 5; j++)
+	for (i = 0; i < 5; i++) {
+		for (j = 0; j < 5; j++) {
 			if (tmp == (data_high[i] << 4 | data_low[j])) {
 				bcm43xx_phy_write(bcm, 0x0069, (i - j) << 8 | 0x00C0);
 				return;
 			}
+		}
+	}
 }
 
 int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
@@ -1528,7 +1541,7 @@ int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
 		}
 	}
 
-	bcm->current_core->radio->channel = channel;
+	radio->channel = channel;
 	//XXX: Using the longer of 2 timeouts (8000 vs 2000 usecs). Specs states
 	//     that 2000 usecs might suffice.
 	udelay(8000);
@@ -1686,12 +1699,16 @@ void bcm43xx_radio_set_txpower_bg(struct bcm43xx_private *bcm,
 }
 
 
-int bcm43xx_radio_turn_on(struct bcm43xx_private *bcm)
+void bcm43xx_radio_turn_on(struct bcm43xx_private *bcm)
 {
-	if (bcm->current_core->radio->enabled)
-		return 0;
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	int err;
 
-	switch (bcm->current_core->phy->type) {
+	if (radio->enabled)
+		return;
+
+	switch (phy->type) {
 	case BCM43xx_PHYTYPE_A:
 		bcm43xx_radio_write16(bcm, 0x0004, 0x00C0);
 		bcm43xx_radio_write16(bcm, 0x0005, 0x0008);
@@ -1703,40 +1720,35 @@ int bcm43xx_radio_turn_on(struct bcm43xx_private *bcm)
 	case BCM43xx_PHYTYPE_G:
 		bcm43xx_phy_write(bcm, 0x0015, 0x8000);
 		bcm43xx_phy_write(bcm, 0x0015, 0xCC00);
-		bcm43xx_phy_write(bcm, 0x0015, ((bcm->current_core->phy->connected) ? 0x00C0 : 0x0000));
-		bcm43xx_radio_selectchannel(bcm, BCM43xx_RADIO_DEFAULT_CHANNEL_BG, 1);
+		bcm43xx_phy_write(bcm, 0x0015, (phy->connected ? 0x00C0 : 0x0000));
+		err = bcm43xx_radio_selectchannel(bcm, BCM43xx_RADIO_DEFAULT_CHANNEL_BG, 1);
+		assert(err == 0);
 		break;
 	default:
 		assert(0);
 	}
+	radio->enabled = 1;
 	dprintk(KERN_INFO PFX "Radio turned on\n");
-
-	bcm->current_core->radio->enabled = 1;
-
-	return 0;
 }
 	
-int bcm43xx_radio_turn_off(struct bcm43xx_private *bcm)
+void bcm43xx_radio_turn_off(struct bcm43xx_private *bcm)
 {
-	const u8 phytype = bcm->current_core->phy->type;
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 
-	if (phytype == BCM43xx_PHYTYPE_A) {
+	if (phy->type == BCM43xx_PHYTYPE_A) {
 		bcm43xx_radio_write16(bcm, 0x0004, 0x00FF);
 		bcm43xx_radio_write16(bcm, 0x0005, 0x00FB);
 		bcm43xx_phy_write(bcm, 0x0010, bcm43xx_phy_read(bcm, 0x0010) | 0x0008);
 		bcm43xx_phy_write(bcm, 0x0011, bcm43xx_phy_read(bcm, 0x0011) | 0x0008);
 	}
-	if (phytype == BCM43xx_PHYTYPE_G &&
-	    bcm->current_core->rev >= 5) {
+	if (phy->type == BCM43xx_PHYTYPE_G && bcm->current_core->rev >= 5) {
 		bcm43xx_phy_write(bcm, 0x0811, bcm43xx_phy_read(bcm, 0x0811) | 0x008C);
 		bcm43xx_phy_write(bcm, 0x0812, bcm43xx_phy_read(bcm, 0x0812) & 0xFF73);
 	} else
 		bcm43xx_phy_write(bcm, 0x0015, 0xAA00);
+	radio->enabled = 0;
 	dprintk(KERN_INFO PFX "Radio turned off\n");
-
-	bcm->current_core->radio->enabled = 0;
-
-	return 0;
 }
 
 void bcm43xx_radio_clear_tssi(struct bcm43xx_private *bcm)
