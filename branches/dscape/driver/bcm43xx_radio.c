@@ -467,8 +467,8 @@ static void bcm43xx_calc_nrssi_offset(struct bcm43xx_private *bcm)
 		bcm43xx_phy_write(bcm, 0x0003,
 				  (bcm43xx_phy_read(bcm, 0x0003) & 0x0060)
 				  | 0x0040);
-		bcm43xx_phy_write(bcm, 0x007A,
-				  bcm43xx_phy_read(bcm, 0x007A) | 0x000F);
+		bcm43xx_radio_write16(bcm, 0x007A,
+				      bcm43xx_radio_read16(bcm, 0x007A) | 0x000F);
 		bcm43xx_set_all_gains(bcm, 3, 0, 1);
 		bcm43xx_radio_write16(bcm, 0x0043,
 				      (bcm43xx_radio_read16(bcm, 0x0043)
