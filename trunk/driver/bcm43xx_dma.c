@@ -82,10 +82,10 @@ int request_slot(struct bcm43xx_dmaring *ring)
 		netif_stop_queue(ring->bcm->net_dev);
 		ring->suspended = 1;
 	}
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	if (ring->used_slots > ring->max_used_slots)
 		ring->max_used_slots = ring->used_slots;
-#endif /* BCM43xx_DEBUG */
+#endif /* CONFIG_BCM43XX_DEBUG*/
 
 	return slot;
 }
@@ -977,7 +977,7 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 	u32 status;
 	u16 descptr;
 	int slot, current_slot;
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	int used_slots = 0;
 #endif
 
@@ -993,7 +993,7 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 	slot = ring->current_slot;
 	for ( ; slot != current_slot; slot = next_slot(ring, slot)) {
 		dma_rx(ring, &slot);
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 		if (++used_slots > ring->max_used_slots)
 			ring->max_used_slots = used_slots;
 #endif

@@ -90,13 +90,13 @@ static int modparam_noleds;
 module_param_named(noleds, modparam_noleds, int, 0444);
 MODULE_PARM_DESC(noleds, "Turn off all LED activity");
 
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 static char modparam_fwpostfix[64];
 module_param_string(fwpostfix, modparam_fwpostfix, 64, 0444);
 MODULE_PARM_DESC(fwpostfix, "Postfix for .fw files. Useful for debugging.");
 #else
 # define modparam_fwpostfix  ""
-#endif /* BCM43xx_DEBUG */
+#endif /* CONFIG_BCM43XX_DEBUG*/
 
 
 /* If you want to debug with just a single device, enable this,
@@ -2034,12 +2034,12 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 	int activity = 0;
 	unsigned long flags;
 
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	u32 _handled = 0x00000000;
 # define bcmirq_handled(irq)	do { _handled |= (irq); } while (0)
 #else
 # define bcmirq_handled(irq)	do { /* nothing */ } while (0)
-#endif /* BCM43xx_DEBUG */
+#endif /* CONFIG_BCM43XX_DEBUG*/
 
 	spin_lock_irqsave(&bcm->lock, flags);
 	reason = bcm->irq_reason;
@@ -2126,7 +2126,7 @@ static void bcm43xx_interrupt_tasklet(struct bcm43xx_private *bcm)
 	bcmirq_handled(~(bcm->irq_savedstate));
 	/* IRQ_PIO_WORKAROUND is handled in the top-half. */
 	bcmirq_handled(BCM43xx_IRQ_PIO_WORKAROUND);
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	if (unlikely(reason & ~_handled)) {
 		printkl(KERN_WARNING PFX
 			"Unhandled IRQ! Reason: 0x%08x,  Unhandled: 0x%08x,  "

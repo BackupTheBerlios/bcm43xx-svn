@@ -151,10 +151,10 @@ struct bcm43xx_dmaring {
 	u16 mmio_base;
 	u8 tx:1,	/* TRUE, if this is a TX ring. */
 	   suspended:1;	/* TRUE, if transfers are suspended on this ring. */
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	/* Maximum number of used slots. */
 	int max_used_slots;
-#endif /* BCM43xx_DEBUG */
+#endif /* CONFIG_BCM43XX_DEBUG*/
 };
 
 

@@ -4,7 +4,7 @@
 struct bcm43xx_private;
 struct bcm43xx_xmitstatus;
 
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 
 #include <linux/list.h>
 #include <asm/semaphore.h>
@@ -65,7 +65,7 @@ void bcm43xx_printk_bitdump(const unsigned char *data,
 				       (description));				\
 	} while (0)
 
-#else /* BCM43xx_DEBUG */
+#else /* CONFIG_BCM43XX_DEBUG*/
 
 static inline
 void bcm43xx_debugfs_init(void) { }
@@ -93,7 +93,7 @@ void bcm43xx_printk_bitdump(const unsigned char *data,
 }
 #define bcm43xx_printk_bitdumpt(pointer, msb_to_lsb, description)  do { /* nothing */ } while (0)
 
-#endif /* BCM43xx_DEBUG */
+#endif /* CONFIG_BCM43XX_DEBUG*/
 
 /* Ugly helper macros to make incomplete code more verbose on runtime */
 #ifdef TODO
