@@ -530,8 +530,7 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	u16 backup[18] = { 0 };
-	u16 tmp = 0;
-	s16 run = 0;
+	u16 tmp;
 	s16 nrssi0, nrssi1;
 
 	switch (phy->type) {
@@ -602,15 +601,14 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		bcm43xx_radio_write16(bcm, 0x0052, backup[1]);
 		bcm43xx_radio_write16(bcm, 0x0043, backup[2]);
 
-		run = nrssi0 - nrssi1;
-		if (run == 0)
+		if (nrssi0 == nrssi1)
 			radio->nrssislope = 0x00010000;
 		else 
-			radio->nrssislope = 0x00400000 / run;
+			radio->nrssislope = 0x00400000 / (nrssi0 - nrssi1);
 
 		if (nrssi0 <= -4) {
-			bcm->current_core->radio->nrssi[0] = nrssi0;
-			bcm->current_core->radio->nrssi[1] = nrssi1;
+			radio->nrssi[0] = nrssi0;
+			radio->nrssi[1] = nrssi1;
 		}
 		break;
 	case BCM43xx_PHYTYPE_G:
@@ -678,10 +676,10 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x00F7);
 		if (phy->rev >= 2) {
-			bcm43xx_phy_write(bcm, 0x0812,
-					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0030);
 			bcm43xx_phy_write(bcm, 0x0811,
-					  (bcm43xx_phy_read(bcm, 0x0811) & 0xFFCF) | 0x0010);
+					  (bcm43xx_phy_read(bcm, 0x0811) & 0xFFCF) | 0x0030);
+			bcm43xx_phy_write(bcm, 0x0812,
+					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0010);
 		}
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) | 0x0080);
@@ -728,14 +726,13 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		nrssi1 = (s16)((bcm43xx_phy_read(bcm, 0x047F) >> 8) & 0x003F);
 		if (nrssi1 >= 0x0020)
 			nrssi1 -= 0x0040;
-		run = nrssi0 - nrssi1;
-		if (run == 0)
+		if (nrssi0 == nrssi1)
 			radio->nrssislope = 0x00010000;
 		else
-			radio->nrssislope = 0x00400000 / run;
+			radio->nrssislope = 0x00400000 / (nrssi0 - nrssi1);
 		if (nrssi0 >= -4) {
-			bcm->current_core->radio->nrssi[0] = nrssi1;
-			bcm->current_core->radio->nrssi[1] = nrssi0;
+			radio->nrssi[0] = nrssi1;
+			radio->nrssi[1] = nrssi0;
 		}
 		if (phy->rev >= 3) {
 			bcm43xx_phy_write(bcm, 0x002E, backup[10]);
