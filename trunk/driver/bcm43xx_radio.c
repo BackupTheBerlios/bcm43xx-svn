@@ -469,12 +469,10 @@ static void bcm43xx_calc_nrssi_offset(struct bcm43xx_private *bcm)
 
 void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 {
-	/*FIXME: We are not completely sure, if the nrssi values are really s16.
-	 *       We have to check by testing, if the values and the u16 to s16 casts are correct.
-	 */
 	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
 	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
-	u16 backup[18], tmp = 0;
+	u16 backup[18] = { 0 };
+	u16 tmp = 0;
 	s16 run = 0;
 	s16 nrssi0, nrssi1;
 
@@ -564,11 +562,9 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 //	 The XMIT ERROR comes from the dummy_transmissions in set_gains.
 		if (radio->revision >= 9)
 			return;
-
 		if (radio->revision == 8)
-//FIXME: Specs says to calc NRSSIOffset. I guess the threshold is meant.
-			bcm43xx_calc_nrssi_threshold(bcm);
-		
+			bcm43xx_calc_nrssi_offset(bcm);
+
 		bcm43xx_phy_write(bcm, BCM43xx_PHY_G_CRS,
 				  bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0x7FFF);
 		bcm43xx_phy_write(bcm, 0x0802,
@@ -585,7 +581,7 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		backup[7] = bcm43xx_read16(bcm, 0x03E2);
 		backup[8] = bcm43xx_read16(bcm, 0x03E6);
 		backup[9] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
-		if (radio->revision >= 6) {
+		if (phy->rev >= 6) {
 			backup[10] = bcm43xx_phy_read(bcm, 0x002E);
 			backup[11] = bcm43xx_phy_read(bcm, 0x002F);
 			backup[12] = bcm43xx_phy_read(bcm, 0x080F);
@@ -606,7 +602,7 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		bcm43xx_set_all_gains(bcm, 0, 8, 0);
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x00F7);
-		if (bcm->current_core->phy->rev >= 2) {
+		if (phy->rev >= 2) {
 			bcm43xx_phy_write(bcm, 0x0812,
 					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0030);
 			bcm43xx_phy_write(bcm, 0x0811,
@@ -622,10 +618,12 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x007F);
-		if (phy->rev >= 2)
+		if (phy->rev >= 2) {
 //FIXME: Specs say to mask MMIO register 0x0003 here, that seem to be _soo_ wrong.
-			bcm43xx_write16(bcm, 0x03E6, 
-					(bcm43xx_read16(bcm, 0x03E6) & 0xFF9F) |0x0040);
+			bcm43xx_phy_write(bcm, 0x0003,
+					  (bcm43xx_phy_read(bcm, 0x0003)
+					   & 0xFF9F) | 0x0040);
+		}
 
 		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT, 0x2000);
 		bcm43xx_radio_write16(bcm, 0x007A,
@@ -639,9 +637,9 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		}
 
 		bcm43xx_set_all_gains(bcm, 3, 0, 1);
-		if (phy->rev == 8)
+		if (radio->revision == 8) {
 			bcm43xx_radio_write16(bcm, 0x0043, 0x001F);
-		else {
+		} else {
 			tmp = bcm43xx_radio_read16(bcm, 0x0052) & 0xFF0F;
 			bcm43xx_radio_write16(bcm, 0x0052, tmp | 0x0060);
 			tmp = bcm43xx_radio_read16(bcm, 0x0043) & 0xFFF0;
