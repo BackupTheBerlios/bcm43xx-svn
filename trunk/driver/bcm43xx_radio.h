@@ -62,8 +62,8 @@ void bcm43xx_radio_write16(struct bcm43xx_private *bcm, u16 offset, u16 val);
 u16 bcm43xx_radio_init2050(struct bcm43xx_private *bcm);
 void bcm43xx_radio_init2060(struct bcm43xx_private *bcm);
 
-int bcm43xx_radio_turn_on(struct bcm43xx_private *bcm);
-int bcm43xx_radio_turn_off(struct bcm43xx_private *bcm);
+void bcm43xx_radio_turn_on(struct bcm43xx_private *bcm);
+void bcm43xx_radio_turn_off(struct bcm43xx_private *bcm);
 
 int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm, u8 channel,
 				int synthetic_pu_workaround);

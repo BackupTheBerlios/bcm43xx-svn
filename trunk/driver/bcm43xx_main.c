@@ -788,7 +788,6 @@ static int bcm43xx_read_radioinfo(struct bcm43xx_private *bcm)
 	bcm->current_core->radio->manufact = manufact;
 	bcm->current_core->radio->version = version;
 	bcm->current_core->radio->revision = revision;
-	bcm->current_core->radio->_id = radio_id;
 
 	/* Set default attenuation values. */
 	bcm->current_core->radio->txpower[0] = 2;
@@ -2716,10 +2715,7 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
 		goto err_free_irq;
 
 	bcm43xx_upload_initvals(bcm);
-
-	err = bcm43xx_radio_turn_on(bcm);
-	if (err)
-		goto err_gpio_cleanup;
+	bcm43xx_radio_turn_on(bcm);
 
 	if (modparam_noleds)
 		bcm43xx_leds_turn_off(bcm);
@@ -2817,7 +2813,6 @@ out:
 
 err_radio_off:
 	bcm43xx_radio_turn_off(bcm);
-err_gpio_cleanup:
 	bcm43xx_gpio_cleanup(bcm);
 err_free_irq:
 	free_irq(bcm->irq, bcm);

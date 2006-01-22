@@ -484,11 +484,9 @@ static int bcm43xx_wx_set_xmitpower(struct net_device *net_dev,
 		goto out_unlock;
 	if (data->power.disabled != (!(bcm->current_core->radio->enabled))) {
 		if (data->power.disabled)
-			err = bcm43xx_radio_turn_off(bcm);
+			bcm43xx_radio_turn_off(bcm);
 		else
-			err = bcm43xx_radio_turn_on(bcm);
-		if (err)
-			goto out_unlock;
+			bcm43xx_radio_turn_on(bcm);
 	}
 	//TODO: set txpower.
 	err = 0;
