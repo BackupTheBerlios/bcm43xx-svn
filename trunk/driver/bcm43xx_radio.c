@@ -384,11 +384,11 @@ static void bcm43xx_calc_nrssi_offset(struct bcm43xx_private *bcm)
 	bcm43xx_phy_write(bcm, 0x0429,
 			  bcm43xx_phy_read(bcm, 0x0429) & 0x7FFF);
 	bcm43xx_phy_write(bcm, 0x0001,
-			  (bcm43xx_phy_read(bcm, 0x0001) & 0xC000) | 0x4000);
+			  (bcm43xx_phy_read(bcm, 0x0001) & 0x3FFF) | 0x4000);
 	bcm43xx_phy_write(bcm, 0x0811,
 			  bcm43xx_phy_read(bcm, 0x0811) | 0x000C);
 	bcm43xx_phy_write(bcm, 0x0812,
-			  (bcm43xx_phy_read(bcm, 0x0812) & 0x000C) | 0x0004);
+			  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFF3) | 0x0004);
 	bcm43xx_phy_write(bcm, 0x0802,
 			  bcm43xx_phy_read(bcm, 0x0802) & ~(0x1 | 0x2));
 	if (phy->rev >= 6) {
@@ -465,14 +465,14 @@ static void bcm43xx_calc_nrssi_offset(struct bcm43xx_private *bcm)
 		bcm43xx_phy_write(bcm, 0x0815,
 				  bcm43xx_phy_read(bcm, 0x0815) & 0xFFFB);
 		bcm43xx_phy_write(bcm, 0x0003,
-				  (bcm43xx_phy_read(bcm, 0x0003) & 0x0060)
+				  (bcm43xx_phy_read(bcm, 0x0003) & 0xFF9F)
 				  | 0x0040);
 		bcm43xx_phy_write(bcm, 0x007A,
 				  bcm43xx_phy_read(bcm, 0x007A) | 0x000F);
 		bcm43xx_set_all_gains(bcm, 3, 0, 1);
 		bcm43xx_radio_write16(bcm, 0x0043,
 				      (bcm43xx_radio_read16(bcm, 0x0043)
-				       & 0xFF0F) | 0x000F);
+				       & 0x00F0) | 0x000F);
 		udelay(30);
 		v47F = (s16)((bcm43xx_phy_read(bcm, 0x047F) >> 8) & 0x003F);
 		if (v47F >= 0x20)
