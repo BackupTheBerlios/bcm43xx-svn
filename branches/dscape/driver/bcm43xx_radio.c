@@ -676,10 +676,10 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x00F7);
 		if (phy->rev >= 2) {
-			bcm43xx_phy_write(bcm, 0x0812,
-					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0030);
 			bcm43xx_phy_write(bcm, 0x0811,
-					  (bcm43xx_phy_read(bcm, 0x0811) & 0xFFCF) | 0x0010);
+					  (bcm43xx_phy_read(bcm, 0x0811) & 0xFFCF) | 0x0030);
+			bcm43xx_phy_write(bcm, 0x0812,
+					  (bcm43xx_phy_read(bcm, 0x0812) & 0xFFCF) | 0x0010);
 		}
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) | 0x0080);
