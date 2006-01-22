@@ -62,10 +62,33 @@ static u16 flip_4bit(u16 value)
 	return flipped;
 }
 
-static void bcm43xx_set_all_gains(struct bcm43xx_private *bcm,
-				  s16 first, s16 second, s16 third);
-static void bcm43xx_set_original_gains(struct bcm43xx_private *bcm);
-static void bcm43xx_synth_pu_workaround(struct bcm43xx_private *bcm, u8 channel);
+/* Get the freq, as it has to be written to the device. */
+static inline
+u16 channel2freq_bg(u8 channel)
+{
+	/* Frequencies are given as frequencies_bg[index] + 2.4GHz
+	 * Starting with channel 1
+	 */
+	static const u16 frequencies_bg[14] = {
+		12, 17, 22, 27,
+		32, 37, 42, 47,
+		52, 57, 62, 67,
+		72, 84,
+	};
+
+	assert(channel >= 1 && channel <= 14);
+
+	return frequencies_bg[channel - 1];
+}
+
+/* Get the freq, as it has to be written to the device. */
+static inline
+u16 channel2freq_a(u8 channel)
+{
+	assert(channel <= 200);
+
+	return (5000 + 5 * channel);
+}
 
 void bcm43xx_radio_lock(struct bcm43xx_private *bcm)
 {
@@ -89,18 +112,23 @@ void bcm43xx_radio_unlock(struct bcm43xx_private *bcm)
 
 u16 bcm43xx_radio_read16(struct bcm43xx_private *bcm, u16 offset)
 {
-	switch (bcm->current_core->phy->type) {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+
+	switch (phy->type) {
 	case BCM43xx_PHYTYPE_A:
 		offset |= 0x0040;
 		break;
 	case BCM43xx_PHYTYPE_B:
-		if (bcm->current_core->radio->version == 0x2053) {
+		if (radio->version == 0x2053) {
 			if (offset < 0x70)
 				offset += 0x80;
 			else if (offset < 0x80)
 				offset += 0x70;
-		} else if (bcm->current_core->radio->version == 0x2050)
+		} else if (radio->version == 0x2050) {
 			offset |= 0x80;
+		} else
+			assert(0);
 		break;
 	case BCM43xx_PHYTYPE_G:
 		offset |= 0x80;
@@ -117,14 +145,105 @@ void bcm43xx_radio_write16(struct bcm43xx_private *bcm, u16 offset, u16 val)
 	bcm43xx_write16(bcm, BCM43xx_MMIO_RADIO_DATA_LOW, val);
 }
 
+static void bcm43xx_set_all_gains(struct bcm43xx_private *bcm,
+				  s16 first, s16 second, s16 third)
+{
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	u16 i;
+	u16 start = 0x08, end = 0x18;
+	u16 offset = 0x0400;
+	u16 tmp;
+
+	if (phy->rev <= 1) {
+		offset = 0x5000;
+		start = 0x10;
+		end = 0x20;
+	}
+
+	for (i = 0; i < 4; i++)
+		bcm43xx_ilt_write16(bcm, offset + i, first);
+
+	for (i = start; i < end; i++)
+		bcm43xx_ilt_write16(bcm, offset + i, second);
+
+	if (third != -1) {
+		tmp = ((u16)third << 14) | ((u16)third << 6);
+		bcm43xx_phy_write(bcm, 0x04A0,
+		                  (bcm43xx_phy_read(bcm, 0x04A0) & 0xBFBF) | tmp);
+		bcm43xx_phy_write(bcm, 0x04A1,
+		                  (bcm43xx_phy_read(bcm, 0x04A1) & 0xBFBF) | tmp);
+		bcm43xx_phy_write(bcm, 0x04A2,
+		                  (bcm43xx_phy_read(bcm, 0x04A2) & 0xBFBF) | tmp);
+	}
+	bcm43xx_dummy_transmission(bcm);
+}
+
+static void bcm43xx_set_original_gains(struct bcm43xx_private *bcm)
+{
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	u16 i, tmp;
+	u16 offset = 0x0400;
+	u16 start = 0x0008, end = 0x0018;
+
+	if (phy->rev <= 1) {
+		offset = 0x5000;
+		start = 0x0010;
+		end = 0x0020;
+	}
+
+	for (i = 0; i < 4; i++) {
+		tmp = (i & 0xFFFC);
+		tmp |= (i & 0x0001) << 1;
+		tmp |= (i & 0x0002) >> 1;
+
+		bcm43xx_ilt_write16(bcm, offset + i, tmp);
+	}
+
+	for (i = start; i < end; i++)
+		bcm43xx_ilt_write16(bcm, offset + i, i - start);
+
+	bcm43xx_phy_write(bcm, 0x04A0,
+	                  (bcm43xx_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
+	bcm43xx_phy_write(bcm, 0x04A1,
+	                  (bcm43xx_phy_read(bcm, 0x04A1) & 0xBFBF) | 0x4040);
+	bcm43xx_phy_write(bcm, 0x04A2,
+	                  (bcm43xx_phy_read(bcm, 0x04A2) & 0xBFBF) | 0x4000);
+	bcm43xx_dummy_transmission(bcm);
+}
+
+/* Synthetic PU workaround */
+static void bcm43xx_synth_pu_workaround(struct bcm43xx_private *bcm, u8 channel)
+{
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
+	
+	if (radio->version != 0x2050 || radio->revision >= 6) {
+		/* We do not need the workaround. */
+		return;
+	}
+
+	if (channel <= 10) {
+		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
+				channel2freq_bg(channel + 4));
+	} else {
+		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
+				channel2freq_bg(1));
+	}
+	udelay(100);
+	bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
+			channel2freq_bg(channel));
+}
+
 u8 bcm43xx_radio_aci_detect(struct bcm43xx_private *bcm, u8 channel)
 {
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	u8 ret = 0;
-	u16 saved = bcm43xx_phy_read(bcm, 0x0403), rssi, temp;
+	u16 saved, rssi, temp;
 	int i, j = 0;
+
+	saved = bcm43xx_phy_read(bcm, 0x0403);
 	bcm43xx_radio_selectchannel(bcm, channel, 0);
 	bcm43xx_phy_write(bcm, 0x0403, (saved & 0xFFF8) | 5);
-	if (bcm->current_core->radio->aci_hw_rssi)
+	if (radio->aci_hw_rssi)
 		rssi = bcm43xx_phy_read(bcm, 0x048A) & 0x3F;
 	else
 		rssi = saved & 0x3F;
@@ -147,12 +266,14 @@ u8 bcm43xx_radio_aci_detect(struct bcm43xx_private *bcm, u8 channel)
 
 u8 bcm43xx_radio_aci_scan(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_phyinfo *phy = bcm->current_core->phy;
+	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
 	u8 ret[13];
-	unsigned int channel = bcm->current_core->radio->channel;
+	unsigned int channel = radio->channel;
 	unsigned int i, j, start, end;
 	unsigned long phylock_flags;
 
-	if (!((bcm->current_core->phy->type == BCM43xx_PHYTYPE_G) && (bcm->current_core->phy->rev > 0)))
+	if (!((phy->type == BCM43xx_PHYTYPE_G) && (phy->rev > 0)))
 		return 0;
 
 	bcm43xx_phy_lock(bcm, phylock_flags);
@@ -187,71 +308,8 @@ u8 bcm43xx_radio_aci_scan(struct bcm43xx_private *bcm)
 	}
 	bcm43xx_radio_unlock(bcm);
 	bcm43xx_phy_unlock(bcm, phylock_flags);
+
 	return ret[channel - 1];
-}
-
-static void bcm43xx_set_all_gains(struct bcm43xx_private *bcm,
-				  s16 first, s16 second, s16 third)
-{
-	u16 i;
-	u16 start = 0x08, end = 0x18;
-	u16 offset = 0x0400;
-	u16 tmp;
-
-	if (bcm->current_core->phy->rev <= 1) {
-		offset = 0x5000;
-		start = 0x10;
-		end = 0x20;
-	}
-
-	for (i = 0; i < 4; i++)
-		bcm43xx_ilt_write16(bcm, offset + i, first);
-
-	for (i = start; i < end; i++)
-		bcm43xx_ilt_write16(bcm, offset + i, second);
-
-	if (third != -1) {
-		tmp = ((u16)third << 14) | ((u16)third << 6);
-		bcm43xx_phy_write(bcm, 0x04A0,
-		                  (bcm43xx_phy_read(bcm, 0x04A0) & 0xBFBF) | tmp);
-		bcm43xx_phy_write(bcm, 0x04A1,
-		                  (bcm43xx_phy_read(bcm, 0x04A1) & 0xBFBF) | tmp);
-		bcm43xx_phy_write(bcm, 0x04A2,
-		                  (bcm43xx_phy_read(bcm, 0x04A2) & 0xBFBF) | tmp);
-	}
-	bcm43xx_dummy_transmission(bcm);
-}
-
-static void bcm43xx_set_original_gains(struct bcm43xx_private *bcm)
-{
-	u16 i, tmp;
-	u16 offset = 0x0400;
-	u16 start = 0x0008, end = 0x0018;
-
-	if (bcm->current_core->phy->rev <= 1) {
-		offset = 0x5000;
-		start = 0x0010;
-		end = 0x0020;
-	}
-
-	for (i = 0; i < 4; i++) {
-		tmp = (i & 0xFFFC);
-		tmp |= (i & 0x0001) << 1;
-		tmp |= (i & 0x0002) >> 1;
-
-		bcm43xx_ilt_write16(bcm, offset + i, tmp);
-	}
-
-	for (i = start; i < end; i++)
-		bcm43xx_ilt_write16(bcm, offset + i, i - start);
-
-	bcm43xx_phy_write(bcm, 0x04A0,
-	                  (bcm43xx_phy_read(bcm, 0x04A0) & 0xBFBF) | 0x4040);
-	bcm43xx_phy_write(bcm, 0x04A1,
-	                  (bcm43xx_phy_read(bcm, 0x04A1) & 0xBFBF) | 0x4040);
-	bcm43xx_phy_write(bcm, 0x04A2,
-	                  (bcm43xx_phy_read(bcm, 0x04A2) & 0xBFBF) | 0x4000);
-	bcm43xx_dummy_transmission(bcm);
 }
 
 /* http://bcm-specs.sipsolutions.net/NRSSILookupTable */
@@ -569,8 +627,11 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 				  bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0x7FFF);
 		bcm43xx_phy_write(bcm, 0x0802,
 				  bcm43xx_phy_read(bcm, 0x0802) & 0xFFFC);
+FIXME();//FIXME: The following is wrong in the specs.
+#if 0
 		bcm43xx_write16(bcm, 0x03E2,
 				bcm43xx_read16(bcm, 0x03E2) | 0x8000);
+#endif
 		backup[0] = bcm43xx_radio_read16(bcm, 0x007A);
 		backup[1] = bcm43xx_radio_read16(bcm, 0x0052);
 		backup[2] = bcm43xx_radio_read16(bcm, 0x0043);
@@ -1322,34 +1383,6 @@ void bcm43xx_radio_init2060(struct bcm43xx_private *bcm)
 	udelay(1000);
 }
 
-/* Get the freq, as it has to be written to the device. */
-static inline
-u16 channel2freq_bg(u8 channel)
-{
-	/* Frequencies are given as frequencies_bg[index] + 2.4GHz
-	 * Starting with channel 1
-	 */
-	static const u16 frequencies_bg[14] = {
-		12, 17, 22, 27,
-		32, 37, 42, 47,
-		52, 57, 62, 67,
-		72, 84,
-	};
-
-	assert(channel >= 1 && channel <= 14);
-
-	return frequencies_bg[channel - 1];
-}
-
-/* Get the freq, as it has to be written to the device. */
-static inline
-u16 channel2freq_a(u8 channel)
-{
-	assert(channel <= 200);
-
-	return (5000 + 5 * channel);
-}
-
 static inline
 u16 freq_r3A_value(u16 frequency)
 {
@@ -1380,24 +1413,6 @@ void bcm43xx_radio_set_tx_iq(struct bcm43xx_private *bcm)
 				bcm43xx_phy_write(bcm, 0x0069, (i - j) << 8 | 0x00C0);
 				return;
 			}
-}
-
-static void bcm43xx_synth_pu_workaround(struct bcm43xx_private *bcm, u8 channel)
-{
-	struct bcm43xx_radioinfo *radio = bcm->current_core->radio;
-	
-	/* Synthetic PU workaround */
-	if (radio->version == 0x2050 && radio->revision < 6) {
-		if (channel <= 10)
-			bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
-				channel2freq_bg(channel + 4));
-		else
-			bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
-					channel2freq_bg(1));
-		udelay(100);
-		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL,
-				channel2freq_bg(channel));
-	}
 }
 
 int bcm43xx_radio_selectchannel(struct bcm43xx_private *bcm,
