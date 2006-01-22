@@ -627,11 +627,9 @@ void bcm43xx_calc_nrssi_slope(struct bcm43xx_private *bcm)
 				  bcm43xx_phy_read(bcm, BCM43xx_PHY_G_CRS) & 0x7FFF);
 		bcm43xx_phy_write(bcm, 0x0802,
 				  bcm43xx_phy_read(bcm, 0x0802) & 0xFFFC);
-FIXME();//FIXME: The following is wrong in the specs.
-#if 0
+		backup[7] = bcm43xx_read16(bcm, 0x03E2);
 		bcm43xx_write16(bcm, 0x03E2,
 				bcm43xx_read16(bcm, 0x03E2) | 0x8000);
-#endif
 		backup[0] = bcm43xx_radio_read16(bcm, 0x007A);
 		backup[1] = bcm43xx_radio_read16(bcm, 0x0052);
 		backup[2] = bcm43xx_radio_read16(bcm, 0x0043);
@@ -639,10 +637,9 @@ FIXME();//FIXME: The following is wrong in the specs.
 		backup[4] = bcm43xx_phy_read(bcm, 0x005A);
 		backup[5] = bcm43xx_phy_read(bcm, 0x0059);
 		backup[6] = bcm43xx_phy_read(bcm, 0x0058);
-		backup[7] = bcm43xx_read16(bcm, 0x03E2);
 		backup[8] = bcm43xx_read16(bcm, 0x03E6);
 		backup[9] = bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT);
-		if (phy->rev >= 6) {
+		if (phy->rev >= 3) {
 			backup[10] = bcm43xx_phy_read(bcm, 0x002E);
 			backup[11] = bcm43xx_phy_read(bcm, 0x002F);
 			backup[12] = bcm43xx_phy_read(bcm, 0x080F);
@@ -653,10 +650,27 @@ FIXME();//FIXME: The following is wrong in the specs.
 			backup[17] = bcm43xx_phy_read(bcm, 0x0478);
 			bcm43xx_phy_write(bcm, 0x002E, 0);
 			bcm43xx_phy_write(bcm, BCM43xx_PHY_G_LO_CONTROL, 0);
-			bcm43xx_phy_write(bcm, 0x0478, backup[17] | 0x0100);
-			bcm43xx_phy_write(bcm, 0x0801, backup[14] | 0x0040);
-			bcm43xx_phy_write(bcm, 0x0060, backup[15] | 0x0040);
-			bcm43xx_phy_write(bcm, 0x0014, backup[16] | 0x0200);
+			switch (phy->rev) {
+			case 4: case 6: case 7:
+				bcm43xx_phy_write(bcm, 0x0478,
+						  bcm43xx_phy_read(bcm, 0x0478)
+						  | 0x0100);
+				bcm43xx_phy_write(bcm, 0x0801,
+						  bcm43xx_phy_read(bcm, 0x0801)
+						  | 0x0040);
+				break;
+			case 3: case 5:
+				bcm43xx_phy_write(bcm, 0x0801,
+						  bcm43xx_phy_read(bcm, 0x0801)
+						  & 0xFFBF);
+				break;
+			}
+			bcm43xx_phy_write(bcm, 0x0060,
+					  bcm43xx_phy_read(bcm, 0x0060)
+					  | 0x0040);
+			bcm43xx_phy_write(bcm, 0x0014,
+					  bcm43xx_phy_read(bcm, 0x0014)
+					  | 0x0200);
 		}
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) | 0x0070);
@@ -680,13 +694,14 @@ FIXME();//FIXME: The following is wrong in the specs.
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) & 0x007F);
 		if (phy->rev >= 2) {
-//FIXME: Specs say to mask MMIO register 0x0003 here, that seem to be _soo_ wrong.
 			bcm43xx_phy_write(bcm, 0x0003,
 					  (bcm43xx_phy_read(bcm, 0x0003)
 					   & 0xFF9F) | 0x0040);
 		}
 
-		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT, 0x2000);
+		bcm43xx_write16(bcm, BCM43xx_MMIO_CHANNEL_EXT,
+				bcm43xx_read16(bcm, BCM43xx_MMIO_CHANNEL_EXT)
+				| 0x2000);
 		bcm43xx_radio_write16(bcm, 0x007A,
 				      bcm43xx_radio_read16(bcm, 0x007A) | 0x000F);
 		bcm43xx_phy_write(bcm, 0x0015, 0xF330);
@@ -722,7 +737,7 @@ FIXME();//FIXME: The following is wrong in the specs.
 			bcm->current_core->radio->nrssi[0] = nrssi1;
 			bcm->current_core->radio->nrssi[1] = nrssi0;
 		}
-		if (phy->rev >= 6) {
+		if (phy->rev >= 3) {
 			bcm43xx_phy_write(bcm, 0x002E, backup[10]);
 			bcm43xx_phy_write(bcm, 0x002F, backup[11]);
 			bcm43xx_phy_write(bcm, 0x080F, backup[12]);
@@ -751,7 +766,7 @@ FIXME();//FIXME: The following is wrong in the specs.
 		bcm43xx_set_original_gains(bcm);
 		bcm43xx_phy_write(bcm, 0x0802,
 				  bcm43xx_phy_read(bcm, 0x0802) | 0x8000);
-		if (phy->rev >= 6) {
+		if (phy->rev >= 3) {
 			bcm43xx_phy_write(bcm, 0x0801, backup[14]);
 			bcm43xx_phy_write(bcm, 0x0060, backup[15]);
 			bcm43xx_phy_write(bcm, 0x0014, backup[16]);
