@@ -1228,7 +1228,7 @@ void bcm43xx_lo_write(struct bcm43xx_private *bcm,
 	value = (u8)(pair->low);
 	value |= ((u8)(pair->high)) << 8;
 
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	/* Sanity check. */
 	if (pair->low < -8 || pair->low > 8 ||
 	    pair->high < -8 || pair->high > 8) {
@@ -1620,7 +1620,7 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 	}
 	bcm43xx_radio_selectchannel(bcm, oldchannel, 1);
 
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	{
 		/* Sanity check for all lopairs. */
 		for (i = 0; i < BCM43xx_LO_COUNT; i++) {
@@ -1633,7 +1633,7 @@ void bcm43xx_phy_lo_g_measure(struct bcm43xx_private *bcm)
 			}
 		}
 	}
-#endif /* BCM43xx_DEBUG */
+#endif /* CONFIG_BCM43XX_DEBUG */
 }
 
 static

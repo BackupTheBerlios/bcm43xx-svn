@@ -377,7 +377,7 @@ enum {
 #ifdef assert
 # undef assert
 #endif
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 #define assert(expr) \
 	do {									\
 		if (unlikely(!(expr))) {					\
@@ -398,7 +398,7 @@ enum {
 #ifdef dprintkl
 # undef dprintkl
 #endif
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 # define dprintkl		printkl
 #else
 # define dprintkl(f, x...)	do { /* nothing */ } while (0)
@@ -416,7 +416,7 @@ enum {
 #ifdef DEBUG_ONLY
 # undef DEBUG_ONLY
 #endif
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 # define DEBUG_ONLY(x)	(x)
 #else
 # define DEBUG_ONLY(x)	0
@@ -426,7 +426,7 @@ enum {
 #ifdef dprintk
 # undef dprintk
 #endif
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 # define dprintk(f, x...)  do { printk(f ,##x); } while (0)
 #else
 # define dprintk(f, x...)  do { /* nothing */ } while (0)
@@ -754,7 +754,7 @@ struct bcm43xx_private {
 	const struct firmware *initvals1;
 
 	/* Debugging stuff follows. */
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 	struct bcm43xx_dfsentry *dfsentry;
 	atomic_t mmio_print_cnt;
 	atomic_t pcicfg_print_cnt;
@@ -801,7 +801,7 @@ struct bcm43xx_lopair * bcm43xx_get_lopair(struct bcm43xx_phyinfo *phy,
 
 
 /* MMIO read/write functions. Debug and non-debug variants. */
-#ifdef BCM43xx_DEBUG
+#ifdef CONFIG_BCM43XX_DEBUG
 
 static inline
 u16 bcm43xx_read16(struct bcm43xx_private *bcm, u16 offset)
@@ -914,7 +914,7 @@ int bcm43xx_pci_write_config32(struct bcm43xx_private *bcm, int offset, u32 valu
 #define bcm43xx_pciprint_enable(bcm)		atomic_inc(&(bcm)->pcicfg_print_cnt)
 #define bcm43xx_pciprint_disable(bcm)		atomic_dec(&(bcm)->pcicfg_print_cnt)
 
-#else /* BCM43xx_DEBUG */
+#else /* CONFIG_BCM43XX_DEBUG*/
 
 #define bcm43xx_read16(bcm, offset)		ioread16((bcm)->mmio_addr + core_offset(bcm) + (offset))
 #define bcm43xx_write16(bcm, offset, value)	iowrite16((value), (bcm)->mmio_addr + core_offset(bcm) + (offset))
@@ -932,7 +932,7 @@ int bcm43xx_pci_write_config32(struct bcm43xx_private *bcm, int offset, u32 valu
 #define bcm43xx_pciprint_enable(bcm)		do { /* nothing */ } while (0)
 #define bcm43xx_pciprint_disable(bcm)		do { /* nothing */ } while (0)
 
-#endif /* BCM43xx_DEBUG */
+#endif /* CONFIG_BCM43XX_DEBUG*/
 
 
 /** Limit a value between two limits */
