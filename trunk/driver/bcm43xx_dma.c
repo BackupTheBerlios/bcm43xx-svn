@@ -214,7 +214,9 @@ static int alloc_ringmemory(struct bcm43xx_dmaring *ring)
 		return -ENOMEM;
 	}
 	if (ring->dmabase + BCM43xx_DMA_RINGMEMSIZE > BCM43xx_DMA_BUSADDRMAX) {
-		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RINGMEMORY >1G\n");
+		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RINGMEMORY >1G "
+				    "(0x%08x, len: %lu)\n",
+		       ring->dmabase, BCM43xx_DMA_RINGMEMSIZE);
 		dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
 				  ring->vbase, ring->dmabase);
 		return -ENOMEM;
@@ -323,7 +325,9 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 	if (unlikely(dmaaddr + ring->rx_buffersize > BCM43xx_DMA_BUSADDRMAX)) {
 		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
 		dev_kfree_skb_any(skb);
-		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RX SKB >1G\n");
+		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RX SKB >1G "
+				    "(0x%08x, len: %u)\n",
+		       dmaaddr, ring->rx_buffersize);
 		return -ENOMEM;
 	}
 	meta->skb = skb;
@@ -763,7 +767,9 @@ static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
 	if (unlikely(meta->dmaaddr + skb->len > BCM43xx_DMA_BUSADDRMAX)) {
 		return_slot(ring, slot);
-		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA TX SKB >1G\n");
+		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA TX SKB >1G "
+				    "(0x%08x, len: %u)\n",
+		       meta->dmaaddr, skb->len);
 		return -ENOMEM;
 	}
 
