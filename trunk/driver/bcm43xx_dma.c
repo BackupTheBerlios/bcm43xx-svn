@@ -261,13 +261,6 @@ int bcm43xx_dmacontroller_rx_reset(struct bcm43xx_private *bcm,
 	return 0;
 }
 
-static inline int dmacontroller_rx_reset(struct bcm43xx_dmaring *ring)
-{
-	assert(!ring->tx);
-
-	return bcm43xx_dmacontroller_rx_reset(ring->bcm, ring->mmio_base);
-}
-
 /* Reset the RX DMA channel */
 int bcm43xx_dmacontroller_tx_reset(struct bcm43xx_private *bcm,
 				   u16 mmio_base)
@@ -306,13 +299,6 @@ int bcm43xx_dmacontroller_tx_reset(struct bcm43xx_private *bcm,
 	udelay(300);
 
 	return 0;
-}
-
-static inline int dmacontroller_tx_reset(struct bcm43xx_dmaring *ring)
-{
-	assert(ring->tx);
-
-	return bcm43xx_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 }
 
 static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
@@ -442,13 +428,13 @@ out:
 static void dmacontroller_cleanup(struct bcm43xx_dmaring *ring)
 {
 	if (ring->tx) {
-		dmacontroller_tx_reset(ring);
+		bcm43xx_dmacontroller_tx_reset(ring->bcm, ring->mmio_base);
 		/* Zero out Transmit Descriptor ring address. */
 		bcm43xx_write32(ring->bcm,
 				ring->mmio_base + BCM43xx_DMA_TX_DESC_RING,
 				0x00000000);
 	} else {
-		dmacontroller_rx_reset(ring);
+		bcm43xx_dmacontroller_rx_reset(ring->bcm, ring->mmio_base);
 		/* Zero out Receive Descriptor ring address. */
 		bcm43xx_write32(ring->bcm,
 				ring->mmio_base + BCM43xx_DMA_RX_DESC_RING,
@@ -508,9 +494,7 @@ struct bcm43xx_dmaring * bcm43xx_setup_dmaring(struct bcm43xx_private *bcm,
 	if (bcm->pci_dev->bus->number == 0)
 		ring->memoffset = 0;
 #endif
-	
-	
-	spin_lock_init(&ring->lock);
+
 	ring->bcm = bcm;
 	ring->nr_slots = nr_descriptor_slots;
 	ring->suspend_mark = ring->nr_slots * BCM43xx_TXSUSPEND_PERCENT / 100;
@@ -578,22 +562,25 @@ static void bcm43xx_destroy_dmaring(struct bcm43xx_dmaring *ring)
 
 void bcm43xx_dma_free(struct bcm43xx_private *bcm)
 {
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->rx_ring1);
-	bcm->current_core->dma->rx_ring1 = NULL;
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->rx_ring0);
-	bcm->current_core->dma->rx_ring0 = NULL;
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring3);
-	bcm->current_core->dma->tx_ring3 = NULL;
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring2);
-	bcm->current_core->dma->tx_ring2 = NULL;
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring1);
-	bcm->current_core->dma->tx_ring1 = NULL;
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring0);
-	bcm->current_core->dma->tx_ring0 = NULL;
+	struct bcm43xx_dma *dma = bcm->current_core->dma;
+
+	bcm43xx_destroy_dmaring(dma->rx_ring1);
+	dma->rx_ring1 = NULL;
+	bcm43xx_destroy_dmaring(dma->rx_ring0);
+	dma->rx_ring0 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring3);
+	dma->tx_ring3 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring2);
+	dma->tx_ring2 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring1);
+	dma->tx_ring1 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring0);
+	dma->tx_ring0 = NULL;
 }
 
 int bcm43xx_dma_init(struct bcm43xx_private *bcm)
 {
+	struct bcm43xx_dma *dma = bcm->current_core->dma;
 	struct bcm43xx_dmaring *ring;
 	int err = -ENOMEM;
 
@@ -602,39 +589,39 @@ int bcm43xx_dma_init(struct bcm43xx_private *bcm)
 				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto out;
-	bcm->current_core->dma->tx_ring0 = ring;
+	dma->tx_ring0 = ring;
 
 	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA2_BASE,
 				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto err_destroy_tx0;
-	bcm->current_core->dma->tx_ring1 = ring;
+	dma->tx_ring1 = ring;
 
 	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA3_BASE,
 				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto err_destroy_tx1;
-	bcm->current_core->dma->tx_ring2 = ring;
+	dma->tx_ring2 = ring;
 
 	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA4_BASE,
 				     BCM43xx_TXRING_SLOTS, 1);
 	if (!ring)
 		goto err_destroy_tx2;
-	bcm->current_core->dma->tx_ring3 = ring;
+	dma->tx_ring3 = ring;
 
 	/* setup RX DMA channels. */
 	ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA1_BASE,
 				     BCM43xx_RXRING_SLOTS, 0);
 	if (!ring)
 		goto err_destroy_tx3;
-	bcm->current_core->dma->rx_ring0 = ring;
+	dma->rx_ring0 = ring;
 
 	if (bcm->current_core->rev < 5) {
 		ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA4_BASE,
 					     BCM43xx_RXRING_SLOTS, 0);
 		if (!ring)
 			goto err_destroy_rx0;
-		bcm->current_core->dma->rx_ring1 = ring;
+		dma->rx_ring1 = ring;
 	}
 
 	dprintk(KERN_INFO PFX "DMA initialized\n");
@@ -643,27 +630,26 @@ out:
 	return err;
 
 err_destroy_rx0:
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->rx_ring0);
-	bcm->current_core->dma->rx_ring0 = NULL;
+	bcm43xx_destroy_dmaring(dma->rx_ring0);
+	dma->rx_ring0 = NULL;
 err_destroy_tx3:
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring3);
-	bcm->current_core->dma->tx_ring3 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring3);
+	dma->tx_ring3 = NULL;
 err_destroy_tx2:
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring2);
-	bcm->current_core->dma->tx_ring2 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring2);
+	dma->tx_ring2 = NULL;
 err_destroy_tx1:
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring1);
-	bcm->current_core->dma->tx_ring1 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring1);
+	dma->tx_ring1 = NULL;
 err_destroy_tx0:
-	bcm43xx_destroy_dmaring(bcm->current_core->dma->tx_ring0);
-	bcm->current_core->dma->tx_ring0 = NULL;
+	bcm43xx_destroy_dmaring(dma->tx_ring0);
+	dma->tx_ring0 = NULL;
 	goto out;
 }
 
 /* Generate a cookie for the TX header. */
-static inline
-u16 generate_cookie(struct bcm43xx_dmaring *ring,
-		    int slot)
+static u16 generate_cookie(struct bcm43xx_dmaring *ring,
+			   int slot)
 {
 	u16 cookie = 0x0000;
 
@@ -693,24 +679,25 @@ u16 generate_cookie(struct bcm43xx_dmaring *ring,
 }
 
 /* Inspect a cookie and find out to which controller/slot it belongs. */
-static inline
+static
 struct bcm43xx_dmaring * parse_cookie(struct bcm43xx_private *bcm,
 				      u16 cookie, int *slot)
 {
+	struct bcm43xx_dma *dma = bcm->current_core->dma;
 	struct bcm43xx_dmaring *ring = NULL;
 
 	switch (cookie & 0xF000) {
 	case 0x0000:
-		ring = bcm->current_core->dma->tx_ring0;
+		ring = dma->tx_ring0;
 		break;
 	case 0x1000:
-		ring = bcm->current_core->dma->tx_ring1;
+		ring = dma->tx_ring1;
 		break;
 	case 0x2000:
-		ring = bcm->current_core->dma->tx_ring2;
+		ring = dma->tx_ring2;
 		break;
 	case 0x3000:
-		ring = bcm->current_core->dma->tx_ring3;
+		ring = dma->tx_ring3;
 		break;
 	default:
 		assert(0);
@@ -721,8 +708,8 @@ struct bcm43xx_dmaring * parse_cookie(struct bcm43xx_private *bcm,
 	return ring;
 }
 
-static inline void dmacontroller_poke_tx(struct bcm43xx_dmaring *ring,
-					 int slot)
+static void dmacontroller_poke_tx(struct bcm43xx_dmaring *ring,
+				  int slot)
 {
 	/* Everything is ready to start. Buffers are DMA mapped and
 	 * associated with slots.
@@ -736,11 +723,10 @@ static inline void dmacontroller_poke_tx(struct bcm43xx_dmaring *ring,
 			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
 }
 
-static inline
-int dma_tx_fragment(struct bcm43xx_dmaring *ring,
-		    struct sk_buff *skb,
-		    struct ieee80211_txb *txb,
-		    u8 cur_frag)
+static int dma_tx_fragment(struct bcm43xx_dmaring *ring,
+			   struct sk_buff *skb,
+			   struct ieee80211_txb *txb,
+			   u8 cur_frag)
 {
 	int slot;
 	struct bcm43xx_dmadesc *desc;
@@ -797,14 +783,15 @@ int dma_tx_fragment(struct bcm43xx_dmaring *ring,
 	return 0;
 }
 
-static inline int dma_transfer_txb(struct bcm43xx_dmaring *ring,
-				   struct ieee80211_txb *txb)
+int bcm43xx_dma_tx(struct bcm43xx_private *bcm,
+		   struct ieee80211_txb *txb)
 {
 	/* We just received a packet from the kernel network subsystem.
 	 * Add headers and DMA map the memory. Poke
 	 * the device to send the stuff.
 	 * Note that this is called from atomic context.
 	 */
+	struct bcm43xx_dmaring *ring = bcm->current_core->dma->tx_ring1;
 	u8 i;
 	struct sk_buff *skb;
 
@@ -818,8 +805,6 @@ static inline int dma_transfer_txb(struct bcm43xx_dmaring *ring,
 		return -ENOMEM;
 	}
 
-	assert(irqs_disabled());
-	spin_lock(&ring->lock);
 	for (i = 0; i < txb->nr_frags; i++) {
 		skb = txb->fragments[i];
 		/* We do not free the skb, as it is freed as
@@ -829,22 +814,12 @@ static inline int dma_transfer_txb(struct bcm43xx_dmaring *ring,
 		dma_tx_fragment(ring, skb, txb, i);
 		//TODO: handle failure of dma_tx_fragment
 	}
-	spin_unlock(&ring->lock);
 
 	return 0;
 }
 
-int fastcall
-bcm43xx_dma_transfer_txb(struct bcm43xx_private *bcm,
-			 struct ieee80211_txb *txb)
-{
-	return dma_transfer_txb(bcm->current_core->dma->tx_ring1,
-				txb);
-}
-
-void fastcall
-bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
-			      struct bcm43xx_xmitstatus *status)
+void bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
+				   struct bcm43xx_xmitstatus *status)
 {
 	struct bcm43xx_dmaring *ring;
 	struct bcm43xx_dmadesc *desc;
@@ -855,9 +830,6 @@ bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 	ring = parse_cookie(bcm, status->cookie, &slot);
 	assert(ring);
 	assert(ring->tx);
-	assert(irqs_disabled());
-	spin_lock(&ring->lock);
-
 	assert(get_desc_ctl(ring->vbase + slot) & BCM43xx_DMADTOR_FRAMESTART);
 	while (1) {
 		assert(slot >= 0 && slot < ring->nr_slots);
@@ -877,13 +849,10 @@ bcm43xx_dma_handle_xmitstatus(struct bcm43xx_private *bcm,
 		slot = next_slot(ring, slot);
 	}
 	bcm->stats.last_tx = jiffies;
-
-	spin_unlock(&ring->lock);
 }
 
-static inline
-void dma_rx(struct bcm43xx_dmaring *ring,
-	    int *slot)
+static void dma_rx(struct bcm43xx_dmaring *ring,
+		   int *slot)
 {
 	struct bcm43xx_dmadesc *desc;
 	struct bcm43xx_dmadesc_meta *meta;
@@ -928,8 +897,12 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 			barrier();
 			len = le16_to_cpu(rxhdr->frame_length);
 		} while (len == 0 && i++ < 5);
-		if (len == 0)
+		if (unlikely(len == 0)) {
+			/* recycle the descriptor buffer. */
+			sync_descbuffer_for_device(ring, meta->dmaaddr,
+						   ring->rx_buffersize);
 			goto drop;
+		}
 	}
 	if (unlikely(len > ring->rx_buffersize)) {
 		/* The data did not fit into one descriptor buffer
@@ -963,6 +936,8 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
 	if (unlikely(err)) {
 		dprintkl(KERN_ERR PFX "DMA RX: setup_rx_descbuffer() failed\n");
+		sync_descbuffer_for_device(ring, dmaaddr,
+					   ring->rx_buffersize);
 		goto drop;
 	}
 
@@ -980,8 +955,7 @@ drop:
 	return;
 }
 
-void fastcall
-bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
+void bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 {
 	u32 status;
 	u16 descptr;
@@ -991,9 +965,6 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 #endif
 
 	assert(!ring->tx);
-	assert(irqs_disabled());
-	spin_lock(&ring->lock);
-
 	status = bcm43xx_read32(ring->bcm, ring->mmio_base + BCM43xx_DMA_RX_STATUS);
 	descptr = (status & BCM43xx_DMA_RXSTAT_DPTR_MASK);
 	current_slot = descptr / sizeof(struct bcm43xx_dmadesc);
@@ -1011,8 +982,6 @@ bcm43xx_dma_rx(struct bcm43xx_dmaring *ring)
 			ring->mmio_base + BCM43xx_DMA_RX_DESC_INDEX,
 			(u32)(slot * sizeof(struct bcm43xx_dmadesc)));
 	ring->current_slot = slot;
-
-	spin_unlock(&ring->lock);
 }
 
 /* vim: set ts=8 sw=8 sts=8: */
