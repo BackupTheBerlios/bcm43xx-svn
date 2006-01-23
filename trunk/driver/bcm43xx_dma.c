@@ -355,7 +355,7 @@ static int setup_rx_descbuffer(struct bcm43xx_dmaring *ring,
 static int alloc_initial_descbuffers(struct bcm43xx_dmaring *ring)
 {
 	int i, err = -ENOMEM;
-	struct bcm43xx_dmadesc *desc = NULL;
+	struct bcm43xx_dmadesc *desc;
 	struct bcm43xx_dmadesc_meta *meta;
 
 	for (i = 0; i < ring->nr_slots; i++) {
