@@ -937,15 +937,24 @@ void dma_rx(struct bcm43xx_dmaring *ring,
 		 * This should never happen, as we try to allocate buffers
 		 * big enough. So simply ignore this packet.
 		 */
-		int cnt = 1;
-		s32 tmp = len - ring->rx_buffersize;
+		int cnt = 0;
+		s32 tmp = len;
 
-		for ( ; tmp > 0; tmp -= ring->rx_buffersize) {
+		while (1) {
+			desc = ring->vbase + *slot;
+			meta = ring->meta + *slot;
+			/* recycle the descriptor buffer. */
+			sync_descbuffer_for_device(ring, meta->dmaaddr,
+						   ring->rx_buffersize);
 			*slot = next_slot(ring, *slot);
 			cnt++;
+			tmp -= ring->rx_buffersize;
+			if (tmp <= 0)
+				break;
 		}
-		printkl(KERN_ERR PFX "DMA RX buffer too small. %d dropped.\n",
-		        cnt);
+		printkl(KERN_ERR PFX "DMA RX buffer too small "
+				     "(len: %u, buffer: %u, nr-dropped: %d)\n",
+		        len, ring->rx_buffersize, cnt);
 		goto drop;
 	}
 	len -= IEEE80211_FCS_LEN;
