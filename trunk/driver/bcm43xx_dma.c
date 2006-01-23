@@ -375,7 +375,7 @@ out:
 	return err;
 
 err_unwind:
-	for ( ; i >= 0; i--) {
+	for (i--; i >= 0; i--) {
 		desc = ring->vbase + i;
 		meta = ring->meta + i;
 
