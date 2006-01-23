@@ -895,8 +895,12 @@ static void dma_rx(struct bcm43xx_dmaring *ring,
 			barrier();
 			len = le16_to_cpu(rxhdr->frame_length);
 		} while (len == 0 && i++ < 5);
-		if (len == 0)
+		if (unlikely(len == 0)) {
+			/* recycle the descriptor buffer. */
+			sync_descbuffer_for_device(ring, meta->dmaaddr,
+						   ring->rx_buffersize);
 			goto drop;
+		}
 	}
 	if (unlikely(len > ring->rx_buffersize)) {
 		/* The data did not fit into one descriptor buffer
@@ -929,6 +933,8 @@ static void dma_rx(struct bcm43xx_dmaring *ring,
 	err = setup_rx_descbuffer(ring, desc, meta, GFP_ATOMIC);
 	if (unlikely(err)) {
 		dprintkl(KERN_ERR PFX "DMA RX: setup_rx_descbuffer() failed\n");
+		sync_descbuffer_for_device(ring, dmaaddr,
+					   ring->rx_buffersize);
 		goto drop;
 	}
 
