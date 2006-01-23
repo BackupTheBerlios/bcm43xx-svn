@@ -365,11 +365,8 @@ static int alloc_initial_descbuffers(struct bcm43xx_dmaring *ring)
 		err = setup_rx_descbuffer(ring, desc, meta, GFP_KERNEL);
 		if (err)
 			goto err_unwind;
-
-		assert(ring->used_slots <= ring->nr_slots);
 	}
 	ring->used_slots = ring->nr_slots;
-
 	err = 0;
 out:
 	return err;
@@ -382,7 +379,6 @@ err_unwind:
 		unmap_descbuffer(ring, meta->dmaaddr, ring->rx_buffersize, 0);
 		dev_kfree_skb(meta->skb);
 	}
-	ring->used_slots = 0;
 	goto out;
 }
 
