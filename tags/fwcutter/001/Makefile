@@ -1,4 +1,4 @@
-VERSION = 002
+VERSION = 001
 
 FIRMWARE_INSTALL_DIR ?= /lib/firmware
 
