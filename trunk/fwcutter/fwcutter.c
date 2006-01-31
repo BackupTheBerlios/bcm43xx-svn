@@ -268,7 +268,7 @@ static void extract_iv(uint8_t flags, uint32_t pos)
 
 static void print_banner(void)
 {
-	printf("fwcutter " FWCUTTER_VERSION "\n");
+	printf("bcm43xx-fwcutter " FWCUTTER_VERSION "\n");
 }
 
 static void print_file(const struct file *file)

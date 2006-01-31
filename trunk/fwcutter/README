@@ -5,7 +5,7 @@
 About this software
 -------------------
 
-fwcutter is a tool which can extract firmware from various source files.
+bcm43xx-fwcutter is a tool which can extract firmware from various source files.
 It's written for BCM43xx driver files.
 
 The project page is http://bcm43xx.berlios.de/
@@ -14,10 +14,10 @@ The project page is http://bcm43xx.berlios.de/
 Usage
 -----
 
-fwcutter FILE		extracts the firmware from a source FILE to .
-fwcutter -i FILE        identify the driver file. Print information, but don't extract.
-fwcutter -w /tmp FILE	extract and write firmware to /tmp.
-fwcutter -l		prints a list of supported driver source files.
+bcm43xx-fwcutter FILE		extracts the firmware from a source FILE to .
+bcm43xx-fwcutter -i FILE        identify the driver file. Print information, but don't extract.
+bcm43xx-fwcutter -w /tmp FILE	extract and write firmware to /tmp.
+bcm43xx-fwcutter -l		prints a list of supported driver source files.
 
 After extraction, run make installfw which will copy bcm43xx_*.fw to 
 FIRMWARE_INSTALL_DIR (which defaults to /lib/firmware) for

@@ -15,13 +15,13 @@ CFLAGS += -DFWCUTTER_VERSION_=$(VERSION)
 all: fwcutter
 
 fwcutter: $(OBJECTS)
-	$(CC) $(CFLAGS) -o fwcutter $(OBJECTS) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o bcm43xx-fwcutter $(OBJECTS) $(LDFLAGS)
 
 install: all
-	-install -o 0 -g 0 -m 755 fwcutter $(PREFIX)/bin/
+	-install -o 0 -g 0 -m 755 bcm43xx-fwcutter $(PREFIX)/bin/
 
 clean:
-	-rm -f *~ *.o *.orig *.rej *.fw fwcutter
+	-rm -f *~ *.o *.orig *.rej *.fw bcm43xx-fwcutter
 
 installfw:
 	-if ! [ -d $(FIRMWARE_INSTALL_DIR) ]; then mkdir $(FIRMWARE_INSTALL_DIR); fi
