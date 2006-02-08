@@ -4,7 +4,7 @@ if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
 	echo "Usage: $0 DEVICE [OPTIONS]"
 	echo ""
 	echo "DEVICE is the wireless device (eth0, wlan0, wlan0.11, ...)"
-	echo "OPTIONS are the options to bcm43xx_sprom"
+	echo "OPTIONS are the options to bcm43xx-sprom"
 	exit 1
 fi
 
@@ -14,7 +14,7 @@ shift
 args="$@"
 if [ "$1" = "--all" ]; then
 	shift
-	args="`bcm43xx_sprom --help 2>&1| sed 's/  \(--[^ ]*\).*/\1 GET/;t;d' | tr '\n' ' '` $@"
+	args="`bcm43xx-sprom --help 2>&1| sed 's/  \(--[^ ]*\).*/\1 GET/;t;d' | tr '\n' ' '` $@"
 fi
 
 if [ -z "$device" ]; then
@@ -28,7 +28,7 @@ if [ $err -ne 0 ]; then
 	echo "Could not read SPROM ($err)"
 	exit 1
 fi
-mod_data="$(echo "$orig_data" | bcm43xx_sprom $args)"
+mod_data="$(echo "$orig_data" | bcm43xx-sprom $args)"
 err=$?
 if [ $err -ne 0 ]; then
 	echo "Could not modify SPROM data ($err)"
