@@ -143,9 +143,16 @@ static void write_iv(uint8_t flags, byte *data)
 
 		while (1) {
 
-			if ((data[0]==0xff) && (data[1]==0xff) && (data[2]==0x00) && (data[3]==0x00)) {
-				data = data + 8;
-				break;
+			if ((data[2]==0x00) && (data[3]==0x00)) {
+				if ((data[0]==0x00) && (data[1]==0x00) &&
+				    (data[4]==0x00) && (data[5]==0x00) &&
+				    (data[6]==0x00) && (data[7]==0x00)) {
+					data = data + 8;
+					continue;
+				} else if ((data[0]==0xff) && (data[1]==0xff)) {
+					data = data + 8;
+					break;
+				}
 			}
 
 			if (flags & BYTE_ORDER_LITTLE_ENDIAN)
