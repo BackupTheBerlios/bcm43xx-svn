@@ -2,7 +2,7 @@ VERSION = 001
 
 CC = cc
 PREFIX = /usr/local
-CFLAGS = -std=c99 -O2 -fomit-frame-pointer -Wall
+CFLAGS = -std=c99 -O2 -fomit-frame-pointer -Wall -D_BSD_SOURCE
 LDFLAGS =
 
 

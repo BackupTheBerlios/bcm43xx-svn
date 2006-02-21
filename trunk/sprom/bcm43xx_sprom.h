@@ -24,10 +24,8 @@
 #ifndef BCM43xx_SPROMTOOL_H_
 #define BCM43xx_SPROMTOOL_H_
 
-#include <stdint.h>
+#include "utils.h"
 
-#define bcm43xx_stringify_1(x)	#x
-#define bcm43xx_stringify(x)	bcm43xx_stringify_1(x)
 #define VERSION			bcm43xx_stringify(VERSION_)
 
 #define SPROM_SIZE		128 /* bytes */
@@ -115,6 +113,7 @@ struct cmdline_args {
 	const char *outfile;
 	int verbose;
 	int force;
+	int hex_mode;
 
 #define MAX_VPARM	512
 	struct cmdline_vparm vparm[MAX_VPARM];

@@ -69,12 +69,18 @@ int prdata(const char *fmt, ...)
 	return ret;
 }
 
+void internal_error(const char *message)
+{
+	prerror("Internal programming error: %s\n", message);
+	exit(1);
+}
+
 static void oom(void)
 {
-	fprintf(stderr, "ERROR: Out of memory!\n"
-			"Virtual memory exhausted. "
-			"Please close some applications, "
-			"add more RAM or SWAP space.\n");
+	prerror("ERROR: Out of memory!\n"
+		"Virtual memory exhausted. "
+		"Please close some applications, "
+		"add more RAM or SWAP space.\n");
 	exit(1);
 }
 
