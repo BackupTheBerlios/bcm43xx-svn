@@ -1270,6 +1270,10 @@ static int parse_args(int argc, char *argv[])
 			goto out_usage;
 		}
 	}
+	if (cmdargs.nr_vparm == 0) {
+		prerror("No Value parameter given. See --help.\n");
+		return -1;
+	}
 	return 0;
 
 out_usage:
