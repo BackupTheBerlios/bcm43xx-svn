@@ -737,10 +737,12 @@ static void print_usage(int argc, char *argv[])
 	prdata("  -v|--version          Print version\n");
 	prdata("  -h|--help             Print this help\n");
 	prdata("\n");
+	prdata("Value Parameters:\n");
+	prdata("\n");
 	prdata("  -s|--rawset OFF,VAL   Set a VALue at a byte-OFFset\n");
 	prdata("  -g|--rawget OFF       Get a value at a byte-OFFset\n");
 	prdata("\n");
-	prdata(" Values (for displaying (GET) or modification):\n");
+	prdata("Predefined values (for displaying (GET) or modification):\n");
 	prdata("  --subp [0xFFFF]       Subsytem product ID for PCI\n");
 	prdata("  --subv [0xFFFF]       Subsystem vendor ID for PCI\n");
 	prdata("  --ppid [0xFFFF]       Product ID for PCI\n");
