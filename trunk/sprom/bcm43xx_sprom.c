@@ -87,11 +87,13 @@ static int write_output(int fd, const uint8_t *sprom)
 {
 	int err;
 
-	err = ftruncate(fd, 0);
-	if (err) {
-		prerror("Could not truncate --outfile %s\n",
-			cmdargs.outfile);
-		return -1;
+	if (cmdargs.outfile) {
+		err = ftruncate(fd, 0);
+		if (err) {
+			prerror("Could not truncate --outfile %s\n",
+				cmdargs.outfile);
+			return -1;
+		}
 	}
 
 	if (cmdargs.hex_mode)
