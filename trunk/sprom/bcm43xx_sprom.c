@@ -95,8 +95,13 @@ static int write_output(int fd, const uint8_t *sprom)
 	}
 
 	if (cmdargs.hex_mode)
-		return write_output_hex(fd, sprom);
-	return write_output_binary(fd, sprom);
+		err = write_output_hex(fd, sprom);
+	else
+		err = write_output_binary(fd, sprom);
+	if (err)
+		prerror("Could not write output data.\n");
+
+	return err;
 }
 
 static int modify_value(uint8_t *sprom,
