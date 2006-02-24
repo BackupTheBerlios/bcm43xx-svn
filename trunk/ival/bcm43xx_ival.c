@@ -39,6 +39,36 @@ static void get_description(char *desc,
 			    uint32_t value)
 {
 	switch (offset) {
+	case 0x18:
+		strcpy(desc, "Cram (>= rev3)");
+		break;
+	case 0x20:
+		strcpy(desc, "DMA/PIO IRQ Reason 1");
+		break;
+	case 0x24:
+		strcpy(desc, "DMA/PIO IRQ Mask 1");
+		break;
+	case 0x28:
+		strcpy(desc, "DMA/PIO IRQ Reason 2");
+		break;
+	case 0x2C:
+		strcpy(desc, "DMA/PIO IRQ Mask 2");
+		break;
+	case 0x30:
+		strcpy(desc, "DMA/PIO IRQ Reason 3");
+		break;
+	case 0x34:
+		strcpy(desc, "DMA/PIO IRQ Mask 3");
+		break;
+	case 0x38:
+		strcpy(desc, "DMA/PIO IRQ Reason 4");
+		break;
+	case 0x3C:
+		strcpy(desc, "DMA/PIO IRQ Mask 4");
+		break;
+	case 0x120:
+		strcpy(desc, "Status BitField");
+		break;
 	case 0x124:
 		strcpy(desc, "Reg124BitField");
 		break;
@@ -53,6 +83,15 @@ static void get_description(char *desc,
 		break;
 	case 0x134:
 		strcpy(desc, "Template RAM Data");
+		break;
+	case 0x140:
+		strcpy(desc, "PowerSave status BitField");
+		break;
+	case 0x144:
+		strcpy(desc, "PMQ MAC");
+		break;
+	case 0x158:
+		strcpy(desc, "Radio HW-disabled (corerev >= 3)");
 		break;
 	case 0x160:
 		strcpy(desc, "SHM Control");
@@ -85,8 +124,137 @@ static void get_description(char *desc,
 	case 0x166:
 		strcpy(desc, "SHM Low");
 		break;
+	case 0x170:
+		strcpy(desc, "Xmitstatus 0");
+		break;
+	case 0x174:
+		strcpy(desc, "Xmitstatus 1");
+		break;
+	case 0x180:
+		strcpy(desc, "TSF Low (corerev >= 3)");
+		break;
+	case 0x184:
+		strcpy(desc, "TSF High (corerev >= 3)");
+		break;
+	case 0x188:
+		strcpy(desc, "Timing (corerev >= 3)");
+		break;
+	case 0x18C:
+		strcpy(desc, "Timing (TBTT) (corerev >= 3)");
+		break;
+	case 0x190:
+		strcpy(desc, "ATIM window (corerev >= 3 && Ad-Hoc)");
+		break;
+	case 0x200:
+		strcpy(desc, "DMA controller 1 base");
+		break;
+	case 0x220:
+		strcpy(desc, "DMA controller 2 base");
+		break;
+	case 0x240:
+		strcpy(desc, "DMA controller 3 base");
+		break;
+	case 0x260:
+		strcpy(desc, "DMA controller 4 base");
+		break;
+	case 0x300:
+		strcpy(desc, "PIO queue 1");
+		break;
+	case 0x310:
+		strcpy(desc, "PIO queue 2");
+		break;
+	case 0x320:
+		strcpy(desc, "PIO queue 3");
+		break;
+	case 0x330:
+		strcpy(desc, "PIO queue 4");
+		break;
+	case 0x3E0:
+		strcpy(desc, "PHY Versioning");
+		break;
+	case 0x3E2:
+		strcpy(desc, "A/B PHY Radio BitField (antennadiv)");
+		break;
 	case 0x3E6:
 		strcpy(desc, "Baseband Attenuation for B/G PHYs Revision 0");
+		break;
+	case 0x3E8:
+		strcpy(desc, "Antenna BitField");
+		break;
+	case 0x3EC:
+		strcpy(desc, "PHY init (FIXME)");
+		break;
+	case 0x3F0:
+		strcpy(desc, "Channel");
+		break;
+	case 0x3F6:
+		strcpy(desc, "Radio Control");
+		break;
+	case 0x3F8:
+		strcpy(desc, "Radio Data High");
+		break;
+	case 0x3FA:
+		strcpy(desc, "Radio Data Low");
+		break;
+	case 0x3FC:
+		strcpy(desc, "PHY Control");
+		break;
+	case 0x3FE:
+		strcpy(desc, "PHY Data");
+		break;
+	case 0x420:
+		strcpy(desc, "MacAddressFilter Control");
+		break;
+	case 0x422:
+		strcpy(desc, "MacAddressFilter Data");
+		break;
+	case 0x43C:
+		strcpy(desc, "Security Clear");
+		break;
+	case 0x49A:
+		strcpy(desc, "Radio HW-disabled (corerev < 3)");
+		break;
+	case 0x49C:
+		strcpy(desc, "GPIO Control (Pin ON/OFF)");
+		break;
+	case 0x49E:
+		strcpy(desc, "GPIO Control (Pin Enable)");
+		break;
+	case 0x604:
+		strcpy(desc, "TBTT in usecs for BSS#3 (corerev < 3)");
+		break;
+	case 0x606:
+		strcpy(desc, "Beacon Interval >> 6 for BSS#3 (corerev < 3)");
+		break;
+	case 0x60C:
+		strcpy(desc, "ATIM Window BSS#3 (corerev < 3)");
+		break;
+	case 0x60E:
+		strcpy(desc, "ATIM Window valid? (corerev < 3)");
+		break;
+	case 0x610:
+		strcpy(desc, "Beacon Interval for BSS#3 (corerev < 3)");
+		break;
+	case 0x632:
+		strcpy(desc, "TSF 0 (corerev < 3)");
+		break;
+	case 0x634:
+		strcpy(desc, "TSF 1 (corerev < 3)");
+		break;
+	case 0x636:
+		strcpy(desc, "TSF 2 (corerev < 3)");
+		break;
+	case 0x638:
+		strcpy(desc, "TSF 3 (corerev < 3)");
+		break;
+	case 0x65A:
+		strcpy(desc, "Random Number Generator");
+		break;
+	case 0x684:
+		strcpy(desc, "SlotTime + 510");
+		break;
+	case 0x6A8:
+		strcpy(desc, "Fast powerup delay control");
 		break;
 	/* TODO: Add the missing. */
 	default:
