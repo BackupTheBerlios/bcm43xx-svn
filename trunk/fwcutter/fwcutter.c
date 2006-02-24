@@ -36,6 +36,7 @@ typedef unsigned char byte;
 
 #define MISSING_INITVAL_08       0x10  /* initval 8 is missing */
 #define MISSING_INITVAL_80211_A  0x20  /* initvals 3,7,9,10 (802.11a cards) are empty */
+#define REVERSE_ORDER_INITVALS   0x40  /* initvals in reverse order: 10, 9, ... */
 
 #define FIRMWARE_UCODE_OFFSET    100
 #define FIRMWARE_UNDEFINED       0
@@ -117,21 +118,30 @@ static void write_iv(uint8_t flags, byte *data)
 {
 	FILE* fw;
 	char ivfilename[2048];
-	int i;
+	int i,j;
 
 	for (i = 1; i <= 10; i++) {
 
-		if ((flags & MISSING_INITVAL_08) && (i==8)) {
+		if (flags & REVERSE_ORDER_INITVALS)
+			j = 11 - i;
+		else
+			j = i;
+
+		if ((flags & MISSING_INITVAL_08) && (j==8)) {
 			printf("*****: Sorry, initval08 is not available in driver file \"%s\".\n", cmdargs.infile);
 			printf("*****: Extracting firmware from an old driver is bad. Choose a more recent one.\n");
 			printf("*****: Luckily bcm43xx driver doesn't include initval08 uploads at the moment.\n");
 			printf("*****: But this can be added in the future...\n");
 			i++;
+			if (flags & REVERSE_ORDER_INITVALS)
+				j--;
+			else
+				j++;
 		}
 
 		snprintf(ivfilename, sizeof(ivfilename),
 			 "%s/bcm43xx_initval%02d%s.fw",
-			 cmdargs.target_dir, i, cmdargs.postfix);
+			 cmdargs.target_dir, j, cmdargs.postfix);
 		fw = fopen(ivfilename, "w");
 
 		if (!fw) {
@@ -139,7 +149,8 @@ static void write_iv(uint8_t flags, byte *data)
 			exit(1);
 		}
 
-		printf("extracting bcm43xx_initval%02d%s.fw ...\n", i, cmdargs.postfix);
+		printf("extracting bcm43xx_initval%02d%s.fw ...\n", 
+		       j, cmdargs.postfix);
 
 		while (1) {
 

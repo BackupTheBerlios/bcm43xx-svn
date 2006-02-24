@@ -197,6 +197,33 @@ static const struct file {
 	},
 	{
 		.name        = "AppleAirPort2",
+		.version     = "3.90.34.0.p13 (402.6)",
+		.md5         = "2ba0c4de95344b00f2c7efad917490f5",
+		.flags       = BYTE_ORDER_BIG_ENDIAN |
+		               MISSING_INITVAL_80211_A,
+		.iv_pos      = 0x510f4,                                /* A-PHY init vals empty */
+		.uc2_pos     = 0x529e4,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x5692c,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x5b71c,  .uc5_length  = 0x57f0,
+		.pcm4_pos    = 0x60f0c,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x6142c,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "AppleAirPort2",
+		.version     = "3.90.34.0.p16 (404.2)",
+		.md5         = "6abbe6468954c510b36546f3cdb89efc",     /* x86 driver */
+		.flags       = BYTE_ORDER_BIG_ENDIAN |
+		               REVERSE_ORDER_INITVALS |
+		               MISSING_INITVAL_80211_A,
+		.iv_pos      = 0x5dcd8,                                /* A-PHY init vals empty */
+		.uc2_pos     = 0x59d90,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x54fa0,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x4f7b0,  .uc5_length  = 0x57f0,
+		.pcm4_pos    = 0x4f290,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x4ed70,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "AppleAirPort2",
 		.version     = "3.90.34.0.p16 (404.2)",
 		.md5         = "7200d1aef5f413ebc811046d068b40dc",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
