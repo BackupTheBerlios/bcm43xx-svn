@@ -37,6 +37,7 @@ static int send_commands(struct pcibx_device *dev)
 {
 	struct pcibx_command *cmd;
 	uint8_t v;
+	float f;
 	int i;
 
 	for (i = 0; i < cmdargs.nr_commands; i++) {
@@ -79,6 +80,51 @@ static int send_commands(struct pcibx_device *dev)
 			break;
 		case CMD_AUX33:
 			pcibx_cmd_aux33(dev, cmd->u.boolean);
+			break;
+		case CMD_MEASUREFREQ:
+			f = pcibx_cmd_sysfreq(dev);
+			prdata("Measured system frequency: %f Mhz\n", f);
+			break;
+		case CMD_MEASUREV25REF:
+			f = pcibx_cmd_measure(dev, MEASURE_V25REF);
+			prdata("Measured +2.5V Reference: %f Volt\n", f);
+			break;
+		case CMD_MEASUREV12UUT:
+			f = pcibx_cmd_measure(dev, MEASURE_V12UUT);
+			prdata("Measured +12V UUT: %f Volt\n", f);
+			break;
+		case CMD_MEASUREV5UUT:
+			f = pcibx_cmd_measure(dev, MEASURE_V5UUT);
+			prdata("Measured +5V UUT: %f Volt\n", f);
+			break;
+		case CMD_MEASUREV33UUT:
+			f = pcibx_cmd_measure(dev, MEASURE_V33UUT);
+			prdata("Measured +33V UUT: %f Volt\n", f);
+			break;
+		case CMD_MEASUREV5AUX:
+			f = pcibx_cmd_measure(dev, MEASURE_V5AUX);
+			prdata("Measured +5V AUX: %f Volt\n", f);
+			break;
+		case CMD_MEASUREA5:
+			f = pcibx_cmd_measure(dev, MEASURE_A5);
+			prdata("Measured +5V Current: %f Ampere\n", f);
+			break;
+		case CMD_MEASUREA12:
+			f = pcibx_cmd_measure(dev, MEASURE_A12);
+			prdata("Measured +12V Current: %f Ampere\n", f);
+			break;
+		case CMD_MEASUREA33:
+			f = pcibx_cmd_measure(dev, MEASURE_A33);
+			prdata("Measured +3.3V Current: %f Ampere\n", f);
+			break;
+		case CMD_FASTRAMP:
+			pcibx_cmd_ramp(dev, cmd->u.boolean);
+			break;
+		case CMD_RST:
+			pcibx_cmd_rst(dev, cmd->u.d);
+			break;
+		case CMD_RSTDEFAULT:
+			pcibx_cmd_rstdefault(dev);
 			break;
 		default:
 			internal_error("invalid command");
@@ -148,6 +194,18 @@ static void print_usage(int argc, char **argv)
 	prdata("  --cmd-clearbitstat    Clear 32/64 bit status\n");
 	prdata("  --cmd-aux5 ON/OFF     Turn +5V Aux ON or OFF\n");
 	prdata("  --cmd-aux33 ON/OFF    Turn +3.3V Aux ON or OFF\n");
+	prdata("  --cmd-measurefreq     Measure system frequency\n");
+	prdata("  --cmd-measurev25ref   Measure +2.5V Reference\n");
+	prdata("  --cmd-measurev12uut   Measure +12V UUT\n");
+	prdata("  --cmd-measurev5uut    Measure +5V UUT\n");
+	prdata("  --cmd-measurev33UUT   Measure +3.3V UUT\n");
+	prdata("  --cmd-measurev5aux    Measure +5V AUX\n");
+	prdata("  --cmd-measurea5       Measure +5V Current\n");
+	prdata("  --cmd-measurea12      Measure +12V Current\n");
+	prdata("  --cmd-measurea33      Measure +3.3V Current\n");
+	prdata("  --cmd-fastramp ON/OFF Select slow/fast +5V ramp\n");
+	prdata("  --cmd-rst 0.150       Set RST# (reset) delay (in seconds)\n");
+	prdata("  --cmd-rstdefault      Set RST# to default (150msec)\n");
 }
 
 #define ARG_MATCH		0
@@ -255,17 +313,17 @@ static int parse_bool(const char *str,
 		return 1;
 	if (strcmp(str, "0") == 0)
 		return 0;
-	if (strcmp(str, "true") == 0)
+	if (strcasecmp(str, "true") == 0)
 		return 1;
-	if (strcmp(str, "false") == 0)
+	if (strcasecmp(str, "false") == 0)
 		return 0;
-	if (strcmp(str, "yes") == 0)
+	if (strcasecmp(str, "yes") == 0)
 		return 1;
-	if (strcmp(str, "no") == 0)
+	if (strcasecmp(str, "no") == 0)
 		return 0;
-	if (strcmp(str, "on") == 0)
+	if (strcasecmp(str, "on") == 0)
 		return 1;
-	if (strcmp(str, "off") == 0)
+	if (strcasecmp(str, "off") == 0)
 		return 0;
 
 	if (param) {
@@ -273,6 +331,27 @@ static int parse_bool(const char *str,
 			param);
 	}
 
+	return -1;
+}
+
+static int parse_double(const char *str,
+			double *value,
+			const char *param)
+{
+	double v;
+
+	errno = 0;
+	v = strtod(str, NULL);
+	if (errno)
+		goto error;
+	*value = v;
+
+	return 0;
+error:
+	if (param) {
+		prerror("%s value parsing error. Format: 0.00123\n",
+			param);
+	}
 	return -1;
 }
 
@@ -303,6 +382,28 @@ static int add_boolcommand(enum command_id cmd,
 		return -1;
 	cmdargs.commands[cmdargs.nr_commands].id = cmd;
 	cmdargs.commands[cmdargs.nr_commands].u.boolean = !!boolean;
+	cmdargs.nr_commands++;
+
+	return 0;
+}
+
+static int add_doublecommand(enum command_id cmd,
+			     const char *str,
+			     const char *param)
+{
+	int err;
+	double value;
+
+	if (cmdargs.nr_commands == MAX_COMMAND) {
+		prerror("Maximum number of commands exceed.\n");
+		return -1;
+	}
+
+	err = parse_double(str, &value, param);
+	if (err)
+		return err;
+	cmdargs.commands[cmdargs.nr_commands].id = cmd;
+	cmdargs.commands[cmdargs.nr_commands].u.d = value;
 	cmdargs.nr_commands++;
 
 	return 0;
@@ -368,6 +469,55 @@ static int parse_args(int argc, char **argv)
 			err = add_boolcommand(CMD_AUX33, param, "--cmd-aux33");
 			if (err)
 				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurefreq", 0, 0)) {
+			err = add_command(CMD_MEASUREFREQ);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurev25ref", 0, 0)) {
+			err = add_command(CMD_MEASUREV25REF);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurev12uut", 0, 0)) {
+			err = add_command(CMD_MEASUREV12UUT);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurev5uut", 0, 0)) {
+			err = add_command(CMD_MEASUREV5UUT);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurev33uut", 0, 0)) {
+			err = add_command(CMD_MEASUREV33UUT);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurev5aux", 0, 0)) {
+			err = add_command(CMD_MEASUREV5AUX);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurea5", 0, 0)) {
+			err = add_command(CMD_MEASUREA5);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurea12", 0, 0)) {
+			err = add_command(CMD_MEASUREA12);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-measurea33", 0, 0)) {
+			err = add_command(CMD_MEASUREA33);
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-fastramp", 0, &param)) {
+			err = add_boolcommand(CMD_FASTRAMP, param, "--cmd-fastramp");
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-rst", 0, &param)) {
+			err = add_doublecommand(CMD_RST, param, "--cmd-rst");
+			if (err)
+				goto error;
+		} else if (arg_match(argv, &i, "--cmd-rstdefault", 0, 0)) {
+			err = add_command(CMD_RSTDEFAULT);
+			if (err)
+				goto error;
+
 		} else {
 			prerror("Unrecognized argument: %s\n", argv[i]);
 			goto out_usage;

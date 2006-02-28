@@ -98,6 +98,16 @@ static void pcibx_write_data(struct pcibx_device *dev,
 	outb(0xDE, dev->port + 2);
 }
 
+static void pcibx_write_data_ext(struct pcibx_device *dev,
+				 uint8_t data)
+{
+	outb(0xDE, dev->port + 2);
+	outb(data, dev->port);
+	outb(0xDC, dev->port + 2);
+	msleep(2);
+	outb(0xDE, dev->port + 2);
+}
+
 static uint8_t pcibx_read_data(struct pcibx_device *dev)
 {
 	uint8_t v;
@@ -115,6 +125,14 @@ static void pcibx_write(struct pcibx_device *dev,
 {
 	pcibx_set_address(dev, reg);
 	pcibx_write_data(dev, value);
+}
+
+static void pcibx_write_ext(struct pcibx_device *dev,
+			    uint8_t reg,
+			    uint8_t value)
+{
+	pcibx_set_address(dev, reg);
+	pcibx_write_data_ext(dev, value);
 }
 
 static uint8_t pcibx_read(struct pcibx_device *dev,
@@ -172,10 +190,10 @@ void pcibx_cmd_aux5(struct pcibx_device *dev, int on)
 {
 	if (on) {
 		prsendinfo("Aux 5V ON");
-		pcibx_write(dev, PCIBX_REG_AUX5, 0);
+		pcibx_write(dev, PCIBX_REG_AUX5V, 0);
 	} else {
 		prsendinfo("Aux 5V OFF");
-		pribc_write(dev, PCIBX_REG_AUX5, 1);
+		pcibx_write(dev, PCIBX_REG_AUX5V, 1);
 	}
 }
 
@@ -183,9 +201,86 @@ void pcibx_cmd_aux33(struct pcibx_device *dev, int on)
 {
 	if (on) {
 		prsendinfo("Aux 3.3V ON");
-		pcibx_write(dev, PCIBX_REG_AUX33, 0);
+		pcibx_write(dev, PCIBX_REG_AUX33V, 0);
 	} else {
 		prsendinfo("Aux 3.3V OFF");
-		pribc_write(dev, PCIBX_REG_AUX33, 1);
+		pcibx_write(dev, PCIBX_REG_AUX33V, 1);
 	}
+}
+
+float pcibx_cmd_sysfreq(struct pcibx_device *dev)
+{
+	float mhz;
+	uint32_t tmp;
+	uint32_t v;
+
+	prsendinfo("Measure system frequency");
+	pcibx_write(dev, PCIBX_REG_FREQMEASURE_CTL, 1);
+	msleep(15);
+	v = pcibx_read(dev, PCIBX_REG_FREQMEASURE_0);
+	tmp = v;
+	v = pcibx_read(dev, PCIBX_REG_FREQMEASURE_1);
+	tmp |= (v << 8);
+	v = pcibx_read(dev, PCIBX_REG_FREQMEASURE_2);
+	tmp |= (v << 16);
+
+	mhz = tmp * 100 / 1048575;
+
+	return mhz;
+}
+
+float pcibx_cmd_measure(struct pcibx_device *dev, enum measure_id id)
+{
+	float ret;
+	int i;
+	uint16_t d0, d1;
+	uint16_t tmp;
+
+	prsendinfo("Measuring V/A");
+	pcibx_write(dev, PCIBX_REG_MEASURE_CTL, id);
+	msleep(10);
+	pcibx_write_ext(dev, PCIBX_REG_MEASURE_CONV, 0);
+	msleep(2);
+	for (i = 0; i < 13; i++)
+		pcibx_write(dev, PCIBX_REG_MEASURE_STROBE, 0);
+	d1 = pcibx_read(dev, PCIBX_REG_MEASURE_DATA1);
+	d0 = pcibx_read(dev, PCIBX_REG_MEASURE_DATA0);
+	tmp = d0;
+	tmp |= (d1 << 8);
+
+	if (id == MEASURE_V12UUT)
+		ret = tmp * 5.75 * 2.5 / 4096;
+	else
+		ret = tmp * 2.26 * 2.5 / 4096;
+
+	return ret;
+}
+
+void pcibx_cmd_ramp(struct pcibx_device *dev, int fast)
+{
+	prsendinfo("+5V RAMP");
+	pcibx_write(dev, PCIBX_REG_RAMP, fast ? 1 : 0);
+}
+
+void pcibx_cmd_rst(struct pcibx_device *dev, double sec)
+{
+	uint32_t tmp;
+
+	prsendinfo("RST#");
+	sec /= 2.56;
+	sec *= 1000000;
+	tmp = sec;
+	tmp &= 0x1FFFFF;
+	tmp |= (1 << 23);
+	pcibx_write(dev, PCIBX_REG_RST_0, (tmp & 0x000000FF));
+	pcibx_write(dev, PCIBX_REG_RST_1, (tmp & 0x0000FF00) >> 8);
+	pcibx_write(dev, PCIBX_REG_RST_2, (tmp & 0x00FF0000) >> 16);
+}
+
+void pcibx_cmd_rstdefault(struct pcibx_device *dev)
+{
+	prsendinfo("default RST#");
+	pcibx_write(dev, PCIBX_REG_RST_0, 0);
+	pcibx_write(dev, PCIBX_REG_RST_1, 0);
+	pcibx_write(dev, PCIBX_REG_RST_2, 0);
 }

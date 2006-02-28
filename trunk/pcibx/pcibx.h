@@ -37,13 +37,25 @@ enum command_id {
 	CMD_CLEARBITSTAT,
 	CMD_AUX5,
 	CMD_AUX33,
-	//TODO
+	CMD_MEASUREFREQ,
+	CMD_MEASUREV25REF,
+	CMD_MEASUREV12UUT,
+	CMD_MEASUREV5UUT,
+	CMD_MEASUREV33UUT,
+	CMD_MEASUREV5AUX,
+	CMD_MEASUREA5,
+	CMD_MEASUREA12,
+	CMD_MEASUREA33,
+	CMD_FASTRAMP,
+	CMD_RST,
+	CMD_RSTDEFAULT,
 };
 
 struct pcibx_command {
 	enum command_id id;
 	union {
 		int boolean;
+		double d;
 	} u;
 };
 

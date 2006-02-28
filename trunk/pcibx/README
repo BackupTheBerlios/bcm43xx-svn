@@ -1,0 +1,27 @@
+***                                                  ***
+***  Catalyst PCIBX32-X / PCIBX64-X Control Utility  ***
+***                                                  ***
+
+About this software
+-------------------
+
+This program can be used to control the Catalyst PCIBX32-X and
+PCIBX64-X PCI Extender card through the parallel port interface.
+
+
+Usage
+-----
+
+See  pcibx --help  for detailed usage description.
+And read the manual of your PCI Extender. ;)
+
+
+Bug / Issues
+------------
+
+The Parallel Port is currently accessed through userspace outb()
+and inb() calls. These functions are not available on all
+architectures. When porting this application to something else
+than X86, a kernel level driver might be required.
+But that's a very minor issue, as just the lowlevel functions in
+pcibx_device.c have to be replaced.
