@@ -206,7 +206,7 @@ static void print_usage(int argc, char **argv)
 	prdata("  -c|--cycle DELAY      Execute the commands in a cycle and delay\n");
 	prdata("                        DELAY msecs after each cycle\n");
 	prdata("\nDevice commands\n");
-	prdata("  --cmd-glob ON/OFF     Turn Global power ON/OFF (does not turn ON/OFF UUT Voltages)\n");
+	prdata("  --cmd-glob ON/OFF     Turn Global power ON/OFF (does not turn ON UUT Voltages)\n");
 	prdata("  --cmd-uut ON/OFF      Turn UUT Voltages ON/OFF (also turns Global power ON)\n");
 	prdata("  --cmd-printboardid    Print the Board ID\n");
 	prdata("  --cmd-printfirmrev    Print the Firmware revision\n");
