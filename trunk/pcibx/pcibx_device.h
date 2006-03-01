@@ -35,8 +35,8 @@
 #define PCIBX_REG_MEASURE_CTL		0x67
 #define PCIBX_REG_MEASURE_CONV		0x68
 #define PCIBX_REG_MEASURE_STROBE	0x69
-#define PCIBX_REG_MEASURE_DATA1		0x6A
-#define PCIBX_REG_MEASURE_DATA0		0x6B
+#define PCIBX_REG_MEASURE_DATA0		0x6A
+#define PCIBX_REG_MEASURE_DATA1		0x6B
 #define PCIBX_REG_RST_0			0x71
 #define PCIBX_REG_RST_1			0x72
 #define PCIBX_REG_RST_2			0x73
@@ -59,7 +59,7 @@
 
 struct pcibx_device {
 	unsigned short port;
-	unsigned short regoffset;
+	uint8_t regoffset;
 };
 
 enum measure_id {

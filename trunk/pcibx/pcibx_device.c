@@ -193,10 +193,11 @@ float pcibx_cmd_measure(struct pcibx_device *dev, enum measure_id id)
 	msleep(10);
 	pcibx_write_ext(dev, PCIBX_REG_MEASURE_CONV, 0);
 	msleep(2);
+	pcibx_set_address(dev, PCIBX_REG_MEASURE_STROBE);
 	for (i = 0; i < 13; i++)
-		pcibx_write(dev, PCIBX_REG_MEASURE_STROBE, 0);
-	d1 = pcibx_read(dev, PCIBX_REG_MEASURE_DATA1);
+		pcibx_write_data(dev, 0);
 	d0 = pcibx_read(dev, PCIBX_REG_MEASURE_DATA0);
+	d1 = pcibx_read(dev, PCIBX_REG_MEASURE_DATA1);
 	tmp = d0;
 	tmp |= (d1 << 8);
 
