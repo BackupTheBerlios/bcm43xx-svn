@@ -61,6 +61,8 @@ struct pcibx_command {
 
 struct cmdline_args {
 	int verbose;
+	int sched;
+	int cycle;
 
 	unsigned short port;
 	int is_PCI_1;

@@ -27,57 +27,9 @@
 
 #include <string.h>
 #include <sys/io.h>
-#include <time.h>
-#include <sys/time.h>
 #include <errno.h>
 #include <unistd.h>
 
-
-static void udelay(unsigned int usecs)
-{
-	int err;
-	struct timeval time, deadline;
-
-	err = gettimeofday(&deadline, NULL);
-	if (err)
-		goto error;
-	deadline.tv_usec += usecs;
-	if (deadline.tv_usec >= 1000000) {
-		deadline.tv_sec++;
-		deadline.tv_usec -= 1000000;
-	}
-
-	while (1) {
-		err = gettimeofday(&time, NULL);
-		if (err)
-			goto error;
-		if (time.tv_sec < deadline.tv_sec)
-			continue;
-		if (time.tv_usec >= deadline.tv_usec)
-			break;
-	}
-	return;
-error:
-	prerror("gettimeofday() failed with: %s\n",
-		strerror(errno));
-}
-
-static void msleep(unsigned int msecs)
-{
-	int err;
-	struct timespec time;
-
-	time.tv_sec = 0;
-	time.tv_nsec = msecs;
-	time.tv_nsec *= 1000000;
-	do {
-		err = nanosleep(&time, &time);
-	} while (err && errno == EINTR);
-	if (err) {
-		prerror("nanosleep() failed with: %s\n",
-			strerror(errno));
-	}
-}
 
 static void pcibx_set_address(struct pcibx_device *dev,
 			      uint8_t address)

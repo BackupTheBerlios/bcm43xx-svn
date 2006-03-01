@@ -31,4 +31,7 @@ void internal_error(const char *message);
 void * malloce(size_t size);
 void * realloce(void *ptr, size_t newsize);
 
+void udelay(unsigned int usecs);
+void msleep(unsigned int msecs);
+
 #endif /* PCIBX_UTILS_H_ */

@@ -28,6 +28,8 @@
 #include <errno.h>
 #include <stdint.h>
 #include <sys/io.h>
+#include <sched.h>
+#include <signal.h>
 
 
 struct cmdline_args cmdargs;
@@ -149,20 +151,35 @@ static int init_device(struct pcibx_device *dev)
 }
 
 static int request_priority(void)
-{//TODO
-	return 0;
+{
+	struct sched_param param;
+	int err;
+
+	param.sched_priority = sched_get_priority_max(cmdargs.sched);
+	err = sched_setscheduler(0, cmdargs.sched, &param);
+	if (err) {
+		prerror("Could not set scheduling policy (%s).\n",
+			strerror(errno));
+	}
+
+	return err;
 }
 
 static int request_permissions(void)
 {
 	int err;
 
-	err = ioperm(cmdargs.port, 3, 1);
-	if (err) {
-		printf("Could not aquire I/O permissions for "
-		       "port 0x%03X.\n", cmdargs.port);
-	}
+	err = ioperm(cmdargs.port, 1, 1);
+	if (err)
+		goto error;
+	err = ioperm(cmdargs.port + 2, 1, 1);
+	if (err)
+		goto error;
 
+	return err;
+error:
+	prerror("Could not aquire I/O permissions for "
+		"port 0x%03X.\n", cmdargs.port);
 	return err;
 }
 
@@ -185,6 +202,9 @@ static void print_usage(int argc, char **argv)
 	prdata("\n");
 	prdata("  -p|--port 0x378       Port base address (Default: 0x378)\n");
 	prdata("  -P|--pci1 BOOL        If true, PCI_1 (default), otherwise PCI_2. (See JP15)\n");
+	prdata("  -s|--sched POLICY     Scheduling policy (normal, fifo, rr)\n");
+	prdata("  -c|--cycle DELAY      Execute the commands in a cycle and delay\n");
+	prdata("                        DELAY msecs after each cycle\n");
 	prdata("\nDevice commands\n");
 	prdata("  --cmd-on              Turn the device ON\n");
 	prdata("  --cmd-off             Turn the device OFF\n");
@@ -198,7 +218,7 @@ static void print_usage(int argc, char **argv)
 	prdata("  --cmd-measurev25ref   Measure +2.5V Reference\n");
 	prdata("  --cmd-measurev12uut   Measure +12V UUT\n");
 	prdata("  --cmd-measurev5uut    Measure +5V UUT\n");
-	prdata("  --cmd-measurev33UUT   Measure +3.3V UUT\n");
+	prdata("  --cmd-measurev33uut   Measure +3.3V UUT\n");
 	prdata("  --cmd-measurev5aux    Measure +5V AUX\n");
 	prdata("  --cmd-measurea5       Measure +5V Current\n");
 	prdata("  --cmd-measurea12      Measure +12V Current\n");
@@ -355,6 +375,27 @@ error:
 	return -1;
 }
 
+static int parse_int(const char *str,
+		     int *value,
+		     const char *param)
+{
+	int v;
+
+	errno = 0;
+	v = strtol(str, NULL, 10);
+	if (errno)
+		goto error;
+	*value = v;
+
+	return 0;
+error:
+	if (param) {
+		prerror("%s value parsing error. Format: 1234\n",
+			param);
+	}
+	return -1;
+}
+
 static int add_command(enum command_id cmd)
 {
 	if (cmdargs.nr_commands == MAX_COMMAND) {
@@ -417,6 +458,8 @@ static int parse_args(int argc, char **argv)
 
 	cmdargs.port = 0x378;
 	cmdargs.is_PCI_1 = 1;
+	cmdargs.sched = SCHED_OTHER;
+	cmdargs.cycle = -1;
 
 	for (i = 1; i < argc; i++) {
 		if (arg_match(argv, &i, "--version", "-v", 0)) {
@@ -436,6 +479,21 @@ static int parse_args(int argc, char **argv)
 			if (err < 0)
 				goto error;
 			cmdargs.is_PCI_1 = !!err;
+		} else if (arg_match(argv, &i, "--sched", "-s", &param)) {
+			if (strcasecmp(param, "normal") == 0)
+				cmdargs.sched = SCHED_OTHER;
+			else if (strcasecmp(param, "fifo") == 0)
+				cmdargs.sched = SCHED_FIFO;
+			else if (strcasecmp(param, "rr") == 0)
+				cmdargs.sched = SCHED_RR;
+			else {
+				prerror("Invalid parameter to --sched\n");
+				goto error;
+			}
+		} else if (arg_match(argv, &i, "--cycle", "-c", &param)) {
+			err = parse_int(param, &cmdargs.cycle, "--cycle");
+			if (err)
+				goto error;
 
 		} else if (arg_match(argv, &i, "--cmd-on", 0, 0)) {
 			err = add_command(CMD_ON);
@@ -535,10 +593,27 @@ error:
 	return -1;
 }
 
+static void signal_handler(int sig)
+{
+	prerror("Signal %d received. Terminating.\n", sig);
+	exit(1);
+}
+
 int main(int argc, char **argv)
 {
+	struct sigaction sa;
 	struct pcibx_device dev;
 	int err;
+
+	sa.sa_handler = signal_handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	err = sigaction(SIGINT, &sa, NULL);
+	err |= sigaction(SIGTERM, &sa, NULL);
+	if (err) {
+		prerror("sigaction setup failed.\n");
+		return err;
+	}
 
 	err = parse_args(argc, argv);
 	if (err == 1)
@@ -557,9 +632,15 @@ int main(int argc, char **argv)
 	err = init_device(&dev);
 	if (err)
 		goto out;
-	err = send_commands(&dev);
-	if (err)
-		goto out;
+	while (1) {
+		err = send_commands(&dev);
+		if (err)
+			goto out;
+		if (cmdargs.cycle < 0)
+			break;
+		if (cmdargs.cycle)
+			msleep(cmdargs.cycle);
+	}
 
 out:
 	return err;
