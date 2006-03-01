@@ -185,7 +185,12 @@ error:
 
 static void print_banner(int forceprint)
 {
-	const char *str = "Catalyst PCIBX32 PCI Extender control utility version " VERSION "\n";
+	const char *str =
+		"Catalyst PCIBX32 PCI Extender control utility version " VERSION "\n"
+		"\n"
+		"Copyright 2006 Michael Buesch <mbuesch@freenet.de>\n"
+		"Licensed unter the GNU General Public License v2+\n"
+		"\n";
 	if (forceprint)
 		prdata(str);
 	else
@@ -195,7 +200,7 @@ static void print_banner(int forceprint)
 static void print_usage(int argc, char **argv)
 {
 	print_banner(1);
-	prdata("\nUsage: %s [OPTION]\n", argv[0]);
+	prdata("Usage: %s [OPTION]\n", argv[0]);
 	prdata("  -V|--verbose          Be verbose\n");
 	prdata("  -v|--version          Print version\n");
 	prdata("  -h|--help             Print this help\n");
@@ -599,22 +604,30 @@ static void signal_handler(int sig)
 	exit(1);
 }
 
-int main(int argc, char **argv)
+static int setup_sighandler(void)
 {
-	struct sigaction sa;
-	struct pcibx_device dev;
 	int err;
+	struct sigaction sa;
 
 	sa.sa_handler = signal_handler;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;
 	err = sigaction(SIGINT, &sa, NULL);
 	err |= sigaction(SIGTERM, &sa, NULL);
-	if (err) {
+	if (err)
 		prerror("sigaction setup failed.\n");
-		return err;
-	}
 
+	return err;
+}
+
+int main(int argc, char **argv)
+{
+	struct pcibx_device dev;
+	int err;
+
+	err = setup_sighandler();
+	if (err)
+		goto out;
 	err = parse_args(argc, argv);
 	if (err == 1)
 		return 0;
