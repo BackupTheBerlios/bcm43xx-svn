@@ -69,6 +69,10 @@ void msleep(unsigned int msecs)
 	struct timespec time;
 
 	time.tv_sec = 0;
+	while (msecs >= 1000) {
+		time.tv_sec++;
+		msecs -= 1000;
+	}
 	time.tv_nsec = msecs;
 	time.tv_nsec *= 1000000;
 	do {
