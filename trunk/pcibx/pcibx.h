@@ -29,8 +29,8 @@
 #define VERSION		pcibx_stringify(VERSION_)
 
 enum command_id {
-	CMD_ON,
-	CMD_OFF,
+	CMD_GLOB,
+	CMD_UUT,
 	CMD_PRINTBOARDID,
 	CMD_PRINTFIRMREV,
 	CMD_PRINTSTATUS,

@@ -46,11 +46,11 @@ static int send_commands(struct pcibx_device *dev)
 		cmd = &(cmdargs.commands[i]);
 
 		switch (cmd->id) {
-		case CMD_ON:
-			pcibx_cmd_on(dev);
+		case CMD_GLOB:
+			pcibx_cmd_global_pwr(dev, cmd->u.boolean);
 			break;
-		case CMD_OFF:
-			pcibx_cmd_off(dev);
+		case CMD_UUT:
+			pcibx_cmd_uut_pwr(dev, cmd->u.boolean);
 			break;
 		case CMD_PRINTBOARDID:
 			v = pcibx_cmd_getboardid(dev);
@@ -206,8 +206,8 @@ static void print_usage(int argc, char **argv)
 	prdata("  -c|--cycle DELAY      Execute the commands in a cycle and delay\n");
 	prdata("                        DELAY msecs after each cycle\n");
 	prdata("\nDevice commands\n");
-	prdata("  --cmd-on              Turn the device ON\n");
-	prdata("  --cmd-off             Turn the device OFF\n");
+	prdata("  --cmd-glob ON/OFF     Turn Global power ON/OFF (does not turn ON/OFF UUT Voltages)\n");
+	prdata("  --cmd-uut ON/OFF      Turn UUT Voltages ON/OFF (also turns Global power ON)\n");
 	prdata("  --cmd-printboardid    Print the Board ID\n");
 	prdata("  --cmd-printfirmrev    Print the Firmware revision\n");
 	prdata("  --cmd-printstatus     Print the Board Status Bits\n");
@@ -495,12 +495,12 @@ static int parse_args(int argc, char **argv)
 			if (err)
 				goto error;
 
-		} else if (arg_match(argv, &i, "--cmd-on", 0, 0)) {
-			err = add_command(CMD_ON);
+		} else if (arg_match(argv, &i, "--cmd-glob", 0, &param)) {
+			err = add_boolcommand(CMD_GLOB, param, "--cmd-glob");
 			if (err)
 				goto error;
-		} else if (arg_match(argv, &i, "--cmd-off", 0, 0)) {
-			err = add_command(CMD_OFF);
+		} else if (arg_match(argv, &i, "--cmd-uut", 0, &param)) {
+			err = add_boolcommand(CMD_UUT, param, "--cmd-uut");
 			if (err)
 				goto error;
 		} else if (arg_match(argv, &i, "--cmd-printboardid", 0, 0)) {

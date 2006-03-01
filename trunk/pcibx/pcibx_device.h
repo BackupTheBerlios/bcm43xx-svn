@@ -73,8 +73,8 @@ enum measure_id {
 	MEASURE_A33	= 0x0F,
 };
 
-void pcibx_cmd_on(struct pcibx_device *dev);
-void pcibx_cmd_off(struct pcibx_device *dev);
+void pcibx_cmd_global_pwr(struct pcibx_device *dev, int on);
+void pcibx_cmd_uut_pwr(struct pcibx_device *dev, int on);
 uint8_t pcibx_cmd_getboardid(struct pcibx_device *dev);
 uint8_t pcibx_cmd_getfirmrev(struct pcibx_device *dev);
 uint8_t pcibx_cmd_getstatus(struct pcibx_device *dev);

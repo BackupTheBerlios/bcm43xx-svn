@@ -100,18 +100,31 @@ static void prsendinfo(const char *command)
 		prinfo("Sending command: %s\n", command);
 }
 
-void pcibx_cmd_on(struct pcibx_device *dev)
+void pcibx_cmd_global_pwr(struct pcibx_device *dev, int on)
 {
-	prsendinfo("PCIBX ON");
-	pcibx_write(dev, PCIBX_REG_GLOBALPWR, 1);
-	pcibx_write(dev, PCIBX_REG_UUTVOLT, 0);
-	msleep(200);
+	if (on) {
+		prsendinfo("Global Power ON");
+		pcibx_write(dev, PCIBX_REG_GLOBALPWR, 1);
+	} else {
+		prsendinfo("Global Power OFF");
+		pcibx_write(dev, PCIBX_REG_GLOBALPWR, 0);
+	}
 }
 
-void pcibx_cmd_off(struct pcibx_device *dev)
+void pcibx_cmd_uut_pwr(struct pcibx_device *dev, int on)
 {
-	prsendinfo("PCIBX OFF");
-	pcibx_write(dev, PCIBX_REG_UUTVOLT, 1);
+	if (on) {
+		pcibx_cmd_global_pwr(dev, 1);
+		prsendinfo("UUT Voltages ON");
+		pcibx_write(dev, PCIBX_REG_UUTVOLT, 0);
+		/* Wait for the RST# to become de-asserted. */
+		do {
+			msleep(200);
+		} while (!(pcibx_read(dev, PCIBX_REG_STATUS) & PCIBX_STATUS_RSTDEASS));
+	} else {
+		prsendinfo("UUT Voltages OFF");
+		pcibx_write(dev, PCIBX_REG_UUTVOLT, 1);
+	}
 }
 
 uint8_t pcibx_cmd_getboardid(struct pcibx_device *dev)
