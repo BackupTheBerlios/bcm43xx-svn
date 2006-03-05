@@ -275,6 +275,12 @@ static const struct file {
 	},
 	{ 
 		.name        = "bcmwl5.sys",
+		.version     = "3.10.36.0",                            /* 12/29/2002 */ 
+		.md5         = "94cf83440955c49387ab7d9d4a8ee138",
+		.flags       = DRIVER_UNSUPPORTED,
+	},
+	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.10.53.6",                            /* 04/28/2003 */ 
 		.md5         = "b43c593fd7c2a47cdc40580fe341f674",
 		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
@@ -717,7 +723,7 @@ static const struct file {
 	},
 	{
 		.name        = "wl.o",
-		.version     = "3.60.7.0 ? (1.3.2.0)",                   /* 02/04/2004 */
+		.version     = "3.60.7.0 ? (1.3.2.0)",                 /* 02/04/2004 */
 		.md5         = "7009220d84c445797443aa0221b7d8a4",     /* no bcm version found */
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,               /* but same fw files are also */
 		.iv_pos      = 0x545e0,                                /* in bcmwl5.sys 3.60.7.0, */
