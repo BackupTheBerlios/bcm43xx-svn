@@ -398,7 +398,7 @@ static void print_usage(int argc, char *argv[])
 	printf("  -i|--identify         Only identify the driver file (don't extract)\n");
 	printf("  -w|--target-dir DIR   Extract and write firmware to DIR\n");
 	printf("  -p|--postfix \".FOO\"   Postfix for firmware filenames (.FOO.fw)\n");
-	printf("  -v|--version          Print fwcutter version\n");
+	printf("  -v|--version          Print bcm43xx-fwcutter version\n");
 	printf("  -h|--help             Print this help\n");
 	printf("\nExample: %s bcmwl5.sys\n"
 	       "         to extract the firmware blobs from bcmwl5.sys\n", argv[0]);
