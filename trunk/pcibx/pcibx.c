@@ -189,7 +189,7 @@ static void print_banner(int forceprint)
 		"Catalyst PCIBX32 PCI Extender control utility version " VERSION "\n"
 		"\n"
 		"Copyright 2006 Michael Buesch <mbuesch@freenet.de>\n"
-		"Licensed unter the GNU General Public License v2+\n"
+		"Licensed under the GNU General Public License v2+\n"
 		"\n";
 	if (forceprint)
 		prdata(str);
