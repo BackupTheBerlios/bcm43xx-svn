@@ -51,13 +51,15 @@ bcmwl5.sys	Link
 		http://web.belkin.com/support/download/files/F5D7010-v2.4.4.exe
 		http://www.belkin.com/support/download/downloaddetails.asp?file_id=1425
 		http://communications.siemens.com/repository/1135/113557/pccard54_V11200_eng.exe
+3.30.15.1	http://www.buffalo-technology.com/downloads/CBG54_30_15.zip
 3.40.20.0	http://broadband.motorola.com/consumers/products/WN825g/downloads/WN-WPCI-Web-Update-v1.1.exe
 		http://broadband.motorola.com/consumers/products/WPCI810g/downloads/WN-WPCI-Web-Update-v1.1.exe
 3.40.25.3	http://www.silfreed.net/download/hpzt3000cto/SP23107A.tar.gz
 3.40.69.0	http://metahusky.net/~gavin/home/bcmwl5.sys
 3.40.73.0	http://ftp.us.dell.com/network/R83097.EXE
 		ftp://ftp.us.dell.com/network/R83097.EXE
-3.40.100.0	ftp://ftp.wildpackets.com/pub/outgoing/brcmDvr340rc100a~@.zip		
+3.40.100.0	ftp://ftp.wildpackets.com/pub/outgoing/brcmDvr340rc100a~@.zip
+3.50.21.10	http://www.buffalo-technology.com/downloads/CBG54_3.50.21.10_Driver_rev.zip
 3.60.7.0	ftp://ftp.asus.com.tw/pub/ASUS/wireless/WL-100g-03/Driver_3607.zip
 3.60.7.5	http://www2.melcoinc.co.jp/pub/lan/wdrv_660.exe
 3.70.12.0	http://files.wl500g.info/asus/wl120g/drivers/3.70.12.0.rar
@@ -65,6 +67,9 @@ bcmwl5.sys	Link
 3.70.17.0	ftp://ftp.compaq.com/pub/softpaq/sp28501-29000/SP28538.exe
 3.90.16.0	http://www.usr.com/support/5421/5421-files/5421-na.exe
 3.90.41.1	http://www2.melcoinc.co.jp/pub/lan/wdrv_661.exe
+3.94.41.1	http://www.buffalo-technology.com/downloads/WLI2-PCI-G54S.zip
+		http://www.buffalo-technology.com/downloads/WLI-CB-G54S.3.104.64.50.zip
+3.94.41.2	http://www2.melcoinc.co.jp/pub/lan/wdrv_810.exe
 3.100.35.1	http://ftp.us.dell.com/network/R94826.EXE
 3.100.46.0	ftp://ftp.support.acer-euro.com/notebook/aspire_3020_5020/driver/80211g.zip
 		http://www.linksys.com/servlet/Satellite?blobcol=urldata&blobheadername1=Content-Type&blobheadername2=Content-Disposition&blobheadervalue1=application%2Fx-msdownload&blobheadervalue2=inline%3B+filename%3DWMP54GSv1.1_20050428.exe&blobkey=id&blobtable=MungoBlobs&blobwhere=1124848568427&ssbinary=true
@@ -72,6 +77,9 @@ bcmwl5.sys	Link
 3.100.64.0	ftp://ftp.compaq.com/pub/softpaq/sp30501-31000/SP30676.exe
 3.100.64.50	http://www2.melcoinc.co.jp/pub/lan/wdrv_661.exe
 3.100.65.1	ftp://ftp.hp.com/pub/softlib/software5/COL3601/ob-31557-1/SP30379.exe
+3.104.64.50	http://www.buffalo-technology.com/downloads/WLI2-PCI-G54S.zip
+		http://www.buffalo-technology.com/downloads/WLI-CB-G54S.3.104.64.50.zip
+3.104.64.52	http://www2.melcoinc.co.jp/pub/lan/wdrv_810.exe
 3.120.27.0	ftp://ftp.us.dell.com/network/R102318.EXE
 3.140.16.0	http://files.techlabs.by/getfile.php?id=1844
 4.10.40.0	http://rapidshare.de/files/11458737/Broadcom_4.10.40.0_Drivers.cab.html
