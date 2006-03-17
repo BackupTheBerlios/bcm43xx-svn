@@ -358,7 +358,7 @@ static const struct file * find_file(FILE *fd)
 				printf("Extracting firmware from this file is IMPOSSIBLE. (too old)\n");
 				return 0;
 			}
-			printf("fwcutter can cut the firmware out of %s\n", cmdargs.infile);
+			printf("bcm43xx-fwcutter can cut the firmware out of %s\n\n", cmdargs.infile);
 			printf("  filename :  %s\n", files[i].name);
 			printf("  version  :  %s\n", files[i].version);
 			printf("  MD5      :  %s\n\n", files[i].md5);
@@ -369,7 +369,7 @@ static const struct file * find_file(FILE *fd)
 			return &(files[i]);
 		}
 	}
-	printf("Sorry, the input file is either wrong or not supported by fwcutter.\n");
+	printf("Sorry, the input file is either wrong or not supported by bcm43xx-fwcutter.\n");
 	printf("I can't find the MD5sum %s :(\n", md5sig);
 
 	return 0;
