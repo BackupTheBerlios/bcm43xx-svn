@@ -291,7 +291,7 @@ static void print_banner(void)
 
 static void print_file(const struct file *file)
 {
-	if (file->name == "AppleAirPortBrcm4311")
+	if (strcmp(file->name, "AppleAirPortBrcm4311") == 0)
 		printf("AppleAPBrcm4311\t");
 	else
 		printf("%s\t", file->name);
