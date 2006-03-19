@@ -268,8 +268,8 @@ static const struct file {
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               REVERSE_ORDER_INITVALS,
 		.iv_pos      = 0x117b60,
-		.uc2_pos     = 0x113be0,  .uc2_length  = 0x3f80,
-		.uc4_pos     = 0x10edc0,  .uc4_length  = 0x4e20,
+		.uc2_pos     = 0x113be0,  .uc2_length  = 0x3f68,
+		.uc4_pos     = 0x10edc0,  .uc4_length  = 0x4e10,
 		.uc5_pos     = 0x1095c0,  .uc5_length  = 0x5800,
 		.pcm4_pos    = 0x1090a0,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x108b80,  .pcm5_length = 0x520,
