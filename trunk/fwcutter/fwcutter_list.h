@@ -729,6 +729,18 @@ static const struct file {
 	},
 	{
 		.name        = "d11ucode.o",
+		.version     = "3.50.21.10",
+		.md5         = "2781ba96ee69bffd316315240be1f35b",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x40,
+		.uc2_pos     = 0x3b28,   .uc2_length  = 0x3e00,
+		.uc4_pos     = 0x792c,   .uc4_length  = 0x4628,
+		.uc5_pos     = 0xbf58,   .uc5_length  = 0x5548,
+		.pcm4_pos    = 0x114a4,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x11920,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "d11ucode.o",
 		.version     = "3.60.7.0 ? (1.3.2)",                   /* no version number found */
 		.md5         = "7774e5dda1daa2b3f83d279552ca1cc4",     /* but same fw files are also */
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,               /* in bcmwl5.sys 3.60.7.0 */

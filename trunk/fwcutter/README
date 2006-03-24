@@ -96,12 +96,14 @@ bcmwl5a.sys	Link
 
 d11ucode.o	Link
 -------------   -------------------------------------------------------
+3.50.21.10      ftp://ftp.gpl-devices.org/pub/vendors/Motorola/WE800G/v4.04/WE800G_V4.04_GPL.tgz
 3.60.7.0	http://files.wl500g.info/asus/wl500g/gpl/broadcom/src/wl/linux/ap_d11ucode.o
 3.90.7.0	http://dune.hu/gpl_tarballs/asus/broadcom/src/wl.orig/linux/ap_d11ucode.o
 
 wl.o		Link
 -------------   -------------------------------------------------------
 3.50.21.0	http://nthill.free.fr/openwrt/sources/wl/wl-2.02.7.tar.bz2
+3.50.21.10	ftp://ftp.gpl-devices.org/pub/vendors/Motorola/WE800G/v4.04/WE800G_V4.04_GPL.tgz
 3.60.13.0	http://nthill.free.fr/openwrt/sources/wl/wl-2.09.1.tar.bz2
 		http://nthill.free.fr/openwrt/sources/wl/wl-3.37.6.tar.bz2
 3.90.37.0	http://openwrt.inf.fh-brs.de/~nbd/wl1.o
