@@ -753,6 +753,18 @@ static const struct file {
 	},
 	{
 		.name        = "d11ucode.o",
+		.version     = "3.60.13.0",
+		.md5         = "020a36ac61eff3fc833489f7b4dc0a8a",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x40,
+		.uc2_pos     = 0x3c88,   .uc2_length  = 0x3e30,
+		.uc4_pos     = 0x7abc,   .uc4_length  = 0x4e80,
+		.uc5_pos     = 0xc940,   .uc5_length  = 0x5630,
+		.pcm4_pos    = 0x11f74,  .pcm4_length = 0x478,
+		.pcm5_pos    = 0x123f0,  .pcm5_length = 0x478,
+	},
+	{
+		.name        = "d11ucode.o",
 		.version     = "3.90.7.0",                             /* 10/14/2004 */
 		.md5         = "b2580361620881b06fa810422ec8b7ce",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
