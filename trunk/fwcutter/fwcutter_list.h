@@ -670,7 +670,8 @@ static const struct file {
 		.name        = "bcmwl5.sys",
 		.version     = "4.10.40.0",                           /* 11/02/2005 */
 		.md5         = "30d20fc98bcfd52e1da778cf19b223d4",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x47ba8,
 		.uc2_pos     = 0x4c5b0,	 .uc2_length  = 0x4ee8,
 		.uc4_pos     = 0x514a0,	 .uc4_length  = 0x5750,
@@ -682,7 +683,8 @@ static const struct file {
 		.name        = "bcmwl5.sys",
 		.version     = "4.10.40.1",                           /* 12/17/2005 */
 		.md5         = "69f940672be0ecee5bd1e905706ba8ce",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x47ba8,
 		.uc2_pos     = 0x4c5b0,	 .uc2_length  = 0x4ee8,
 		.uc4_pos     = 0x514a0,	 .uc4_length  = 0x5750,
@@ -694,7 +696,8 @@ static const struct file {
 		.name        = "bcmwl5.sys",
 		.version     = "4.10.47.2",
 		.md5         = "2b87cd8a92bc5003067534aba4349db0",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x47e28,
 		.uc2_pos     = 0x4c830,	 .uc2_length  = 0x4ee8,
 		.uc4_pos     = 0x51720,	 .uc4_length  = 0x5750,

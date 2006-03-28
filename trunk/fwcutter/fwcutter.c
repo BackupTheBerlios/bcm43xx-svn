@@ -358,7 +358,7 @@ static const struct file * find_file(FILE *fd)
 	for (i = 0; i < FILES; ++i) {
 		if (strcasecmp(md5sig, files[i].md5) == 0) {
 			if (files[i].flags & DRIVER_UNSUPPORTED) {
-				printf("Extracting firmware from this file is IMPOSSIBLE. (too old)\n");
+				printf("Extracting firmware from this file is IMPOSSIBLE. (e.g. too old/new)\n");
 				return 0;
 			}
 			printf("bcm43xx-fwcutter can cut the firmware out of %s\n\n", cmdargs.infile);
