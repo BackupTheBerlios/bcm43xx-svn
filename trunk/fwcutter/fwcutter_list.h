@@ -299,6 +299,12 @@ static const struct file {
 		.flags       = DRIVER_UNSUPPORTED,
 	},
 	{ 
+		.name        = "bcmwl5.sys",                           /* was renamed to n54gnds.sys */
+		.version     = "3.10.39.7",
+		.md5         = "def910106deec0ad67712d124fc2047d", 
+		.flags       = DRIVER_UNSUPPORTED,
+	},
+	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.39.8",
 		.md5         = "bdbd3b9bf07ead2e8e00cc6dc267fb4a", 
@@ -317,12 +323,36 @@ static const struct file {
 		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
 	},
 	{ 
+		.name        = "bcmwl5.sys",                           /* was renamed to n54gnds.sys */
+		.version     = "3.20.21.0",
+		.md5         = "595a1b9c589b5d969b08c49c15649609", 
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               MISSING_INITVAL_08,
+		.iv_pos      = 0x2a158,
+		.uc2_pos     = 0x2d1a8,  .uc2_length  = 0x3da8,
+		.uc4_pos     = 0x30f58,  .uc4_length  = 0x4470,
+		.uc5_pos     = 0x353d0,  .uc5_length  = 0x4ba0,
+		.pcm4_pos    = 0x39f78,  .pcm4_length = 0x478,
+	},
+	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.20.23.0",                            /* 06/13/2003 */ 
 		.md5         = "1b1cf5e962c15abca83d1ef2b3906e2f",     /* pcm5 not available, driver is too old */
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN | 
 		               MISSING_INITVAL_08,
 		.iv_pos      = 0x2a1d0,
+		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3da8,
+		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4470,
+		.uc5_pos     = 0x35450,  .uc5_length  = 0x4ba0,
+		.pcm4_pos    = 0x39ff8,  .pcm4_length = 0x478,
+	},
+	{ 
+		.name        = "bcmwl5.sys",                           /* was renamed to mn720-50.sys */
+		.version     = "3.20.26.0",
+		.md5         = "a8be5b44170d7d1fbdb4dac89d2dacda", 
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               MISSING_INITVAL_08,
+		.iv_pos      = 0x2a1d8,
 		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3da8,
 		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4470,
 		.uc5_pos     = 0x35450,  .uc5_length  = 0x4ba0,
