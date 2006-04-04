@@ -42,6 +42,11 @@ You can find the Apple Airport Extreme driver in your Mac OS X system at
 /System/Library/Extensions/AppleAirPort2.kext/Contents/MacOS/AppleAirPort2
 (Note that not all versions of the MacOSX driver are supported.)
 
+AppleAirPortBrcm4311
+--------------------
+AppleAirPortBrcm4311 only seems to be available on Intel based machines.
+System/Library/Extensions/IO80211Family.kext/Contents/PlugIns/AppleAirPortBrcm4311.kext/Contents/MacOS/AppleAirPortBrcm4311
+
 bcmwl5.sys	Link
 -------------   -------------------------------------------------------
 3.20.23.0	http://nicolas.bonifas.free.fr/inspiron/bcmwl5.sys
