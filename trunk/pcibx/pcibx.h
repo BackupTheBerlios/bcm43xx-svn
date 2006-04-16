@@ -63,6 +63,7 @@ struct cmdline_args {
 	int verbose;
 	int sched;
 	int cycle;
+	int nrcycle;
 
 	unsigned short port;
 	int is_PCI_1;

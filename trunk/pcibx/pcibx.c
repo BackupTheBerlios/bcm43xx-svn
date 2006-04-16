@@ -30,10 +30,81 @@
 #include <sys/io.h>
 #include <sched.h>
 #include <signal.h>
+#include <stdarg.h>
+#include <time.h>
+#include <sys/time.h>
 
 
 struct cmdline_args cmdargs;
+struct timeval starttime;
 
+
+/* Subtract the `struct timeval' values X and Y,
+ * storing the result in RESULT.
+ * Return 1 if the difference is negative, otherwise 0.
+ *
+ * Taken from the glibc docs, so should be
+ * Copyright (c) Free Software Foundation
+ */
+static int timeval_subtract(struct timeval *result,
+			    struct timeval *x,
+			    struct timeval *y)
+{
+	int nsec;
+
+	/* Perform the carry for the later subtraction by updating y. */
+	if (x->tv_usec < y->tv_usec) {
+		nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+		y->tv_usec -= 1000000 * nsec;
+		y->tv_sec += nsec;
+	}
+	if (x->tv_usec - y->tv_usec > 1000000) {
+		nsec = (x->tv_usec - y->tv_usec) / 1000000;
+		y->tv_usec += 1000000 * nsec;
+		y->tv_sec -= nsec;
+	}
+	/* Compute the time remaining to wait.
+	 * tv_usec is certainly positive. */
+	result->tv_sec = x->tv_sec - y->tv_sec;
+	result->tv_usec = x->tv_usec - y->tv_usec;
+
+	/* Return 1 if result is negative. */
+	return x->tv_sec < y->tv_sec;
+}
+
+/* Helper function to plot informational text. */
+static void plot_text(const char *fmt, ...) ATTRIBUTE_FORMAT(printf, 1, 2);
+static void plot_text(const char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	fprintf(stderr, "# ");
+	vfprintf(stderr, fmt, va);
+	va_end(va);
+}
+
+/* Helper function to plot data values. */
+static void plot_data(const char *text, float data)
+{
+	struct timeval tmp, tv;
+	int err;
+
+	err = gettimeofday(&tmp, NULL);
+	if (err) {
+		prdata("gettimeofday() failure!\n");
+		return;
+	}
+	err = timeval_subtract(&tv, &tmp, &starttime);
+	if (err) {
+		prdata("timeval_subtract() went negative!\n");
+		return;
+	}
+	prdata("%ld.%06ld %f  # ",
+	       tv.tv_sec, tv.tv_usec,
+	       data);
+	prdata(text, data);
+}
 
 static int send_commands(struct pcibx_device *dev)
 {
@@ -54,15 +125,15 @@ static int send_commands(struct pcibx_device *dev)
 			break;
 		case CMD_PRINTBOARDID:
 			v = pcibx_cmd_getboardid(dev);
-			prdata("Board ID: 0x%02X\n", v);
+			plot_text("Board ID: 0x%02X\n", v);
 			break;
 		case CMD_PRINTFIRMREV:
 			v = pcibx_cmd_getfirmrev(dev);
-			prdata("Firmware revision: 0x%02X\n", v);
+			plot_text("Firmware revision: 0x%02X\n", v);
 			break;
 		case CMD_PRINTSTATUS:
 			v = pcibx_cmd_getstatus(dev);
-			prdata("Board status:  %s;  %s;  %s;  %s;  %s\n",
+			plot_text("Board status:  %s;  %s;  %s;  %s;  %s\n",
 			       (v & PCIBX_STATUS_RSTDEASS) ? "RST# de-asserted"
 							   : "RST# asserted",
 			       (v & PCIBX_STATUS_64BIT) ? "64-bit operation established"
@@ -85,39 +156,39 @@ static int send_commands(struct pcibx_device *dev)
 			break;
 		case CMD_MEASUREFREQ:
 			f = pcibx_cmd_sysfreq(dev);
-			prdata("Measured system frequency: %f Mhz\n", f);
+			plot_data("Measured system frequency: %f Mhz\n", f);
 			break;
 		case CMD_MEASUREV25REF:
 			f = pcibx_cmd_measure(dev, MEASURE_V25REF);
-			prdata("Measured +2.5V Reference: %f Volt\n", f);
+			plot_data("Measured +2.5V Reference: %f Volt\n", f);
 			break;
 		case CMD_MEASUREV12UUT:
 			f = pcibx_cmd_measure(dev, MEASURE_V12UUT);
-			prdata("Measured +12V UUT: %f Volt\n", f);
+			plot_data("Measured +12V UUT: %f Volt\n", f);
 			break;
 		case CMD_MEASUREV5UUT:
 			f = pcibx_cmd_measure(dev, MEASURE_V5UUT);
-			prdata("Measured +5V UUT: %f Volt\n", f);
+			plot_data("Measured +5V UUT: %f Volt\n", f);
 			break;
 		case CMD_MEASUREV33UUT:
 			f = pcibx_cmd_measure(dev, MEASURE_V33UUT);
-			prdata("Measured +33V UUT: %f Volt\n", f);
+			plot_data("Measured +33V UUT: %f Volt\n", f);
 			break;
 		case CMD_MEASUREV5AUX:
 			f = pcibx_cmd_measure(dev, MEASURE_V5AUX);
-			prdata("Measured +5V AUX: %f Volt\n", f);
+			plot_data("Measured +5V AUX: %f Volt\n", f);
 			break;
 		case CMD_MEASUREA5:
 			f = pcibx_cmd_measure(dev, MEASURE_A5);
-			prdata("Measured +5V Current: %f Ampere\n", f);
+			plot_data("Measured +5V Current: %f Ampere\n", f);
 			break;
 		case CMD_MEASUREA12:
 			f = pcibx_cmd_measure(dev, MEASURE_A12);
-			prdata("Measured +12V Current: %f Ampere\n", f);
+			plot_data("Measured +12V Current: %f Ampere\n", f);
 			break;
 		case CMD_MEASUREA33:
 			f = pcibx_cmd_measure(dev, MEASURE_A33);
-			prdata("Measured +3.3V Current: %f Ampere\n", f);
+			plot_data("Measured +3.3V Current: %f Ampere\n", f);
 			break;
 		case CMD_FASTRAMP:
 			pcibx_cmd_ramp(dev, cmd->u.boolean);
@@ -210,7 +281,9 @@ static void print_usage(int argc, char **argv)
 	prdata("  -s|--sched POLICY     Scheduling policy (normal, fifo, rr)\n");
 	prdata("  -c|--cycle DELAY      Execute the commands in a cycle and delay\n");
 	prdata("                        DELAY msecs after each cycle\n");
-	prdata("\nDevice commands\n");
+	prdata("  -n|--nrcycle COUNT    Cycle COUNT times. 0 == infinite (default)\n");
+	prdata("\n");
+	prdata("Device commands\n");
 	prdata("  --cmd-glob ON/OFF     Turn Global power ON/OFF (does not turn ON UUT Voltages)\n");
 	prdata("  --cmd-uut ON/OFF      Turn UUT Voltages ON/OFF (also turns Global power ON)\n");
 	prdata("  --cmd-printboardid    Print the Board ID\n");
@@ -499,6 +572,10 @@ static int parse_args(int argc, char **argv)
 			err = parse_int(param, &cmdargs.cycle, "--cycle");
 			if (err)
 				goto error;
+		} else if (arg_match(argv, &i, "--nrcycle", "-n", &param)) {
+			err = parse_int(param, &cmdargs.nrcycle, "--nrcycle");
+			if (err)
+				goto error;
 
 		} else if (arg_match(argv, &i, "--cmd-glob", 0, &param)) {
 			err = add_boolcommand(CMD_GLOB, param, "--cmd-glob");
@@ -600,7 +677,7 @@ error:
 
 static void signal_handler(int sig)
 {
-	prerror("Signal %d received. Terminating.\n", sig);
+	prinfo("Signal %d received. Terminating.\n", sig);
 	exit(1);
 }
 
@@ -624,6 +701,7 @@ int main(int argc, char **argv)
 {
 	struct pcibx_device dev;
 	int err;
+	int nrcycle;
 
 	err = setup_sighandler();
 	if (err)
@@ -645,11 +723,19 @@ int main(int argc, char **argv)
 	err = init_device(&dev);
 	if (err)
 		goto out;
+	gettimeofday(&starttime, NULL);
+	nrcycle = cmdargs.nrcycle;
+	if (nrcycle == 0)
+		nrcycle = -1;
 	while (1) {
 		err = send_commands(&dev);
 		if (err)
 			goto out;
 		if (cmdargs.cycle < 0)
+			break;
+		if (nrcycle > 0)
+			nrcycle--;
+		if (nrcycle == 0)
 			break;
 		if (cmdargs.cycle)
 			msleep(cmdargs.cycle);
