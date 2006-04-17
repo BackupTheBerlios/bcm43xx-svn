@@ -291,11 +291,17 @@ static void print_banner(void)
 
 static void print_file(const struct file *file)
 {
-	if (strcmp(file->name, "AppleAirPortBrcm4311") == 0)
-		printf("AppleAPBrcm4311\t");
-	else
-		printf("%s\t", file->name);
-	if (strlen(file->name) < 8)
+	char filename[16];
+	char shortname[14];
+
+	if (strlen(file->name) > 15) {
+		strncpy(shortname, file->name, 13);
+		snprintf(filename, sizeof(filename), "%s..", shortname);
+	} else
+		strcpy (filename, file->name);
+
+	printf("%s\t", filename);
+	if (strlen(filename) < 8)
 		printf("\t");
 
 	printf("%s\t", file->version);

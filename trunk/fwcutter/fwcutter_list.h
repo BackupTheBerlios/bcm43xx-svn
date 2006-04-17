@@ -1203,6 +1203,19 @@ static const struct file {
 		.pcm4_pos    = 0x627f0,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x62d14,  .pcm5_length = 0x520,
 	},
+	{
+		.name        = "wl96348GWV_DT.o_save",
+		.version     = "3.91.41.0",
+		.md5         = "e48ecf90086e48061f49cd4af2c158b3",
+		.flags       = BYTE_ORDER_BIG_ENDIAN |
+		               REVERSE_ORDER_INITVALS,
+		.iv_pos      = 0x54dec,
+		.uc2_pos     = 0x50ea4,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x4c0b0,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x468cc,  .uc5_length  = 0x57e0,
+		.pcm4_pos    = 0x463a8,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x45e84,  .pcm5_length = 0x520,
+	},
 };
 
 #define FILES (sizeof(files) / sizeof(files[0]))
