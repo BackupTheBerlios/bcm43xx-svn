@@ -19,6 +19,7 @@ fwcutter: $(OBJECTS)
 
 install: all
 	-install -o 0 -g 0 -m 755 bcm43xx-fwcutter $(PREFIX)/bin/
+	-install -o 0 -g 0 -m 644 bcm43xx-fwcutter.1 $(PREFIX)/man/man1/
 
 clean:
 	-rm -f *~ *.o *.orig *.rej *.fw bcm43xx-fwcutter
