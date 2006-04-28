@@ -247,7 +247,7 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 		write_fw(outfile, flags, filedata + pos, length);
 		free(filedata);
 	} else {
-		printf("*****: Sorry, it's not posible to extract \"%s\".\n", outfile);
+		printf("*****: Sorry, it's not possible to extract \"%s\".\n", outfile);
 
 		switch (fwtype) {
 		case FIRMWARE_UCODE_2:
