@@ -46,7 +46,7 @@ typedef unsigned char byte;
 #define FIRMWARE_UCODE_4         (FIRMWARE_UCODE_OFFSET + 4)
 #define FIRMWARE_UCODE_5         (FIRMWARE_UCODE_OFFSET + 5)
 #define FIRMWARE_UCODE_11        (FIRMWARE_UCODE_OFFSET + 11)
-
+#define FIRMWARE_UCODE_13        (FIRMWARE_UCODE_OFFSET + 13)
 
 #define fwcutter_stringify_1(x)	#x
 #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
@@ -228,6 +228,7 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 	case FIRMWARE_UCODE_4:
 	case FIRMWARE_UCODE_5:
 	case FIRMWARE_UCODE_11:
+	case FIRMWARE_UCODE_13:
 		snprintf(outfile, sizeof(outfile), "bcm43xx_microcode%i%s.fw", 
 			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
 		break;
@@ -247,7 +248,6 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 		free(filedata);
 	} else {
 		printf("*****: Sorry, it's not posible to extract \"%s\".\n", outfile);
-		printf("*****: Extracting firmware from an old driver is bad. Choose a more recent one.\n");
 
 		switch (fwtype) {
 		case FIRMWARE_UCODE_2:
@@ -260,6 +260,12 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 			printf("*****: bcm43xx driver will not work with with core revision 5 or higher.\n");
 			break;
 		case FIRMWARE_UCODE_11:
+			printf("*****: Extracting firmware from an old driver is bad. Choose a more recent one.\n");
+			printf("*****: Luckily bcm43xx driver doesn't include microcode11 uploads at the moment.\n");
+			printf("*****: But this can be added in the future...\n");
+			break;
+		case FIRMWARE_UCODE_13:
+			printf("*****: Extracting firmware from an old driver is bad. Choose a more recent one.\n");
 			printf("*****: Luckily bcm43xx driver doesn't include microcode11 uploads at the moment.\n");
 			printf("*****: But this can be added in the future...\n");
 			break;
@@ -577,6 +583,7 @@ int main(int argc, char *argv[])
 	extract_fw(FIRMWARE_UCODE_4, file->flags, file->uc4_pos, file->uc4_length);
 	extract_fw(FIRMWARE_UCODE_5, file->flags, file->uc5_pos, file->uc5_length);
 	extract_fw(FIRMWARE_UCODE_11, file->flags, file->uc11_pos, file->uc11_length);
+	extract_fw(FIRMWARE_UCODE_13, file->flags, file->uc13_pos, file->uc13_length);
 	extract_fw(FIRMWARE_PCM_4, file->flags, file->pcm4_pos, file->pcm4_length);
 	extract_fw(FIRMWARE_PCM_5, file->flags, file->pcm5_pos, file->pcm5_length);
 	extract_iv(file->flags, file->iv_pos);

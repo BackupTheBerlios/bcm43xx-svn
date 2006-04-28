@@ -13,6 +13,8 @@ static const struct file {
 	const uint32_t uc5_length;
 	const uint32_t uc11_pos;
 	const uint32_t uc11_length;
+	const uint32_t uc13_pos;
+	const uint32_t uc13_length;
 	const uint32_t pcm4_pos;
 	const uint32_t pcm4_length;
 	const uint32_t pcm5_pos;
@@ -1005,6 +1007,19 @@ static const struct file {
 		.pcm5_pos    = 0x6dbd4,  .pcm5_length = 0x520,
 	},
 	{
+		.name        = "wl.o",
+		.version     = "4.80.9.1",
+		.md5         = "c3bf18125b65de73f2d6b68dd63d60cf",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x65bc0,
+		.uc4_pos     = 0x6a700,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x6f52c,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x74b30,  .uc11_length  = 0x60f0,
+		.uc13_pos    = 0x7ac24,  .uc13_length = 0x5d18,
+		.pcm4_pos    = 0x80940,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x80e64,  .pcm5_length = 0x520,
+	},
+	{
 		.name        = "wl_ap.o",
 		.version     = "3.31.16.0",                            /* 08/06/2003 */
 		.md5         = "463633e7bf0efc6c0f8eac2514a71024",
@@ -1140,6 +1155,19 @@ static const struct file {
 		.uc11_pos    = 0x68204,  .uc11_length = 0x54a8,
 		.pcm4_pos    = 0x6d6b0,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x6dbd4,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "wl_apsta.o",
+		.version     = "4.80.9.1",
+		.md5         = "cfc06ff322a4e3024bc4040ebe3d1bb9",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.iv_pos      = 0x632a0,
+		.uc4_pos     = 0x67de0,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x6cc0c,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x72210,  .uc11_length = 0x60f0,
+		.uc13_pos    = 0x78304,  .uc13_length = 0x5d18,
+		.pcm4_pos    = 0x7e020,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x7e544,  .pcm5_length = 0x520,
 	},
 	{
 		.name        = "wl_sta.o",
