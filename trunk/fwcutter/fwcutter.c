@@ -266,7 +266,7 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 			break;
 		case FIRMWARE_UCODE_13:
 			printf("*****: Extracting firmware from an old driver is bad. Choose a more recent one.\n");
-			printf("*****: Luckily bcm43xx driver doesn't include microcode11 uploads at the moment.\n");
+			printf("*****: Luckily bcm43xx driver doesn't include microcode13 uploads at the moment.\n");
 			printf("*****: But this can be added in the future...\n");
 			break;
 		case FIRMWARE_PCM_4:
