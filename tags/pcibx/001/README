@@ -1,0 +1,46 @@
+***                                                  ***
+***  Catalyst PCIBX32-X / PCIBX64-X Control Utility  ***
+***                                                  ***
+
+About this software
+-------------------
+
+This program can be used to control the Catalyst PCIBX32-X and
+PCIBX64-X PCI Extender card through the parallel port interface.
+
+This software is run on the host-system.
+The host-system is the machine, which controlls the Extender.
+The client-system is the machine with the controller in its PCI slot.
+(The host- and client-system may be the same machine.)
+
+Usage
+-----
+
+See  pcibx --help  for detailed usage description.
+And read the manual of your PCI Extender. ;)
+
+
+Hotplug / Client-Kernel
+-----------------------
+
+To be able to hotplug devices into the controller, you must load
+the "fakephp" PCI Hotplug kernel module on the client system.
+This module fakes a PCI hotplug controller.
+
+WARNING: Read the fakephp Manual. Be very careful when hotplugging
+         a device and keep doing it in the correct order:
+         1) Unregister the device from the kernel via sysfs.
+	 2) Turn the UUT Powers on the Extender OFF.
+	 3) Unplug the device from the physical PCI slot.
+	 To plug a device in, reverse the order of the steps.
+
+
+Bugs / Issues
+------------
+
+The Parallel Port is currently accessed through userspace outb()
+and inb() calls. These functions are not available on all
+architectures. When porting this application to something else
+than X86, a kernel level driver might be required.
+But that's a very minor issue, as just the lowlevel functions in
+pcibx_device.c have to be replaced.

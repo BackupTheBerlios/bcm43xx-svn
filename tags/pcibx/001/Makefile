@@ -1,4 +1,4 @@
-VERSION = 002
+VERSION = 001
 
 CC = cc
 PREFIX = /usr/local
