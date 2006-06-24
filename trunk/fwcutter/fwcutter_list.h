@@ -763,6 +763,19 @@ static const struct file {
 		.pcm5_pos    = 0x5ce40,	 .pcm5_length = 0x520,
 	},
 	{
+		.name        = "bcmwl5.sys",
+		.version     = "4.40.19.0",
+		.md5         = "114234fafec7060392195170e1c4d45e",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x48ab8,
+		.uc4_pos     = 0x4d4c0,	 .uc4_length  = 0x4f58,
+		.uc5_pos     = 0x52420,	 .uc5_length  = 0x57c0,
+		.uc11_pos    = 0x57bf0,	 .uc11_length = 0x5b00,
+		.pcm4_pos    = 0x5d6f8,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x5dc20,	 .pcm5_length = 0x520,
+	},
+	{
 		.name        = "bcmwl564.sys",
 		.version     = "3.70.17.5",
 		.md5         = "f5590c8784b91dfd9ee092d3040b6e40",
@@ -785,6 +798,19 @@ static const struct file {
 		.uc5_pos     = 0x5d5d0,  .uc5_length  = 0x5800,
 		.pcm4_pos    = 0x62de0,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x63310,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl564.sys",
+		.version     = "4.40.19.0",
+		.md5         = "68f48a63a827a87bc04f6c8763228054",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x5dcd0,
+		.uc4_pos     = 0x626e0,	 .uc4_length  = 0x4f58,
+		.uc5_pos     = 0x67640,	 .uc5_length  = 0x57c0,
+		.uc11_pos    = 0x6ce10,	 .uc11_length = 0x5b00,
+		.pcm4_pos    = 0x72920,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x72e50,	 .pcm5_length = 0x520,
 	},
 	{
 		.name        = "bcmwl5a.sys",
@@ -1022,7 +1048,8 @@ static const struct file {
 		.name        = "wl.o",
 		.version     = "4.80.9.1",
 		.md5         = "c3bf18125b65de73f2d6b68dd63d60cf",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x65bc0,
 		.uc4_pos     = 0x6a700,  .uc4_length  = 0x4e28,
 		.uc5_pos     = 0x6f52c,  .uc5_length  = 0x55f8,
@@ -1035,7 +1062,8 @@ static const struct file {
 		.name        = "wl.o",
 		.version     = "4.80.9.1",
 		.md5         = "de3a5d0d4a795cf85dc706f75ac4c56d",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x65bc0,
 		.uc4_pos     = 0x6a700,  .uc4_length  = 0x4e28,
 		.uc5_pos     = 0x6f52c,  .uc5_length  = 0x55f8,
@@ -1110,7 +1138,8 @@ static const struct file {
 		.name        = "wl_ap.o",
 		.version     = "4.80.9.2",
 		.md5         = "dc87fafbb53fc70ca161be3de97b5be1",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x4f0a0,
 		.uc4_pos     = 0x53be0,  .uc4_length  = 0x4e28,
 		.uc5_pos     = 0x58a0c,  .uc5_length  = 0x55f8,
@@ -1211,7 +1240,8 @@ static const struct file {
 		.name        = "wl_apsta.o",
 		.version     = "4.80.9.1",
 		.md5         = "5cc3774df07ef15506d08e45fab9b691",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x70220,
 		.uc4_pos     = 0x75998,  .uc4_length  = 0x4e28,
 		.uc5_pos     = 0x7a7c4,  .uc5_length  = 0x55f8,
@@ -1224,7 +1254,8 @@ static const struct file {
 		.name        = "wl_apsta.o",
 		.version     = "4.80.9.1",
 		.md5         = "cfc06ff322a4e3024bc4040ebe3d1bb9",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x632a0,
 		.uc4_pos     = 0x67de0,  .uc4_length  = 0x4e28,
 		.uc5_pos     = 0x6cc0c,  .uc5_length  = 0x55f8,
@@ -1237,7 +1268,8 @@ static const struct file {
 		.name        = "wl_apsta.o",
 		.version     = "4.80.9.2",
 		.md5         = "2b353750e7063949fa08951370c8b06b",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x632c0,
 		.uc4_pos     = 0x67e00,  .uc4_length  = 0x4e28,
 		.uc5_pos     = 0x6cc2c,  .uc5_length  = 0x55f8,
@@ -1312,7 +1344,8 @@ static const struct file {
 		.name        = "wl_sta.o",
 		.version     = "4.80.9.2",
 		.md5         = "a4a396c45a4e88526fa8a8baca681cd3",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
 		.iv_pos      = 0x54b00,
 		.uc4_pos     = 0x59640,  .uc4_length  = 0x4e28,
 		.uc5_pos     = 0x5e46c,  .uc5_length  = 0x55f8,
