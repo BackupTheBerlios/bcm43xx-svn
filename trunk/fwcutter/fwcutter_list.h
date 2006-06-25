@@ -1355,6 +1355,20 @@ static const struct file {
 		.pcm5_pos    = 0x6fde4,  .pcm5_length = 0x520,
 	},
 	{
+		.name        = "wl96348GW.o_save",
+		.version     = "3.131.35.0",
+		.md5         = "4af53099070fc26a755c42e86c824003",
+		.flags       = BYTE_ORDER_BIG_ENDIAN |
+		               REVERSE_ORDER_INITVALS,
+		.iv_pos      = 0x74638,
+		.uc2_pos     = 0x70648,  .uc2_length  = 0x3fe0,
+		.uc4_pos     = 0x6b7cc,  .uc4_length  = 0x4e78,
+		.uc5_pos     = 0x660c8,  .uc5_length  = 0x5700,
+		.uc11_pos    = 0x60c1c,  .uc11_length = 0x54a8,
+		.pcm4_pos    = 0x606f8,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x601d4,  .pcm5_length = 0x520,
+	},
+	{
 		.name        = "wl96348GWV_DT.o_save",
 		.version     = "3.91.41.0",
 		.md5         = "e48ecf90086e48061f49cd4af2c158b3",
