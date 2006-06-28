@@ -1149,6 +1149,20 @@ static const struct file {
 		.pcm5_pos    = 0x6a384,  .pcm5_length = 0x520,
 	},
 	{
+		.name        = "wl_ap.o",
+		.version     = "4.80.17.0",
+		.md5         = "5f698bc71300590208dcfe86e8dde860",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x4fa40,
+		.uc4_pos     = 0x54580,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x593ac,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x5e9b0,  .uc11_length = 0x6160,
+		.uc13_pos    = 0x64b14,  .uc13_length = 0x5d40,
+		.pcm4_pos    = 0x6a858,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x6ad7c,  .pcm5_length = 0x520,
+	},
+	{
 		.name        = "wl_apsta.o",
 		.version     = "3.31.16.0",                            /* 06/08/2003 */
 		.md5         = "22b90e4cbeee45ad7f78ff536c65712a",
@@ -1279,6 +1293,20 @@ static const struct file {
 		.pcm5_pos    = 0x7e5a4,  .pcm5_length = 0x520,
 	},
 	{
+		.name        = "wl_apsta.o",
+		.version     = "4.80.17.0",
+		.md5         = "1fb9e0cc7613ccb82c8e2da3da888ed1",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x63e30,
+		.uc4_pos     = 0x68970,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x6d79c,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x72da0,  .uc11_length = 0x6160,
+		.uc13_pos    = 0x78f04,  .uc13_length = 0x5d40,
+		.pcm4_pos    = 0x7ec48,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x7f16c,  .pcm5_length = 0x520,
+	},
+	{
 		.name        = "wl_sta.o",
 		.version     = "3.31.16.0",                            /* 08/06/2003 */
 		.md5         = "c3e663cb78b2fc299088de69fc11a9a9",
@@ -1353,6 +1381,20 @@ static const struct file {
 		.uc13_pos    = 0x69ba4,  .uc13_length = 0x5d18,
 		.pcm4_pos    = 0x6f8c0,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x6fde4,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "wl_sta.o",
+		.version     = "4.80.17.0",
+		.md5         = "30e0f1a8fea33d4869e1a45ed3a91b1b",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x55530,
+		.uc4_pos     = 0x5a070,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x5ee9c,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x644a0,  .uc11_length = 0x6160,
+		.uc13_pos    = 0x6a604,  .uc13_length = 0x5d40,
+		.pcm4_pos    = 0x70348,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x7086c,  .pcm5_length = 0x520,
 	},
 	{
 		.name        = "wl96348GW.o_save",
