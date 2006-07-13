@@ -34,9 +34,8 @@ typedef unsigned char byte;
 #define BYTE_ORDER_BIG_ENDIAN    0x02  /* ppc driver files */
 #define BYTE_ORDER_LITTLE_ENDIAN 0x04  /* x86, mips driver files */
 
-#define MISSING_INITVAL_08       0x10  /* initval 8 is missing */
 #define MISSING_INITVAL_80211_A  0x20  /* initvals 3,7,9,10 (802.11a cards) are empty */
-#define REVERSE_ORDER_INITVALS   0x40  /* initvals in reverse order: 10, 9, ... */
+
 
 #define FIRMWARE_UCODE_OFFSET    100
 #define FIRMWARE_UNDEFINED       0
@@ -52,6 +51,17 @@ typedef unsigned char byte;
 #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
 #define FWCUTTER_VERSION	fwcutter_stringify(FWCUTTER_VERSION_)
 
+enum { /* initvals numbering schemes */
+	INITVALS_MAP_UNKNOWN = 0,
+	INITVALS_MAP_V3_WITHOUT_IV8,
+	INITVALS_MAP_V3_DEFAULT,
+	INITVALS_MAP_V3_REVERSE_ORDER,
+	INITVALS_MAP_V3_UP_TO_REV11,
+	INITVALS_MAP_V3_UP_TO_REV11_REVERSE_ORDER,
+	INITVALS_MAP_V4_UP_TO_REV11,
+	INITVALS_MAP_V4_UP_TO_REV13,
+};
+
 #include "md5.h"
 #include "fwcutter_list.h"
 
@@ -66,6 +76,51 @@ struct cmdline_args {
 static struct cmdline_args cmdargs;
 int big_endian_cpu;
 
+struct initval_mapdef {
+	const uint8_t type;
+	const uint8_t number;
+	const uint8_t scheme[30];
+	};
+
+static struct initval_mapdef ivmap[] =
+{
+	/* core rev 2 and 4 initval numbers: 1, 2, 3, 4 */
+	/* core rev 5 initval numbers: 5, 6, 7, 8, 9, 10 */
+	/* core rev 9 initval numbers: 11, 12, 13, 14, 15, 16 */
+	/* core rev 11 initval numbers: 17, 18 */
+	/* core rev 13 initval numbers: 19, 20 */
+
+	/* initval number 8 is missing in 3.20 and 3.30 */
+	{ INITVALS_MAP_V3_WITHOUT_IV8, 9,
+	  { 1, 2, 3, 4, 5, 6, 7, 9, 10 }},
+
+	/* most 3.x versions since 3.40 */
+	{ INITVALS_MAP_V3_DEFAULT, 10,
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }},
+
+	/* Apple-x86 and Linux-BCM96348 drivers are reverse ordered */ 
+	{ INITVALS_MAP_V3_REVERSE_ORDER, 10,
+	  { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }},
+
+	/* version 3.130 */
+	{ INITVALS_MAP_V3_UP_TO_REV11, 12,
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 18 }},
+
+	/* Linux-BCM96348 driver 3.131 is reverse ordered */ 
+	{ INITVALS_MAP_V3_UP_TO_REV11_REVERSE_ORDER, 12,
+	  { 18, 17, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }},
+
+	/* 4.x versions up to 4.40 */
+	{ INITVALS_MAP_V4_UP_TO_REV11, 18,
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }},
+
+	/* version 4.80 and newer */
+	{ INITVALS_MAP_V4_UP_TO_REV13, 20,
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+	    19, 20 }},
+
+	{ 0 },
+};
 
 static void write_little_endian(FILE *f, byte *buffer, int len) 
 {
@@ -114,53 +169,53 @@ static void write_fw(const char *outfilename, uint8_t flags, byte *data, int len
 	fclose(fw);
 }
 
-static void write_iv(uint8_t flags, byte *data)
+static void write_iv(uint8_t flags, uint8_t type, byte *data)
 {
 	FILE* fw;
 	char ivfilename[2048];
-	int i,j;
+	int i=0;
+	int j;
 
-	for (i = 1; i <= 10; i++) {
+	while (ivmap[i].type) {
+		if (type == ivmap[i].type)
+			break;
+		i++;
+	}
 
-		if (flags & REVERSE_ORDER_INITVALS)
-			j = 11 - i;
-		else
-			j = i;
+	if (!type) 
+		return;
 
-		if ((flags & MISSING_INITVAL_08) && (j==8)) {
-			printf("*****: Sorry, initval08 is not available in driver file \"%s\".\n", cmdargs.infile);
-			printf("*****: Extracting firmware from an old driver is bad. Choose a more recent one.\n");
-			printf("*****: Luckily bcm43xx driver doesn't include initval08 uploads at the moment.\n");
-			printf("*****: But this can be added in the future...\n");
-			i++;
-			if (flags & REVERSE_ORDER_INITVALS)
-				j--;
-			else
-				j++;
-		}
-
+	for (j = 0; j < ivmap[i].number; j++) {
+		
 		snprintf(ivfilename, sizeof(ivfilename),
 			 "%s/bcm43xx_initval%02d%s.fw",
-			 cmdargs.target_dir, j, cmdargs.postfix);
-		fw = fopen(ivfilename, "w");
+			 cmdargs.target_dir,
+			 ivmap[i].scheme[j],
+			 cmdargs.postfix);
 
+		fw = fopen(ivfilename, "w");
 		if (!fw) {
 			perror(ivfilename);
 			exit(1);
 		}
 
 		printf("extracting bcm43xx_initval%02d%s.fw ...\n", 
-		       j, cmdargs.postfix);
+		       ivmap[i].scheme[j],
+		       cmdargs.postfix);
 
 		while (1) {
 
 			if ((data[2]==0x00) && (data[3]==0x00)) {
-				if ((data[0]==0x00) && (data[1]==0x00) &&
-				    (data[4]==0x00) && (data[5]==0x00) &&
-				    (data[6]==0x00) && (data[7]==0x00)) {
+				if ((data[0]==0x00) && 
+				    (data[1]==0x00) &&
+				    (data[4]==0x00) && 
+				    (data[5]==0x00) &&
+				    (data[6]==0x00) && 
+				    (data[7]==0x00)) {
 					data = data + 8;
 					continue;
-				} else if ((data[0]==0xff) && (data[1]==0xff)) {
+				} else if ((data[0]==0xff) && 
+					   (data[1]==0xff)) {
 					data = data + 8;
 					break;
 				}
@@ -168,21 +223,28 @@ static void write_iv(uint8_t flags, byte *data)
 
 			if (flags & BYTE_ORDER_LITTLE_ENDIAN)
 				fprintf(fw, "%c%c%c%c%c%c%c%c",
-					data[1], data[0],                       /* offset */
-					data[3], data[2],                       /* size */
-					data[7], data[6], data[5], data[4]);    /* value */
+					/* offset */
+					data[1], data[0],
+					/* size */
+					data[3], data[2],
+					/* value */
+					data[7], data[6], data[5], data[4]);
 			else if (flags & BYTE_ORDER_BIG_ENDIAN)
 				fprintf(fw, "%c%c%c%c%c%c%c%c",
-					data[0], data[1],                       /* offset */
-					data[2], data[3],                       /* size */
-					data[4], data[5], data[6], data[7]);    /* value */
+					/* offset */
+					data[0], data[1],
+					/* size */
+					data[2], data[3],
+					/* value */
+					data[4], data[5], data[6], data[7]);
 			else {
 				printf("unknown byteorder...\n");
 				exit(1);
 			}
 
-			data = data + 8;
-		}
+			data = data + 8;			
+		};
+
 		fflush(fw);
 		fclose(fw);
 	}
@@ -279,13 +341,13 @@ static void extract_fw(uint8_t fwtype, uint8_t flags, uint32_t pos, uint32_t len
 	}
 }
 
-static void extract_iv(uint8_t flags, uint32_t pos)
+static void extract_iv(uint8_t flags, uint32_t pos, uint8_t type)
 {
 	byte* filedata;
 
 	if (pos > 0) {
 		filedata = read_file(cmdargs.infile);
-		write_iv(flags, filedata + pos);
+		write_iv(flags, type, filedata + pos);
 		free(filedata);
 	}
 }
@@ -586,7 +648,7 @@ int main(int argc, char *argv[])
 	extract_fw(FIRMWARE_UCODE_13, file->flags, file->uc13_pos, file->uc13_length);
 	extract_fw(FIRMWARE_PCM_4, file->flags, file->pcm4_pos, file->pcm4_length);
 	extract_fw(FIRMWARE_PCM_5, file->flags, file->pcm5_pos, file->pcm5_length);
-	extract_iv(file->flags, file->iv_pos);
+	extract_iv(file->flags, file->iv_pos, file->iv_map);
 
 	err = 0;
 out_close:
