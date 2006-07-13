@@ -349,10 +349,7 @@ static const struct file {
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.53.6",                            /* 04/28/2003 */ 
 		.md5         = "b43c593fd7c2a47cdc40580fe341f674",
-		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               UCODE_IN_3_10_STYLE,
-		.uc2_pos     = 0x1e054,  .uc2_length  = 0x7e6c,
-		.uc4_pos     = 0x288bc,  .uc4_length  = 0x846c,
+		.flags       = DRIVER_UNSUPPORTED,
 	},
 	{ 
 		.name        = "bcmwl5.sys",                           /* was renamed to n54gnds.sys */
