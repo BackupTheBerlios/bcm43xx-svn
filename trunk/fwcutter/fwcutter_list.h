@@ -850,6 +850,21 @@ static const struct file {
 		.pcm5_pos    = 0x73f08,	 .pcm5_length = 0x520,
 	},
 	{
+		.name        = "bcmwl5.sys",
+		.version     = "4.80.28.2",
+		.md5         = "5538cd4cadc0ed0c0295192fd041860d",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x59200,
+		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+		.uc4_pos     = 0x5e9a0,  .uc4_length  = 0x4e48,
+		.uc5_pos     = 0x637f0,  .uc5_length  = 0x5618,
+		.uc11_pos    = 0x68e18,  .uc11_length = 0x6660,
+		.uc13_pos    = 0x6f480,  .uc13_length = 0x5e58,
+		.pcm4_pos    = 0x752e0,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x75808,	 .pcm5_length = 0x520,
+	},
+	{
 		.name        = "bcmwl564.sys",
 		.version     = "3.70.17.5",
 		.md5         = "f5590c8784b91dfd9ee092d3040b6e40",
@@ -917,6 +932,21 @@ static const struct file {
 		.uc13_pos    = 0x86890,  .uc13_length = 0x5d40,
 		.pcm4_pos    = 0x8c5e0,	 .pcm4_length = 0x520,
 		.pcm5_pos    = 0x8cb10,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl564.sys",
+		.version     = "4.80.28.2",
+		.md5         = "038dedd70e8ddfe2b241c75b0d8c1633",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x72130,
+		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+		.uc4_pos     = 0x77900,  .uc4_length  = 0x4e48,
+		.uc5_pos     = 0x7c750,  .uc5_length  = 0x5618,
+		.uc11_pos    = 0x81d80,  .uc11_length = 0x6660,
+		.uc13_pos    = 0x883f0,  .uc13_length = 0x5e58,
+		.pcm4_pos    = 0x8e250,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x8e780,	 .pcm5_length = 0x520,
 	},
 	{
 		.name        = "bcmwl5a.sys",
