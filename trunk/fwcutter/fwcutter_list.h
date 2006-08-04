@@ -1,26 +1,4 @@
-
-static const struct file {
-	const char *name;
-	const char *version;
-	const char *md5;
-	const uint8_t flags;
-	const uint32_t iv_pos;
-	const uint8_t iv_map;
-	const uint32_t uc2_pos;
-	const uint32_t uc2_length;
-	const uint32_t uc4_pos;
-	const uint32_t uc4_length;
-	const uint32_t uc5_pos;
-	const uint32_t uc5_length;
-	const uint32_t uc11_pos;
-	const uint32_t uc11_length;
-	const uint32_t uc13_pos;
-	const uint32_t uc13_length;
-	const uint32_t pcm4_pos;
-	const uint32_t pcm4_length;
-	const uint32_t pcm5_pos;
-	const uint32_t pcm5_length;
-} files[] = 
+static const struct file files[] = 
 {
 	{
 		.name        = "AppleAirPort2",
