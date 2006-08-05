@@ -32,5 +32,5 @@ installfw:
 	-install -o 0 -g 0 -m 600 bcm43xx_*.fw $(FIRMWARE_INSTALL_DIR)
 
 # dependencies
-fwcutter.o: md5.h fwcutter_list.h
+fwcutter.o: fwcutter.h md5.h fwcutter_list.h
 md5.o: md5.h

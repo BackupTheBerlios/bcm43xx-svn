@@ -388,31 +388,21 @@ static void print_file(const struct file *file)
 	char filename[16];
 	char shortname[14];
 
-	if (strlen(file->name) > 15) {
-		strncpy(shortname, file->name, 13);
+	if (strlen(file->name) > 20) {
+		strncpy(shortname, file->name, 18);
 		snprintf(filename, sizeof(filename), "%s..", shortname);
 	} else
 		strcpy (filename, file->name);
 
 	printf("%s\t", filename);
-	if (strlen(filename) < 8)
-		printf("\t");
+	if (strlen(filename) < 8) printf("\t");
+	if (strlen(filename) < 16) printf("\t");
 
 	printf("%s\t", file->version);
-	if (strlen(file->version) < 8)
-		printf("\t");
-	if (strlen(file->version) < 16)
-		printf("\t");
+	if (strlen(file->version) < 8) printf("\t");
+	if (strlen(file->version) < 16) printf("\t");
 
-	if (!(file->flags & DRIVER_UNSUPPORTED)) {
-		if (file->flags & MISSING_INITVAL_80211_A)
-			printf("b/g  ");
-		else
-			printf("a/b/g");
-	}
-
-	printf("  %s", file->md5);
-	printf("\n");
+	printf("%s\n", file->md5);
 }
 
 static void print_supported_files(void)
@@ -422,9 +412,8 @@ static void print_supported_files(void)
 	print_banner();
 	printf("\nExtracting firmware is possible "
 	       "from these binary driver files:\n\n");
-	printf("<filename>\t"
-	       "<version>\t       "
-	       "<802.11>"
+	printf("<filename>\t\t"
+	       "<version>\t\t"
 	       "<MD5 checksum>\n\n");
 	for (i = 0; i < FILES; i++) {
 		if (files[i].flags & DRIVER_UNSUPPORTED)
@@ -433,8 +422,8 @@ static void print_supported_files(void)
 	}
 	printf("\n\nExtracting firmware is IMPOSSIBLE "
 	       "from these binary driver files:\n\n");
-	printf("<filename>\t"
-	       "<version>\t          "
+	printf("<filename>\t\t"
+	       "<version>\t\t"
 	       "<MD5 checksum>\n\n");
 	for (i = 0; i < FILES; i++) {
 		if (!(files[i].flags & DRIVER_UNSUPPORTED))
