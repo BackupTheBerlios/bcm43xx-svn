@@ -392,8 +392,8 @@ static void print_banner(void)
 
 static void print_file(const struct file *file)
 {
-	char filename[16];
-	char shortname[14];
+	char filename[30];
+	char shortname[30];
 
 	if (strlen(file->name) > 20) {
 		strncpy(shortname, file->name, 18);
