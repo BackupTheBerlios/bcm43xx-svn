@@ -101,6 +101,13 @@ static void write_iv(uint8_t flags, uint8_t type, byte *data)
 			 ivmap[i].scheme[j],
 			 cmdargs.postfix);
 
+		/* skip empty initval files */
+		if ((data[2]==0x00) && (data[3]==0x00) &&
+		    (data[0]==0xff) && (data[1]==0xff)) {
+			data = data + 8;
+			continue;
+		}
+
 		fw = fopen(ivfilename, "w");
 		if (!fw) {
 			perror(ivfilename);
