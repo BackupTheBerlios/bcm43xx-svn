@@ -843,6 +843,21 @@ static const struct file files[] =
 		.pcm5_pos    = 0x75808,	 .pcm5_length = 0x520,
 	},
 	{
+		.name        = "bcmwl5.sys",
+		.version     = "4.80.28.7",
+		.md5         = "3003c21e5e1f04ba84fc8e705a65db2b",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x59380,
+		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+		.uc4_pos     = 0x5eb20,  .uc4_length  = 0x4e48,
+		.uc5_pos     = 0x63970,  .uc5_length  = 0x5618,
+		.uc11_pos    = 0x68f98,  .uc11_length = 0x6660,
+		.uc13_pos    = 0x6f600,  .uc13_length = 0x5e58,
+		.pcm4_pos    = 0x75460,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x75988,	 .pcm5_length = 0x520,
+	},
+	{
 		.name        = "bcmwl564.sys",
 		.version     = "3.70.17.5",
 		.md5         = "f5590c8784b91dfd9ee092d3040b6e40",
