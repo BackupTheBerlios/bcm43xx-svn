@@ -29,7 +29,7 @@
 static struct cmdline_args cmdargs;
 int big_endian_cpu;
 
-static void write_little_endian(FILE *f, byte *buffer, int len) 
+static void write_little_endian(FILE *f, byte *buffer, int len, uint8_t flags) 
 {
 	byte swapbuf[4];
 
@@ -39,6 +39,9 @@ static void write_little_endian(FILE *f, byte *buffer, int len)
 		fwrite(swapbuf, 4, 1, f);
 		buffer = buffer + 4;
 		len  = len - 4;
+
+		if (flags & OLD_VERSION_STYLE_3_10)
+			buffer = buffer + 4;
 	}
 }
 
@@ -67,7 +70,7 @@ static void write_fw(const char *outfilename, uint8_t flags,
 	}
 
 	if (flags & BYTE_ORDER_LITTLE_ENDIAN)
-		write_little_endian(fw, data, len);
+		write_little_endian(fw, data, len, flags);
 	else if (flags & BYTE_ORDER_BIG_ENDIAN)
 		write_big_endian(fw, data, len);
 	else
@@ -157,7 +160,7 @@ static void write_iv(uint8_t flags, uint8_t type, byte *data)
 				exit(1);
 			}
 
-			data = data + 8;			
+			data = data + 8;
 		};
 
 		fflush(fw);
@@ -353,6 +356,7 @@ static void get_ucode_rev(int type, const struct file * f, int pos, int len)
 	int len_count = 0;
 
 	if (len == 0) return;
+	if (f->flags & OLD_VERSION_STYLE_3_10) return;
 
 	printf("  microcode  :  %i\n", type - FIRMWARE_UCODE_OFFSET);
 

@@ -10,6 +10,7 @@
 #define BYTE_ORDER_BIG_ENDIAN    0x02  /* ppc, bcm6345/6348 driver files */
 #define BYTE_ORDER_LITTLE_ENDIAN 0x04  /* x86, mips driver files */
 #define MISSING_INITVAL_80211_A  0x08  /* empty initvals 3,7,9,10 */
+#define OLD_VERSION_STYLE_3_10   0x10  /* 3.10.x.x drivers differ */
 
 #define FIRMWARE_UCODE_OFFSET    100
 #define FIRMWARE_UNDEFINED       0

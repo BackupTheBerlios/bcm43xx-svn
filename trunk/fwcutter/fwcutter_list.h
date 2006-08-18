@@ -303,37 +303,56 @@ static const struct file files[] =
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.36.0",                            /* 12/29/2002 */ 
 		.md5         = "94cf83440955c49387ab7d9d4a8ee138",
-		.flags       = DRIVER_UNSUPPORTED,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_10,
+		.uc2_pos     = 0x1cf84,  .uc2_length  = 0x3ed0,
+		.pcm4_pos    = 0x24d44,  .pcm4_length = 0x428,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.39.0",
 		.md5         = "5204362ec9ae6d7a5e2c9ec97a869f3f", 
-		.flags       = DRIVER_UNSUPPORTED,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_10,
+		.uc2_pos     = 0x1d084,  .uc2_length  = 0x3f30,
+		.pcm4_pos    = 0x24f04,  .pcm4_length = 0x428,
 	},
 	{ 
 		.name        = "bcmwl5.sys",                           /* was renamed to n54gnds.sys */
 		.version     = "3.10.39.7",
 		.md5         = "def910106deec0ad67712d124fc2047d", 
-		.flags       = DRIVER_UNSUPPORTED,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_10,
+		.uc2_pos     = 0x1d884,  .uc2_length  = 0x3f30,
+		.pcm4_pos    = 0x25704,  .pcm4_length = 0x428,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.39.8",
 		.md5         = "bdbd3b9bf07ead2e8e00cc6dc267fb4a", 
-		.flags       = DRIVER_UNSUPPORTED,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_10,
+		.uc2_pos     = 0x1d804,  .uc2_length  = 0x3f30,
+		.pcm4_pos    = 0x25684,  .pcm4_length = 0x428,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.53.0",
 		.md5         = "50e009df2dbecf7a53fcefee6b137358", 
-		.flags       = DRIVER_UNSUPPORTED,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_10,
+		.uc2_pos     = 0x1f1fc,  .uc2_length  = 0x3f30,
+		.pcm4_pos    = 0x2707c,  .pcm4_length = 0x428,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.53.6",                            /* 04/28/2003 */ 
 		.md5         = "b43c593fd7c2a47cdc40580fe341f674",
-		.flags       = DRIVER_UNSUPPORTED,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_10,
+		.uc2_pos     = 0x1e054,  .uc2_length  = 0x3f38,
+		.uc4_pos     = 0x288bc,  .uc4_length  = 0x4238,
+		.pcm4_pos    = 0x30d4c,  .pcm4_length = 0x478,
 	},
 	{ 
 		.name        = "bcmwl5.sys",                           /* was renamed to n54gnds.sys */
