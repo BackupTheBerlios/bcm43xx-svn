@@ -282,6 +282,12 @@ static const struct file files[] =
 		.pcm5_pos    = 0x1094e0,  .pcm5_length = 0x520,
 	},
 	{ 
+		.name        = "bcmwl5.sys",                           /* renamed to WMP11V27.sys */
+		.version     = "3.8.28.0",
+		.md5         = "f7c6cc420c21eb1a73f6a73bfec96f2c",
+		.flags       = DRIVER_UNSUPPORTED,
+	},
+	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.8.37.0",                             /* 09/23/2002 */ 
 		.md5         = "e39e934eccd3b15bbb5f8d8f52f172b2",
@@ -814,6 +820,21 @@ static const struct file files[] =
 	},
 	{
 		.name        = "bcmwl5.sys",
+		.version     = "4.80.9.2",
+		.md5         = "2ee34b694d1ce077678662d7884f6c79",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x56480,
+		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+		.uc4_pos     = 0x5bbf8,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x60a28,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x66030,  .uc11_length = 0x6130,
+		.uc13_pos    = 0x6c168,  .uc13_length = 0x5d18,
+		.pcm4_pos    = 0x71e88,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x723b0,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl5.sys",
 		.version     = "4.80.17.0",
 		.md5         = "90ef35fb5ae531420577c8f40d8a16f5",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
@@ -910,6 +931,21 @@ static const struct file files[] =
 		.uc11_pos    = 0x6ce10,	 .uc11_length = 0x5b00,
 		.pcm4_pos    = 0x72920,	 .pcm4_length = 0x520,
 		.pcm5_pos    = 0x72e50,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl564.sys",
+		.version     = "4.80.9.2",
+		.md5         = "c24bb2a1207a6f2c0ed79e2463df9dea",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       DRIVER_UNSUPPORTED,
+		.iv_pos      = 0x6eb30,
+		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+		.uc4_pos     = 0x742e0,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x79110,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x7e720,  .uc11_length = 0x6130,
+		.uc13_pos    = 0x84860,  .uc13_length = 0x5d18,
+		.pcm4_pos    = 0x8a580,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x8aab0,	 .pcm5_length = 0x520,
 	},
 	{
 		.name        = "bcmwl564.sys",
