@@ -202,6 +202,20 @@ static const struct file files[] =
 	{
 		.name        = "AppleAirPort2",
 		.version     = "3.90.34.0.p16 (404.2)",
+		.md5         = "1b44556cc33b4625f3115ce2942761c6",
+		.flags       = BYTE_ORDER_BIG_ENDIAN |
+		               MISSING_INITVAL_80211_A,
+		.iv_pos      = 0x4f838,
+		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
+		.uc2_pos     = 0x59e18,  .uc2_length  = 0x3f48,
+		.uc4_pos     = 0x55028,  .uc4_length  = 0x4df0,
+		.uc5_pos     = 0x4f838,  .uc5_length  = 0x57f0,
+		.pcm4_pos    = 0x4f318,  .pcm4_length = 0x520,
+		.pcm5_pos    = 0x4edf8,  .pcm5_length = 0x520,
+	},
+	{
+		.name        = "AppleAirPort2",
+		.version     = "3.90.34.0.p16 (404.2)",
 		.md5         = "6abbe6468954c510b36546f3cdb89efc",     /* x86 driver */
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
 		               MISSING_INITVAL_80211_A,
