@@ -205,7 +205,7 @@ static const struct file files[] =
 		.md5         = "1b44556cc33b4625f3115ce2942761c6",
 		.flags       = BYTE_ORDER_BIG_ENDIAN |
 		               MISSING_INITVAL_80211_A,
-		.iv_pos      = 0x4f838,
+		.iv_pos      = 0x5dd60,
 		.iv_map      = INITVALS_MAP_V3_REVERSE_ORDER,
 		.uc2_pos     = 0x59e18,  .uc2_length  = 0x3f48,
 		.uc4_pos     = 0x55028,  .uc4_length  = 0x4df0,
