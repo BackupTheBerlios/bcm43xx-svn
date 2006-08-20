@@ -305,6 +305,8 @@ static const struct file files[] =
 		.md5         = "94cf83440955c49387ab7d9d4a8ee138",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               OLD_VERSION_STYLE_3_10,
+		.iv_pos      = 0x1a760,
+		.iv_map      = INITVALS_MAP_V3_10_36_0,
 		.uc2_pos     = 0x1cf84,  .uc2_length  = 0x3ed0,
 		.pcm4_pos    = 0x24d44,  .pcm4_length = 0x428,
 	},
