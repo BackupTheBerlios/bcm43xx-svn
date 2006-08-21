@@ -320,7 +320,7 @@ static const struct file files[] =
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               OLD_VERSION_STYLE_3_10,
 		.iv_pos      = 0x1a760,
-		.iv_map      = INITVALS_MAP_V3_10_36_0,
+		.iv_map      = INITVALS_MAP_V3_10_3X,
 		.uc2_pos     = 0x1cf84,  .uc2_length  = 0x3ed0,
 		.pcm4_pos    = 0x24d44,  .pcm4_length = 0x428,
 	},
@@ -330,6 +330,8 @@ static const struct file files[] =
 		.md5         = "5204362ec9ae6d7a5e2c9ec97a869f3f", 
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               OLD_VERSION_STYLE_3_10,
+		.iv_pos      = 0x1a860,
+		.iv_map      = INITVALS_MAP_V3_10_3X,
 		.uc2_pos     = 0x1d084,  .uc2_length  = 0x3f30,
 		.pcm4_pos    = 0x24f04,  .pcm4_length = 0x428,
 	},
@@ -339,6 +341,8 @@ static const struct file files[] =
 		.md5         = "def910106deec0ad67712d124fc2047d", 
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               OLD_VERSION_STYLE_3_10,
+		.iv_pos      = 0x1b060,
+		.iv_map      = INITVALS_MAP_V3_10_3X,
 		.uc2_pos     = 0x1d884,  .uc2_length  = 0x3f30,
 		.pcm4_pos    = 0x25704,  .pcm4_length = 0x428,
 	},
@@ -348,6 +352,8 @@ static const struct file files[] =
 		.md5         = "bdbd3b9bf07ead2e8e00cc6dc267fb4a", 
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               OLD_VERSION_STYLE_3_10,
+		.iv_pos      = 0x1afe0,
+		.iv_map      = INITVALS_MAP_V3_10_3X,
 		.uc2_pos     = 0x1d804,  .uc2_length  = 0x3f30,
 		.pcm4_pos    = 0x25684,  .pcm4_length = 0x428,
 	},
@@ -357,6 +363,8 @@ static const struct file files[] =
 		.md5         = "50e009df2dbecf7a53fcefee6b137358", 
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               OLD_VERSION_STYLE_3_10,
+		.iv_pos      = 0x1c9e8,
+		.iv_map      = INITVALS_MAP_V3_10_3X,
 		.uc2_pos     = 0x1f1fc,  .uc2_length  = 0x3f30,
 		.pcm4_pos    = 0x2707c,  .pcm4_length = 0x428,
 	},
@@ -366,6 +374,8 @@ static const struct file files[] =
 		.md5         = "b43c593fd7c2a47cdc40580fe341f674",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
 		               OLD_VERSION_STYLE_3_10,
+		.iv_pos      = 0x1d2f0,
+		.iv_map      = INITVALS_MAP_V3_10_53_6,
 		.uc2_pos     = 0x1e054,  .uc2_length  = 0x3f38,
 		.uc4_pos     = 0x288bc,  .uc4_length  = 0x4238,
 		.pcm4_pos    = 0x30d4c,  .pcm4_length = 0x478,

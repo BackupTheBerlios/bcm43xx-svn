@@ -34,7 +34,8 @@ typedef unsigned char byte;
 
 enum { /* initvals numbering schemes */
 	INITVALS_MAP_UNKNOWN = 0,
-	INITVALS_MAP_V3_10_36_0,
+	INITVALS_MAP_V3_10_3X,
+	INITVALS_MAP_V3_10_53_6,
 	INITVALS_MAP_V3_WITHOUT_IV8,
 	INITVALS_MAP_V3_DEFAULT,
 	INITVALS_MAP_V3_REVERSE_ORDER,
@@ -88,12 +89,19 @@ static struct initval_mapdef ivmap[] =
 	/* core rev 0xb initval numbers: 17, 18 */
 	/* core rev 0xd initval numbers: 19, 20 */
 
-	/* version 3.10.36.0 */
-	{ INITVALS_MAP_V3_10_36_0, 3,
+	/* version 3.10.36.0, 3.10.39.x */
+	{ INITVALS_MAP_V3_10_3X, 3,
 	  /* This driver has two variations of initval number 1 inside. */
 	  /* Write { 3, 1, 0 } if you want to extract the other one. */
 	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
 	  { 3, 0, 1 }},
+
+	/* version 3.10.53.6 */
+	{ INITVALS_MAP_V3_10_53_6, 4,
+	  /* This driver has two variations of initval number 1 inside. */
+	  /* Write { 3, 0, 0, 1 } if you want to extract the other one. */
+	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
+	  { 3, 0, 1, 0 }},
 
 	/* initval number 8 is missing in 3.20 and 3.30 */
 	{ INITVALS_MAP_V3_WITHOUT_IV8, 9,
