@@ -497,8 +497,8 @@ static const struct file * find_file(FILE *fd)
 			if (files[i].pcm5_length > 0) printf("5 ");
 			printf("\n\n");
 			if (files[i].flags & MISSING_INITVAL_80211_A) {
-				printf("WARNING! This firmware doesn't include"
-				       "support for 802.11a cards.\n");
+				printf("WARNING! This firmware doesn't "
+				       "include support for 802.11a cards.\n");
 				printf("WARNING! Use this firmware only for "
 				       "802.11b/g cards.\n\n");
 			}
