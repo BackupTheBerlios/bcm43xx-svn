@@ -311,7 +311,12 @@ static const struct file files[] =
 		.name        = "bcmwl5.sys",
 		.version     = "3.10.8.0",                             /* 10/04/2002 */ 
 		.md5         = "288923b401e87ef76b7ae2652601ee47",
-		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_8,
+		.iv_pos      = 0x13448,
+		.iv_map      = INITVALS_MAP_V3_10_8,
+		.uc2_pos     = 0x193b4,  .uc2_length  = 0x3dd8,
+		.pcm4_pos    = 0x24d6c,  .pcm4_length = 0x428,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
@@ -397,7 +402,7 @@ static const struct file files[] =
 		.version     = "3.20.23.0",                            /* 06/13/2003 */ 
 		.md5         = "1b1cf5e962c15abca83d1ef2b3906e2f",     /* pcm5 not available, driver is too old */
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN,
-		.iv_pos      = 0x2a1d0,
+		.iv_pos      = 0x2a1d8,
 		.iv_map      = INITVALS_MAP_V3_WITHOUT_IV8,
 		.uc2_pos     = 0x2d228,  .uc2_length  = 0x3da8,
 		.uc4_pos     = 0x30fd8,  .uc4_length  = 0x4470,

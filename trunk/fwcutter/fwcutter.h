@@ -10,7 +10,8 @@
 #define BYTE_ORDER_BIG_ENDIAN    0x02  /* ppc, bcm6345/6348 driver files */
 #define BYTE_ORDER_LITTLE_ENDIAN 0x04  /* x86, mips driver files */
 #define MISSING_INITVAL_80211_A  0x08  /* empty initvals 3,7,9,10 */
-#define OLD_VERSION_STYLE_3_10   0x10  /* 3.10.x.x drivers differ */
+#define OLD_VERSION_STYLE_3_8    0x10  /* 3.10.8.x drivers differ */
+#define OLD_VERSION_STYLE_3_10   0x20  /* 3.10.3x.x drivers differ */
 
 #define FIRMWARE_UCODE_OFFSET    100
 #define FIRMWARE_UNDEFINED       0
@@ -34,6 +35,7 @@ typedef unsigned char byte;
 
 enum { /* initvals numbering schemes */
 	INITVALS_MAP_UNKNOWN = 0,
+	INITVALS_MAP_V3_10_8,
 	INITVALS_MAP_V3_10_3X,
 	INITVALS_MAP_V3_10_53_6,
 	INITVALS_MAP_V3_WITHOUT_IV8,
@@ -88,6 +90,12 @@ static struct initval_mapdef ivmap[] =
 	/* core rev 0x9 initval numbers: 11, 12, 13, 14, 15, 16 */
 	/* core rev 0xb initval numbers: 17, 18 */
 	/* core rev 0xd initval numbers: 19, 20 */
+
+	/* version 3.10.8.0 */
+	{ INITVALS_MAP_V3_10_8, 8,
+	  /* This driver has two variations of initval number 1 inside. */
+	  /* Write { 3, 0, 0, 0, 0, 0, 0, 1 } to extract the other one. */
+	  { 3, 0, 0, 1, 0, 0, 0, 0 }},
 
 	/* version 3.10.36.0, 3.10.39.x */
 	{ INITVALS_MAP_V3_10_3X, 3,

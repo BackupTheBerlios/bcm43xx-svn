@@ -40,6 +40,8 @@ static void write_little_endian(FILE *f, byte *buffer, int len, uint8_t flags)
 		buffer = buffer + 4;
 		len  = len - 4;
 
+		if (flags & OLD_VERSION_STYLE_3_8)
+			buffer = buffer + 8;
 		if (flags & OLD_VERSION_STYLE_3_10)
 			buffer = buffer + 4;
 	}
@@ -106,22 +108,48 @@ static void write_iv(uint8_t flags, uint8_t type, byte *data)
 
 		/* don't extract initval 0 */
 		if ( ivmap[i].scheme[j] == 0 ) {
-			while (1) {
-				if ((data[2]==0x00) && 
-				    (data[3]==0x00) &&
-				    (data[0]==0xff) &&
-				    (data[1]==0xff))
-					break;
+			if (flags & OLD_VERSION_STYLE_3_8) {
+				while (1) {
+					if ((data[0]==0xff) &&
+					    (data[1]==0xff) &&
+					    (data[2]==0xff) &&
+					    (data[3]==0xff) &&
+					    (data[4]==0x00) &&
+					    (data[5]==0x00) &&
+					    (data[6]==0x00) &&
+					    (data[7]==0x00))
+						break;
 
-				data = data + 8;
+					data = data + 12;
+				}
+			} else {
+				while (1) {
+					if ((data[2]==0x00) &&
+					    (data[3]==0x00) &&
+					    (data[0]==0xff) &&
+					    (data[1]==0xff))
+						break;
+
+					data = data + 8;
+				}
 			}
 		}
 
 		/* skip empty initval files */
-		if ((data[2]==0x00) && (data[3]==0x00) &&
-		    (data[0]==0xff) && (data[1]==0xff)) {
-			data = data + 8;
-			continue;
+		if (flags & OLD_VERSION_STYLE_3_8) {
+			if ((data[0]==0xff) && (data[1]==0xff) &&
+			    (data[2]==0xff) && (data[3]==0xff) &&
+			    (data[4]==0x00) && (data[5]==0x00) &&
+			    (data[6]==0x00) && (data[7]==0x00)) {
+				data = data + 12;
+				continue;
+			}
+		} else {
+			if ((data[2]==0x00) && (data[3]==0x00) &&
+			    (data[0]==0xff) && (data[1]==0xff)) {
+				data = data + 8;
+				continue;
+			}
 		}
 
 		fw = fopen(ivfilename, "w");
@@ -135,6 +163,34 @@ static void write_iv(uint8_t flags, uint8_t type, byte *data)
 		       cmdargs.postfix);
 
 		while (1) {
+
+			if (flags & OLD_VERSION_STYLE_3_8) {
+
+				if ((data[0]==0xff) &&
+				    (data[1]==0xff) &&
+				    (data[2]==0xff) &&
+				    (data[3]==0xff) &&
+				    (data[4]==0x00) &&
+				    (data[5]==0x00) &&
+				    (data[6]==0x00) &&
+				    (data[7]==0x00)) {
+					data = data + 12;
+					break;
+				}
+
+				if (flags & BYTE_ORDER_LITTLE_ENDIAN)
+					fprintf(fw, "%c%c%c%c%c%c%c%c",
+						/* offset */
+						data[1], data[0],
+						/* size */
+						data[5], data[4],
+						/* value */
+						data[11], data[10], 
+						data[9], data[8]);
+
+				data = data + 12;
+				continue;
+			}
 
 			if ((data[2]==0x00) && (data[3]==0x00)) {
 				if ((data[0]==0x00) && 
@@ -369,7 +425,8 @@ static void get_ucode_rev(int type, const struct file * f, int pos, int len)
 	int len_count = 0;
 
 	if (len == 0) return;
-	if (f->flags & OLD_VERSION_STYLE_3_10) return;
+	if ((f->flags & OLD_VERSION_STYLE_3_8) ||
+	    (f->flags & OLD_VERSION_STYLE_3_10)) return;
 
 	printf("  microcode  :  %i\n", type - FIRMWARE_UCODE_OFFSET);
 
