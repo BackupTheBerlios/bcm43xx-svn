@@ -35,6 +35,7 @@ typedef unsigned char byte;
 
 enum { /* initvals numbering schemes */
 	INITVALS_MAP_UNKNOWN = 0,
+	INITVALS_MAP_V3_8_X,
 	INITVALS_MAP_V3_10_8,
 	INITVALS_MAP_V3_10_3X,
 	INITVALS_MAP_V3_10_53_6,
@@ -91,54 +92,69 @@ static struct initval_mapdef ivmap[] =
 	/* core rev 0xb initval numbers: 17, 18 */
 	/* core rev 0xd initval numbers: 19, 20 */
 
+	/* version 3.8.28.0, 3.8.37.0 */
+	{ INITVALS_MAP_V3_8_X, 1, 
+	  { 1 } 
+	},
+
 	/* version 3.10.8.0 */
 	{ INITVALS_MAP_V3_10_8, 8,
 	  /* This driver has two variations of initval number 1 inside. */
 	  /* Write { 3, 0, 0, 0, 0, 0, 0, 1 } to extract the other one. */
-	  { 3, 0, 0, 1, 0, 0, 0, 0 }},
+	  { 3, 0, 0, 1, 0, 0, 0, 0 }
+	},
 
-	/* version 3.10.36.0, 3.10.39.x */
+	/* version 3.10.36.0, 3.10.39.x, 3.10.53.0 */
 	{ INITVALS_MAP_V3_10_3X, 3,
 	  /* This driver has two variations of initval number 1 inside. */
 	  /* Write { 3, 1, 0 } if you want to extract the other one. */
 	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
-	  { 3, 0, 1 }},
+	  { 3, 0, 1 }
+	},
 
 	/* version 3.10.53.6 */
 	{ INITVALS_MAP_V3_10_53_6, 4,
 	  /* This driver has two variations of initval number 1 inside. */
 	  /* Write { 3, 0, 0, 1 } if you want to extract the other one. */
 	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
-	  { 3, 0, 1, 0 }},
+	  { 3, 0, 1, 0 }
+	},
 
 	/* initval number 8 is missing in 3.20 and 3.30 */
 	{ INITVALS_MAP_V3_WITHOUT_IV8, 9,
-	  { 1, 2, 3, 4, 5, 6, 7, 9, 10 }},
+	  { 1, 2, 3, 4, 5, 6, 7, 9, 10 }
+	},
 
 	/* most 3.x versions since 3.40 */
 	{ INITVALS_MAP_V3_DEFAULT, 10,
-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }},
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
+	},
 
 	/* Apple-x86 and Linux-BCM6345/6348 drivers are reverse ordered */ 
 	{ INITVALS_MAP_V3_REVERSE_ORDER, 10,
-	  { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }},
+	  { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }
+	},
 
 	/* version 3.130 */
 	{ INITVALS_MAP_V3_UP_TO_REV11, 12,
-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 18 }},
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 18 }
+	},
 
 	/* Linux-BCM96348 driver 3.131 is reverse ordered */ 
 	{ INITVALS_MAP_V3_UP_TO_REV11_REVERSE_ORDER, 12,
-	  { 18, 17, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }},
+	  { 18, 17, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }
+	},
 
 	/* 4.x versions up to 4.40 */
 	{ INITVALS_MAP_V4_UP_TO_REV11, 18,
-	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }},
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
+	},
 
 	/* version 4.80 and newer */
 	{ INITVALS_MAP_V4_UP_TO_REV13, 20,
 	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-	    19, 20 }},
+	    19, 20 }
+	},
 
 	{ 0 },
 };

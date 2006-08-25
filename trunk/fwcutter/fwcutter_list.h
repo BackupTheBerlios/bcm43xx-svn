@@ -299,13 +299,21 @@ static const struct file files[] =
 		.name        = "bcmwl5.sys",                           /* renamed to WMP11V27.sys */
 		.version     = "3.8.28.0",
 		.md5         = "f7c6cc420c21eb1a73f6a73bfec96f2c",
-		.flags       = DRIVER_UNSUPPORTED,
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_8,
+		.iv_pos      = 0x1c1a8,
+		.iv_map      = INITVALS_MAP_V3_8_X,
+		.uc2_pos     = 0x10ad4,  .uc2_length  = 0x3cf0,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.8.37.0",                             /* 09/23/2002 */ 
 		.md5         = "e39e934eccd3b15bbb5f8d8f52f172b2",
-		.flags       = DRIVER_UNSUPPORTED,                     /* file differs from later ones */
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_8,
+		.iv_pos      = 0x10528,
+		.iv_map      = INITVALS_MAP_V3_8_X,
+		.uc2_pos     = 0x11454,  .uc2_length  = 0x3cf0,
 	},
 	{ 
 		.name        = "bcmwl5.sys",
