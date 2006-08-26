@@ -344,9 +344,43 @@ static void extract_iv(uint8_t flags, uint32_t pos, uint8_t type)
 	}
 }
 
+static void print_ucode_version(uint32_t fwdata)
+{
+	if ((fwdata & 0xfff) == 0x000) {
+		printf("  revision   :  0x%.4x\n", 
+		       ((fwdata >> 12) & 0xff) +
+		       (((fwdata >> 16) & 0xff00)));
+	}
+	if ((fwdata & 0xfff) == 0x001) {
+		printf("  patchlevel :  0x%.4x\n", 
+		       ((fwdata >> 12) & 0xff) +
+		       (((fwdata >> 16) & 0xff00)));
+	}
+}
+
 static void analyse_ucode(int type, const struct file * f, byte * data)
 {
 	uint32_t fwdata = 0;
+
+	if (f->flags & OLD_VERSION_STYLE_3_8) {
+		if (data[12]==0x0c && data[13]==0xe0 &&
+		    data[14]==0x2d && data[15]==0x00) {
+			fwdata = data[0] + (data[1]<<8) + 
+				(data[2]<<16) + (data[3]<<24);
+			print_ucode_version(fwdata);
+		}
+		return;
+	}
+
+	if (f->flags & OLD_VERSION_STYLE_3_10) {
+		if (data[8]==0x0c && data[9]==0xe0 &&
+		    data[10]==0x2d && data[11]==0x00) {
+			fwdata = data[0] + (data[1]<<8) + 
+				(data[2]<<16) + (data[3]<<24);
+			print_ucode_version(fwdata);
+		}
+		return;
+	}
 
 	if (f->flags & BYTE_ORDER_LITTLE_ENDIAN) {
 		if ((type==FIRMWARE_UCODE_2) || (type==FIRMWARE_UCODE_4)) {
@@ -354,32 +388,14 @@ static void analyse_ucode(int type, const struct file * f, byte * data)
 			    data[6]==0x2d && data[7]==0x00) {
 				fwdata = data[0] + (data[1]<<8) + 
 					(data[2]<<16) + (data[3]<<24);
-				if ((fwdata & 0xfff) == 0x000) {
-					printf("  revision   :  0x%.4x\n", 
-					       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
-				if ((fwdata & 0xfff) == 0x001) {
-					printf("  patchlevel :  0x%.4x\n", 
-				       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
+				print_ucode_version(fwdata);
 			}
 		} else {
 			if (data[4]==0x8c && data[5]==0x37 &&
 			    data[6]==0x00 && data[7]==0x00) {
 				fwdata = data[0] + (data[1]<<8) + 
 					(data[2]<<16) + (data[3]<<24);
-				if ((fwdata & 0xfff) == 0x000) {
-					printf("  revision   :  0x%.4x\n", 
-					       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
-				if ((fwdata & 0xfff) == 0x001) {
-					printf("  patchlevel :  0x%.4x\n", 
-				       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
+				print_ucode_version(fwdata);
 			}
 		}
 	} else if (f->flags & BYTE_ORDER_BIG_ENDIAN) {
@@ -388,32 +404,14 @@ static void analyse_ucode(int type, const struct file * f, byte * data)
 			    data[5]==0x2d && data[4]==0x00) {
 				fwdata = data[3] + (data[2]<<8) + 
 					(data[1]<<16) + (data[0]<<24);
-				if ((fwdata & 0xfff) == 0x000) {
-					printf("  revision   :  0x%.4x\n", 
-					       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
-				if ((fwdata & 0xfff) == 0x001) {
-					printf("  patchlevel :  0x%.4x\n", 
-				       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
+				print_ucode_version(fwdata);
 			}
 		} else {
 			if (data[7]==0x8c && data[6]==0x37 &&
 			    data[5]==0x00 && data[4]==0x00) {
 				fwdata = data[3] + (data[2]<<8) + 
 					(data[1]<<16) + (data[0]<<24);
-				if ((fwdata & 0xfff) == 0x000) {
-					printf("  revision   :  0x%.4x\n", 
-					       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
-				if ((fwdata & 0xfff) == 0x001) {
-					printf("  patchlevel :  0x%.4x\n", 
-				       ((fwdata >> 12) & 0xff) +
-					       (((fwdata >> 16) & 0xff00)));
-				}
+				print_ucode_version(fwdata);
 			}
 		}
 	}
@@ -425,16 +423,17 @@ static void get_ucode_rev(int type, const struct file * f, int pos, int len)
 	int len_count = 0;
 
 	if (len == 0) return;
-	if ((f->flags & OLD_VERSION_STYLE_3_8) ||
-	    (f->flags & OLD_VERSION_STYLE_3_10)) return;
-
 	printf("  microcode  :  %i\n", type - FIRMWARE_UCODE_OFFSET);
 
 	data = read_file(cmdargs.infile) + pos;
 	while (len_count < len) {
 		analyse_ucode(type, f, data);
-		data = data + 8;
 		len_count = len_count + 8;
+		data = data + 8;
+		if (f->flags & OLD_VERSION_STYLE_3_8)
+			data = data + 16;
+		if (f->flags & OLD_VERSION_STYLE_3_10)
+			data = data + 8;
 	}
 
 	printf("\n");
