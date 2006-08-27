@@ -23,6 +23,10 @@
 #define FIRMWARE_UCODE_11        (FIRMWARE_UCODE_OFFSET + 11)
 #define FIRMWARE_UCODE_13        (FIRMWARE_UCODE_OFFSET + 13)
 
+/* alternative initvals */
+#define ALT_IV_OFFSET            100
+#define ALT_IV_01                (ALT_IV_OFFSET + 1)
+
 #define fwcutter_stringify_1(x)	#x
 #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
 #define FWCUTTER_VERSION	fwcutter_stringify(FWCUTTER_VERSION_)
@@ -52,6 +56,7 @@ struct cmdline_args {
 	const char *infile;
 	const char *postfix;
 	const char *target_dir;
+	int alt_iv;
 	int identify_only;
 };
 
@@ -100,24 +105,21 @@ static struct initval_mapdef ivmap[] =
 	/* version 3.10.8.0 */
 	{ INITVALS_MAP_V3_10_8, 8,
 	  /* This driver has two variations of initval number 1 inside. */
-	  /* Write { 3, 0, 0, 0, 0, 0, 0, 1 } to extract the other one. */
-	  { 3, 0, 0, 1, 0, 0, 0, 0 }
+	  { 3, 0, 0, 1, 0, 0, 0, ALT_IV_01 }
 	},
 
 	/* version 3.10.36.0, 3.10.39.x, 3.10.53.0 */
 	{ INITVALS_MAP_V3_10_3X, 3,
 	  /* This driver has two variations of initval number 1 inside. */
-	  /* Write { 3, 1, 0 } if you want to extract the other one. */
 	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
-	  { 3, 0, 1 }
+	  { 3, ALT_IV_01, 1 }
 	},
 
 	/* version 3.10.53.6 */
 	{ INITVALS_MAP_V3_10_53_6, 4,
 	  /* This driver has two variations of initval number 1 inside. */
-	  /* Write { 3, 0, 0, 1 } if you want to extract the other one. */
 	  /* Baseband attenuation at MMIO 0x3e6 is the difference. */
-	  { 3, 0, 1, 0 }
+	  { 3, 0, 1, ALT_IV_01 }
 	},
 
 	/* initval number 8 is missing in 3.20 and 3.30 */

@@ -86,8 +86,7 @@ static void write_iv(uint8_t flags, uint8_t type, byte *data)
 {
 	FILE* fw;
 	char ivfilename[2048];
-	int i=0;
-	int j;
+	int ivnum=0, i=0, j;
 
 	while (ivmap[i].type) {
 		if (type == ivmap[i].type)
@@ -99,15 +98,26 @@ static void write_iv(uint8_t flags, uint8_t type, byte *data)
 		return;
 
 	for (j = 0; j < ivmap[i].number; j++) {
-		
+
+		ivnum = ivmap[i].scheme[j];
+		if (cmdargs.alt_iv) {
+			if (ivmap[i].scheme[j] == 1)
+				ivnum = 0;
+			if (ivmap[i].scheme[j] > ALT_IV_OFFSET)
+				ivnum = ivmap[i].scheme[j] - ALT_IV_OFFSET;
+		} else {
+			if (ivmap[i].scheme[j] > ALT_IV_OFFSET)
+				ivnum = 0;
+		}
+
 		snprintf(ivfilename, sizeof(ivfilename),
 			 "%s/bcm43xx_initval%02d%s.fw",
 			 cmdargs.target_dir,
-			 ivmap[i].scheme[j],
+			 ivnum,
 			 cmdargs.postfix);
 
 		/* don't extract initval 0 */
-		if ( ivmap[i].scheme[j] == 0 ) {
+		if ( ivnum == 0 ) {
 			if (flags & OLD_VERSION_STYLE_3_8) {
 				while (1) {
 					if ((data[0]==0xff) &&
@@ -159,7 +169,7 @@ static void write_iv(uint8_t flags, uint8_t type, byte *data)
 		}
 
 		printf("extracting bcm43xx_initval%02d%s.fw ...\n", 
-		       ivmap[i].scheme[j],
+		       ivnum,
 		       cmdargs.postfix);
 
 		while (1) {
@@ -593,6 +603,8 @@ static void print_usage(int argc, char *argv[])
 	       "Only identify the driver file (don't extract)\n");
 	printf("  -w|--target-dir DIR   "
 	       "Extract and write firmware to DIR\n");
+	printf("  -a|--alt-iv           "
+	       "Extract alternative initvals (only 3.10.x.x)\n");
 	printf("  -p|--postfix \".FOO\"   "
 	       "Postfix for firmware filenames (.FOO.fw)\n");
 	printf("  -v|--version          "
@@ -711,6 +723,13 @@ static int parse_args(int argc, char *argv[])
 		res = cmp_arg(argv, &i, "--postfix", "-p", &param);
 		if (res == ARG_MATCH) {
 			cmdargs.postfix = param;
+			continue;
+		} else if (res == ARG_ERROR)
+			goto out;
+
+		res = cmp_arg(argv, &i, "--alt-iv", "-a", 0);
+		if (res == ARG_MATCH) {
+			cmdargs.alt_iv = 1;
 			continue;
 		} else if (res == ARG_ERROR)
 			goto out;
