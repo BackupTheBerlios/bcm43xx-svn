@@ -366,6 +366,18 @@ static void print_ucode_version(uint32_t fwdata)
 		       ((fwdata >> 12) & 0xff) +
 		       (((fwdata >> 16) & 0xff00)));
 	}
+	if ((fwdata & 0xfff) == 0x002) {
+		printf("  date       :  20%.2i-%.2i-%.2i\n", 
+		       (fwdata >> 28) & 0xf,
+		       (fwdata >> 24) & 0xf,
+		       (fwdata >> 12) & 0xff);
+	}
+	if ((fwdata & 0xfff) == 0x003) {
+		printf("  time       :  %.2i:%.2i:%.2i\n", 
+		       (fwdata >> 27),
+		       ((fwdata >> 17) & 0x7) + ((fwdata >> 21) & 0x38),
+		       (fwdata >> 12) & 0x1f);
+	}
 }
 
 static void analyse_ucode(int type, const struct file * f, byte * data)
