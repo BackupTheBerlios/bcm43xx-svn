@@ -372,6 +372,17 @@ static const struct file files[] =
 	},
 	{ 
 		.name        = "bcmwl5.sys",
+		.version     = "3.10.52.0",
+		.md5         = "4a8e982a023e48a6941d4581a88777a4", 
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_10,
+		.iv_pos      = 0x1c968,
+		.iv_map      = INITVALS_MAP_V3_10_3X,
+		.uc2_pos     = 0x1f17c,  .uc2_length  = 0x3f30,
+		.pcm4_pos    = 0x26ffc,  .pcm4_length = 0x428,
+	},
+	{ 
+		.name        = "bcmwl5.sys",
 		.version     = "3.10.53.0",
 		.md5         = "50e009df2dbecf7a53fcefee6b137358", 
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
