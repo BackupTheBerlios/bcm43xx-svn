@@ -511,6 +511,7 @@ static void print_file(const struct file *file)
 
 static void print_supported_files(void)
 {
+	int printout_unsupported = 0;
 	int i;
 
 	print_banner();
@@ -520,10 +521,14 @@ static void print_supported_files(void)
 	       "<version>\t\t"
 	       "<MD5 checksum>\n\n");
 	for (i = 0; i < FILES; i++) {
-		if (files[i].flags & DRIVER_UNSUPPORTED)
+		if (files[i].flags & DRIVER_UNSUPPORTED) {
+			printout_unsupported = 1;
 			continue;
+		}
 		print_file(&files[i]);
 	}
+	if (printout_unsupported == 0) return;
+
 	printf("\n\nExtracting firmware is IMPOSSIBLE "
 	       "from these binary driver files:\n\n");
 	printf("<filename>\t\t"
