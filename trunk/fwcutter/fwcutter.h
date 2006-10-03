@@ -12,6 +12,7 @@
 #define MISSING_INITVAL_80211_A  0x08  /* empty initvals 3,7,9,10 */
 #define OLD_VERSION_STYLE_3_8    0x10  /* 3.10.8.x drivers differ */
 #define OLD_VERSION_STYLE_3_10   0x20  /* 3.10.3x.x drivers differ */
+#define V4_FIRMWARE              0x40  /* This marks version-4 firmwares and will emit a warning */
 
 #define FIRMWARE_UCODE_OFFSET    100
 #define FIRMWARE_UNDEFINED       0

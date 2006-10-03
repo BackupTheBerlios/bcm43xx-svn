@@ -568,6 +568,16 @@ static const struct file * find_file(FILE *fd)
 				       "is IMPOSSIBLE. (e.g. too old/new)\n");
 				return 0;
 			}
+			if (files[i].flags & V4_FIRMWARE) {
+				printf("*** WARNING ***\n"
+				       "This file contains new version4 \n"
+				       "firmware. v4 firmware is _not_ supported by \n"
+				       "the driver in mainline kernels. For v4 firmware \n"
+				       "you need latest bcm43xx development version \n"
+				       "(wireless-dev kernel tree). If you don't know what \n"
+				       "this warning is about, use a 3.xx.xx.xx driver version \n"
+				       "instead to extract the firmware.\n");
+			}
 			printf("\n  filename   :  %s\n", files[i].name);
 			printf("  version    :  %s\n", files[i].version);
 			printf("  MD5        :  %s\n", files[i].md5);

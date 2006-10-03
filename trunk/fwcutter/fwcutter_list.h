@@ -863,7 +863,7 @@ static const struct file files[] =
 		.version     = "4.10.23.2",
 		.md5         = "cc04de6690d2f15c7fe2095a476141ba",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x46aa0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
 		.uc4_pos     = 0x4b498,	 .uc4_length  = 0x4e90,
@@ -877,7 +877,7 @@ static const struct file files[] =
 		.version     = "4.10.40.0",                           /* 11/02/2005 */
 		.md5         = "30d20fc98bcfd52e1da778cf19b223d4",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x47ba8,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
 		.uc4_pos     = 0x4c5b0,	 .uc4_length  = 0x4ee8,
@@ -891,7 +891,7 @@ static const struct file files[] =
 		.version     = "4.10.40.1",                           /* 12/17/2005 */
 		.md5         = "69f940672be0ecee5bd1e905706ba8ce",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x47ba8,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
 		.uc4_pos     = 0x4c5b0,	 .uc4_length  = 0x4ee8,
@@ -905,7 +905,7 @@ static const struct file files[] =
 		.version     = "4.10.47.2",
 		.md5         = "2b87cd8a92bc5003067534aba4349db0",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       DRIVER_UNSUPPORTED,
+			       V4_FIRMWARE,
 		.iv_pos      = 0x47e28,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
 		.uc4_pos     = 0x4c830,	 .uc4_length  = 0x4ee8,
@@ -919,7 +919,7 @@ static const struct file files[] =
 		.version     = "4.40.19.0",
 		.md5         = "114234fafec7060392195170e1c4d45e",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x48ab8,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
 		.uc4_pos     = 0x4d4c0,	 .uc4_length  = 0x4f58,
@@ -933,7 +933,7 @@ static const struct file files[] =
 		.version     = "4.80.9.2",
 		.md5         = "2ee34b694d1ce077678662d7884f6c79",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       DRIVER_UNSUPPORTED,
+			       V4_FIRMWARE,
 		.iv_pos      = 0x56480,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x5bbf8,  .uc4_length  = 0x4e28,
@@ -948,7 +948,7 @@ static const struct file files[] =
 		.version     = "4.80.17.0",
 		.md5         = "90ef35fb5ae531420577c8f40d8a16f5",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       DRIVER_UNSUPPORTED,
+			       V4_FIRMWARE,
 		.iv_pos      = 0x57f80,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x5d6f8,  .uc4_length  = 0x4e28,
@@ -963,7 +963,7 @@ static const struct file files[] =
 		.version     = "4.80.28.2",
 		.md5         = "5538cd4cadc0ed0c0295192fd041860d",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       DRIVER_UNSUPPORTED,
+			       V4_FIRMWARE,
 		.iv_pos      = 0x59200,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x5e9a0,  .uc4_length  = 0x4e48,
@@ -978,7 +978,7 @@ static const struct file files[] =
 		.version     = "4.80.28.7",
 		.md5         = "3003c21e5e1f04ba84fc8e705a65db2b",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       DRIVER_UNSUPPORTED,
+			       V4_FIRMWARE,
 		.iv_pos      = 0x59380,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x5eb20,  .uc4_length  = 0x4e48,
@@ -1019,7 +1019,7 @@ static const struct file files[] =
 		.version     = "4.10.23.2",
 		.md5         = "7f4786fb45f509d8c2808b6e423addf1",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x5bac0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
 		.uc4_pos     = 0x604c0,	 .uc4_length  = 0x4e90,
@@ -1033,7 +1033,7 @@ static const struct file files[] =
 		.version     = "4.40.19.0",
 		.md5         = "68f48a63a827a87bc04f6c8763228054",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x5dcd0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV11,
 		.uc4_pos     = 0x626e0,	 .uc4_length  = 0x4f58,
@@ -1047,7 +1047,7 @@ static const struct file files[] =
 		.version     = "4.80.9.2",
 		.md5         = "c24bb2a1207a6f2c0ed79e2463df9dea",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       DRIVER_UNSUPPORTED,
+			       V4_FIRMWARE,
 		.iv_pos      = 0x6eb30,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x742e0,  .uc4_length  = 0x4e28,
@@ -1062,7 +1062,7 @@ static const struct file files[] =
 		.version     = "4.80.17.0",
 		.md5         = "4cf95baf3c3011e4c59d37336e50be57",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x70b30,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x762e0,  .uc4_length  = 0x4e28,
@@ -1077,7 +1077,7 @@ static const struct file files[] =
 		.version     = "4.80.28.2",
 		.md5         = "038dedd70e8ddfe2b241c75b0d8c1633",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-			       DRIVER_UNSUPPORTED,
+			       V4_FIRMWARE,
 		.iv_pos      = 0x72130,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x77900,  .uc4_length  = 0x4e48,
@@ -1340,7 +1340,7 @@ static const struct file files[] =
 		.version     = "4.80.9.1",
 		.md5         = "c3bf18125b65de73f2d6b68dd63d60cf",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x65bc0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x6a700,  .uc4_length  = 0x4e28,
@@ -1355,7 +1355,7 @@ static const struct file files[] =
 		.version     = "4.80.9.1",
 		.md5         = "de3a5d0d4a795cf85dc706f75ac4c56d",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x65bc0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x6a700,  .uc4_length  = 0x4e28,
@@ -1436,7 +1436,7 @@ static const struct file files[] =
 		.version     = "4.80.9.2",
 		.md5         = "dc87fafbb53fc70ca161be3de97b5be1",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x4f0a0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x53be0,  .uc4_length  = 0x4e28,
@@ -1451,7 +1451,7 @@ static const struct file files[] =
 		.version     = "4.80.17.0",
 		.md5         = "5f698bc71300590208dcfe86e8dde860",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x4fa40,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x54580,  .uc4_length  = 0x4e28,
@@ -1559,7 +1559,7 @@ static const struct file files[] =
 		.version     = "4.80.9.1",
 		.md5         = "5cc3774df07ef15506d08e45fab9b691",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x70220,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x75998,  .uc4_length  = 0x4e28,
@@ -1574,7 +1574,7 @@ static const struct file files[] =
 		.version     = "4.80.9.1",
 		.md5         = "cfc06ff322a4e3024bc4040ebe3d1bb9",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x632a0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x67de0,  .uc4_length  = 0x4e28,
@@ -1589,7 +1589,7 @@ static const struct file files[] =
 		.version     = "4.80.9.2",
 		.md5         = "2b353750e7063949fa08951370c8b06b",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x632c0,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x67e00,  .uc4_length  = 0x4e28,
@@ -1604,7 +1604,7 @@ static const struct file files[] =
 		.version     = "4.80.17.0",
 		.md5         = "1fb9e0cc7613ccb82c8e2da3da888ed1",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x63e30,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x68970,  .uc4_length  = 0x4e28,
@@ -1685,7 +1685,7 @@ static const struct file files[] =
 		.version     = "4.80.9.2",
 		.md5         = "a4a396c45a4e88526fa8a8baca681cd3",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x54b00,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x59640,  .uc4_length  = 0x4e28,
@@ -1700,7 +1700,7 @@ static const struct file files[] =
 		.version     = "4.80.17.0",
 		.md5         = "30e0f1a8fea33d4869e1a45ed3a91b1b",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
-		               DRIVER_UNSUPPORTED,
+		               V4_FIRMWARE,
 		.iv_pos      = 0x55530,
 		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
 		.uc4_pos     = 0x5a070,  .uc4_length  = 0x4e28,
