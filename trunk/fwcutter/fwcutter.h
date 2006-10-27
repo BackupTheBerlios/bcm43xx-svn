@@ -51,6 +51,8 @@ enum { /* initvals numbering schemes */
 	INITVALS_MAP_V3_UP_TO_REV11_REVERSE_ORDER,
 	INITVALS_MAP_V4_UP_TO_REV11,
 	INITVALS_MAP_V4_UP_TO_REV13,
+	INITVALS_MAP_V4_80_46,
+	INITVALS_MAP_V4_80_46_REVERSE_ORDER,
 };
 
 struct cmdline_args {
@@ -157,6 +159,18 @@ static struct initval_mapdef ivmap[] =
 	{ INITVALS_MAP_V4_UP_TO_REV13, 20,
 	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
 	    19, 20 }
+	},
+
+	/* version 4.80.46 */
+	{ INITVALS_MAP_V4_80_46, 25,
+	  { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+	    19, 20, 21, 22, 23, 24, 25 }
+	},
+
+	/* Apple driver version 4.80.46 */
+	{ INITVALS_MAP_V4_80_46_REVERSE_ORDER, 25,
+	  { 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
+	    9, 8, 7, 6, 5, 4, 3, 2, 1 }
 	},
 
 	{ 0 },
