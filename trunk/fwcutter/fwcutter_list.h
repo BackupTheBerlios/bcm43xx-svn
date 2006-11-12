@@ -340,7 +340,8 @@ static const struct file files[] =
 		.name        = "AppleAirPortBrcm4311",
 		.version     = "4.80.46.0",
 		.md5         = "e99ad02fdd7699fa52f0b9153c8411c8",
-		.flags       = BYTE_ORDER_BIG_ENDIAN,
+		.flags       = BYTE_ORDER_BIG_ENDIAN |
+		               V4_FIRMWARE,
 		.iv_pos      = 0x1592f4,
 		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
 		.uc4_pos     = 0x15448c,  .uc4_length  = 0x4e68,
@@ -1016,6 +1017,21 @@ static const struct file files[] =
 		.uc13_pos    = 0x73ac8,  .uc13_length = 0x5f60,
 		.pcm4_pos    = 0x79a30,	 .pcm4_length = 0x520,
 		.pcm5_pos    = 0x79f58,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl5.sys",
+		.version     = "4.80.53.0",
+		.md5         = "e8814dbec973681ae2b2e502ed1a8f44",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       V4_FIRMWARE,
+		.iv_pos      = 0x5c600,
+		.iv_map      = INITVALS_MAP_V4_80_46,
+		.uc4_pos     = 0x63720,  .uc4_length  = 0x4e68,
+		.uc5_pos     = 0x68590,  .uc5_length  = 0x5640,
+		.uc11_pos    = 0x6dbe0,  .uc11_length = 0x67e0,
+		.uc13_pos    = 0x743c8,  .uc13_length = 0x5f60,
+		.pcm4_pos    = 0x7a330,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x7a858,	 .pcm5_length = 0x520,
 	},
 	{
 		.name        = "bcmwl564.sys",
