@@ -1034,6 +1034,21 @@ static const struct file files[] =
 		.pcm5_pos    = 0x7a858,	 .pcm5_length = 0x520,
 	},
 	{
+		.name        = "bcmwl5.sys",
+		.version     = "4.100.15.5",
+		.md5         = "b89bcf0a25aeb3b47030ac83287f894a",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       V4_FIRMWARE,
+		.iv_pos      = 0x5e998,
+		.iv_map      = INITVALS_MAP_V4_80_46,
+		.uc4_pos     = 0x65908,  .uc4_length  = 0x4dc8,
+		.uc5_pos     = 0x6a6d8,  .uc5_length  = 0x55b8,
+		.uc11_pos    = 0x6fca0,  .uc11_length = 0x6ae0,
+		.uc13_pos    = 0x76788,  .uc13_length = 0x6740,
+		.pcm4_pos    = 0x7ced0,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x7d3f8,	 .pcm5_length = 0x520,
+	},
+	{
 		.name        = "bcmwl564.sys",
 		.version     = "3.70.17.5",
 		.md5         = "f5590c8784b91dfd9ee092d3040b6e40",
@@ -1131,6 +1146,21 @@ static const struct file files[] =
 		.uc13_pos    = 0x883f0,  .uc13_length = 0x5e58,
 		.pcm4_pos    = 0x8e250,	 .pcm4_length = 0x520,
 		.pcm5_pos    = 0x8e780,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl5.sys",
+		.version     = "4.100.15.5",
+		.md5         = "feaf7ec9f38a37945b6fb169617ec859",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       V4_FIRMWARE,
+		.iv_pos      = 0x79d40,
+		.iv_map      = INITVALS_MAP_V4_80_46,
+		.uc4_pos     = 0x80ce0,  .uc4_length  = 0x4dc8,
+		.uc5_pos     = 0x85ab0,  .uc5_length  = 0x55b8,
+		.uc11_pos    = 0x8b080,  .uc11_length = 0x6ae0,
+		.uc13_pos    = 0x91b70,  .uc13_length = 0x6740,
+		.pcm4_pos    = 0x982c0,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x987f0,	 .pcm5_length = 0x520,
 	},
 	{
 		.name        = "bcmwl5a.sys",
