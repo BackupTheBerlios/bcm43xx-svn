@@ -1148,7 +1148,7 @@ static const struct file files[] =
 		.pcm5_pos    = 0x8e780,	 .pcm5_length = 0x520,
 	},
 	{
-		.name        = "bcmwl5.sys",
+		.name        = "bcmwl564.sys",
 		.version     = "4.100.15.5",
 		.md5         = "feaf7ec9f38a37945b6fb169617ec859",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
