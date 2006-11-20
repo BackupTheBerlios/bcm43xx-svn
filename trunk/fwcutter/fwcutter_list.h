@@ -1690,6 +1690,21 @@ static const struct file files[] =
 		.pcm5_pos    = 0x7f16c,  .pcm5_length = 0x520,
 	},
 	{
+		.name        = "wl_apsta.o",
+		.version     = "4.80.53.0",
+		.md5         = "9207bc565c2fc9fa1591f6c7911d3fc0",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               V4_FIRMWARE,
+		.iv_pos      = 0x67930,
+		.iv_map      = INITVALS_MAP_V4_80_46,
+		.uc4_pos     = 0x6dcf8,  .uc4_length  = 0x4e68,
+		.uc5_pos     = 0x72b64,  .uc5_length  = 0x5640,
+		.uc11_pos    = 0x781b0,  .uc11_length = 0x67e0,
+		.uc13_pos    = 0x7e994,  .uc13_length = 0x5f60,
+		.pcm4_pos    = 0x848f8,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x84e1c,	 .pcm5_length = 0x520,
+	},
+	{
 		.name        = "wl_sta.o",
 		.version     = "3.31.16.0",                            /* 08/06/2003 */
 		.md5         = "c3e663cb78b2fc299088de69fc11a9a9",

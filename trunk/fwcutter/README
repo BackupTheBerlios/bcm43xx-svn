@@ -121,3 +121,4 @@ wl_apsta.o	Link
 3.31.16.0	http://puma.ttc.cz/~jaha2x/openwrt/modules/drivers/net/wl/wl_apsta/wl_apsta.o
 		http://jak.kvalitne.cz/pub/puma.habrova.jarov.czf/~jaha2x/wl500/wl_apsta.o
 3.130.20.0	http://openwrt.inf.fh-brs.de/~nbd/wl_apsta.o
+4.80.53.0	http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2
