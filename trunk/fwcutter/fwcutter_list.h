@@ -945,6 +945,36 @@ static const struct file files[] =
 	},
 	{
 		.name        = "bcmwl5.sys",
+		.version     = "4.80.5.0",
+		.md5         = "4e89609eac698835250acd02851cc594",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       V4_FIRMWARE,
+		.iv_pos      = 0x55780,
+		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+		.uc4_pos     = 0x5aef8,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x5fd28,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x65330,  .uc11_length = 0x6020,
+		.uc13_pos    = 0x6b358,  .uc13_length = 0x5d20,
+		.pcm4_pos    = 0x71080,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x715a8,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl5.sys",
+		.version     = "4.80.9.0",
+		.md5         = "85fb2a9069a3cdef3a591606844d0036",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       V4_FIRMWARE,
+		.iv_pos      = 0x56400,
+		.iv_map      = INITVALS_MAP_V4_UP_TO_REV13,
+		.uc4_pos     = 0x5bb78,  .uc4_length  = 0x4e28,
+		.uc5_pos     = 0x609a8,  .uc5_length  = 0x55f8,
+		.uc11_pos    = 0x65fb0,  .uc11_length = 0x60f0,
+		.uc13_pos    = 0x6c0a8,  .uc13_length = 0x5d18,
+		.pcm4_pos    = 0x71dc8,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x722f0,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl5.sys",
 		.version     = "4.80.9.2",
 		.md5         = "2ee34b694d1ce077678662d7884f6c79",
 		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
