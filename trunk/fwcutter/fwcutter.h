@@ -53,6 +53,7 @@ enum { /* initvals numbering schemes */
 	INITVALS_MAP_V4_UP_TO_REV13,
 	INITVALS_MAP_V4_80_46,
 	INITVALS_MAP_V4_80_46_REVERSE_ORDER,
+	INITVALS_MAP_V4_102,
 };
 
 struct cmdline_args {
@@ -172,6 +173,12 @@ static struct initval_mapdef ivmap[] =
 	  { 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
 	    9, 8, 7, 6, 5, 4, 3, 2, 1 }
 	},
+
+        /* version 4.102. , Windows Vista 64bit */
+        { INITVALS_MAP_V4_102, 25,
+          { 1, 2, 4, 3, 5, 0, 6, 7, 0, 8, 0, 9, 10, 0, 0, 0, 17, 18,
+            19, 20, 21, 22, 23, 24, 25 }
+        },
 
 	{ 0 },
 };

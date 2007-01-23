@@ -1206,6 +1206,36 @@ static const struct file files[] =
 		.pcm5_pos    = 0x4db80,  .pcm5_length = 0x520,
 	},
 	{
+		.name        = "bcmwl6.sys",
+		.version     = "4.102.15.61",
+		.md5         = "746f59822a5187510471fc46889b8cc9",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       V4_FIRMWARE,
+		.iv_pos      = 0x4db70,
+		.iv_map      = INITVALS_MAP_V4_80_46,
+		.uc4_pos     = 0x54af0,  .uc4_length  = 0x4e50,
+		.uc5_pos     = 0x59948,  .uc5_length  = 0x5640,
+		.uc11_pos    = 0x5ef90,  .uc11_length = 0x6d80,
+		.uc13_pos    = 0x65d18,  .uc13_length = 0x69e0,
+		.pcm4_pos    = 0x6c6f8,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x6cc20,	 .pcm5_length = 0x520,
+	},
+	{
+		.name        = "bcmwl664.sys",
+		.version     = "4.102.15.61",
+		.md5         = "97f98e5e6a83585e42b1e1e15716aae8",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+			       V4_FIRMWARE,
+		.iv_pos      = 0x6f2b0,
+		.iv_map      = INITVALS_MAP_V4_102,
+		.uc4_pos     = 0x76240,  .uc4_length  = 0x4e50,
+		.uc5_pos     = 0x7b090,  .uc5_length  = 0x5640,
+		.uc11_pos    = 0x806d0,  .uc11_length = 0x6d80,
+		.uc13_pos    = 0x87450,  .uc13_length = 0x69e0,
+		.pcm4_pos    = 0x8de30,	 .pcm4_length = 0x520,
+		.pcm5_pos    = 0x8e350,	 .pcm5_length = 0x520,
+	},
+	{
 		.name        = "d11ucode.o",
 		.version     = "3.31.16.0 ?", /*FIXME: version correct? */
 		.md5         = "31e6cac8a8129bf8f91291293e017329",
