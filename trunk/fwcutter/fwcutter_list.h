@@ -374,7 +374,7 @@ static const struct file files[] =
 		               OLD_VERSION_STYLE_3_8,
 		.iv_pos      = 0x1c128,
 		.iv_map      = INITVALS_MAP_V3_8_X,
-		.uc2_pos     = 0x10a3c,  .uc2_length  = 0x3cf8,
+		.uc2_pos     = 0x10a54,  .uc2_length  = 0x3cf0,
 	},
 	{ 
 		.name        = "bcmwl5.sys",                           /* renamed to WMP11V27.sys */
