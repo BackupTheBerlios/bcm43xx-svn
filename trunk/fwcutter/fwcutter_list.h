@@ -367,6 +367,16 @@ static const struct file files[] =
 		.pcm5_pos    = 0x14b328,  .pcm5_length = 0x520,
 	},
 	{ 
+		.name        = "bcmwl5.sys",
+		.version     = "3.8.27.0",
+		.md5         = "208a33d5a52040b5401d48b8e974f901",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               OLD_VERSION_STYLE_3_8,
+		.iv_pos      = 0x1c128,
+		.iv_map      = INITVALS_MAP_V3_8_X,
+		.uc2_pos     = 0x10a3c,  .uc2_length  = 0x3cf8,
+	},
+	{ 
 		.name        = "bcmwl5.sys",                           /* renamed to WMP11V27.sys */
 		.version     = "3.8.28.0",
 		.md5         = "f7c6cc420c21eb1a73f6a73bfec96f2c",

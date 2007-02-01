@@ -101,7 +101,7 @@ static struct initval_mapdef ivmap[] =
 	/* core rev 0xb initval numbers: 17, 18 */
 	/* core rev 0xd initval numbers: 19, 20 */
 
-	/* version 3.8.28.0, 3.8.37.0 */
+	/* version 3.8.27.0, 3.8.28.0, 3.8.37.0 */
 	{ INITVALS_MAP_V3_8_X, 1, 
 	  { 1 } 
 	},
