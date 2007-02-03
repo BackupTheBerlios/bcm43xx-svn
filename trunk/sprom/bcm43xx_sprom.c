@@ -175,14 +175,14 @@ static int modify_value(uint8_t *sprom,
 		sprom[SPROM_ETHPHY + 1] = (tmp & 0xFF00) >> 8;
 		break;
 	case VALUE_ET0MDC:
-		sprom[SPROM_ETHPHY + 1] &= ~(1 << 14);
+		sprom[SPROM_ETHPHY + 1] &= ~(1 << 6);
 		if (v)
-			sprom[SPROM_ETHPHY + 1] |= (1 << 14);
+			sprom[SPROM_ETHPHY + 1] |= (1 << 6);
 		break;
 	case VALUE_ET1MDC:
-		sprom[SPROM_ETHPHY + 1] &= ~(1 << 15);
+		sprom[SPROM_ETHPHY + 1] &= ~(1 << 7);
 		if (v)
-			sprom[SPROM_ETHPHY + 1] |= (1 << 15);
+			sprom[SPROM_ETHPHY + 1] |= (1 << 7);
 		break;
 	case VALUE_BREV:
 		sprom[SPROM_BOARDREV + 0] = v;
@@ -377,14 +377,14 @@ static void display_value(const uint8_t *sprom,
 		desc = "et0mdcport";
 		offset = SPROM_ETHPHY + 1;
 		value = 0;
-		if (sprom[SPROM_ETHPHY + 1] & (1 << 14))
+		if (sprom[SPROM_ETHPHY + 1] & (1 << 6))
 			value = 1;
 		break;
 	case VALUE_ET1MDC:
 		desc = "et1mdcport";
 		offset = SPROM_ETHPHY + 1;
 		value = 0;
-		if (sprom[SPROM_ETHPHY + 1] & (1 << 15))
+		if (sprom[SPROM_ETHPHY + 1] & (1 << 7))
 			value = 1;
 		break;
 	case VALUE_BREV:
