@@ -113,7 +113,7 @@ struct cmdline_args {
 	const char *outfile;
 	int verbose;
 	int force;
-	int hex_mode;
+	int bin_mode;
 
 #define MAX_VPARM	512
 	struct cmdline_vparm vparm[MAX_VPARM];

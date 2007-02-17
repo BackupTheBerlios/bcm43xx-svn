@@ -96,10 +96,10 @@ static int write_output(int fd, const uint8_t *sprom)
 		}
 	}
 
-	if (cmdargs.hex_mode)
-		err = write_output_hex(fd, sprom);
-	else
+	if (cmdargs.bin_mode)
 		err = write_output_binary(fd, sprom);
+	else
+		err = write_output_hex(fd, sprom);
 	if (err)
 		prerror("Could not write output data.\n");
 
@@ -593,7 +593,7 @@ static int parse_input(uint8_t *sprom, char *buffer, size_t bsize)
 	unsigned long parsed;
 	char tmp[SPROM_SIZE * 2 + 10] = { 0 };
 
-	if (!cmdargs.hex_mode) {
+	if (cmdargs.bin_mode) {
 		/* The input buffer already contains
 		 * the binary sprom data.
 		 */
@@ -643,13 +643,7 @@ static int read_infile(int fd, char **buffer, size_t *bsize)
 		prerror("No input data\n");
 		return -1;
 	}
-	if (cmdargs.hex_mode) {
-		if (s.st_size > 1024 * 1024) {
-			prerror("The input data does not look "
-				"like SPROM HEX data (too long).\n");
-			return -1;
-		}
-	} else {
+	if (cmdargs.bin_mode) {
 		if (s.st_size != SPROM_SIZE) {
 			prerror("The input data is no SPROM Binary data. "
 				"The size must be exactly %d bytes, "
@@ -657,10 +651,16 @@ static int read_infile(int fd, char **buffer, size_t *bsize)
 				SPROM_SIZE, (unsigned int)(s.st_size));
 			return -1;
 		}
+	} else {
+		if (s.st_size > 1024 * 1024) {
+			prerror("The input data does not look "
+				"like SPROM HEX data (too long).\n");
+			return -1;
+		}
 	}
 
 	*bsize = s.st_size;
-	if (cmdargs.hex_mode)
+	if (!cmdargs.bin_mode)
 		(*bsize)++;
 	*buffer = malloce(*bsize);
 	r = read(fd, *buffer, s.st_size);
@@ -668,7 +668,7 @@ static int read_infile(int fd, char **buffer, size_t *bsize)
 		prerror("Could not read input data.\n");
 		return -1;
 	}
-	if (cmdargs.hex_mode)
+	if (!cmdargs.bin_mode)
 		(*buffer)[r] = '\0';
 
 	return 0;
@@ -731,7 +731,7 @@ static void print_usage(int argc, char *argv[])
 	prdata("\nUsage: %s [OPTION]\n", argv[0]);
 	prdata("  -i|--input FILE       Input file\n");
 	prdata("  -o|--output FILE      Output file\n");
-	prdata("  -H|--hexmode          The Input data is HEX formatted and Output will be HEX\n");
+	prdata("  -b|--binmode          The Input data is plain binary data and Output will be binary\n");
 	prdata("  -V|--verbose          Be verbose\n");
 	prdata("  -f|--force            Override error checks\n");
 	prdata("  -v|--version          Print version\n");
@@ -1041,8 +1041,8 @@ static int parse_args(int argc, char *argv[])
 			cmdargs.verbose = 1;
 		} else if (arg_match(argv, &i, "--force", "-n", 0)) {
 			cmdargs.force = 1;
-		} else if (arg_match(argv, &i, "--hexmode", "-H", 0)) {
-			cmdargs.hex_mode = 1;
+		} else if (arg_match(argv, &i, "--binmode", "-b", 0)) {
+			cmdargs.bin_mode = 1;
 
 
 		} else if (arg_match(argv, &i, "--rawset", "-s", &param)) {
