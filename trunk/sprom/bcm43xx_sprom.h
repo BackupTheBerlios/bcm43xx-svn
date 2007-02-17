@@ -58,6 +58,7 @@ enum valuetype {
 	VALUE_RAW,
 
 	VALUE_SUBP,
+ VALUE_FIRST = VALUE_SUBP,
 	VALUE_SUBV,
 	VALUE_PPID,
 	VALUE_BFLHI,
@@ -92,6 +93,7 @@ enum valuetype {
 	VALUE_ITSSIA,
 	VALUE_ITSSIBG,
 	VALUE_SVER,
+ VALUE_LAST = VALUE_SVER,
 };
 
 struct cmdline_vparm {

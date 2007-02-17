@@ -33,6 +33,45 @@
 
 struct cmdline_args cmdargs;
 
+static int value_length_map[] = { /* value to number of bits */
+	[VALUE_RAW] = 8,
+	[VALUE_SUBP] = 16,
+	[VALUE_SUBV] = 16,
+	[VALUE_PPID] = 16,
+	[VALUE_BFLHI] = 16,
+	[VALUE_BFL] = 16,
+	[VALUE_BGMAC] = -1,
+	[VALUE_ETMAC] = -1,
+	[VALUE_AMAC] = -1,
+	[VALUE_ET0PHY] = 8,
+	[VALUE_ET1PHY] = 8,
+	[VALUE_ET0MDC] = 1,
+	[VALUE_ET1MDC] = 1,
+	[VALUE_BREV] = 8,
+	[VALUE_LOC] = 4,
+	[VALUE_ANTA0] = 1,
+	[VALUE_ANTA1] = 1,
+	[VALUE_ANTBG0] = 1,
+	[VALUE_ANTBG1] = 1,
+	[VALUE_ANTGA] = 8,
+	[VALUE_ANTGBG] = 8,
+	[VALUE_PA0B0] = 16,
+	[VALUE_PA0B1] = 16,
+	[VALUE_PA0B2] = 16,
+	[VALUE_PA1B0] = 16,
+	[VALUE_PA1B1] = 16,
+	[VALUE_PA1B2] = 16,
+	[VALUE_WL0GPIO0] = 8,
+	[VALUE_WL0GPIO1] = 8,
+	[VALUE_WL0GPIO2] = 8,
+	[VALUE_WL0GPIO3] = 8,
+	[VALUE_MAXPA] = 8,
+	[VALUE_MAXPBG] = 8,
+	[VALUE_ITSSIA] = 8,
+	[VALUE_ITSSIBG] = 8,
+	[VALUE_SVER] = 8,
+};
+
 
 static int hexdump_sprom(const uint8_t *sprom, char *buffer, size_t bsize)
 {
@@ -779,6 +818,8 @@ static void print_usage(int argc, char *argv[])
 	prdata("  --itssibg [0xFF]      Idle tssi target for B/G PHY\n");
 	prdata("  --sver [0xFF]         SPROM-version\n");
 	prdata("\n");
+	prdata("  -P|--print-all        Display all values\n");
+	prdata("\n");
 	prdata(" BOOL      is a boolean value. Either 0 or 1\n");
 	prdata(" 0xF..     is a hexadecimal value\n");
 	prdata(" MAC-ADDR  is a MAC address in the format 00:00:00:00:00:00\n");
@@ -851,29 +892,39 @@ static int cmp_arg(char **argv, int *pos,
 		err = do_cmp_arg(argv, pos, short_template, 1, param);
 	return err;
 }
-#define arg_match(argv, i, tlong, tshort, param) \
-	({						\
-		int res = cmp_arg((argv), (i), (tlong),	\
-				  (tshort), (param));	\
-		if ((res) == ARG_ERROR)			\
-	 		goto error;			\
-		((res) == ARG_MATCH);			\
-	})
 
-static int parse_value(const char *str, int bits,
+static int parse_err;
+
+static int arg_match(char **argv, int *i,
+		     const char *long_template,
+		     const char *short_template,
+		     char **param)
+{
+	int res;
+
+	res = cmp_arg(argv, i, long_template,
+		      short_template, param);
+	if (res == ARG_ERROR) {
+		parse_err = 1;
+		return 0;
+	}
+	return (res == ARG_MATCH);
+}
+
+static int parse_value(const char *str,
 		       struct cmdline_vparm *vparm,
 		       const char *param)
 {
 	unsigned long v;
 	int i;
 
-	vparm->bits = bits;
+	vparm->bits = value_length_map[vparm->type];
 	vparm->set = 1;
 	if (strcmp(str, "GET") == 0 || strcmp(str, "get") == 0) {
 		vparm->set = 0;
 		return 0;
 	}
-	if (bits == 1) {
+	if (vparm->bits == 1) {
 		/* This is a boolean value. */
 		if (strcmp(str, "0") == 0)
 			vparm->u.value = 0;
@@ -887,7 +938,7 @@ static int parse_value(const char *str, int bits,
 	if (strncmp(str, "0x", 2) != 0)
 		goto error;
 	str += 2;
-	for (i = 0; i < bits / 4; i++) {
+	for (i = 0; i < vparm->bits / 4; i++) {
 		if (str[i] == '\0')
 			goto error;
 	}
@@ -903,7 +954,7 @@ static int parse_value(const char *str, int bits,
 error:
 	if (param) {
 		prerror("%s value parsing error. Format: 0x", param);
-		for (i = 0; i < bits / 4; i++)
+		for (i = 0; i < vparm->bits / 4; i++)
 			prerror("F");
 		prerror("\n");
 	}
@@ -961,11 +1012,13 @@ static int parse_rawset(const char *str,
 	uint8_t offset;
 	int err;
 
+	vparm->type = VALUE_RAW;
+
 	delim = strchr(str, ',');
 	if (!delim)
 		goto error;
 	*delim = '\0';
-	err = parse_value(str, 8, vparm, NULL);
+	err = parse_value(str, vparm, NULL);
 	if (err != 1)
 		goto error;
 	offset = vparm->u.value;
@@ -974,16 +1027,14 @@ static int parse_rawset(const char *str,
 			SPROM_SIZE);
 		return -1;
 	}
-	err = parse_value(delim + 1, 8, vparm, NULL);
+	err = parse_value(delim + 1, vparm, NULL);
 	if (err != 1)
 		goto error;
 	value = vparm->u.value;
 
 	vparm->u.raw.value = value;
 	vparm->u.raw.offset = offset;
-	vparm->type = VALUE_RAW;
 	vparm->set = 1;
-	vparm->bits = 8;
 
 	return 0;
 error:
@@ -998,7 +1049,9 @@ static int parse_rawget(const char *str,
 	int err;
 	uint8_t offset;
 
-	err = parse_value(str, 8, vparm, "--rawget");
+	vparm->type = VALUE_RAW;
+
+	err = parse_value(str, vparm, "--rawget");
 	if (err != 1)
 		return -1;
 	offset = vparm->u.value;
@@ -1011,7 +1064,28 @@ static int parse_rawget(const char *str,
 	vparm->u.raw.offset = offset;
 	vparm->type = VALUE_RAW;
 	vparm->set = 0;
-	vparm->bits = 8;
+
+	return 0;
+}
+
+static int generate_printall(void)
+{
+	struct cmdline_vparm *vparm;
+	int count, i;
+	enum valuetype vt = VALUE_FIRST;
+
+	count = VALUE_LAST - VALUE_FIRST + 1;
+	for (i = 0; i < count; i++, vt++) {
+		if (cmdargs.nr_vparm == MAX_VPARM) {
+			prerror("Too many value parameters.\n");
+			return -1;
+		}
+
+		vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
+		vparm->type = vt;
+		vparm->set = 0;
+		vparm->bits = value_length_map[vt];
+	}
 
 	return 0;
 }
@@ -1022,6 +1096,7 @@ static int parse_args(int argc, char *argv[])
 	int i, err;
 	char *param;
 
+	parse_err = 0;
 	for (i = 1; i < argc; i++) {
 		if (cmdargs.nr_vparm == MAX_VPARM) {
 			prerror("Too many value parameters.\n");
@@ -1060,31 +1135,31 @@ static int parse_args(int argc, char *argv[])
 		} else if (arg_match(argv, &i, "--subp", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_SUBP;
-			err = parse_value(param, 16, vparm, "--subp");
+			err = parse_value(param, vparm, "--subp");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--subv", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_SUBV;
-			err = parse_value(param, 16, vparm, "--subv");
+			err = parse_value(param, vparm, "--subv");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--ppid", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_PPID;
-			err = parse_value(param, 16, vparm, "--ppid");
+			err = parse_value(param, vparm, "--ppid");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--bflhi", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_BFLHI;
-			err = parse_value(param, 16, vparm, "--bflhi");
+			err = parse_value(param, vparm, "--bflhi");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--bfl", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_BFL;
-			err = parse_value(param, 16, vparm, "--bfl");
+			err = parse_value(param, vparm, "--bfl");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--bgmac", 0, &param)) {
@@ -1108,169 +1183,175 @@ static int parse_args(int argc, char *argv[])
 		} else if (arg_match(argv, &i, "--et0phy", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ET0PHY;
-			err = parse_value(param, 8, vparm, "--et0phy");
+			err = parse_value(param, vparm, "--et0phy");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--et1phy", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ET1PHY;
-			err = parse_value(param, 8, vparm, "--et1phy");
+			err = parse_value(param, vparm, "--et1phy");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--et0mdc", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ET0MDC;
-			err = parse_value(param, 1, vparm, "--et0mdc");
+			err = parse_value(param, vparm, "--et0mdc");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--et1mdc", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ET1MDC;
-			err = parse_value(param, 1, vparm, "--et1mdc");
+			err = parse_value(param, vparm, "--et1mdc");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--brev", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_BREV;
-			err = parse_value(param, 8, vparm, "--brev");
+			err = parse_value(param, vparm, "--brev");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--loc", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_LOC;
-			err = parse_value(param, 4, vparm, "--loc");
+			err = parse_value(param, vparm, "--loc");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--anta0", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ANTA0;
-			err = parse_value(param, 1, vparm, "--anta0");
+			err = parse_value(param, vparm, "--anta0");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--anta1", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ANTA1;
-			err = parse_value(param, 1, vparm, "--anta1");
+			err = parse_value(param, vparm, "--anta1");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--antbg0", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ANTBG0;
-			err = parse_value(param, 1, vparm, "--antbg0");
+			err = parse_value(param, vparm, "--antbg0");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--antbg1", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ANTBG1;
-			err = parse_value(param, 1, vparm, "--antbg1");
+			err = parse_value(param, vparm, "--antbg1");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--antga", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ANTGA;
-			err = parse_value(param, 8, vparm, "--antga");
+			err = parse_value(param, vparm, "--antga");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--antgbg", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ANTGBG;
-			err = parse_value(param, 8, vparm, "--antgbg");
+			err = parse_value(param, vparm, "--antgbg");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--pa0b0", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_PA0B0;
-			err = parse_value(param, 16, vparm, "--pa0b0");
+			err = parse_value(param, vparm, "--pa0b0");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--pa0b1", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_PA0B1;
-			err = parse_value(param, 16, vparm, "--pa0b1");
+			err = parse_value(param, vparm, "--pa0b1");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--pa0b2", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_PA0B2;
-			err = parse_value(param, 16, vparm, "--pa0b2");
+			err = parse_value(param, vparm, "--pa0b2");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--pa1b0", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_PA1B0;
-			err = parse_value(param, 16, vparm, "--pa1b0");
+			err = parse_value(param, vparm, "--pa1b0");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--pa1b1", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_PA1B1;
-			err = parse_value(param, 16, vparm, "--pa1b1");
+			err = parse_value(param, vparm, "--pa1b1");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--pa1b2", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_PA1B2;
-			err = parse_value(param, 16, vparm, "--pa1b2");
+			err = parse_value(param, vparm, "--pa1b2");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--wl0gpio0", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_WL0GPIO0;
-			err = parse_value(param, 8, vparm, "--wl0gpio0");
+			err = parse_value(param, vparm, "--wl0gpio0");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--wl0gpio1", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_WL0GPIO1;
-			err = parse_value(param, 8, vparm, "--wl0gpio1");
+			err = parse_value(param, vparm, "--wl0gpio1");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--wl0gpio2", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_WL0GPIO2;
-			err = parse_value(param, 8, vparm, "--wl0gpio2");
+			err = parse_value(param, vparm, "--wl0gpio2");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--wl0gpio3", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_WL0GPIO3;
-			err = parse_value(param, 8, vparm, "--wl0gpio3");
+			err = parse_value(param, vparm, "--wl0gpio3");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--maxpa", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_MAXPA;
-			err = parse_value(param, 8, vparm, "--maxpa");
+			err = parse_value(param, vparm, "--maxpa");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--maxpbg", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_MAXPBG;
-			err = parse_value(param, 8, vparm, "--maxpbg");
+			err = parse_value(param, vparm, "--maxpbg");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--itssia", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ITSSIA;
-			err = parse_value(param, 8, vparm, "--itssia");
+			err = parse_value(param, vparm, "--itssia");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--itssibg", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_ITSSIBG;
-			err = parse_value(param, 8, vparm, "--itssibg");
+			err = parse_value(param, vparm, "--itssibg");
 			if (err < 0)
 				goto error;
 		} else if (arg_match(argv, &i, "--sver", 0, &param)) {
 			vparm = &(cmdargs.vparm[cmdargs.nr_vparm++]);
 			vparm->type = VALUE_SVER;
-			err = parse_value(param, 8, vparm, "--sver");
+			err = parse_value(param, vparm, "--sver");
 			if (err < 0)
+				goto error;
+		} else if (arg_match(argv, &i, "--print-all", "-P", 0)) {
+			err = generate_printall();
+			if (err)
 				goto error;
 		} else {
 			prerror("Unrecognized argument: %s\n", argv[i]);
 			goto out_usage;
 		}
+		if (parse_err)
+			goto out_usage;
 	}
 	if (cmdargs.nr_vparm == 0) {
 		prerror("No Value parameter given. See --help.\n");
