@@ -1,8 +1,8 @@
 /*
 
-  Broadcom BCM43xx SPROM data modification tool
+  Broadcom Sonics Silicon Backplane bus SPROM data modification tool
 
-  Copyright (c) 2006 Michael Buesch <mbuesch@freenet.de>
+  Copyright (c) 2006-2007 Michael Buesch <mb@bu3sch.de>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -21,12 +21,12 @@
 
 */
 
-#ifndef BCM43xx_SPROMTOOL_H_
-#define BCM43xx_SPROMTOOL_H_
+#ifndef SSB_SPROMTOOL_H_
+#define SSB_SPROMTOOL_H_
 
 #include "utils.h"
 
-#define VERSION			bcm43xx_stringify(VERSION_)
+#define VERSION			ssb_stringify(VERSION_)
 
 #define SPROM_SIZE		128 /* bytes */
 
@@ -123,4 +123,4 @@ struct cmdline_args {
 };
 extern struct cmdline_args cmdargs;
 
-#endif /* BCM43xx_SPROMTOOL_H_ */
+#endif /* SSB_SPROMTOOL_H_ */

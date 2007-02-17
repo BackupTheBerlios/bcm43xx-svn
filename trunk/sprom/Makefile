@@ -6,21 +6,21 @@ CFLAGS = -std=c99 -O2 -fomit-frame-pointer -Wall -D_BSD_SOURCE
 LDFLAGS =
 
 
-OBJECTS = bcm43xx_sprom.o utils.o
+OBJECTS = ssb_sprom.o utils.o
 
 CFLAGS += -DVERSION_=$(VERSION)
 
-all: bcm43xx_sprom
+all: ssb_sprom
 
-bcm43xx_sprom: $(OBJECTS)
-	$(CC) $(CFLAGS) -o bcm43xx-sprom $(OBJECTS) $(LDFLAGS)
+ssb_sprom: $(OBJECTS)
+	$(CC) $(CFLAGS) -o ssb-sprom $(OBJECTS) $(LDFLAGS)
 
 install: all
-	-install -o 0 -g 0 -m 755 bcm43xx-sprom $(PREFIX)/bin/
+	-install -o 0 -g 0 -m 755 ssb-sprom $(PREFIX)/bin/
 
 clean:
-	-rm -f *~ *.o *.orig *.rej bcm43xx-sprom
+	-rm -f *~ *.o *.orig *.rej ssb-sprom
 
 # dependencies
-bcm43xx_sprom.o: bcm43xx_sprom.h utils.h
-utils.o: utils.h bcm43xx_sprom.h
+ssb_sprom.o: ssb_sprom.h utils.h
+utils.o: utils.h ssb_sprom.h
