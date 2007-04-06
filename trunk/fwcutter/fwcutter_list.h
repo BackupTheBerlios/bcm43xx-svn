@@ -366,6 +366,21 @@ static const struct file files[] =
 		.pcm4_pos    = 0x14b848,  .pcm4_length = 0x520,
 		.pcm5_pos    = 0x14b328,  .pcm5_length = 0x520,
 	},
+	{
+		.name        = "AppleAirPortBrcm4311",
+		.version     = "4.80.79.1",
+		.md5         = "dc2b37598f0651b6cf5eaaf9022d9efa",
+		.flags       = BYTE_ORDER_LITTLE_ENDIAN |
+		               V4_FIRMWARE,
+		.iv_pos      = 0x87cc0,
+		.iv_map      = INITVALS_MAP_V4_80_46_REVERSE_ORDER,
+		.uc4_pos     = 0x82e40,   .uc4_length  = 0x4e70,
+		.uc5_pos     = 0x7d7e0,   .uc5_length  = 0x5648,
+		.uc11_pos    = 0x76f40,   .uc11_length = 0x6888,
+		.uc13_pos    = 0x70fc0,   .uc13_length = 0x5f80,
+		.pcm4_pos    = 0x70aa0,   .pcm4_length = 0x520,
+		.pcm5_pos    = 0x70580,   .pcm5_length = 0x520,
+	},
 	{ 
 		.name        = "bcmwl5.sys",
 		.version     = "3.8.27.0",
