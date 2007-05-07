@@ -451,7 +451,7 @@ static void display_value(const uint8_t *sprom,
 			value = 1;
 		break;
 	case VALUE_ANTBG0:
-		desc = "B/G PHY antenna 1 available";
+		desc = "B/G PHY antenna 0 available";
 		offset = SPROM_BOARDREV + 1;
 		value = 0;
 		if (sprom[SPROM_BOARDREV + 1] & (1 << 6))
@@ -470,7 +470,7 @@ static void display_value(const uint8_t *sprom,
 		value = sprom[SPROM_ANTENNA_GAIN];
 		break;
 	case VALUE_ANTGBG:
-		desc = "A PHY antenna gain";
+		desc = "B/G PHY antenna gain";
 		offset = SPROM_ANTENNA_GAIN + 1;
 		value = sprom[SPROM_ANTENNA_GAIN + 1];
 		break;
