@@ -195,7 +195,7 @@ static void write_file(const char *name, uint8_t *buf, uint32_t len,
 	}
 
 	r = snprintf(nbuf, sizeof(nbuf),
-		     "%s/%s/%s", cmdargs.target_dir, dir, name);
+		     "%s/%s/%s.fw", cmdargs.target_dir, dir, name);
 	if (r >= sizeof(nbuf)) {
 		fprintf(stderr, "name too long");
 		exit(2);
@@ -514,7 +514,7 @@ int main(int argc, char *argv[])
 
 	extract = file->extract;
 	while (extract->name) {
-		printf("%s %s/%s\n",
+		printf("%s %s/%s.fw\n",
 		       cmdargs.identify_only ? "Contains" : "Extracting",
 		       dir, extract->name);
 		extract_or_identify(fd, extract, file->flags);
