@@ -4,6 +4,7 @@
  * Copyright (c) 2005 Martin Langer <martin-langer@gmx.de>,
  *               2005 Michael Buesch <mbuesch@freenet.de>
  *		 2005 Alex Beregszaszi
+ *		 2007 Johannes Berg <johannes@sipsolutions.net>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,470 +22,242 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <stdio.h>
+#include <byteswap.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "md5.h"
 #include "fwcutter.h"
 #include "fwcutter_list.h"
 
 
 static struct cmdline_args cmdargs;
-int big_endian_cpu;
 
-static void write_little_endian(FILE *f, byte *buffer, int len, uint8_t flags) 
+/* tiny disassembler */
+static void print_ucode_version(struct insn *insn)
 {
-	byte swapbuf[4];
+	int val;
 
-	while (len > 0) {
-		swapbuf[0] = buffer[3]; swapbuf[1] = buffer[2];
-		swapbuf[2] = buffer[1]; swapbuf[3] = buffer[0];
-		fwrite(swapbuf, 4, 1, f);
-		buffer = buffer + 4;
-		len  = len - 4;
-
-		if (flags & OLD_VERSION_STYLE_3_8)
-			buffer = buffer + 8;
-		if (flags & OLD_VERSION_STYLE_3_10)
-			buffer = buffer + 4;
-	}
-}
-
-static void write_big_endian(FILE *f, byte *buffer, int len) 
-{
-	while (len > 0) {
-		fwrite(buffer, 4, 1, f);
-		buffer = buffer + 4;
-		len  = len - 4;
-	}
-}
-
-static void write_fw(const char *outfilename, uint8_t flags, 
-		     byte *data, int len)
-{
-	FILE* fw;
-	char outfile[2048];
-
-	snprintf(outfile, sizeof(outfile),
-		 "%s/%s", cmdargs.target_dir, outfilename);
-
-	fw = fopen(outfile, "w");
-	if (!fw) {
-		perror(outfile);
-		exit(1);
-	}
-
-	if (flags & BYTE_ORDER_LITTLE_ENDIAN)
-		write_little_endian(fw, data, len, flags);
-	else if (flags & BYTE_ORDER_BIG_ENDIAN)
-		write_big_endian(fw, data, len);
-	else
-		printf("unknown byteorder...\n");
-
-	fflush(fw);
-	fclose(fw);
-}
-
-static void write_iv(uint8_t flags, uint8_t type, byte *data)
-{
-	FILE* fw;
-	char ivfilename[2048];
-	int ivnum=0, i=0, j;
-
-	while (ivmap[i].type) {
-		if (type == ivmap[i].type)
-			break;
-		i++;
-	}
-
-	if (!type) 
+	/*
+	 * The instruction we're looking for is a store to memory
+	 * offset insn->op3 of the constant formed like `val' below.
+	 * 0x2de00 is the opcode for type 1, 0x378 is the opcode
+	 * for type 2 and 3.
+	 */
+	if (insn->opcode != 0x378 && insn->opcode != 0x2de00)
 		return;
 
-	for (j = 0; j < ivmap[i].number; j++) {
+	val = ((0xFF & insn->op1) << 8) | (0xFF & insn->op2);
 
-		ivnum = ivmap[i].scheme[j];
-		if (cmdargs.alt_iv) {
-			if (ivmap[i].scheme[j] == 1)
-				ivnum = 0;
-			if (ivmap[i].scheme[j] > ALT_IV_OFFSET)
-				ivnum = ivmap[i].scheme[j] - ALT_IV_OFFSET;
-		} else {
-			if (ivmap[i].scheme[j] > ALT_IV_OFFSET)
-				ivnum = 0;
-		}
-
-		snprintf(ivfilename, sizeof(ivfilename),
-			 "%s/bcm43xx_initval%02d%s.fw",
-			 cmdargs.target_dir,
-			 ivnum,
-			 cmdargs.postfix);
-
-		/* don't extract initval 0 */
-		if ( ivnum == 0 ) {
-			if (flags & OLD_VERSION_STYLE_3_8) {
-				while (1) {
-					if ((data[0]==0xff) &&
-					    (data[1]==0xff) &&
-					    (data[2]==0xff) &&
-					    (data[3]==0xff) &&
-					    (data[4]==0x00) &&
-					    (data[5]==0x00) &&
-					    (data[6]==0x00) &&
-					    (data[7]==0x00))
-						break;
-
-					data = data + 12;
-				}
-			} else {
-				while (1) {
-					if ((data[2]==0x00) &&
-					    (data[3]==0x00) &&
-					    (data[0]==0xff) &&
-					    (data[1]==0xff))
-						break;
-
-					data = data + 8;
-				}
-			}
-		}
-
-		/* skip empty initval files */
-		if (flags & OLD_VERSION_STYLE_3_8) {
-			if ((data[0]==0xff) && (data[1]==0xff) &&
-			    (data[2]==0xff) && (data[3]==0xff) &&
-			    (data[4]==0x00) && (data[5]==0x00) &&
-			    (data[6]==0x00) && (data[7]==0x00)) {
-				data = data + 12;
-				continue;
-			}
-		} else {
-			if ((data[2]==0x00) && (data[3]==0x00) &&
-			    (data[0]==0xff) && (data[1]==0xff)) {
-				data = data + 8;
-				continue;
-			}
-		}
-
-		fw = fopen(ivfilename, "w");
-		if (!fw) {
-			perror(ivfilename);
-			exit(1);
-		}
-
-		printf("extracting bcm43xx_initval%02d%s.fw ...\n", 
-		       ivnum,
-		       cmdargs.postfix);
-
-		while (1) {
-
-			if (flags & OLD_VERSION_STYLE_3_8) {
-
-				if ((data[0]==0xff) &&
-				    (data[1]==0xff) &&
-				    (data[2]==0xff) &&
-				    (data[3]==0xff) &&
-				    (data[4]==0x00) &&
-				    (data[5]==0x00) &&
-				    (data[6]==0x00) &&
-				    (data[7]==0x00)) {
-					data = data + 12;
-					break;
-				}
-
-				if (flags & BYTE_ORDER_LITTLE_ENDIAN)
-					fprintf(fw, "%c%c%c%c%c%c%c%c",
-						/* offset */
-						data[1], data[0],
-						/* size */
-						data[5], data[4],
-						/* value */
-						data[11], data[10], 
-						data[9], data[8]);
-
-				data = data + 12;
-				continue;
-			}
-
-			if ((data[2]==0x00) && (data[3]==0x00)) {
-				if ((data[0]==0x00) && 
-				    (data[1]==0x00) &&
-				    (data[4]==0x00) && 
-				    (data[5]==0x00) &&
-				    (data[6]==0x00) && 
-				    (data[7]==0x00)) {
-					data = data + 8;
-					continue;
-				} else if ((data[0]==0xff) && 
-					   (data[1]==0xff)) {
-					data = data + 8;
-					break;
-				}
-			}
-
-			if (flags & BYTE_ORDER_LITTLE_ENDIAN)
-				fprintf(fw, "%c%c%c%c%c%c%c%c",
-					/* offset */
-					data[1], data[0],
-					/* size */
-					data[3], data[2],
-					/* value */
-					data[7], data[6], data[5], data[4]);
-			else if (flags & BYTE_ORDER_BIG_ENDIAN)
-				fprintf(fw, "%c%c%c%c%c%c%c%c",
-					/* offset */
-					data[0], data[1],
-					/* size */
-					data[2], data[3],
-					/* value */
-					data[4], data[5], data[6], data[7]);
-			else {
-				printf("unknown byteorder...\n");
-				exit(1);
-			}
-
-			data = data + 8;
-		};
-
-		fflush(fw);
-		fclose(fw);
-	}
-}
-
-static byte* read_file(const char* filename)
-{
-	FILE* file;
-	long len;
-	byte* data;
-
-	file = fopen(filename, "rb");
-	if (!file) {
-		perror(filename);
-		exit(1);
-	}
-	if (fseek(file, 0, SEEK_END)) {
-		perror("cannot seek");
-		exit(1);
-	}
-	len = ftell(file);
-	fseek(file, 0, SEEK_SET);
-	data = malloc(len);
-	if (!data) {
-		fputs("out of memory\n", stderr);
-		exit(1);
-	}
-	if (fread(data, 1, len, file) != len) {
-		perror("cannot read");
-		exit(1);
-	}
-	fclose(file);
-	return data;
-}
-
-static void extract_fw(uint8_t fwtype, uint8_t flags, 
-		       uint32_t pos, uint32_t length)
-{
-	byte* filedata;
-	char outfile[1024];
-
-	switch (fwtype) {
-	case FIRMWARE_UCODE_2:
-	case FIRMWARE_UCODE_4:
-	case FIRMWARE_UCODE_5:
-	case FIRMWARE_UCODE_11:
-	case FIRMWARE_UCODE_13:
-		snprintf(outfile, sizeof(outfile), "bcm43xx_microcode%i%s.fw", 
-			 fwtype - FIRMWARE_UCODE_OFFSET, cmdargs.postfix);
+	/*
+	 * Memory offsets are word-offsets, for the meaning
+	 * see http://bcm-v4.sipsolutions.net/802.11/ObjectMemory
+	 */
+	switch (insn->op3) {
+	case 0:
+		printf("  ucode version:  %d\n", val);
 		break;
-	case FIRMWARE_PCM_4:
-	case FIRMWARE_PCM_5:
-		snprintf(outfile, sizeof(outfile), "bcm43xx_pcm%i%s.fw", 
-			 fwtype, cmdargs.postfix);
+	case 1:
+		printf("  ucode revision: %d\n", val);
+		break;
+	case 2:
+		printf("  ucode date:     %.4d-%.2d-%.2d\n",
+		       2000 + (val >> 12), (val >> 8) & 0xF, val & 0xFF);
+		break;
+	case 3:
+		printf("  ucode time:     %.2d:%.2d:%.2d\n",
+		       val >> 11, (val >> 5) & 0x3f, val & 0x1f);
+		break;
+	}
+}
+
+static void disasm_ucode_1(uint64_t in, struct insn *out)
+{
+	/* xxyyyzzz00oooooX -> ooooo Xxx yyy zzz
+	 * if we swap the upper and lower 32-bits first it becomes easier:
+	 * 00oooooxxxyyyzzz -> ooooo xxx yyy zzz
+	 */
+	in = (in >> 32) | (in << 32);
+
+	out->op3	= in & 0xFFF;
+	out->op2	= (in >> 12) & 0xFFF;
+	out->op1	= (in >> 24) & 0xFFF;
+	out->opcode	= (in >> 36) & 0xFFFFF;
+	/* the rest of the in word should be zero */
+}
+
+static void disasm_ucode_2(uint64_t in, struct insn *out)
+{
+	/* xxyyyzzz0000oooX -> ooo Xxx yyy zzz
+	 * if we swap the upper and lower 32-bits first it becomes easier:
+	 * 0000oooxxxyyyzzz -> ooo xxx yyy zzz
+	 */
+	in = (in >> 32) | (in << 32);
+
+	out->op3	= in & 0xFFF;
+	out->op2	= (in >> 12) & 0xFFF;
+	out->op1	= (in >> 24) & 0xFFF;
+	out->opcode	= (in >> 36) & 0xFFF;
+	/* the rest of the in word should be zero */
+}
+
+static void disasm_ucode_3(uint64_t in, struct insn *out)
+{
+	/*
+	 * like 2, but each operand has one bit more; appears
+	 * to use the same instruction set slightly extended
+	 */
+	in = (in >> 32) | (in << 32);
+
+	out->op3	= in & 0x1FFF;
+	out->op2	= (in >> 13) & 0x1FFF;
+	out->op1	= (in >> 26) & 0x1FFF;
+	out->opcode	= (in >> 39) & 0xFFF;
+	/* the rest of the in word should be zero */
+}
+
+static void analyse_ucode(int ucode_rev, uint8_t *data, uint32_t len)
+{
+	uint64_t *insns = (uint64_t*)data;
+	struct insn insn;
+	uint32_t i;
+
+	for (i=0; i<len/sizeof(*insns); i++) {
+		switch (ucode_rev) {
+		case 1:
+			disasm_ucode_1(insns[i], &insn);
+			print_ucode_version(&insn);
+			break;
+		case 2:
+			disasm_ucode_2(insns[i], &insn);
+			print_ucode_version(&insn);
+			break;
+		case 3:
+			disasm_ucode_3(insns[i], &insn);
+			print_ucode_version(&insn);
+			break;
+		}
+	}
+}
+
+static void swap_endianness_ucode(uint8_t *buf, uint32_t len)
+{
+	uint32_t *buf32 = (uint32_t*)buf;
+	uint32_t i;
+
+	for (i=0; i<len/4; i++)
+		buf32[i] = bswap_32(buf32[i]);
+}
+
+#define swap_endianness_pcm swap_endianness_ucode
+
+static void swap_endianness_iv(uint8_t *buf, uint32_t len)
+{
+	struct iv *iv = (struct iv*)buf;
+	uint32_t i;
+
+	for (i=0; i<len/sizeof(*iv); i++) {
+		iv[i].reg = bswap_16(iv[i].reg);
+		iv[i].size = bswap_16(iv[i].size);
+		iv[i].val = bswap_32(iv[i].val);
+	}
+}
+
+static void write_file(const char *name, uint8_t *buf, uint32_t len,
+		       uint32_t flags)
+{
+	FILE *f;
+	char nbuf[4096];
+	const char *dir;
+	int r;
+
+	if (flags & FW_FLAG_V4)
+		dir = "b43";
+	else
+		dir = "b43legacy";
+
+	r = snprintf(nbuf, sizeof(nbuf),
+		     "%s/%s", cmdargs.target_dir, dir);
+	if (r >= sizeof(nbuf)) {
+		fprintf(stderr, "name too long");
+		exit(2);
+	}
+
+	r = mkdir(nbuf, 0770);
+	if (r && errno != EEXIST) {
+		perror("failed to create output directory");
+		exit(2);
+	}
+
+	r = snprintf(nbuf, sizeof(nbuf),
+		     "%s/%s/%s", cmdargs.target_dir, dir, name);
+	if (r >= sizeof(nbuf)) {
+		fprintf(stderr, "name too long");
+		exit(2);
+	}
+	f = fopen(nbuf, "w");
+	if (!f) {
+		perror("failed to open file");
+		exit(2);
+	}
+	fwrite(buf, 1, len, f);
+	fclose(f);
+}
+
+static void extract_or_identify(FILE *f, const struct extract *extract,
+				uint32_t flags)
+{
+	uint8_t *buf;
+	int ucode_rev = 0;
+
+	if (fseek(f, extract->offset, SEEK_SET)) {
+		perror("failed to seek on file");
+		exit(2);
+	}
+
+	buf = malloc(extract->length);
+	if (fread(buf, 1, extract->length, f) != extract->length) {
+		perror("failed to read complete data");
+		exit(3);
+	}
+
+	switch (extract->type) {
+	case EXT_UCODE_3:
+		ucode_rev += 1;
+	case EXT_UCODE_2:
+		ucode_rev += 1;
+	case EXT_UCODE_1:
+		ucode_rev += 1;
+		if (flags & FW_FLAG_LE)
+			swap_endianness_ucode(buf, extract->length);
+		analyse_ucode(ucode_rev, buf, extract->length);
+		break;
+	case EXT_PCM:
+		if (flags & FW_FLAG_LE)
+			swap_endianness_pcm(buf, extract->length);
+		break;
+	case EXT_IV:
+		if (flags & FW_FLAG_LE)
+			swap_endianness_iv(buf, extract->length);
 		break;
 	default:
-		snprintf(outfile, sizeof(outfile), "bcm43xx_unknown.fw");
+		exit(255);
 	}
 
-	if (length > 0) {
-		printf("extracting %s ...\n", outfile);
-		filedata = read_file(cmdargs.infile);
-		write_fw(outfile, flags, filedata + pos, length);
-		free(filedata);
-	} else {
-		printf("WARNING! This binary driver doesn't contain \"%s\".\n",
-		       outfile);
+	if (!cmdargs.identify_only)
+		write_file(extract->name, buf, extract->length, flags);
 
-		switch (fwtype) {
-		case FIRMWARE_UCODE_2:
-		case FIRMWARE_UCODE_4:
-			printf("WARNING! Therefore bcm43xx with 0x812 cores "
-			       "rev 0x%x will not work.\n", 
-			       fwtype - FIRMWARE_UCODE_OFFSET);
-			break;
-		case FIRMWARE_UCODE_5:
-			printf("WARNING! Therefore bcm43xx with cores 0x812 "
-			       "rev 0x5 up to 0xa will not work.\n");
-			break;
-		case FIRMWARE_UCODE_11:
-			printf("WARNING! Therefore bcm43xx with cores 0x812 "
-			       "rev 0xb or 0xc will not work.\n");
-			break;
-		case FIRMWARE_UCODE_13:
-			printf("WARNING! Therefore bcm43xx with cores 0x812 "
-			       "rev 0xd or greater will not work.\n");
-			break;
-		case FIRMWARE_PCM_4:
-			printf("WARNING! Therefore bcm43xx with cores 0x812 "
-			       "rev 0x%x or smaller will not work.\n", 
-			       fwtype);
-			break;
-		case FIRMWARE_PCM_5:
-			printf("WARNING! Therefore bcm43xx with cores 0x812 "
-			       "rev 0x%x or greater will not work.\n", 
-			       fwtype);
-			break;
-		}
-	}
-}
-
-static void extract_iv(uint8_t flags, uint32_t pos, uint8_t type)
-{
-	byte* filedata;
-
-	if (pos > 0) {
-		filedata = read_file(cmdargs.infile);
-		write_iv(flags, type, filedata + pos);
-		free(filedata);
-	}
-}
-
-static void print_ucode_version(uint32_t fwdata)
-{
-	switch (fwdata & 0xfff) {
-	case 0x000:
-		printf("  revision   :  0x%.4x\n", 
-		       ((fwdata >> 12) & 0xff) +
-		       (((fwdata >> 16) & 0xff00)));
-		break;
-	case 0x001:
-		printf("  patchlevel :  0x%.4x\n", 
-		       ((fwdata >> 12) & 0xff) +
-		       (((fwdata >> 16) & 0xff00)));
-		break;
-	case 0x002:
-		printf("  date       :  20%.2i-%.2i-%.2i\n", 
-		       (fwdata >> 28) & 0xf,
-		       (fwdata >> 24) & 0xf,
-		       (fwdata >> 12) & 0xff);
-		break;
-	case 0x003:
-		printf("  time       :  %.2i:%.2i:%.2i\n", 
-		       fwdata >> 27,
-		       ((fwdata >> 17) & 0x7) + ((fwdata >> 21) & 0x38),
-		       (fwdata >> 12) & 0x1f);
-		break;
-	}
-}
-
-static void analyse_ucode(int type, const struct file * f, byte * data)
-{
-	uint32_t fwdata = 0;
-
-	if (f->flags & OLD_VERSION_STYLE_3_8) {
-		if (data[12]==0x0c && data[13]==0xe0 &&
-		    data[14]==0x2d && data[15]==0x00) {
-			fwdata = data[0] + (data[1]<<8) + 
-				(data[2]<<16) + (data[3]<<24);
-			print_ucode_version(fwdata);
-		}
-		return;
-	}
-
-	if (f->flags & OLD_VERSION_STYLE_3_10) {
-		if (data[8]==0x0c && data[9]==0xe0 &&
-		    data[10]==0x2d && data[11]==0x00) {
-			fwdata = data[0] + (data[1]<<8) + 
-				(data[2]<<16) + (data[3]<<24);
-			print_ucode_version(fwdata);
-		}
-		return;
-	}
-
-	if (f->flags & BYTE_ORDER_LITTLE_ENDIAN) {
-		if ((type==FIRMWARE_UCODE_2) || (type==FIRMWARE_UCODE_4)) {
-			if (data[4]==0x0c && data[5]==0xe0 &&
-			    data[6]==0x2d && data[7]==0x00) {
-				fwdata = data[0] + (data[1]<<8) + 
-					(data[2]<<16) + (data[3]<<24);
-				print_ucode_version(fwdata);
-			}
-		} else {
-			if (data[4]==0x8c && data[5]==0x37 &&
-			    data[6]==0x00 && data[7]==0x00) {
-				fwdata = data[0] + (data[1]<<8) + 
-					(data[2]<<16) + (data[3]<<24);
-				print_ucode_version(fwdata);
-			}
-		}
-	} else if (f->flags & BYTE_ORDER_BIG_ENDIAN) {
-		if ((type==FIRMWARE_UCODE_2) || (type==FIRMWARE_UCODE_4)) {
-			if (data[7]==0x0c && data[6]==0xe0 &&
-			    data[5]==0x2d && data[4]==0x00) {
-				fwdata = data[3] + (data[2]<<8) + 
-					(data[1]<<16) + (data[0]<<24);
-				print_ucode_version(fwdata);
-			}
-		} else {
-			if (data[7]==0x8c && data[6]==0x37 &&
-			    data[5]==0x00 && data[4]==0x00) {
-				fwdata = data[3] + (data[2]<<8) + 
-					(data[1]<<16) + (data[0]<<24);
-				print_ucode_version(fwdata);
-			}
-		}
-	}
-}
-
-static void get_ucode_rev(int type, const struct file * f, int pos, int len)
-{
-	byte* data;
-	int len_count = 0;
-
-	if (len == 0) return;
-	printf("  microcode  :  %i\n", type - FIRMWARE_UCODE_OFFSET);
-
-	data = read_file(cmdargs.infile) + pos;
-	while (len_count < len) {
-		analyse_ucode(type, f, data);
-		len_count = len_count + 8;
-		data = data + 8;
-		if (f->flags & OLD_VERSION_STYLE_3_8)
-			data = data + 16;
-		if (f->flags & OLD_VERSION_STYLE_3_10)
-			data = data + 8;
-	}
-
-	printf("\n");
-}
-
-static void get_ucode_info(const struct file * f)
-{
-	get_ucode_rev(FIRMWARE_UCODE_2, f, 
-		      f->uc2_pos, 
-		      f->uc2_length);
-	get_ucode_rev(FIRMWARE_UCODE_4, f, 
-		      f->uc4_pos, 
-		      f->uc4_length);
-	get_ucode_rev(FIRMWARE_UCODE_5, f, 
-		      f->uc5_pos, 
-		      f->uc5_length);
-	get_ucode_rev(FIRMWARE_UCODE_11, f, 
-		      f->uc11_pos, 
-		      f->uc11_length);
-	get_ucode_rev(FIRMWARE_UCODE_13, f, 
-		      f->uc13_pos, 
-		      f->uc13_length);
+	free(buf);
 }
 
 static void print_banner(void)
 {
-	printf("bcm43xx-fwcutter version " FWCUTTER_VERSION "\n");
+	printf("b43-fwcutter version " FWCUTTER_VERSION "\n");
 }
 
 static void print_file(const struct file *file)
@@ -492,8 +265,14 @@ static void print_file(const struct file *file)
 	char filename[30];
 	char shortname[30];
 
+	if (file->flags & FW_FLAG_V4)
+		printf("b43\t\t");
+	else
+		printf("b43legacy\t");
+
 	if (strlen(file->name) > 20) {
-		strncpy(shortname, file->name, 18);
+		strncpy(shortname, file->name, 20);
+		shortname[20] = '\0';
 		snprintf(filename, sizeof(filename), "%s..", shortname);
 	} else
 		strcpy (filename, file->name);
@@ -502,46 +281,34 @@ static void print_file(const struct file *file)
 	if (strlen(filename) < 8) printf("\t");
 	if (strlen(filename) < 16) printf("\t");
 
-	printf("%s\t", file->version);
-	if (strlen(file->version) < 8) printf("\t");
-	if (strlen(file->version) < 16) printf("\t");
+	printf("%s\t", file->ucode_version);
+	if (strlen(file->ucode_version) < 8) printf("\t");
 
 	printf("%s\n", file->md5);
 }
 
 static void print_supported_files(void)
 {
-	int printout_unsupported = 0;
 	int i;
 
 	print_banner();
 	printf("\nExtracting firmware is possible "
 	       "from these binary driver files:\n\n");
-	printf("<filename>\t\t"
-	       "<version>\t\t"
+	printf("<driver>\t"
+	       "<filename>\t\t"
+	       "<microcode>\t"
 	       "<MD5 checksum>\n\n");
-	for (i = 0; i < FILES; i++) {
-		if (files[i].flags & DRIVER_UNSUPPORTED) {
-			printout_unsupported = 1;
-			continue;
-		}
-		print_file(&files[i]);
-	}
-	if (printout_unsupported == 0) return;
-
-	printf("\n\nExtracting firmware is IMPOSSIBLE "
-	       "from these binary driver files:\n\n");
-	printf("<filename>\t\t"
-	       "<version>\t\t"
-	       "<MD5 checksum>\n\n");
-	for (i = 0; i < FILES; i++) {
-		if (!(files[i].flags & DRIVER_UNSUPPORTED))
-			continue;
-		print_file(&files[i]);
-	}
+	/* print for legacy driver first */
+	for (i = 0; i < FILES; i++)
+		if (!(files[i].flags & FW_FLAG_V4))
+			print_file(&files[i]);
+	for (i = 0; i < FILES; i++)
+		if (files[i].flags & FW_FLAG_V4)
+			print_file(&files[i]);
+	printf("\n");
 }
 
-static const struct file * find_file(FILE *fd)
+static const struct file *find_file(FILE *fd)
 {
 	unsigned char buffer[16384], signature[16];
 	struct MD5Context md5c;
@@ -563,63 +330,18 @@ static const struct file * find_file(FILE *fd)
 
 	for (i = 0; i < FILES; ++i) {
 		if (strcasecmp(md5sig, files[i].md5) == 0) {
-			if (files[i].flags & DRIVER_UNSUPPORTED) {
-				printf("Extracting firmware from this file "
-				       "is IMPOSSIBLE. (e.g. too old/new)\n");
-				return 0;
-			}
-			if (files[i].flags & V4_FIRMWARE) {
-				printf("*** WARNING ***\n"
-				       "This file contains new version4 \n"
-				       "firmware. v4 firmware is _not_ supported by \n"
-				       "the driver in mainline kernels. For v4 firmware \n"
-				       "you need latest bcm43xx development version \n"
-				       "(wireless-dev kernel tree). If you don't know what \n"
-				       "this warning is about, use a 3.xx.xx.xx driver version \n"
-				       "instead to extract the firmware.\n");
-			}
-			printf("\n  filename   :  %s\n", files[i].name);
-			printf("  version    :  %s\n", files[i].version);
+			printf("This file is recognised as:\n");
+			printf("  filename   :  %s\n", files[i].name);
+			printf("  version    :  %s\n", files[i].ucode_version);
 			printf("  MD5        :  %s\n", files[i].md5);
-			printf("  microcodes :  ");
-			if (files[i].uc2_length > 0) printf("2 ");
-			if (files[i].uc4_length > 0) printf("4 ");
-			if (files[i].uc5_length > 0) printf("5 ");
-			if (files[i].uc11_length > 0) printf("11 ");
-			if (files[i].uc13_length > 0) printf("13 ");
-			printf("\n  pcms       :  ");
-			if (files[i].pcm4_length > 0) printf("4 ");
-			if (files[i].pcm5_length > 0) printf("5 ");
-			printf("\n\n");
-			if (files[i].flags & MISSING_INITVAL_80211_A) {
-				printf("WARNING! This firmware doesn't "
-				       "include support for 802.11a cards.\n");
-				printf("WARNING! Use this firmware only for "
-				       "802.11b/g cards.\n\n");
-			}
-			return &(files[i]);
+			return &files[i];
 		}
 	}
 	printf("Sorry, the input file is either wrong or "
-	       "not supported by bcm43xx-fwcutter.\n");
+	       "not supported by b43-fwcutter.\n");
 	printf("This file has an unknown MD5sum %s.\n", md5sig);
 
-	return 0;
-}
-
-static void get_endianess(void)
-{
-	const unsigned char x[] = { 0xde, 0xad, 0xbe, 0xef, };
-	const uint32_t *p = (uint32_t *)x;
-
-	if (*p == 0xdeadbeef) {
-		big_endian_cpu = 1;
-	} else if (*p == 0xefbeadde) {
-		big_endian_cpu = 0;
-	} else {
-		printf("Confused: NUXI endian machine??\n");
-		exit(-1);
-	}
+	return NULL;
 }
 
 static void print_usage(int argc, char *argv[])
@@ -632,12 +354,8 @@ static void print_usage(int argc, char *argv[])
 	       "Only identify the driver file (don't extract)\n");
 	printf("  -w|--target-dir DIR   "
 	       "Extract and write firmware to DIR\n");
-	printf("  -a|--alt-iv           "
-	       "Extract alternative initvals (only 3.10.x.x)\n");
-	printf("  -p|--postfix \".FOO\"   "
-	       "Postfix for firmware filenames (.FOO.fw)\n");
 	printf("  -v|--version          "
-	       "Print bcm43xx-fwcutter version\n");
+	       "Print b43-fwcutter version\n");
 	printf("  -h|--help             "
 	       "Print this help\n");
 	printf("\nExample: %s bcmwl5.sys\n"
@@ -749,20 +467,6 @@ static int parse_args(int argc, char *argv[])
 		} else if (res == ARG_ERROR)
 			goto out;
 
-		res = cmp_arg(argv, &i, "--postfix", "-p", &param);
-		if (res == ARG_MATCH) {
-			cmdargs.postfix = param;
-			continue;
-		} else if (res == ARG_ERROR)
-			goto out;
-
-		res = cmp_arg(argv, &i, "--alt-iv", "-a", 0);
-		if (res == ARG_MATCH) {
-			cmdargs.alt_iv = 1;
-			continue;
-		} else if (res == ARG_ERROR)
-			goto out;
-
 		cmdargs.infile = argv[i];
 		break;
 	}
@@ -781,12 +485,11 @@ int main(int argc, char *argv[])
 {
 	FILE *fd;
 	const struct file *file;
+	const struct extract *extract;
 	int err;
-
-	get_endianess();
+	const char *dir;
 
 	cmdargs.target_dir = ".";
-	cmdargs.postfix = "";
 	err = parse_args(argc, argv);
 	if (err == 1)
 		return 0;
@@ -804,52 +507,19 @@ int main(int argc, char *argv[])
 	if (!file)
 		goto out_close;
 
-	get_ucode_info(file);
+	if (file->flags & FW_FLAG_V4)
+		dir = "b43";
+	else
+		dir = "b43legacy";
 
-	if (cmdargs.identify_only) {
-		err = 0;
-		goto out_close;
+	extract = file->extract;
+	while (extract->name) {
+		printf("%s %s/%s\n",
+		       cmdargs.identify_only ? "Contains" : "Extracting",
+		       dir, extract->name);
+		extract_or_identify(fd, extract, file->flags);
+		extract++;
 	}
-
-	if (file->uc2_length > 0)
-		extract_fw(FIRMWARE_UCODE_2, 
-			   file->flags, 
-			   file->uc2_pos, 
-			   file->uc2_length);
-	if (file->uc4_length > 0)
-		extract_fw(FIRMWARE_UCODE_4, 
-			   file->flags, 
-			   file->uc4_pos, 
-			   file->uc4_length);
-	if (file->uc5_length > 0)
-		extract_fw(FIRMWARE_UCODE_5, 
-			   file->flags, 
-			   file->uc5_pos, 
-			   file->uc5_length);
-	if (file->uc11_length > 0)
-		extract_fw(FIRMWARE_UCODE_11, 
-			   file->flags, 
-			   file->uc11_pos, 
-			   file->uc11_length);
-	if (file->uc13_length > 0)
-		extract_fw(FIRMWARE_UCODE_13, 
-			   file->flags, 
-			   file->uc13_pos, 
-			   file->uc13_length);
-	if (file->pcm4_length > 0)
-		extract_fw(FIRMWARE_PCM_4, 
-			   file->flags, 
-			   file->pcm4_pos, 
-			   file->pcm4_length);
-	if (file->pcm5_length > 0)
-		extract_fw(FIRMWARE_PCM_5, 
-			   file->flags, 
-			   file->pcm5_pos, 
-			   file->pcm5_length);
-	if (file->iv_map > 0)
-		extract_iv(file->flags, 
-			   file->iv_pos, 
-			   file->iv_map);
 
 	err = 0;
 out_close:

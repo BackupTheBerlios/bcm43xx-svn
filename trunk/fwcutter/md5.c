@@ -19,22 +19,16 @@
    prototypes) to maintain the tradition that Netfone will compile
    with Sun's original "cc". */
 /* Ripped out ugly K&R again ;) --mbuesch */
+/* killed stupid endianness thing --jmberg */
 
 #include <memory.h>		 /* for memcpy() */
 #include "md5.h"
 
-extern int big_endian_cpu;
-
-/*
- * Note: this code is harmless on little-endian machines,
- *       but we return early nevertheless.
- */
 static void byteReverse(unsigned char *buf, unsigned longs)
 {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+/* we need the value in big-endian */
     uint32_t t;
-
-    if (!big_endian_cpu)
-        return;
 
     do {
 	t = (uint32_t) ((unsigned) buf[3] << 8 | buf[2]) << 16 |
@@ -42,6 +36,7 @@ static void byteReverse(unsigned char *buf, unsigned longs)
 	*(uint32_t *) buf = t;
 	buf += 4;
     } while (--longs);
+#endif
 }
 
 /* The four core functions - F1 is optimized somewhat */
