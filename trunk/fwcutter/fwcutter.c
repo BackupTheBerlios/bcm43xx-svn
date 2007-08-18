@@ -38,6 +38,57 @@
 
 static struct cmdline_args cmdargs;
 
+
+/* Convert a CPU-endian 16bit integer to Big-Endian */
+static be16_t to_be16(uint16_t v)
+{
+	uint8_t ret[2];
+
+	ret[0] = (v & 0xFF00) >> 8;
+	ret[1] = (v & 0x00FF);
+
+	return *((be16_t *)ret);
+}
+
+#if 0
+/* Convert a Big-Endian 16bit integer to CPU-endian */
+static uint16_t from_be16(be16_t v)
+{
+	uint16_t ret = 0;
+
+	ret |= (uint16_t)(((uint8_t *)&v)[0]) << 8;
+	ret |= (uint16_t)(((uint8_t *)&v)[1]);
+
+	return ret;
+}
+#endif
+
+/* Convert a CPU-endian 32bit integer to Big-Endian */
+static be32_t to_be32(uint32_t v)
+{
+	uint8_t ret[4];
+
+	ret[0] = (v & 0xFF000000) >> 24;
+	ret[1] = (v & 0x00FF0000) >> 16;
+	ret[2] = (v & 0x0000FF00) >> 8;
+	ret[3] = (v & 0x000000FF);
+
+	return *((be32_t *)ret);
+}
+
+/* Convert a Big-Endian 32bit integer to CPU-endian */
+static uint32_t from_be32(be32_t v)
+{
+	uint32_t ret = 0;
+
+	ret |= (uint32_t)(((uint8_t *)&v)[0]) << 24;
+	ret |= (uint32_t)(((uint8_t *)&v)[1]) << 16;
+	ret |= (uint32_t)(((uint8_t *)&v)[2]) << 8;
+	ret |= (uint32_t)(((uint8_t *)&v)[3]);
+
+	return ret;
+}
+
 /* tiny disassembler */
 static void print_ucode_version(struct insn *insn)
 {
@@ -156,20 +207,69 @@ static void swap_endianness_ucode(uint8_t *buf, uint32_t len)
 
 #define swap_endianness_pcm swap_endianness_ucode
 
-static void swap_endianness_iv(uint8_t *buf, uint32_t len)
+static void swap_endianness_iv(struct iv *iv)
 {
-	struct iv *iv = (struct iv*)buf;
-	uint32_t i;
+	iv->reg = bswap_16(iv->reg);
+	iv->size = bswap_16(iv->size);
+	iv->val = bswap_32(iv->val);
+}
 
-	for (i=0; i<len/sizeof(*iv); i++) {
-		iv[i].reg = bswap_16(iv[i].reg);
-		iv[i].size = bswap_16(iv[i].size);
-		iv[i].val = bswap_32(iv[i].val);
+static void build_ivs(struct b43_iv **_out, size_t *_out_size,
+		      struct iv *in, size_t in_size,
+		      struct fw_header *hdr,
+		      uint32_t flags)
+{
+	struct iv *iv;
+	struct b43_iv *out;
+	uint32_t i;
+	size_t out_size = 0;
+
+	if (sizeof(struct b43_iv) != 6) {
+		printf("sizeof(struct b43_iv) != 6\n");
+		exit(255);
 	}
+
+	out = malloc(in_size);
+	if (!out) {
+		perror("failed to allocate buffer");
+		exit(1);
+	}
+	*_out = out;
+	for (i = 0; i < in_size / sizeof(*iv); i++, in++) {
+		if (flags & FW_FLAG_LE)
+			swap_endianness_iv(in);
+		/* input-IV is BigEndian */
+		if (in->reg & to_be16(~FW_IV_OFFSET_MASK)) {
+			printf("Input file IV offset > 0x%X\n", FW_IV_OFFSET_MASK);
+			exit(1);
+		}
+		out->offset_size = in->reg;
+		if (in->size == to_be16(4)) {
+			out->offset_size |= to_be16(FW_IV_32BIT);
+			out->data.d32 = in->val;
+
+			out_size += sizeof(be16_t) + sizeof(be32_t);
+			out = (struct b43_iv *)((uint8_t *)out + sizeof(be16_t) + sizeof(be32_t));
+		} else if (in->size == to_be16(2)) {
+			if (in->val & to_be32(~0xFFFF)) {
+				printf("Input file 16bit IV value overflow\n");
+				exit(1);
+			}
+			out->data.d16 = to_be16(from_be32(in->val));
+
+			out_size += sizeof(be16_t) + sizeof(be16_t);
+			out = (struct b43_iv *)((uint8_t *)out + sizeof(be16_t) + sizeof(be16_t));
+		} else {
+			printf("Input file IV size != 2|4\n");
+			exit(1);
+		}
+	}
+	hdr->size = to_be32(i);
+	*_out_size = out_size;
 }
 
 static void write_file(const char *name, uint8_t *buf, uint32_t len,
-		       uint32_t flags)
+		       const struct fw_header *hdr, uint32_t flags)
 {
 	FILE *f;
 	char nbuf[4096];
@@ -205,7 +305,14 @@ static void write_file(const char *name, uint8_t *buf, uint32_t len,
 		perror("failed to open file");
 		exit(2);
 	}
-	fwrite(buf, 1, len, f);
+	if (fwrite(hdr, sizeof(*hdr), 1, f) != 1) {
+		perror("failed to write file");
+		exit(2);
+	}
+	if (fwrite(buf, 1, len, f) != len) {
+		perror("failed to write file");
+		exit(2);
+	}
 	fclose(f);
 }
 
@@ -213,7 +320,12 @@ static void extract_or_identify(FILE *f, const struct extract *extract,
 				uint32_t flags)
 {
 	uint8_t *buf;
+	size_t data_length;
 	int ucode_rev = 0;
+	struct fw_header hdr;
+
+	memset(&hdr, 0, sizeof(hdr));
+	hdr.ver = FW_HDR_VER;
 
 	if (fseek(f, extract->offset, SEEK_SET)) {
 		perror("failed to seek on file");
@@ -221,6 +333,10 @@ static void extract_or_identify(FILE *f, const struct extract *extract,
 	}
 
 	buf = malloc(extract->length);
+	if (!buf) {
+		perror("failed to allocate buffer");
+		exit(3);
+	}
 	if (fread(buf, 1, extract->length, f) != extract->length) {
 		perror("failed to read complete data");
 		exit(3);
@@ -233,24 +349,37 @@ static void extract_or_identify(FILE *f, const struct extract *extract,
 		ucode_rev += 1;
 	case EXT_UCODE_1:
 		ucode_rev += 1;
+		data_length = extract->length;
 		if (flags & FW_FLAG_LE)
-			swap_endianness_ucode(buf, extract->length);
-		analyse_ucode(ucode_rev, buf, extract->length);
+			swap_endianness_ucode(buf, data_length);
+		analyse_ucode(ucode_rev, buf, data_length);
+		hdr.type = FW_TYPE_UCODE;
+		hdr.size = to_be32(data_length);
 		break;
 	case EXT_PCM:
+		data_length = extract->length;
 		if (flags & FW_FLAG_LE)
-			swap_endianness_pcm(buf, extract->length);
+			swap_endianness_pcm(buf, data_length);
+		hdr.type = FW_TYPE_PCM;
+		hdr.size = to_be32(data_length);
 		break;
-	case EXT_IV:
-		if (flags & FW_FLAG_LE)
-			swap_endianness_iv(buf, extract->length);
+	case EXT_IV: {
+		struct b43_iv *ivs;
+
+		hdr.type = FW_TYPE_IV;
+		build_ivs(&ivs, &data_length,
+			  (struct iv *)buf, extract->length,
+			  &hdr, flags);
+		free(buf);
+		buf = (uint8_t *)ivs;
 		break;
+	}
 	default:
 		exit(255);
 	}
 
 	if (!cmdargs.identify_only)
-		write_file(extract->name, buf, extract->length, flags);
+		write_file(extract->name, buf, data_length, &hdr, flags);
 
 	free(buf);
 }

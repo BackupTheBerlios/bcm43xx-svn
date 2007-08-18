@@ -8,6 +8,9 @@
 #define fwcutter_stringify(x)	fwcutter_stringify_1(x)
 #define FWCUTTER_VERSION	fwcutter_stringify(FWCUTTER_VERSION_)
 
+typedef uint16_t be16_t; /* Big-endian 16bit */
+typedef uint32_t be32_t; /* Big-endian 32bit */
+
 #define ARG_MATCH	0
 #define ARG_NOMATCH	1
 #define ARG_ERROR	-1
@@ -23,9 +26,10 @@ struct insn {
 	uint16_t op1, op2, op3;
 };
 
+/* The IV how it's done in the binary driver files. */
 struct iv {
-	uint16_t reg, size;
-	uint32_t val;
+	be16_t reg, size;
+	be32_t val;
 } __attribute__((__packed__));
 
 enum extract_type {
@@ -53,5 +57,36 @@ struct file {
 	const struct extract *extract;
 	const uint32_t flags;
 };
+
+/* The header that's put in to every .fw file */
+struct fw_header {
+	/* Type of the firmware data */
+	uint8_t type;
+	/* Version number of the firmware data format */
+	uint8_t ver;
+	uint8_t __padding[2];
+	/* Size of the data. For ucode and PCM this is in bytes.
+	 * For IV this is in number-of-ivs. */
+	be32_t size;
+} __attribute__((__packed__));
+
+#define FW_TYPE_UCODE	'u'
+#define FW_TYPE_PCM	'p'
+#define FW_TYPE_IV	'i'
+
+#define FW_HDR_VER	0x01
+
+/* The IV in the .fw file */
+struct b43_iv {
+	be16_t offset_size;
+	union {
+		be16_t d16;
+		be32_t d32;
+	} data __attribute__((__packed__));
+} __attribute__((__packed__));
+
+#define FW_IV_OFFSET_MASK	0x7FFF
+#define FW_IV_32BIT		0x8000
+
 
 #endif /* _FWCUTTER_H_ */
