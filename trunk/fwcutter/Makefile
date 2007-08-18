@@ -2,29 +2,33 @@ VERSION = 008
 
 CC ?= cc
 PREFIX ?= /usr/local
-CFLAGS ?= -O2 -fomit-frame-pointer
+CFLAGS ?= -Os -fomit-frame-pointer
 CFLAGS += -std=c99 -Wall -pedantic -D_BSD_SOURCE
 LDFLAGS ?=
 
 
 OBJECTS = fwcutter.o md5.o
+BIN	= b43-fwcutter
 
 CFLAGS += -DFWCUTTER_VERSION_=$(VERSION)
 
-all: fwcutter
+all: $(BIN)
 
-fwcutter: $(OBJECTS)
-	$(CC) $(CFLAGS) -o b43-fwcutter $(OBJECTS) $(LDFLAGS)
+fwcutter.o: fwcutter.h fwcutter_list.h md5.h
+
+md5.o: md5.h
+
+$(BIN): $(OBJECTS)
+	$(CC) $(CFLAGS) -o $(BIN) $(OBJECTS) $(LDFLAGS)
 
 install: all
 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/bin/
-	-install -o 0 -g 0 -m 755 b43-fwcutter $(PREFIX)/bin/
+	-install -o 0 -g 0 -m 755 $(BIN) $(PREFIX)/bin/
 	-install -d -o 0 -g 0 -m 755 $(PREFIX)/man/man1/
-	-install -o 0 -g 0 -m 644 b43-fwcutter.1 $(PREFIX)/man/man1/
+	-install -o 0 -g 0 -m 644 $(BIN).1 $(PREFIX)/man/man1/
 
 clean:
-	-rm -f *~ *.o *.orig *.rej *.fw b43-fwcutter
+	-rm -f *.o $(BIN)
 
-# dependencies
-fwcutter.o: fwcutter.h md5.h fwcutter_list.h
-md5.o: md5.h
+distclean: clean
+	-rm -f *.fw *.orig *.rej *~
