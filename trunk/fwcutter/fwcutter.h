@@ -11,6 +11,11 @@
 typedef uint16_t be16_t; /* Big-endian 16bit */
 typedef uint32_t be32_t; /* Big-endian 32bit */
 
+#ifdef __DragonFly__
+#define bswap_16	bswap16
+#define bswap_32	bswap32
+#endif
+
 #define ARG_MATCH	0
 #define ARG_NOMATCH	1
 #define ARG_ERROR	-1

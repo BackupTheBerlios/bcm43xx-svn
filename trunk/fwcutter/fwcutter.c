@@ -26,15 +26,27 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
-#include <byteswap.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#ifdef __DragonFly__
+#include <sys/endian.h>
+#else
+#include <byteswap.h>
+#endif
 
 #include "md5.h"
 #include "fwcutter.h"
 #include "fwcutter_list.h"
 
+#ifdef __DragonFly__
+#define V3_FW_DIRNAME	"v3"
+#define V4_FW_DIRNAME	"v4"
+#else
+#define V3_FW_DIRNAME	"b43legacy"
+#define V4_FW_DIRNAME	"b43"
+#endif
 
 static struct cmdline_args cmdargs;
 
@@ -277,9 +289,9 @@ static void write_file(const char *name, uint8_t *buf, uint32_t len,
 	int r;
 
 	if (flags & FW_FLAG_V4)
-		dir = "b43";
+		dir = V4_FW_DIRNAME;
 	else
-		dir = "b43legacy";
+		dir = V3_FW_DIRNAME;
 
 	r = snprintf(nbuf, sizeof(nbuf),
 		     "%s/%s", cmdargs.target_dir, dir);
@@ -395,9 +407,9 @@ static void print_file(const struct file *file)
 	char shortname[30];
 
 	if (file->flags & FW_FLAG_V4)
-		printf("b43\t\t");
+		printf(V4_FW_DIRNAME "\t\t");
 	else
-		printf("b43legacy\t");
+		printf(V3_FW_DIRNAME "\t");
 
 	if (strlen(file->name) > 20) {
 		strncpy(shortname, file->name, 20);
@@ -637,9 +649,9 @@ int main(int argc, char *argv[])
 		goto out_close;
 
 	if (file->flags & FW_FLAG_V4)
-		dir = "b43";
+		dir = V4_FW_DIRNAME;
 	else
-		dir = "b43legacy";
+		dir = V3_FW_DIRNAME;
 
 	extract = file->extract;
 	while (extract->name) {
